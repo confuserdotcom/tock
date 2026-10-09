@@ -2,6 +2,8 @@
 package main
 
 import (
+	"flag"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -32,13 +34,27 @@ func stateDir() string {
 	return filepath.Join(home(), ".local", "state", "tock")
 }
 
+func newSource() (collect.Source, error) {
+	return collect.NewDarwin(collect.Options{PollInterval: collect.DefaultPollInterval})
+}
+
 func main() {
+	dump := flag.Bool("dump", false, "print live samples to stdout and exit on SIGINT; never touches the database")
+	flag.Parse()
+
+	if *dump {
+		src, err := newSource()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "trackd: %v\n", err)
+			os.Exit(1)
+		}
+		os.Exit(runDump(src, os.Stdout))
+	}
+
 	os.Exit(runDaemon(daemonOpts{
-		DataDir:  dataDir(),
-		StateDir: stateDir(),
-		NewSource: func() (collect.Source, error) {
-			return collect.NewDarwin(collect.Options{PollInterval: collect.DefaultPollInterval})
-		},
-		Stderr: os.Stderr,
+		DataDir:   dataDir(),
+		StateDir:  stateDir(),
+		NewSource: newSource,
+		Stderr:    os.Stderr,
 	}))
 }
