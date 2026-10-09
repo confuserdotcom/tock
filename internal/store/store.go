@@ -65,7 +65,8 @@ func Open(path string) (*Store, error) {
 // Close closes the database.
 func (s *Store) Close() error { return s.db.Close() }
 
-// Apply runs ops in one transaction using parameterized statements only.
+// Apply runs ops in one transaction using parameterized statements only. The
+// first failing op rolls back the whole call; the error names its index and kind.
 func (s *Store) Apply(ops []span.Op) error {
 	if len(ops) == 0 {
 		return nil
@@ -74,7 +75,10 @@ func (s *Store) Apply(ops []span.Op) error {
 	if err != nil {
 		return err
 	}
-	for _, op := range ops {
+	// Any early return rolls the whole call back; Rollback after Commit is a
+	// harmless no-op.
+	defer func() { _ = tx.Rollback() }()
+	for i, op := range ops {
 		var err error
 		switch op.Kind {
 		case span.OpOpen:
@@ -104,12 +108,10 @@ func (s *Store) Apply(ops []span.Op) error {
 			_, err = tx.Exec(`INSERT INTO daemon_state(key,value,updated) VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated=excluded.updated`,
 				KeyHeartbeat, strconv.FormatInt(op.TS, 10), op.TS)
 		default:
-			_ = tx.Rollback()
-			return ErrUnknownOp
+			return fmt.Errorf("store: apply op %d (kind %d): %w", i, int(op.Kind), ErrUnknownOp)
 		}
 		if err != nil {
-			_ = tx.Rollback()
-			return fmt.Errorf("store: apply %s: %w", op.Kind, err)
+			return fmt.Errorf("store: apply op %d (%s): %w", i, op.Kind, err)
 		}
 	}
 	return tx.Commit()
