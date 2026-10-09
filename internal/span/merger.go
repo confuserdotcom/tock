@@ -150,19 +150,153 @@ func (m *Merger) switchTo(s *Sample, at int64) []Op {
 	return append(ops, m.openNew(at, s, false)...)
 }
 
-// Feed consumes one input and returns the ops to apply, in order.
+const (
+	// sleepHealMS: a sample this long after a Sleep event implies an
+	// undelivered Wake (RESEARCH Q8 rule 3).
+	sleepHealMS = 60_000
+	// lockSettleMS: a polled Locked=false only clears a lock this long after
+	// it was taken, so a stale poll right after a Lock event cannot undo it.
+	lockSettleMS = 2_000
+)
+
+// hbMS is the heartbeat threshold in ms: Heartbeat - HeartbeatLead (7500 with
+// DefaultConfig), never negative. A heartbeat can only land on a sample, so
+// the lead (one poll interval plus poll lateness) keeps crash loss within
+// Heartbeat even when polls run late (D-16, TRK-06).
+func (m *Merger) hbMS() int64 {
+	ms := (m.cfg.Heartbeat - m.cfg.HeartbeatLead).Milliseconds()
+	if ms < 0 {
+		return 0
+	}
+	return ms
+}
+
+// sanitize applies rule 1 (clock sanity) to an input timestamp. A gap larger
+// than JumpMax in either direction is a clock jump: the open span closes at
+// the last accepted TS (never at the new one). Smaller backward skew is
+// clamped up to the last accepted TS. Comparisons are strict: exactly JumpMax
+// is not a jump (D-14).
+func (m *Merger) sanitize(ts int64) (int64, []Op) {
+	if !m.haveLast {
+		return ts, nil
+	}
+	jmax := m.cfg.JumpMax.Milliseconds()
+	gap := ts - m.lastTS
+	if gap > jmax || gap < -jmax {
+		ops := m.closeCur(m.lastTS, reasonJump)
+		m.lastTS = ts
+		m.lastHB = 0 // a backward jump would otherwise silence heartbeats
+		m.ignoreIdleNext = true
+		// Re-anchor away-state timers to the new clock so a backward jump
+		// cannot leave sleep or lock stuck until the old clock is reached.
+		if m.asleep && m.sleepTS > ts {
+			m.sleepTS = ts
+		}
+		if m.locked && m.lockTS > ts-lockSettleMS {
+			m.lockTS = ts - lockSettleMS
+		}
+		return ts, ops
+	}
+	if ts < m.lastTS {
+		ts = m.lastTS
+	}
+	return ts, nil
+}
+
+// lockNow closes the open span at ts and marks the console locked.
+func (m *Merger) lockNow(ts int64) []Op {
+	ops := m.closeCur(ts, reasonLock)
+	m.locked, m.lockTS = true, ts
+	return ops
+}
+
+// Feed consumes one input and returns the ops to apply, in order: closes,
+// then opens, then heartbeat.
 func (m *Merger) Feed(in Input) []Op {
-	s := in.Sample
-	if s == nil || s.BundleID == "" {
+	switch {
+	case in.Event != nil:
+		return m.feedEvent(*in.Event)
+	case in.Sample != nil:
+		return m.feedSample(in.Sample)
+	}
+	return nil
+}
+
+// feedEvent applies rule 2 (hard boundary events).
+func (m *Merger) feedEvent(ev Event) []Op {
+	switch ev.Kind {
+	case EventSleep, EventWake, EventLock, EventUnlock:
+	default:
 		return nil
 	}
-	ts := s.TS
+	ts, ops := m.sanitize(ev.TS)
+	switch ev.Kind {
+	case EventSleep:
+		ops = append(ops, m.closeCur(ts, reasonSleep)...) // closeCur clamps to span start
+		m.asleep, m.sleepTS = true, ts
+	case EventLock:
+		ops = append(ops, m.lockNow(ts)...)
+	case EventWake, EventUnlock:
+		// An event not newer than the open span is stale: it was delivered
+		// after the first post-boundary sample already opened a span.
+		if m.cur != nil && ev.TS <= m.cur.start {
+			return ops
+		}
+		if ev.Kind == EventWake {
+			// Span still open means WillSleep was missed: the last accepted
+			// TS is the last known-good time, never the wake time.
+			ops = append(ops, m.closeCur(m.lastTS, reasonSleep)...)
+			m.asleep = false
+		} else {
+			m.locked = false
+		}
+		m.ignoreIdleNext = true
+	}
 	m.lastTS, m.haveLast = ts, true
+	return ops
+}
+
+// feedSample applies rules 1 and 3..6 and 8 to a sample.
+func (m *Merger) feedSample(s *Sample) []Op {
+	if s.BundleID == "" {
+		return nil
+	}
+	ts, ops := m.sanitize(s.TS)
+	defer func() { m.lastTS, m.haveLast = ts, true }()
+
+	// Rule 3: self-heal.
+	if m.asleep && ts-m.sleepTS >= sleepHealMS {
+		m.asleep = false
+		m.ignoreIdleNext = true
+	}
+	if s.BundleID == LoginWindowBundleID {
+		// The lock screen shows loginwindow frontmost: treat it as a lock.
+		if m.locked {
+			m.lockTS = ts
+		} else {
+			ops = append(ops, m.lockNow(ts)...)
+		}
+		return ops
+	}
+	if s.Locked && !m.locked {
+		ops = append(ops, m.lockNow(ts)...)
+	} else if !s.Locked && m.locked && ts >= m.lockTS+lockSettleMS {
+		m.locked = false
+		m.ignoreIdleNext = true
+	}
+
+	// Rule 4: away time leaves no rows.
+	if m.asleep || m.locked {
+		return ops
+	}
 
 	idleMS := idleMillis(s.IdleS)
+	if m.ignoreIdleNext {
+		idleMS = 0
+		m.ignoreIdleNext = false
+	}
 	thr := m.cfg.IdleThreshold.Milliseconds()
 
-	var ops []Op
 	switch {
 	case idleMS >= thr:
 		// Rule 5 (D-11): idle. The activity time is when the user last
@@ -201,13 +335,26 @@ func (m *Merger) Feed(in Input) []Op {
 	default:
 		ops = append(ops, m.openNew(ts, s, false)...)
 	}
+
+	// Rule 8: heartbeat, only while a span is open.
+	if m.cur != nil && ts-m.lastHB >= m.hbMS() {
+		ops = append(ops, Op{Kind: OpHeartbeat, TS: ts})
+		m.lastHB = ts
+	}
 	return ops
 }
 
-// Tick is a no-op until the heartbeat rule lands.
-func (m *Merger) Tick(nowMS int64) []Op { return nil }
+// Tick emits a pending heartbeat for the last accepted input when the
+// threshold has passed since the previous one and a span is open.
+func (m *Merger) Tick(nowMS int64) []Op {
+	if m.cur == nil || m.lastTS <= m.lastHB || nowMS-m.lastHB < m.hbMS() {
+		return nil
+	}
+	m.lastHB = m.lastTS
+	return []Op{{Kind: OpHeartbeat, TS: m.lastTS}}
+}
 
-// Flush closes the open span at the last input time, if any.
+// Flush closes the open span at the last accepted input time, if any.
 func (m *Merger) Flush() []Op {
 	return m.closeCur(m.lastTS, reasonFlush)
 }

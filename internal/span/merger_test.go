@@ -221,7 +221,7 @@ func TestLockClosesAndSuppresses(t *testing.T) {
 	ops := polls(m, "Terminal", t0, t0+8000, t0)
 	ops = append(ops, m.Feed(*Ev(t0+9000, EventLock))...)
 	for ts := t0 + 10000; ts <= t0+20000; ts += 2000 {
-		more := m.Feed(*S(ts, "Terminal", "", 0))
+		more := m.Feed(*SL(ts, "Terminal", true)) // polls report Locked while locked
 		for _, op := range more {
 			if op.Kind == OpOpen {
 				t.Fatalf("Open at %d while locked", ts)
