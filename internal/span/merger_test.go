@@ -2,6 +2,7 @@ package span
 
 import (
 	"math"
+	"strings"
 	"testing"
 	"time"
 )
@@ -515,4 +516,236 @@ func TestFlushClosesAtLastTS(t *testing.T) {
 	if again := m.Flush(); len(again) != 0 {
 		t.Fatalf("second Flush emitted %v", again)
 	}
+}
+
+// ---------------------------------------------------------------------------
+// Span identity: keys, activation, private, title hook, degrade (D-07, D-10,
+// D-19, TRK-01, TRK-02, TRK-07)
+// ---------------------------------------------------------------------------
+
+// assertCloseBeforeOpen fails when a Close/Delete/Extend follows an Open within
+// one Feed result.
+func assertCloseBeforeOpen(t testing.TB, ops []Op) {
+	t.Helper()
+	seenOpen := false
+	for _, op := range ops {
+		switch op.Kind {
+		case OpOpen:
+			seenOpen = true
+		case OpClose, OpDelete, OpExtend:
+			if seenOpen {
+				t.Fatalf("%s after Open within one Feed result: %+v", op.Kind, ops)
+			}
+		}
+	}
+}
+
+func TestActivationOpensSpanAtEventTS(t *testing.T) {
+	m := New(DefaultConfig())
+	ops := polls(m, "Terminal", t0, t0+6000, t0)
+	T := t0 + 7300 // between polls: the activation notification time
+	act := S(T, "Calculator", "", 0)
+	act.Sample.Activation = true
+	sw := m.Feed(*act)
+	assertCloseBeforeOpen(t, sw)
+	ks := kinds(sw)
+	if len(ks) != 2 || ks[0] != OpClose || ks[1] != OpOpen {
+		t.Fatalf("activation ops = %v, want [close open]", ks)
+	}
+	cl, op := withoutHB(sw)[0], withoutHB(sw)[1]
+	if cl.TS != T || op.Span.Start != T {
+		t.Fatalf("close end %d, open start %d, want both %d (no gap or overlap)", cl.TS, op.Span.Start, T)
+	}
+	assertSpans(t, replay(t, append(ops, sw...)), []Span{
+		W(t0, T, "Terminal"),
+		WO(T, "Calculator"),
+	})
+}
+
+func TestMergeSameKeyNoNewSpan(t *testing.T) {
+	m := New(DefaultConfig())
+	ops := feedAll(m,
+		SU(t0, "Safari", "Docs", "example.com/a"),
+		SU(t0+2000, "Safari", "Docs", "example.com/a"),
+		SU(t0+4000, "Safari", "Docs", "example.com/a"),
+	)
+	if got := kinds(ops); len(got) != 1 || got[0] != OpOpen {
+		t.Fatalf("identical keys produced %v, want a single open", got)
+	}
+}
+
+func TestMergeEmptyStreamFlushNoOps(t *testing.T) {
+	m := New(DefaultConfig())
+	if ops := feedAll(m); len(ops) != 0 {
+		t.Fatalf("empty feed emitted %v", ops)
+	}
+	if ops := m.Flush(); len(ops) != 0 {
+		t.Fatalf("Flush of empty merger emitted %v", ops)
+	}
+}
+
+func TestMergeSingleSampleFlushZeroLength(t *testing.T) {
+	m := New(DefaultConfig())
+	ops := feedAll(m, S(t0, "Terminal", "", 0))
+	ops = append(ops, m.Flush()...)
+	ks := kinds(ops)
+	if len(ks) != 2 || ks[0] != OpOpen || ks[1] != OpClose {
+		t.Fatalf("one sample + Flush = %v, want [open close]", ks)
+	}
+	assertSpans(t, replay(t, ops), []Span{W(t0, t0, "Terminal")})
+}
+
+func TestMergeEmptyBundleIgnored(t *testing.T) {
+	m := New(DefaultConfig())
+	if ops := feedAll(m, S(t0, "", "title", 0)); len(ops) != 0 {
+		t.Fatalf("empty BundleID emitted %v", ops)
+	}
+	if ops := m.Flush(); len(ops) != 0 {
+		t.Fatalf("Flush after ignored sample emitted %v", ops)
+	}
+}
+
+func TestMergeEqualTSArrivalOrder(t *testing.T) {
+	m := New(DefaultConfig())
+	var all []Op
+	for _, in := range []*Input{
+		S(t0, "A", "", 0),
+		S(t0, "B", "", 0), // equal TS, different bundle: arrival order wins
+	} {
+		ops := m.Feed(*in)
+		assertCloseBeforeOpen(t, ops)
+		all = append(all, ops...)
+	}
+	spans := replay(t, all)
+	if last := spans[len(spans)-1]; last.BundleID != "B" || last.End != nil {
+		t.Fatalf("open span after second Feed = %s, want B open", fmtSpan(last))
+	}
+	more := m.Feed(*S(t0+5000, "B", "", 0))
+	assertSpans(t, replay(t, append(all, more...)), []Span{
+		W(t0, t0, "A"),
+		WO(t0, "B"),
+	})
+}
+
+func TestTitleChangeSplitsSpan(t *testing.T) {
+	m := New(DefaultConfig())
+	ops := feedAll(m,
+		S(t0, "Safari", "Inbox", 0),
+		S(t0+2000, "Safari", "Inbox", 0),
+		S(t0+4000, "Safari", "Compose", 0),
+	)
+	assertSpans(t, replay(t, ops), []Span{
+		WT(W(t0, t0+4000, "Safari"), "Inbox"),
+		WT(WO(t0+4000, "Safari"), "Compose"),
+	})
+}
+
+func TestTitleURLChangeSplitsSpan(t *testing.T) {
+	m := New(DefaultConfig())
+	ops := feedAll(m,
+		SU(t0, "Safari", "Docs", "example.com/a"),
+		SU(t0+4000, "Safari", "Docs", "example.com/b"),
+	)
+	if got := kinds(ops); len(got) != 3 { // open, close, open
+		t.Fatalf("URL change ops = %v, want open close open", got)
+	}
+}
+
+func TestTitleABAThreeSpans(t *testing.T) {
+	m := New(DefaultConfig())
+	ops := feedAll(m,
+		S(t0, "Safari", "A", 0),
+		S(t0+4000, "Safari", "B", 0),
+		S(t0+8000, "Safari", "A", 0),
+	)
+	assertSpans(t, replay(t, ops), []Span{
+		WT(W(t0, t0+4000, "Safari"), "A"),
+		WT(W(t0+4000, t0+8000, "Safari"), "B"),
+		WT(WO(t0+8000, "Safari"), "A"),
+	})
+}
+
+func TestTitleNilSameAsEmpty(t *testing.T) {
+	m := New(DefaultConfig())
+	empty := S(t0+2000, "Safari", "", 0)
+	e := ""
+	empty.Sample.Title = &e // non-nil pointer to ""
+	ops := feedAll(m, S(t0, "Safari", "", 0), empty, S(t0+4000, "Safari", "", 0))
+	if got := kinds(ops); len(got) != 1 || got[0] != OpOpen {
+		t.Fatalf("nil and empty titles produced %v, want a single open", got)
+	}
+}
+
+func TestTitleKeyHookApplied(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.TitleKey = strings.ToLower
+	m := New(cfg)
+	ops := feedAll(m,
+		S(t0, "Safari", "A", 0),
+		S(t0+2000, "Safari", "a", 0), // same key under ToLower
+		S(t0+4000, "Safari", "b", 0),
+	)
+	assertSpans(t, replay(t, ops), []Span{
+		WT(W(t0, t0+4000, "Safari"), "A"), // stored title keeps the original text
+		WT(WO(t0+4000, "Safari"), "b"),
+	})
+
+	// A nil TitleKey behaves as identity.
+	m = New(DefaultConfig())
+	ops = feedAll(m, S(t0, "Safari", "A", 0), S(t0+4000, "Safari", "a", 0))
+	if got := kinds(ops); len(got) != 3 {
+		t.Fatalf("identity TitleKey ops = %v, want open close open", got)
+	}
+}
+
+func TestPrivateOpenHasNoTitleOrURL(t *testing.T) {
+	m := New(DefaultConfig())
+	ops := feedAll(m, SP(t0, "Safari"))
+	var open *Op
+	for i := range ops {
+		if ops[i].Kind == OpOpen {
+			open = &ops[i]
+		}
+	}
+	if open == nil {
+		t.Fatal("no Open op")
+	}
+	if open.Span.Title != nil || open.Span.URL != nil || !open.Span.Private {
+		t.Fatalf("private Open = %s, want nil title/url and Private", fmtSpan(open.Span))
+	}
+}
+
+func TestPrivateTitleChangeDoesNotSplit(t *testing.T) {
+	m := New(DefaultConfig())
+	a, b := SP(t0, "Safari"), SP(t0+2000, "Safari")
+	nt := "another secret"
+	nu := "other.example/x"
+	b.Sample.Title, b.Sample.URL = &nt, &nu
+	ops := feedAll(m, a, b, SP(t0+4000, "Safari"))
+	if got := kinds(ops); len(got) != 1 || got[0] != OpOpen {
+		t.Fatalf("title/url changes inside a private window produced %v, want one open", got)
+	}
+
+	// Leaving private mode on the same bundle is a key change.
+	more := m.Feed(*S(t0+6000, "Safari", "Inbox", 0))
+	assertCloseBeforeOpen(t, more)
+	if got := kinds(more); len(got) != 2 {
+		t.Fatalf("private -> normal ops = %v, want close open", got)
+	}
+}
+
+func TestDegradeNilTitleAppLevelSpans(t *testing.T) {
+	m := New(DefaultConfig())
+	ops := feedAll(m,
+		S(t0, "A", "", 0),
+		S(t0+2000, "A", "", 0),
+		S(t0+4000, "B", "", 0),
+		S(t0+6000, "B", "", 0),
+		S(t0+8000, "A", "", 0),
+	)
+	assertSpans(t, replay(t, ops), []Span{
+		W(t0, t0+4000, "A"),
+		W(t0+4000, t0+8000, "B"),
+		WO(t0+8000, "A"),
+	})
 }
