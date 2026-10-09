@@ -12,6 +12,7 @@ typedef struct {
     int locked;
 } tock_poll_t;
 
+void tock_ax_init(int prompt);
 void tock_start_observers(void);
 void tock_start_poll_timer(double seconds);
 void tock_run_loop(void);

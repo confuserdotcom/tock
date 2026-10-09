@@ -20,6 +20,27 @@ static void tock_copy(char *dst, size_t n, NSString *s) {
     strlcpy(dst, u, n);
 }
 
+// tock_ax_init bounds every AX call to 0.25 s (a hung target then costs at
+// most that much main-thread time) and, when asked and untrusted, shows the
+// system Accessibility prompt. Both happen at most once per process.
+void tock_ax_init(int prompt) {
+    static int timeout_set = 0;
+    static int prompted = 0;
+    if (!timeout_set) {
+        timeout_set = 1;
+        AXUIElementRef sys = AXUIElementCreateSystemWide();
+        if (sys != NULL) {
+            AXUIElementSetMessagingTimeout(sys, 0.25f);
+            CFRelease(sys);
+        }
+    }
+    if (prompt && !prompted && !AXIsProcessTrusted()) {
+        prompted = 1;
+        NSDictionary *opts = @{(__bridge NSString *)kAXTrustedCheckOptionPrompt : @YES};
+        AXIsProcessTrustedWithOptions((__bridge CFDictionaryRef)opts);
+    }
+}
+
 // Settle delay between an activation notification and the sample read (D-04):
 // the window of the newly active app has not focused yet at notification time.
 #define TOCK_ACTIVATION_SETTLE_MS 150

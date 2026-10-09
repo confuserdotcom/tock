@@ -36,6 +36,11 @@ type darwinSource struct {
 	ch      chan span.Input
 	dropped atomic.Uint64
 	stop    sync.Once
+
+	// ax and axStale are touched only on the main thread (poll, activation
+	// and Run all execute there), so they need no lock.
+	ax      axTracker
+	axStale bool
 }
 
 // NewDarwin returns the macOS source. Only one may exist per process.
@@ -58,10 +63,30 @@ func (s *darwinSource) Dropped() uint64           { return s.dropped.Load() }
 // Run blocks on the main thread's run loop until Stop is called.
 func (s *darwinSource) Run() error {
 	defer close(s.ch)
+	prompt := C.int(0)
+	if s.opts.PromptAX {
+		prompt = 1
+	}
+	C.tock_ax_init(prompt)
 	C.tock_start_observers()
 	C.tock_start_poll_timer(C.double(s.opts.PollInterval.Seconds()))
 	C.tock_run_loop()
+	if s.axStale {
+		return ErrAXStale
+	}
 	return nil
+}
+
+// feedAX records the poll's trust state and AX error. The trust transition is
+// reported by the daemon through the Sample's AXTrusted field; the collector
+// itself does not log. A stuck grant stops the run loop so Run can return
+// ErrAXStale.
+func (s *darwinSource) feedAX(p *C.tock_poll_t) {
+	_, _, stale := s.ax.observe(p.ax_trusted != 0, int(p.ax_err))
+	if stale && !s.axStale {
+		s.axStale = true
+		C.tock_stop_run_loop()
+	}
 }
 
 // Stop ends the run loop. Safe from any goroutine.
@@ -98,6 +123,7 @@ func goActivation(bundle, app *C.char, ts C.longlong) {
 	// window. The sample is stamped with the notification receipt time.
 	var p C.tock_poll_t
 	C.tock_poll(&p)
+	s.feedAX(&p)
 	smp := sampleFromPoll(&p)
 	polledBundle := smp.BundleID
 	smp.TS = int64(ts)
@@ -119,6 +145,7 @@ func goPollTick() {
 	}
 	var p C.tock_poll_t
 	C.tock_poll(&p)
+	s.feedAX(&p)
 	smp := sampleFromPoll(&p)
 	smp.TS = time.Now().Round(0).UnixMilli()
 	s.trySend(span.Input{Sample: smp})
