@@ -15,9 +15,6 @@ import (
 	"tock/internal/span"
 )
 
-// KeyHeartbeat is the daemon_state key holding the last heartbeat timestamp.
-const KeyHeartbeat = "heartbeat_ts"
-
 // ErrUnknownOp is returned by Apply for an op kind it does not understand.
 var ErrUnknownOp = errors.New("store: unknown op kind")
 
@@ -116,6 +113,20 @@ func (s *Store) Apply(ops []span.Op) error {
 		}
 	}
 	return tx.Commit()
+}
+
+// Recover closes every span left open by an unclean stop (D-16, TRK-06). The
+// end is the last heartbeat, but never earlier than the span's own start, and
+// the span's own start when no heartbeat was ever written. It returns how many
+// spans it closed; no span has a NULL end afterwards.
+func (s *Store) Recover() (int64, error) {
+	res, err := s.db.Exec(`UPDATE span SET "end" = MAX(start, COALESCE(
+		(SELECT CAST(value AS INTEGER) FROM daemon_state WHERE key = ?), start))
+		WHERE "end" IS NULL`, KeyHeartbeat)
+	if err != nil {
+		return 0, fmt.Errorf("store: recover: %w", err)
+	}
+	return res.RowsAffected()
 }
 
 // NextID returns the next free span id.
