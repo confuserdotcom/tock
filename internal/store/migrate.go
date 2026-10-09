@@ -5,20 +5,21 @@ import (
 	"embed"
 	"errors"
 	"fmt"
+	"io/fs"
+	"regexp"
 	"sort"
 	"strconv"
-	"strings"
 	"time"
 )
 
 //go:embed migrations/*.sql
 var migrationFS embed.FS
 
-// LatestSchemaVersion is the newest schema this binary knows.
-const LatestSchemaVersion = 1
-
 // ErrSchemaTooNew is returned when the database was written by a newer trackd.
 var ErrSchemaTooNew = errors.New("store: database schema is newer than this trackd")
+
+// migrationName is the only accepted migration file name shape.
+var migrationName = regexp.MustCompile(`^([0-9]{4})_[a-z0-9_]+\.sql$`)
 
 func currentVersion(db *sql.DB) (int, error) {
 	var n int
@@ -40,38 +41,64 @@ type migration struct {
 	name    string
 }
 
+// loadMigrations lists the migrations in dir sorted by version. A file whose
+// name does not match migrationName, or a duplicate version, is an error.
+func loadMigrations(fsys fs.FS, dir string) ([]migration, error) {
+	entries, err := fs.ReadDir(fsys, dir)
+	if err != nil {
+		return nil, err
+	}
+	var ms []migration
+	seen := map[int]string{}
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		m := migrationName.FindStringSubmatch(name)
+		if m == nil {
+			return nil, fmt.Errorf("store: bad migration name %q (want NNNN_name.sql)", name)
+		}
+		v, _ := strconv.Atoi(m[1])
+		if prev, dup := seen[v]; dup {
+			return nil, fmt.Errorf("store: migrations %q and %q share version %d", prev, name, v)
+		}
+		seen[v] = name
+		ms = append(ms, migration{version: v, name: name})
+	}
+	sort.Slice(ms, func(i, j int) bool { return ms[i].version < ms[j].version })
+	return ms, nil
+}
+
 func migrate(db *sql.DB) error {
+	return migrateFS(db, migrationFS, "migrations")
+}
+
+// migrateFS applies the migrations in fsys/dir. The refuse-newer check only
+// reads, so a too-new database is never written to (D-23). Each migration runs
+// in its own transaction together with its schema_version row.
+func migrateFS(db *sql.DB, fsys fs.FS, dir string) error {
+	ms, err := loadMigrations(fsys, dir)
+	if err != nil {
+		return err
+	}
 	cur, err := currentVersion(db)
 	if err != nil {
 		return fmt.Errorf("store: read schema version: %w", err)
 	}
-	if cur > LatestSchemaVersion {
-		return ErrSchemaTooNew
+	latest := 0
+	if len(ms) > 0 {
+		latest = ms[len(ms)-1].version
 	}
-
-	entries, err := migrationFS.ReadDir("migrations")
-	if err != nil {
-		return err
+	if cur > latest {
+		return fmt.Errorf("%w (database v%d, this binary v%d)", ErrSchemaTooNew, cur, latest)
 	}
-	var ms []migration
-	for _, e := range entries {
-		name := e.Name()
-		if e.IsDir() || !strings.HasSuffix(name, ".sql") || len(name) < 5 {
-			continue
-		}
-		v, err := strconv.Atoi(name[:4])
-		if err != nil {
-			return fmt.Errorf("store: bad migration name %q", name)
-		}
-		ms = append(ms, migration{version: v, name: name})
-	}
-	sort.Slice(ms, func(i, j int) bool { return ms[i].version < ms[j].version })
 
 	for _, m := range ms {
 		if m.version <= cur {
 			continue
 		}
-		body, err := migrationFS.ReadFile("migrations/" + m.name)
+		body, err := fs.ReadFile(fsys, dir+"/"+m.name)
 		if err != nil {
 			return err
 		}
@@ -89,7 +116,7 @@ func migrate(db *sql.DB) error {
 			return fmt.Errorf("store: record migration %s: %w", m.name, err)
 		}
 		if err := tx.Commit(); err != nil {
-			return err
+			return fmt.Errorf("store: commit migration %s: %w", m.name, err)
 		}
 	}
 	return nil

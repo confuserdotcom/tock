@@ -18,6 +18,10 @@ import (
 // ErrUnknownOp is returned by Apply for an op kind it does not understand.
 var ErrUnknownOp = errors.New("store: unknown op kind")
 
+// ErrNotWAL is returned by Open when SQLite did not switch the database to WAL
+// journal mode (for example on a filesystem without shared memory support).
+var ErrNotWAL = errors.New("store: journal_mode is not wal")
+
 // Store is a handle on tock.db.
 type Store struct {
 	db *sql.DB
@@ -46,20 +50,53 @@ func Open(path string) (*Store, error) {
 	}
 	db.SetMaxOpenConns(1)
 
-	var mode string
-	if err := db.QueryRow(`PRAGMA journal_mode`).Scan(&mode); err != nil {
+	if err := checkPragmas(db); err != nil {
 		_ = db.Close()
 		return nil, err
-	}
-	if mode != "wal" {
-		_ = db.Close()
-		return nil, fmt.Errorf("store: journal_mode is %q, WAL required", mode)
 	}
 	if err := migrate(db); err != nil {
 		_ = db.Close()
 		return nil, err
 	}
+	// SQLite creates -wal and -shm itself; make sure they are owner-only too.
+	for _, suffix := range []string{"-wal", "-shm"} {
+		if err := os.Chmod(path+suffix, 0o600); err != nil && !errors.Is(err, os.ErrNotExist) {
+			_ = db.Close()
+			return nil, fmt.Errorf("store: chmod %s: %w", suffix, err)
+		}
+	}
 	return &Store{db: db}, nil
+}
+
+// checkPragmas reads back the connection settings the DSN requested and fails
+// loudly instead of running with a silently weaker configuration.
+func checkPragmas(db *sql.DB) error {
+	var mode string
+	if err := db.QueryRow(`PRAGMA journal_mode`).Scan(&mode); err != nil {
+		return fmt.Errorf("store: read journal_mode: %w", err)
+	}
+	if mode != "wal" {
+		return fmt.Errorf("%w (got %q)", ErrNotWAL, mode)
+	}
+	var busy, fk int
+	if err := db.QueryRow(`PRAGMA busy_timeout`).Scan(&busy); err != nil {
+		return fmt.Errorf("store: read busy_timeout: %w", err)
+	}
+	if busy != 5000 {
+		return fmt.Errorf("store: busy_timeout is %d, want 5000", busy)
+	}
+	if err := db.QueryRow(`PRAGMA foreign_keys`).Scan(&fk); err != nil {
+		return fmt.Errorf("store: read foreign_keys: %w", err)
+	}
+	if fk != 1 {
+		return fmt.Errorf("store: foreign_keys is %d, want 1", fk)
+	}
+	return nil
+}
+
+// SchemaVersion returns the highest applied schema version.
+func (s *Store) SchemaVersion() (int, error) {
+	return currentVersion(s.db)
 }
 
 // Close closes the database.
