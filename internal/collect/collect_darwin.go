@@ -108,12 +108,26 @@ func goPollTick() {
 	}
 	var p C.tock_poll_t
 	C.tock_poll(&p)
-	smp := &span.Sample{
-		TS:       time.Now().Round(0).UnixMilli(),
-		BundleID: strings.ToValidUTF8(C.GoString(&p.bundle[0]), "�"),
-		App:      strings.ToValidUTF8(C.GoString(&p.app[0]), "�"),
-	}
+	smp := sampleFromPoll(&p)
+	smp.TS = time.Now().Round(0).UnixMilli()
 	s.trySend(span.Input{Sample: smp})
+}
+
+// sampleFromPoll converts the C poll struct. Title is set only when the shim
+// read one; invalid UTF-8 from other processes is replaced.
+func sampleFromPoll(p *C.tock_poll_t) *span.Sample {
+	smp := &span.Sample{
+		BundleID:  strings.ToValidUTF8(C.GoString(&p.bundle[0]), "�"),
+		App:       strings.ToValidUTF8(C.GoString(&p.app[0]), "�"),
+		IdleS:     float64(p.idle_s),
+		Locked:    p.locked != 0,
+		AXTrusted: p.ax_trusted != 0,
+	}
+	if p.has_title != 0 {
+		t := strings.ToValidUTF8(C.GoString(&p.title[0]), "�")
+		smp.Title = &t
+	}
+	return smp
 }
 
 //export goEvent
