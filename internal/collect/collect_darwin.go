@@ -91,11 +91,22 @@ func goActivation(bundle, app *C.char, ts C.longlong) {
 		return
 	}
 	// C strings die when the callback returns: copy now.
-	smp := &span.Sample{
-		TS:         int64(ts),
-		BundleID:   strings.ToValidUTF8(C.GoString(bundle), "�"),
-		App:        strings.ToValidUTF8(C.GoString(app), "�"),
-		Activation: true,
+	nBundle := strings.ToValidUTF8(C.GoString(bundle), "�")
+	nApp := strings.ToValidUTF8(C.GoString(app), "�")
+
+	// Called about 150 ms after the notification, so the poll sees the settled
+	// window. The sample is stamped with the notification receipt time.
+	var p C.tock_poll_t
+	C.tock_poll(&p)
+	smp := sampleFromPoll(&p)
+	polledBundle := smp.BundleID
+	smp.TS = int64(ts)
+	smp.BundleID = nBundle
+	smp.App = nApp
+	smp.Activation = true
+	if polledBundle != nBundle {
+		// That title belongs to another app (Pitfall 8).
+		smp.Title = nil
 	}
 	s.trySend(span.Input{Sample: smp})
 }
@@ -136,6 +147,10 @@ func goEvent(kind C.int, ts C.longlong) {
 	if s == nil {
 		return
 	}
+	k, ok := eventKindFromCode(int(kind))
+	if !ok {
+		return
+	}
 	// Events are never dropped, so this send blocks if the channel is full.
-	s.ch <- span.Input{Event: &span.Event{TS: int64(ts), Kind: span.EventKind(kind)}}
+	s.ch <- span.Input{Event: &span.Event{TS: int64(ts), Kind: k}}
 }
