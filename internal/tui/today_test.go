@@ -55,6 +55,54 @@ func TestCursorStaysOnItsRowAcrossRefresh(t *testing.T) {
 	}
 }
 
+func TestTagRow(t *testing.T) {
+	m, _ := seeded(t)
+	m = press(t, m, "t")
+	mustContain(t, m, "Category", "Communication")
+	m = typeText(t, m, "comm")
+	mustNotContain(t, m, "Entertainment")
+	m = press(t, m, "enter")
+	mustContain(t, m, "Project for Communication", "(no project)", "ATLAS")
+	mustNotContain(t, m, "Old") // archived
+	m = press(t, m, "enter")
+	mustContain(t, m, "tagged 1 span (10m) → Communication", "3 inbox 2")
+	if l := line(t, m, "14:50–15:00"); !strings.Contains(l, "Communication") {
+		t.Fatalf("row not relabelled: %q", l)
+	}
+}
+
+func TestProjectOnly(t *testing.T) {
+	m, _ := seeded(t)
+	m = press(t, m, "g", "j") // the ATLAS │ y row (Code, no project)
+	m = press(t, m, "p")
+	mustContain(t, m, "Project")
+	mustNotContain(t, m, "(no project)")
+	m = typeText(t, m, "at")
+	m = press(t, m, "enter")
+	mustContain(t, m, "tagged 1 span (34m) → project ATLAS")
+	if l := line(t, m, "10:40–11:14"); !strings.Contains(l, "Code / ATLAS") {
+		t.Fatalf("project not set: %q", l)
+	}
+}
+
+func TestIdleRowsRefuseLabels(t *testing.T) {
+	m, _ := seeded(t)
+	m = press(t, m, "k", "k", "t")
+	mustContain(t, m, "idle time has no label")
+	if m.picker != nil {
+		t.Fatal("picker opened on an idle row")
+	}
+}
+
+func TestPickerEscCancels(t *testing.T) {
+	m, _ := seeded(t)
+	m = press(t, m, "t", "esc")
+	if m.picker != nil {
+		t.Fatal("esc must close the picker")
+	}
+	mustContain(t, m, "Today")
+}
+
 func TestFilter(t *testing.T) {
 	m, _ := seeded(t)
 	m = press(t, m, "/")

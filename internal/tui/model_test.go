@@ -52,3 +52,12 @@ func TestTabsHelpAndQuit(t *testing.T) {
 		t.Fatal("q must return tea.Quit")
 	}
 }
+
+func TestFlashExpires(t *testing.T) {
+	m, e := seeded(t)
+	m = press(t, m, "k", "k", "t") // idle row
+	mustContain(t, m, "idle time has no label")
+	e.Clock = e.Clock.Add(flashFor)
+	m = step(t, m, tickMsg{})
+	mustNotContain(t, m, "idle time has no label")
+}

@@ -5,6 +5,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"tock/internal/app"
 	"tock/internal/classify"
 	"tock/internal/report"
 )
@@ -14,11 +15,12 @@ const inboxHeader = 2
 
 // inboxTab lists unlabelled keys.
 type inboxTab struct {
-	items  []classify.Item
-	loaded bool
-	cursor int
-	top    int
-	height int // list rows that fit; set by Model.Update
+	items   []classify.Item
+	loaded  bool
+	cursor  int
+	top     int
+	height  int      // list rows that fit; set by Model.Update
+	ignored []string // keys ignored this session, for u
 }
 
 func (t *inboxTab) count() int { return len(t.items) }
@@ -68,8 +70,45 @@ func (m Model) inboxKey(k string) (tea.Model, tea.Cmd) {
 		t.cursor = 0
 	case "G", "end":
 		t.cursor = len(t.items) - 1
+	case "enter", "T":
+		if it := t.selected(); it != nil {
+			m.picker = newPicker(m.src, pickLearn, nil, it.Key, "")
+		}
+	case "o":
+		if it := t.selected(); it != nil {
+			m.picker = newPicker(m.src, pickOnce, nil, it.Key, spansWhat(it.Spans, it.TotalMS))
+		}
+	case "x":
+		if it := t.selected(); it != nil {
+			key := it.Key
+			t.ignored = append(t.ignored, key)
+			return m, m.act(func(a *app.App) (string, error) {
+				return "ignored: " + report.Safe(key) + " (u undo)", a.Ignore(key, true)
+			})
+		}
+	case "u":
+		if n := len(t.ignored); n > 0 {
+			key := t.ignored[n-1]
+			t.ignored = t.ignored[:n-1]
+			return m, m.act(func(a *app.App) (string, error) {
+				return "showing again: " + report.Safe(key), a.Ignore(key, false)
+			})
+		}
 	}
 	return m, nil
+}
+
+// act runs fn on the app and reports its result as a doneMsg.
+func (m Model) act(fn func(a *app.App) (string, error)) tea.Cmd {
+	src := m.src
+	return func() tea.Msg {
+		var d doneMsg
+		src.do(func(a *app.App) { d.text, d.err = fn(a) })
+		if d.err != nil {
+			d.text = ""
+		}
+		return d
+	}
 }
 
 func (t inboxTab) view(w, h int) []string {

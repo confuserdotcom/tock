@@ -147,7 +147,7 @@ func (t *todayTab) hint() string {
 	if t.filtering {
 		return "filter: " + t.filter + "▏ · enter keep · esc clear"
 	}
-	return "j/k move · h/l day · / filter · ? help"
+	return "j/k move · h/l day · t tag · p project · T learn · / filter · ? help"
 }
 
 func (m Model) todayKey(k string) (tea.Model, tea.Cmd) {
@@ -187,8 +187,25 @@ func (m Model) todayKey(k string) (tea.Model, tea.Cmd) {
 			t.date, t.loaded = time.Time{}, false
 			return m, m.reload()
 		}
+	case "t", "p", "T":
+		r := t.selected()
+		switch {
+		case r == nil:
+		case r.Idle:
+			m.setFlash("idle time has no label", true)
+		case k == "t":
+			m.picker = newPicker(m.src, pickTag, r.IDs, "", spansWhat(len(r.IDs), r.End-r.Start))
+		case k == "p":
+			m.picker = newPicker(m.src, pickProject, r.IDs, "", spansWhat(len(r.IDs), r.End-r.Start))
+		default:
+			m.picker = newPicker(m.src, pickLearn, nil, r.Key, "")
+		}
 	}
 	return m, nil
+}
+
+func spansWhat(n int, ms int64) string {
+	return fmt.Sprintf("%s (%s)", plural(n, "span"), report.Dur(ms))
 }
 
 // plural renders "1 key", "3 keys".

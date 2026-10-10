@@ -47,7 +47,9 @@ type Model struct {
 	today         todayTab
 	week          weekTab
 
-	help bool
+	picker *picker
+	learn  *learnDlg
+	help   bool
 
 	flash       string
 	flashErr    bool
@@ -76,6 +78,12 @@ type loadedMsg struct {
 	day       *report.Day
 	week      *report.Week
 	err       error
+}
+
+// doneMsg reports an action (tag, learn, ignore) for the status line.
+type doneMsg struct {
+	text string
+	err  error
 }
 
 func (m Model) Init() tea.Cmd {
@@ -179,6 +187,15 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.load()
 		}
 		return m, nil
+	case doneMsg:
+		if msg.err != nil {
+			m.setFlash(msg.err.Error(), true)
+		} else if msg.text != "" {
+			m.setFlash(msg.text, false)
+		}
+		return m, m.reload()
+	case proposedMsg:
+		return m.openLearn(msg)
 	case tea.KeyPressMsg:
 		return m.key(msg)
 	}
@@ -191,6 +208,10 @@ func (m Model) key(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 	}
 	switch {
+	case m.picker != nil:
+		return m.pickerKey(msg)
+	case m.learn != nil:
+		return m.learnKey(k)
 	case m.help:
 		if k == "?" || k == "esc" || k == "q" {
 			m.help = false
@@ -255,6 +276,10 @@ func (m Model) render() string {
 	switch {
 	case m.help:
 		body = helpBody(m.width)
+	case m.picker != nil:
+		body = m.picker.view(m.width, bodyH)
+	case m.learn != nil:
+		body = m.learn.view(m.width)
 	case m.tab == tabToday:
 		body = m.today.view(m.width, bodyH, m.now())
 	case m.tab == tabWeek:
@@ -327,12 +352,16 @@ func (m Model) footer() string {
 	switch {
 	case m.help:
 		hint = "esc close"
+	case m.picker != nil:
+		hint = "type to filter · ↑/↓ move · enter pick · esc cancel"
+	case m.learn != nil:
+		hint = m.learn.hint()
 	case m.tab == tabToday:
 		hint = m.today.hint()
 	case m.tab == tabWeek:
 		hint = "j/k day · h/l week · . this week · enter open day · ? help"
 	default:
-		hint = "j/k move · ? help"
+		hint = "enter learn rule · o tag once · x ignore · u undo · ? help"
 	}
 	return sDim.Render(fit(hint, m.width))
 }
