@@ -47,6 +47,23 @@ func newSource() (collect.Source, error) {
 }
 
 func main() {
+	if len(os.Args) > 1 {
+		var run func() error
+		switch os.Args[1] {
+		case "install":
+			run = func() error { return installAgent(dataDir(), stateDir()) }
+		case "uninstall":
+			run = uninstallAgent
+		}
+		if run != nil {
+			if err := run(); err != nil {
+				fmt.Fprintf(os.Stderr, "trackd %s: %v\n", os.Args[1], err)
+				os.Exit(1)
+			}
+			os.Exit(0)
+		}
+	}
+
 	dump := flag.Bool("dump", false, "print live samples to stdout and exit on SIGINT; never touches the database")
 	flag.Parse()
 

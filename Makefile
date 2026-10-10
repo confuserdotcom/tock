@@ -17,7 +17,7 @@ CODESIGN_TIMEOUT ?= 60
 # receives SIGALRM and exits 142 when it overruns.
 WITH_TIMEOUT = perl -e 'alarm shift; exec @ARGV or exit 127'
 
-.PHONY: build test test-quick vet clean bundle print-dr cert cert-trust dump dump-bg dump-stop
+.PHONY: build test test-quick vet clean bundle print-dr cert cert-trust dump dump-bg dump-stop install uninstall
 
 build:
 	CGO_ENABLED=1 go build -ldflags "-X main.version=$(VERSION)" -o bin/trackd ./cmd/trackd
@@ -131,4 +131,21 @@ dump-stop:
 		echo "dump-stop: sent SIGINT"; \
 	else \
 		echo "dump-stop: no dump process running (ok)"; \
+	fi
+
+# install: bootout, rebuild and sign the bundle, then bootstrap the agent
+# (Pitfall 12: never replace the binary under a running agent).
+install:
+	-launchctl bootout gui/$$(id -u)/$(AGENT_LABEL) 2>/dev/null
+	$(MAKE) bundle
+	"$(BUNDLE)/Contents/MacOS/trackd" install
+
+# uninstall: unload the agent and remove its plist; tock.db and the log stay.
+uninstall:
+	@if [ -x "$(BUNDLE)/Contents/MacOS/trackd" ]; then \
+		"$(BUNDLE)/Contents/MacOS/trackd" uninstall; \
+	else \
+		launchctl bootout gui/$$(id -u)/$(AGENT_LABEL) 2>/dev/null; \
+		rm -f "$(HOME)/Library/LaunchAgents/$(AGENT_LABEL).plist"; \
+		echo "uninstalled $(AGENT_LABEL) (data kept)"; \
 	fi
