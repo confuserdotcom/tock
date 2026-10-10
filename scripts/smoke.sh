@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Lock-agnostic end-to-end harness: build trackd, run it against a temp data
 # dir for SECONDS, stop it, and print the temp dir as the last stdout line.
-# Usage: scripts/smoke.sh SECONDS [term|kill9]
+# Usage: [SMOKE_DIR=dir] scripts/smoke.sh SECONDS [term|kill9]
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -11,10 +11,16 @@ MODE="${2:-term}"
 
 go build -o bin/trackd ./cmd/trackd
 
-D=$(mktemp -d "${TMPDIR:-/tmp}/tock-smoke.XXXXXX")
-chmod 700 "$D"
+# SMOKE_DIR reuses an earlier run's directory, so a second run restarts on
+# the same database (crash-recovery smoke).
+if [ -n "${SMOKE_DIR:-}" ]; then
+  D="$SMOKE_DIR"
+else
+  D=$(mktemp -d "${TMPDIR:-/tmp}/tock-smoke.XXXXXX")
+  chmod 700 "$D"
+fi
 
-TOCK_DATA_DIR="$D" TOCK_STATE_DIR="$D" bin/trackd >"$D/trackd.out" 2>&1 &
+TOCK_DATA_DIR="$D" TOCK_STATE_DIR="$D" bin/trackd >>"$D/trackd.out" 2>&1 &
 pid=$!
 sleep "$SECS"
 

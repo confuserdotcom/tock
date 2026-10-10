@@ -34,8 +34,16 @@ func stateDir() string {
 	return filepath.Join(home(), ".local", "state", "tock")
 }
 
+// newSource builds the macOS collector. Permission prompts are allowed only
+// when launchd (or open) started trackd: a terminal-launched process would
+// attribute them to the terminal (RESEARCH Q1).
 func newSource() (collect.Source, error) {
-	return collect.NewDarwin(collect.Options{PollInterval: collect.DefaultPollInterval})
+	underLaunchd := os.Getppid() == 1
+	return collect.NewDarwin(collect.Options{
+		PollInterval:  collect.DefaultPollInterval,
+		PromptAX:      underLaunchd,
+		AskAutomation: underLaunchd,
+	})
 }
 
 func main() {
@@ -48,7 +56,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "trackd: %v\n", err)
 			os.Exit(1)
 		}
-		os.Exit(runDump(src, os.Stdout))
+		os.Exit(runDump(src, os.Stdout, os.Getppid()))
 	}
 
 	os.Exit(runDaemon(daemonOpts{

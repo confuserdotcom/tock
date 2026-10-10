@@ -3,7 +3,9 @@ package main
 import (
 	"database/sql"
 	"path/filepath"
+	"strconv"
 	"testing"
+	"time"
 
 	_ "modernc.org/sqlite"
 
@@ -44,7 +46,11 @@ func runFake(t *testing.T, samples []span.Sample) []row {
 	if err := st.Close(); err != nil {
 		t.Fatal(err)
 	}
+	return readRows(t, path)
+}
 
+func readRows(t *testing.T, path string) []row {
+	t.Helper()
 	db, err := sql.Open("sqlite", "file:"+path+"?mode=ro")
 	if err != nil {
 		t.Fatal(err)
@@ -100,5 +106,97 @@ func TestPipelineIgnoresEmptyBundle(t *testing.T) {
 	})
 	if len(rows) != 0 {
 		t.Fatalf("want 0 rows, got %+v", rows)
+	}
+}
+
+// TestCrashRecoveryPipeline crashes the pipeline (no Flush) on a 2 s poll
+// schedule with adversarial lateness and checks Recover bounds the loss (D-16).
+func TestCrashRecoveryPipeline(t *testing.T) {
+	const t0 = int64(1700000000000)
+	path := filepath.Join(t.TempDir(), "tock.db")
+	st, err := store.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	next, err := st.NextID()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := span.DefaultConfig()
+	cfg.NextID = next
+	m := span.New(cfg)
+	// 2000 ms schedule with delays 1, 0, 0, 0, 0, 500, 0, 0.
+	for _, ts := range []int64{t0 + 1, t0 + 2000, t0 + 4000, t0 + 6000, t0 + 8000, t0 + 10500, t0 + 12000, t0 + 14000} {
+		x := span.Sample{TS: ts, BundleID: "a", App: "A"}
+		if err := st.Apply(m.Feed(span.Input{Sample: &x})); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Crash just before the next scheduled sample at t0+16000.
+	if err := st.Close(); err != nil {
+		t.Fatal(err)
+	}
+	const crashAt = t0 + 16000
+
+	st, err = store.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n, err := st.Recover(); err != nil || n != 1 {
+		t.Fatalf("Recover = %d, %v; want 1, nil", n, err)
+	}
+	if err := st.Close(); err != nil {
+		t.Fatal(err)
+	}
+	rows := readRows(t, path)
+	if len(rows) != 1 {
+		t.Fatalf("want 1 span, got %+v", rows)
+	}
+	r := rows[0]
+	if r.start != t0+1 || !r.end.Valid || r.end.Int64 != t0+8000 {
+		t.Fatalf("span = %+v; want [t0+1, t0+8000]", r)
+	}
+	if loss := crashAt - r.end.Int64; loss > 10000 {
+		t.Fatalf("crash loss %d ms > 10000", loss)
+	}
+}
+
+// TestPipelineTickAdvancesHeartbeat checks a tick with no new sample writes a
+// heartbeat at the last sample time.
+func TestPipelineTickAdvancesHeartbeat(t *testing.T) {
+	const t0 = int64(1700000000000)
+	path := filepath.Join(t.TempDir(), "tock.db")
+	st, err := store.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	in := make(chan span.Input, 4)
+	tick := make(chan time.Time)
+	now := t0
+	p := pipe{in: in, m: span.New(span.DefaultConfig()), st: st, tick: tick, now: func() int64 { return now }}
+	done := make(chan error, 1)
+	go func() { done <- p.run() }()
+
+	in <- span.Input{Sample: &span.Sample{TS: t0, BundleID: "a", App: "A"}}
+	in <- span.Input{Sample: &span.Sample{TS: t0 + 2000, BundleID: "a", App: "A"}}
+	// Let the pipeline take both samples before ticking; it reads now only
+	// after receiving the tick, so the unbuffered send orders the write.
+	for len(in) > 0 {
+		time.Sleep(time.Millisecond)
+	}
+	now = t0 + 12000
+	tick <- time.Time{}
+	tick <- time.Time{} // second tick proves the first was fully handled
+	close(in)
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+	v, ok, err := st.State(store.KeyHeartbeat)
+	if err != nil || !ok {
+		t.Fatalf("heartbeat_ts missing: %v %v", ok, err)
+	}
+	if v != strconv.FormatInt(t0+2000, 10) {
+		t.Fatalf("heartbeat_ts = %s; want %d", v, t0+2000)
 	}
 }
