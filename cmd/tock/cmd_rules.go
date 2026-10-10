@@ -6,6 +6,7 @@ import (
 	"os"
 	"sort"
 	"strconv"
+	"strings"
 
 	"tock/internal/app"
 	"tock/internal/classify"
@@ -59,6 +60,15 @@ func cmdRules(env Env, args []string) error {
 		fmt.Fprintf(env.Stdout, "calls: labelled %s\n", rs.CallCategory)
 	} else {
 		fmt.Fprintln(env.Stdout, "calls: not labelled (add [calls] category to rules.toml)")
+	}
+	if len(rs.Goals) == 0 {
+		fmt.Fprintln(env.Stdout, "goals: none")
+	} else {
+		texts := make([]string, len(rs.Goals))
+		for i, g := range rs.Goals {
+			texts[i] = g.Text()
+		}
+		fmt.Fprintf(env.Stdout, "goals: %s\n", strings.Join(texts, " · "))
 	}
 
 	st, err := openStore(env)

@@ -31,6 +31,17 @@ func TestRulesStats(t *testing.T) {
 	}
 }
 
+func TestRulesCheckGoals(t *testing.T) {
+	te := newTestEnv(t, testRules)
+	if code, out := te.run(t, "", "rules", "check"); code != 0 || !strings.Contains(out, "goals: none\n") {
+		t.Fatalf("exit %d: %q", code, out)
+	}
+	te = newTestEnv(t, testRules+"\n[[goal]]\ncategory = \"study\"\nat_least = \"2h\"\n\n[[goal]]\ncategory = \"entertainment\"\nat_most = \"45m\"\n")
+	if code, out := te.run(t, "", "rules", "check"); code != 0 || !strings.Contains(out, "goals: Study ≥2h/day · Entertainment ≤45m/day\n") {
+		t.Fatalf("exit %d: %q", code, out)
+	}
+}
+
 func TestRulesCheckCalls(t *testing.T) {
 	te := newTestEnv(t, testRules)
 	if code, out := te.run(t, "", "rules", "check"); code != 0 || !strings.Contains(out, "calls: not labelled (add [calls] category to rules.toml)\n") {

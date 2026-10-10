@@ -47,6 +47,18 @@ kind = "neutral"
 [calls]
 category = "Meeting"
 
+# Goals (at_least) and limits (at_most) per day or week, shown in the TUI
+# and tock status:
+#
+# [[goal]]
+# category = "Study"
+# at_least = "2h"
+# per = "day"          # or "week"
+#
+# [[goal]]
+# category = "Entertainment"
+# at_most = "45m"
+
 [[project]]
 name = "tock"
 

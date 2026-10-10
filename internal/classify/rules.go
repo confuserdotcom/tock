@@ -133,6 +133,8 @@ type Ruleset struct {
 	// CallCategory labels call time ([calls] category); "" leaves calls
 	// unlabelled.
 	CallCategory string
+	// Goals are the [[goal]] tables, in file order.
+	Goals []Goal
 
 	catByLower  map[string]Category
 	projByLower map[string]Project
@@ -164,6 +166,7 @@ type rulesTOML struct {
 	Calls struct {
 		Category string `toml:"category"`
 	} `toml:"calls"`
+	Goal []goalTOML `toml:"goal"`
 }
 
 type learnedTOML struct {
@@ -261,6 +264,9 @@ func Parse(rulesData, learnedData []byte) (*Ruleset, error) {
 		return nil, err
 	}
 	if rs.Rules, err = rs.buildRules(RulesFile, rf.Rule); err != nil {
+		return nil, err
+	}
+	if rs.Goals, err = rs.buildGoals(rf.Goal); err != nil {
 		return nil, err
 	}
 	return rs, nil
