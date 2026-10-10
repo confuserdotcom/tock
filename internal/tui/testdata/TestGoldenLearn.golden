@@ -6,7 +6,7 @@ tock   today   week   inbox ³   focus   rules                            Sat 10
  │ rule     url='^(www\.)?chatgpt\.com(/|$)'  ->  Study                                           │ 
  │ matches  2 spans (12m): 2 this key, 0 other unlabelled (0s), 0 relabelled                      │ 
  │                                                                                                │ 
- │ [y] accept   [s] more specific   [n] cancel                                                    │ 
+ │ [y] accept   [s] more specific   [o] these spans only   [n] cancel                             │ 
  ╰────────────────────────────────────────────────────────────────────────────────────────────────╯ 
 
 
@@ -27,4 +27,4 @@ tock   today   week   inbox ³   focus   rules                            Sat 10
 
 
 
-y accept · s more specific · n cancel                                                               
+y accept · s more specific · o these spans only · n cancel                                          

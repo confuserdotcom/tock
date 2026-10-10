@@ -138,3 +138,17 @@ func TestMoveRule(t *testing.T) {
 		t.Fatal("bad file was modified")
 	}
 }
+
+func TestRemoveRules(t *testing.T) {
+	in := "# head\n\n# a\n[[rule]]\napp = 'a'\ncategory = \"Code\"\n\n# b\n[[rule]]\napp = 'b'\ncategory = \"Code\"\n\n[[rule]]\napp = 'c'\ncategory = \"Code\"\n"
+	out, err := RemoveRules(LearnedFile, []byte(in), []int{0, 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "# head\n\n# b\n[[rule]]\napp = 'b'\ncategory = \"Code\"\n\n"; string(out) != want {
+		t.Fatalf("got %q", out)
+	}
+	if _, err := RemoveRules(LearnedFile, []byte(in), []int{3}); err == nil {
+		t.Fatal("removed a missing rule")
+	}
+}

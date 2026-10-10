@@ -62,3 +62,19 @@ func LabelText(category, project string) string {
 	}
 	return "project " + project
 }
+
+// FixedText describes the learned mistakes a rule candidate corrects: fixed
+// spans and replaced learned rules. It is "" when there are none.
+func FixedText(fixed, replaces int) string {
+	if fixed == 0 && replaces == 0 {
+		return ""
+	}
+	t := fmt.Sprintf(", %d fixed", fixed)
+	switch {
+	case replaces == 1:
+		t += " (replaces 1 learned rule)"
+	case replaces > 1:
+		t += fmt.Sprintf(" (replaces %d learned rules)", replaces)
+	}
+	return t
+}

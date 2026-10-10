@@ -34,7 +34,13 @@ type Candidate struct {
 	NewMS     int64 // time of other matches that gain a label
 	New       int   // other matches that gain a label
 	Relabeled int   // matches whose rule-given label would change
-	Safe      bool  // Relabeled == 0
+	// Fixed counts matches outside the key whose label comes from a learned
+	// rule that labels the key itself differently: the mistake being fixed.
+	Fixed int
+	// Replaces are the 0-based positions in learned.toml of the fixed rules
+	// this rule covers completely; Learn removes them.
+	Replaces []int
+	Safe     bool // Relabeled == 0
 }
 
 // unicodeWord matches a whole word without relying on RE2's ASCII-only \b.
@@ -108,6 +114,25 @@ func (rs *Ruleset) Propose(key string, want Want, history []SpanView, overrides 
 	for _, i := range target {
 		inTarget[i] = true
 	}
+	labels := make([]Label, len(history))
+	for i := range history {
+		var o *Override
+		if ov, ok := overrides[history[i].ID]; ok {
+			o = &ov
+		}
+		labels[i] = rs.Label(history[i], o)
+	}
+	// fixing are the learned rules that give the key a label other than want.
+	fixing := map[string]bool{}
+	for _, i := range target {
+		l := labels[i]
+		if want.Category != "" && l.CategorySource == SourceLearned && l.Category != want.Category {
+			fixing[l.CategoryRule] = true
+		}
+		if want.Project != "" && l.ProjectSource == SourceLearned && l.Project != want.Project {
+			fixing[l.ProjectRule] = true
+		}
+	}
 	var out []Candidate
 	for _, r := range rules {
 		r.File, r.Category, r.Project = LearnedFile, want.Category, want.Project
@@ -133,22 +158,22 @@ func (rs *Ruleset) Propose(key string, want Want, history []SpanView, overrides 
 				c.ThisKey++
 				continue
 			}
-			var o *Override
-			if ov, ok := overrides[v.ID]; ok {
-				o = &ov
-			}
-			cur := rs.Label(*v, o)
+			cur := labels[i]
 			relabel, gain := effect(cur.Category, cur.CategorySource, want.Category)
 			r2, g2 := effect(cur.Project, cur.ProjectSource, want.Project)
+			catFix, projFix := relabel && fixing[cur.CategoryRule], r2 && fixing[cur.ProjectRule]
 			switch {
-			case relabel || r2:
+			case (relabel && !catFix) || (r2 && !projFix):
 				c.Relabeled++
+			case catFix || projFix:
+				c.Fixed++
 			case gain || g2:
 				c.New++
 				c.NewMS += v.DurMS()
 			}
 		}
 		c.Safe = c.Relabeled == 0
+		c.Replaces = rs.covered(r, fixing, history)
 		out = append(out, c)
 	}
 	return out, nil
@@ -250,4 +275,35 @@ func distinctiveWord(history []SpanView, target []int) string {
 		return wa < wb
 	})
 	return cands[0]
+}
+
+// covered returns the 0-based learned positions of the fixing rules whose
+// every non-idle match in history r also matches.
+func (rs *Ruleset) covered(r Rule, fixing map[string]bool, history []SpanView) []int {
+	var out []int
+	for n := range rs.Learned {
+		old := &rs.Learned[n]
+		if !fixing[old.Ref()] {
+			continue
+		}
+		all := true
+		for i := range history {
+			v := &history[i]
+			if v.BundleID == span.IdleBundleID {
+				continue
+			}
+			clean := ""
+			if v.Title != nil {
+				clean = Clean(*v.Title)
+			}
+			if old.matches(v, clean) && !r.matches(v, clean) {
+				all = false
+				break
+			}
+		}
+		if all {
+			out = append(out, n)
+		}
+	}
+	return out
 }

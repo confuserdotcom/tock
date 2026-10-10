@@ -75,8 +75,8 @@ func cmdTag(env Env, args []string) error {
 	}
 	for i, c := range safe {
 		fmt.Fprintf(env.Stdout, "rule: %s  ->  %s\n", c.Rule.Describe(), report.LabelText(want.Category, want.Project))
-		fmt.Fprintf(env.Stdout, "matches %d spans (%s): %d this key, %d other unlabelled (%s), %d relabelled\n",
-			c.Matches, report.Dur(c.MatchMS), c.ThisKey, c.New, report.Dur(c.NewMS), c.Relabeled)
+		fmt.Fprintf(env.Stdout, "matches %d spans (%s): %d this key, %d other unlabelled (%s), %d relabelled%s\n",
+			c.Matches, report.Dur(c.MatchMS), c.ThisKey, c.New, report.Dur(c.NewMS), c.Relabeled, report.FixedText(c.Fixed, len(c.Replaces)))
 		more := i+1 < len(safe)
 		if more {
 			fmt.Fprint(env.Stdout, "[y] accept  [s] more specific  [n] cancel: ")
@@ -139,3 +139,4 @@ func tagSpans(env Env, a *app.App, ids []int64, want classify.Want, what string)
 	fmt.Fprintf(env.Stdout, "tagged %s → %s\n", what, report.LabelText(want.Category, want.Project))
 	return nil
 }
+

@@ -280,6 +280,10 @@ func (m Model) todayKey(k string) (tea.Model, tea.Cmd) {
 			m.setFlash("away time has no rules: t to relabel it", true)
 		case r.App == span.MeetingApp && k == "T":
 			m.setFlash("meetings are learned by hand: a [[rule]] with bundle tock.meeting; t to relabel this one", true)
+		case k == "t" && r.Label.CategorySource == classify.SourceLearned:
+			// A learned label is a smart tag: fix the rule so every span
+			// it labels changes, not only this row (o still tags just these).
+			m.picker = newPicker(m.src, pickLearn, nil, r.Key, "").withQuick(&m, r.Key)
 		case k == "t":
 			m.picker = newPicker(m.src, pickTag, r.IDs, "", spansWhat(len(r.IDs), r.End-r.Start)).withQuick(&m, r.Key)
 		case k == "p":

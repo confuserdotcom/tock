@@ -87,3 +87,27 @@ func TestProposeLearnAppliesToHistory(t *testing.T) {
 		t.Fatalf("learned rule did not reach a span 3 days back: Study = %s", report.Dur(study))
 	}
 }
+
+func TestLearnReplacesMistake(t *testing.T) {
+	e := apptest.New(t, apptest.Rules)
+	e.Seed(t, apptest.DaySpans()...)
+	e.Seed(t, apptest.Span{ID: 20, Start: "10:00", End: "10:30", Bundle: "arc", App: "Arc", Title: "Old chat", URL: "chatgpt.com/c/9", Day: -3})
+	a := open(t, e)
+	learn := func(cat string) {
+		t.Helper()
+		want := classify.Want{Category: cat}
+		cands, err := a.Propose("Arc · chatgpt.com/c", want)
+		if err != nil || len(cands) == 0 || !cands[0].Safe {
+			t.Fatalf("%s: candidates %+v, %v", cat, cands, err)
+		}
+		if err := a.Learn("Arc · chatgpt.com/c", cands[0], want); err != nil {
+			t.Fatal(err)
+		}
+	}
+	learn("Communication")
+	learn("Study")
+	body, _ := os.ReadFile(e.Learned)
+	if strings.Count(string(body), "[[rule]]") != 1 || strings.Contains(string(body), "Communication") {
+		t.Fatalf("learned.toml:\n%s", body)
+	}
+}

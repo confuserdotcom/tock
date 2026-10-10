@@ -77,7 +77,7 @@ func (m Model) learnKey(k string) (tea.Model, tea.Cmd) {
 		})
 	case k == "s" && d.i+1 < len(d.cands):
 		d.i++
-	case k == "o" && len(d.cands) == 0:
+	case k == "o":
 		ids, what, want := d.ids, spansWhat(len(d.ids), d.ms), d.want
 		m.learn = nil
 		return m, m.act(func(a *app.App) (string, error) {
@@ -95,9 +95,9 @@ func (d *learnDlg) hint() string {
 	case len(d.cands) == 0:
 		return "o tag these spans only · n cancel"
 	case d.i+1 < len(d.cands):
-		return "y accept · s more specific · n cancel"
+		return "y accept · s more specific · o these spans only · n cancel"
 	}
-	return "y accept · n cancel"
+	return "y accept · o these spans only · n cancel"
 }
 
 func (d *learnDlg) view(w int) []string {
@@ -112,12 +112,12 @@ func (d *learnDlg) view(w int) []string {
 		c := d.cands[d.i]
 		lines = append(lines,
 			sDim.Render("rule     ")+report.Safe(c.Rule.Describe())+"  ->  "+label,
-			sDim.Render("matches  ")+fmt.Sprintf("%d spans (%s): %d this key, %d other unlabelled (%s), %d relabelled",
-				c.Matches, report.Dur(c.MatchMS), c.ThisKey, c.New, report.Dur(c.NewMS), c.Relabeled),
+			sDim.Render("matches  ")+fmt.Sprintf("%d spans (%s): %d this key, %d other unlabelled (%s), %d relabelled%s",
+				c.Matches, report.Dur(c.MatchMS), c.ThisKey, c.New, report.Dur(c.NewMS), c.Relabeled, report.FixedText(c.Fixed, len(c.Replaces))),
 			"")
-		opts := "[y] accept   [n] cancel"
+		opts := "[y] accept   [o] these spans only   [n] cancel"
 		if d.i+1 < len(d.cands) {
-			opts = "[y] accept   [s] more specific   [n] cancel"
+			opts = "[y] accept   [s] more specific   [o] these spans only   [n] cancel"
 		}
 		lines = append(lines, opts)
 	}

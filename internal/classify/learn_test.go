@@ -163,3 +163,27 @@ func TestProposeProjectOnly(t *testing.T) {
 		t.Fatalf("project-only bundle candidate = %+v", c)
 	}
 }
+
+// A wrong learned host rule labels every chatgpt.com key. Tagging one of
+// them again fixes the rule instead of refusing as unsafe.
+func TestProposeFixesLearnedMistake(t *testing.T) {
+	wrong := `[[rule]]
+url = '^(www\.)?chatgpt\.com(/|$)'
+category = "Entertainment"
+`
+	rs := mustParse(t, learnRules, wrong)
+	cands, err := rs.Propose("Arc · chatgpt.com/c", Want{Category: "Study"}, learnHistory(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	host := cands[0]
+	if !host.Safe || host.Fixed != 2 || host.Relabeled != 0 || len(host.Replaces) != 1 || host.Replaces[0] != 0 {
+		t.Fatalf("host candidate = %+v", host)
+	}
+	// The segment rule does not cover chatgpt.com/settings: it fixes the
+	// span it matches but leaves the old rule in place.
+	seg := cands[1]
+	if !seg.Safe || seg.Fixed != 1 || len(seg.Replaces) != 0 {
+		t.Fatalf("segment candidate = %+v", seg)
+	}
+}

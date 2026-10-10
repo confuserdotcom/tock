@@ -20,11 +20,20 @@ func (a *App) Propose(key string, want classify.Want) ([]classify.Candidate, err
 	return a.rs.Propose(key, want, hist, ovs)
 }
 
-// Learn appends c's rule to learned.toml and reloads the rules, so the next
-// read applies it to all history.
+// Learn appends c's rule to learned.toml, removes the learned rules it
+// replaces, and reloads the rules, so the next read applies it to all
+// history.
 func (a *App) Learn(key string, c classify.Candidate, want classify.Want) error {
 	comment := fmt.Sprintf("learned %s from %q, %d spans", a.now().Format("2006-01-02"), key, c.ThisKey)
 	if err := classify.AppendLearned(a.paths.Learned, c.Rule, comment); err != nil {
+		return err
+	}
+	// The new rule went in first, so the replaced ones moved down by one.
+	shifted := make([]int, len(c.Replaces))
+	for i, n := range c.Replaces {
+		shifted[i] = n + 1
+	}
+	if err := classify.RemoveLearned(a.paths.Learned, shifted); err != nil {
 		return err
 	}
 	_, err := a.Reload()

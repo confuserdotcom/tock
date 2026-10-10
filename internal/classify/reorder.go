@@ -28,20 +28,8 @@ func isBlank(l string) bool   { return strings.TrimSpace(l) == "" }
 // header, and its key lines up to the first blank line, comment or header.
 type core struct{ lo, hi int }
 
-// SwapRules swaps rule i and i+1 (0-based) in the text of one rule file,
-// keeping every other line in place. The result must decode to the same
-// document with the two rules exchanged, or the swap is refused.
-func SwapRules(file string, data []byte, i int) ([]byte, error) {
-	var before map[string]any
-	if _, err := toml.Decode(string(data), &before); err != nil {
-		return nil, fmt.Errorf("%s: %w", file, err)
-	}
-	text := string(data)
-	noNL := !strings.HasSuffix(text, "\n")
-	if noNL {
-		text += "\n"
-	}
-	lines := strings.SplitAfter(text, "\n")
+// ruleCores finds the core of every [[rule]] in lines, in order.
+func ruleCores(lines []string) []core {
 	var cores []core
 	for n, l := range lines {
 		if !ruleHeader.MatchString(strings.TrimRight(l, "\r\n")) {
@@ -57,6 +45,24 @@ func SwapRules(file string, data []byte, i int) ([]byte, error) {
 		}
 		cores = append(cores, core{lo, hi})
 	}
+	return cores
+}
+
+// SwapRules swaps rule i and i+1 (0-based) in the text of one rule file,
+// keeping every other line in place. The result must decode to the same
+// document with the two rules exchanged, or the swap is refused.
+func SwapRules(file string, data []byte, i int) ([]byte, error) {
+	var before map[string]any
+	if _, err := toml.Decode(string(data), &before); err != nil {
+		return nil, fmt.Errorf("%s: %w", file, err)
+	}
+	text := string(data)
+	noNL := !strings.HasSuffix(text, "\n")
+	if noNL {
+		text += "\n"
+	}
+	lines := strings.SplitAfter(text, "\n")
+	cores := ruleCores(lines)
 	if i < 0 || i+1 >= len(cores) {
 		return nil, fmt.Errorf("%s: no rules #%d and #%d", file, i+1, i+2)
 	}
@@ -121,4 +127,78 @@ func MoveRule(path, file string, i int, up bool) error {
 		return nil
 	}
 	return writeAtomic(path, "."+strings.TrimSuffix(filepath.Base(path), ".toml")+"-*.toml", out)
+}
+
+// RemoveRules drops the rules at the 0-based positions idx from the text of
+// one rule file, with their comment lines and one blank line after each. The
+// result must decode to the same document without those rules, or nothing
+// is removed.
+func RemoveRules(file string, data []byte, idx []int) ([]byte, error) {
+	var before map[string]any
+	if _, err := toml.Decode(string(data), &before); err != nil {
+		return nil, fmt.Errorf("%s: %w", file, err)
+	}
+	lines := strings.SplitAfter(string(data), "\n")
+	cores := ruleCores(lines)
+	drop := map[int]bool{}
+	for _, i := range idx {
+		if i < 0 || i >= len(cores) {
+			return nil, fmt.Errorf("%s: no rule #%d", file, i+1)
+		}
+		drop[i] = true
+	}
+	skip := map[int]bool{}
+	for i := range drop {
+		c := cores[i]
+		for n := c.lo; n < c.hi; n++ {
+			skip[n] = true
+		}
+		if c.hi < len(lines) && isBlank(lines[c.hi]) {
+			skip[c.hi] = true
+		}
+	}
+	var out strings.Builder
+	for n, l := range lines {
+		if !skip[n] {
+			out.WriteString(l)
+		}
+	}
+	res := out.String()
+
+	var after map[string]any
+	_, err := toml.Decode(res, &after)
+	if rs, ok := before["rule"].([]map[string]any); ok && err == nil {
+		var kept []map[string]any
+		for i, r := range rs {
+			if !drop[i] {
+				kept = append(kept, r)
+			}
+		}
+		if len(kept) == 0 {
+			delete(before, "rule")
+		} else {
+			before["rule"] = kept
+		}
+		if reflect.DeepEqual(before, after) {
+			return []byte(res), nil
+		}
+	}
+	return nil, fmt.Errorf("%s: can't remove rules from this layout safely; edit the file", file)
+}
+
+// RemoveLearned drops the learned rules at the 0-based positions idx from
+// the file at path, atomically; nothing is written on error.
+func RemoveLearned(path string, idx []int) error {
+	if len(idx) == 0 {
+		return nil
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	out, err := RemoveRules(LearnedFile, data, idx)
+	if err != nil {
+		return err
+	}
+	return writeAtomic(path, ".learned-*.toml", out)
 }
