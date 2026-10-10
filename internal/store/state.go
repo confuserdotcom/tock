@@ -15,6 +15,11 @@ const (
 	KeyAXTrusted = "ax_trusted"
 	// KeyVersion holds the trackd version string.
 	KeyVersion = "version"
+	// KeyCalendarStatus is trackd's calendar access: off, granted, denied,
+	// undetermined or error.
+	KeyCalendarStatus = "calendar_status"
+	// KeyCalendarSync is the unix ms of the last successful calendar sync.
+	KeyCalendarSync = "calendar_sync"
 )
 
 // AutomationKey returns the daemon_state key for the Automation permission of

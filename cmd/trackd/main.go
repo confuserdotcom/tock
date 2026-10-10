@@ -92,5 +92,9 @@ func main() {
 		Notifier:  osascriptNotifier{},
 		Camera:    collect.CameraInUse,
 		Mic:       collect.MicInUse,
+		Calendar:  collect.EventKit{},
+		// A terminal-launched trackd would attribute the prompt to the
+		// terminal (see newSource).
+		CalendarPrompt: os.Getppid() == 1,
 	}))
 }

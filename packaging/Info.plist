@@ -16,6 +16,10 @@
 	<string>1</string>
 	<key>LSUIElement</key>
 	<true/>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>tock reads your calendar events to label the time you spend away from the Mac in meetings. Data never leaves this Mac.</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>tock reads your calendar events to label the time you spend away from the Mac in meetings. Data never leaves this Mac.</string>
 	<key>NSAppleEventsUsageDescription</key>
 	<string>tock reads the URL of the frontmost browser tab to record where your time goes. Data never leaves this Mac.</string>
 </dict>

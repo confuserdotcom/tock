@@ -2,6 +2,7 @@ package app
 
 import (
 	"sort"
+	"strconv"
 	"strings"
 
 	"tock/internal/report"
@@ -27,8 +28,12 @@ type Health struct {
 	AXTrusted     *bool    // nil when unknown
 	AutomationOff []string // browsers whose Automation permission is denied, sorted
 	Version       string
-	RulesErr      error
-	ConfigErr     error
+	// CalendarStatus is trackd's calendar access ("" before trackd
+	// reports); CalendarSyncMS the last sync, 0 when none.
+	CalendarStatus string
+	CalendarSyncMS int64
+	RulesErr       error
+	ConfigErr      error
 }
 
 // Health reads trackd's liveness and permission state.
@@ -57,6 +62,8 @@ func ReadHealth(st *store.Store, nowMS int64) (Health, error) {
 		h.AXTrusted = &b
 	}
 	h.Version = states[store.KeyVersion]
+	h.CalendarStatus = states[store.KeyCalendarStatus]
+	h.CalendarSyncMS, _ = strconv.ParseInt(states[store.KeyCalendarSync], 10, 64)
 	for k, v := range states {
 		id, ok := strings.CutPrefix(k, store.AutomationKey(""))
 		if !ok || v != "denied" {

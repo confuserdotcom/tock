@@ -12,6 +12,7 @@ import (
 
 	"tock/internal/classify"
 	"tock/internal/collect"
+	"tock/internal/config"
 	"tock/internal/span"
 	"tock/internal/store"
 )
@@ -48,6 +49,13 @@ type daemonOpts struct {
 	// Camera and Mic report a camera or a microphone in use; nil means
 	// never. Either one means a call.
 	Camera, Mic func() bool
+	// Calendar reads calendar events; nil turns the calendar sync off.
+	Calendar Calendar
+	// CalendarPrompt allows the calendar permission prompt (trackd runs
+	// under launchd).
+	CalendarPrompt bool
+	// CalendarEvery is the calendar loop period (default 1 min).
+	CalendarEvery time.Duration
 }
 
 func wallNowMS() int64 { return time.Now().Round(0).UnixMilli() }
@@ -160,6 +168,15 @@ func runWithStore(o daemonOpts, log *slog.Logger, st *store.Store) int {
 	if o.ConfigDir != "" {
 		stopFocus := startFocus(o, log)
 		defer stopFocus()
+		if o.Calendar != nil {
+			every := o.CalendarEvery
+			if every <= 0 {
+				every = calendarCheckEvery
+			}
+			stopCal := startCalendar(&calendarLoop{cal: o.Calendar, st: st, cfgPath: filepath.Join(o.ConfigDir, config.File),
+				canPrompt: o.CalendarPrompt, log: log, now: o.Now}, every)
+			defer stopCal()
+		}
 	}
 
 	sigs := make(chan os.Signal, 1)

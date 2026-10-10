@@ -18,6 +18,7 @@ import (
 const (
 	axSettingsURL         = "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
 	automationSettingsURL = "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation"
+	calendarSettingsURL   = "x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars"
 )
 
 // doctorWait is how long --wait gives trackd to report its first heartbeat.
@@ -60,7 +61,8 @@ func cmdDoctor(env Env, args []string) error {
 	}
 
 	cfgPath := env.paths().Config
-	switch _, err := config.Load(cfgPath); {
+	cfg, cfgErr := config.Load(cfgPath)
+	switch err := cfgErr; {
 	case err != nil:
 		bad("config", err.Error(), "fix "+cfgPath)
 	default:
@@ -96,6 +98,9 @@ func cmdDoctor(env Env, args []string) error {
 		default:
 			ok("accessibility", "granted")
 		}
+		if cfgErr == nil {
+			doctorCalendar(env, cfg.Calendar.Enabled, h, ok, bad, open)
+		}
 		if len(h.AutomationOff) > 0 {
 			bad("automation", "no URLs from "+strings.Join(h.AutomationOff, ", "),
 				"System Settings › Privacy & Security › Automation")
@@ -118,6 +123,36 @@ func cmdDoctor(env Env, args []string) error {
 		return fmt.Errorf("doctor: %d problems", problems)
 	}
 	return nil
+}
+
+// calendarStaleMS is how old the last calendar sync may be while access is
+// granted: three missed 10-minute syncs.
+const calendarStaleMS = 30 * 60_000
+
+// doctorCalendar reports trackd's calendar sync. The states are trackd's
+// (collect.Calendar*), which tock does not link.
+func doctorCalendar(env Env, enabled bool, h app.Health, ok func(name, detail string),
+	bad func(name, detail, fix string), open func(url string)) {
+	if !enabled {
+		ok("calendar", "off (config.toml [calendar] enabled = false)")
+		return
+	}
+	switch h.CalendarStatus {
+	case "granted":
+		age := env.Now().UnixMilli() - h.CalendarSyncMS
+		if h.CalendarSyncMS == 0 || age > calendarStaleMS {
+			bad("calendar", "no sync in the last 30 min", "see ~/.local/state/tock/trackd.log")
+			return
+		}
+		ok("calendar", "synced "+time.UnixMilli(h.CalendarSyncMS).In(env.Now().Location()).Format("15:04"))
+	case "denied":
+		bad("calendar", "access denied", "System Settings › Privacy & Security › Calendars › trackd")
+		open(calendarSettingsURL)
+	case "error":
+		bad("calendar", "EventKit read failed", "see ~/.local/state/tock/trackd.log")
+	default:
+		bad("calendar", "waiting for the permission prompt", "restart trackd: make install")
+	}
 }
 
 // doctorRepos checks that git reads every [[project]] repo.

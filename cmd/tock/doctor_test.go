@@ -1,6 +1,8 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -43,7 +45,7 @@ func TestDoctorAllGood(t *testing.T) {
 		store.KeyHeartbeat: nowMS(), store.KeyAXTrusted: "1", store.KeyVersion: "v1",
 	})
 	code, out := te.run(t, "", "doctor", "--open")
-	if code != 0 || strings.Count(out, "ok  ") != 7 || strings.Contains(out, "!!") {
+	if code != 0 || strings.Count(out, "ok  ") != 8 || strings.Contains(out, "!!") {
 		t.Fatalf("exit %d:\n%s%s", code, out, te.errb)
 	}
 	for _, want := range []string{"rules: 3 rules, 0 learned", "config: defaults", "trackd: running (version v1)",
@@ -109,5 +111,49 @@ func TestDoctorRulesProblems(t *testing.T) {
 	}
 	if code, _ := te.run(t, "", "doctor", "x"); code != 2 {
 		t.Fatal("extra argument accepted")
+	}
+}
+
+func TestDoctorCalendar(t *testing.T) {
+	recent := strconv.FormatInt(testNow.Add(-5*time.Minute).UnixMilli(), 10)
+	stale := strconv.FormatInt(testNow.Add(-31*time.Minute).UnixMilli(), 10)
+	for _, c := range []struct {
+		status, sync, want string
+		code              int
+	}{
+		{"granted", recent, "ok  calendar: synced 14:55", 0},
+		{"granted", stale, "!!  calendar: no sync in the last 30 min", 1},
+		{"denied", "", "!!  calendar: access denied — System Settings › Privacy & Security › Calendars › trackd", 1},
+		{"error", "", "!!  calendar: EventKit read failed", 1},
+		{"", "", "!!  calendar: waiting for the permission prompt — restart trackd: make install", 1},
+	} {
+		te, opened := doctorEnv(t, testRules)
+		te.seed(t, daySpans()...)
+		writeFile(t, te.paths().Config, "[calendar]\nenabled = true\n")
+		kv := map[string]string{store.KeyHeartbeat: nowMS(), store.KeyAXTrusted: "1"}
+		if c.status != "" {
+			kv[store.KeyCalendarStatus] = c.status
+		}
+		if c.sync != "" {
+			kv[store.KeyCalendarSync] = c.sync
+		}
+		setStates(t, te, kv)
+		code, out := te.run(t, "", "doctor", "--open")
+		if code != c.code || !strings.Contains(out, c.want) {
+			t.Errorf("status %q sync %q: exit %d\n%s", c.status, c.sync, code, out)
+		}
+		if (c.status == "denied") != (len(*opened) == 1) {
+			t.Errorf("status %q: opened %v", c.status, *opened)
+		}
+	}
+}
+
+func writeFile(t *testing.T, path, body string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
 	}
 }
