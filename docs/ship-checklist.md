@@ -20,9 +20,9 @@ export rows or rule files into issues or commits.
 4. **Rules tab: editor.** Press `e`. Your `$EDITOR` opens rules.toml.
    - Quit it: the TUI comes back and shows any edit.
    - Restore with `cp /tmp/rules.bak ~/.config/tock/rules.toml`.
-5. **Export.** `tock export > /tmp/week.csv` opens in Numbers with 14 columns.
+5. **Export.** Tests already check that csv and json round-trip, so on your
+   data only check that it runs, without writing it to a file:
    - `tock export --format json | jq length` prints the row count.
    - `tock export --from 2026-01-01 --to 2025-12-31` exits 2.
-   - Delete `/tmp/week.csv` afterwards.
 6. **Reboot.** Log in again. `tock doctor` passes with no action from you, and
    `tock status` shows today's time.
