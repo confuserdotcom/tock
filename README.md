@@ -411,5 +411,5 @@ go test ./internal/tui -run Golden -update # regenerate TUI snapshots
 make dump                                  # print trackd's live samples
 ```
 
-Design notes are in `docs/superpowers/specs`. Checklists for things only a
-person at the Mac can verify are in `docs/*-checklist.md`.
+Checklists for things only a person at the Mac can verify are in
+`docs/*-checklist.md`.
