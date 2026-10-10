@@ -37,7 +37,9 @@ type App struct {
 }
 
 // stamp identifies the versions of the rule files and the config file.
-type stamp [3]struct {
+type stamp [3]fileStamp
+
+type fileStamp struct {
 	mod  time.Time
 	size int64
 	ok   bool
