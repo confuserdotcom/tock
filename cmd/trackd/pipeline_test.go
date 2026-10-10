@@ -200,3 +200,28 @@ func TestPipelineTickAdvancesHeartbeat(t *testing.T) {
 		t.Fatalf("heartbeat_ts = %s; want %d", v, t0+2000)
 	}
 }
+
+// TestMergerConfigCleansTitles: the daemon's merger treats titles that differ
+// only by a spinner glyph or counter as one span.
+func TestMergerConfigCleansTitles(t *testing.T) {
+	const t0 = int64(1_700_000_000_000)
+	titles := []string{"[1/3] ✳ workflow", "[1/3] ◐ workflow", "[2/3] ✳ workflow", "(3) workflow"}
+	m := span.New(mergerConfig(1))
+	opens := 0
+	for i, title := range titles {
+		ops := m.Feed(span.Input{Sample: &span.Sample{TS: t0 + int64(i)*2000, BundleID: "w", App: "W", Title: &title}})
+		for _, op := range ops {
+			if op.Kind == span.OpOpen {
+				opens++
+			}
+		}
+	}
+	if opens != 1 {
+		t.Fatalf("spinner/counter title changes opened %d spans, want 1", opens)
+	}
+	other := "other task"
+	ops := m.Feed(span.Input{Sample: &span.Sample{TS: t0 + 10_000, BundleID: "w", App: "W", Title: &other}})
+	if len(ops) == 0 {
+		t.Fatal("a real title change must still produce ops")
+	}
+}

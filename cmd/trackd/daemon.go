@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"tock/internal/classify"
 	"tock/internal/collect"
 	"tock/internal/span"
 	"tock/internal/store"
@@ -116,9 +117,7 @@ func runWithStore(o daemonOpts, log *slog.Logger, st *store.Store) int {
 		log.Error("next id", "err", err)
 		return exitRestart
 	}
-	cfg := span.DefaultConfig()
-	cfg.NextID = next
-	m := span.New(cfg)
+	m := span.New(mergerConfig(next))
 
 	src, err := o.NewSource()
 	if err != nil {
@@ -172,6 +171,16 @@ func runWithStore(o daemonOpts, log *slog.Logger, st *store.Store) int {
 		rc = exitRestart
 	}
 	return rc
+}
+
+// mergerConfig is the daemon's span configuration: the Phase 1 defaults with
+// titles compared after classify.Clean, so a spinner or counter change in a
+// title does not split the span.
+func mergerConfig(nextID int64) span.Config {
+	cfg := span.DefaultConfig()
+	cfg.NextID = nextID
+	cfg.TitleKey = classify.Clean
+	return cfg
 }
 
 // pipe feeds every input to the merger and applies the resulting ops. A tick
