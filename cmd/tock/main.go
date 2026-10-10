@@ -10,9 +10,12 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/charmbracelet/x/term"
 )
 
 const usage = `usage:
+  tock                                   open the TUI (today, week, inbox)
   tock status                            one line for a status bar
   tock init                              write starter ~/.config/tock/rules.toml
   tock today [--date YYYY-MM-DD] [--keys]
@@ -31,6 +34,9 @@ type Env struct {
 	Stdout, Stderr               io.Writer
 	Now                          func() time.Time
 	DataDir, StateDir, ConfigDir string
+	// Interactive is true when stdin and stdout are terminals: `tock` with
+	// no arguments then opens the TUI instead of printing usage.
+	Interactive bool
 }
 
 func (e Env) dbPath() string      { return filepath.Join(e.DataDir, "tock.db") }
@@ -52,10 +58,11 @@ func envDir(name string, def ...string) string {
 func defaultEnv() Env {
 	return Env{
 		Stdin: os.Stdin, Stdout: os.Stdout, Stderr: os.Stderr,
-		Now:       time.Now,
-		DataDir:   envDir("TOCK_DATA_DIR", ".local", "share", "tock"),
-		StateDir:  envDir("TOCK_STATE_DIR", ".local", "state", "tock"),
-		ConfigDir: envDir("TOCK_CONFIG_DIR", ".config", "tock"),
+		Now:         time.Now,
+		Interactive: term.IsTerminal(os.Stdin.Fd()) && term.IsTerminal(os.Stdout.Fd()),
+		DataDir:     envDir("TOCK_DATA_DIR", ".local", "share", "tock"),
+		StateDir:    envDir("TOCK_STATE_DIR", ".local", "state", "tock"),
+		ConfigDir:   envDir("TOCK_CONFIG_DIR", ".config", "tock"),
 	}
 }
 
@@ -92,16 +99,21 @@ var commands = map[string]func(Env, []string) error{
 
 // run executes one command and returns the exit code: 0 ok, 1 error, 2 usage.
 func run(args []string, env Env) int {
-	if len(args) == 0 || args[0] == "help" || args[0] == "-h" || args[0] == "--help" {
+	var err error
+	switch {
+	case len(args) == 0 && env.Interactive:
+		err = cmdTUI(env)
+	case len(args) == 0 || args[0] == "help" || args[0] == "-h" || args[0] == "--help":
 		fmt.Fprint(env.Stdout, usage)
 		return 0
+	default:
+		cmd, ok := commands[args[0]]
+		if !ok {
+			fmt.Fprintf(env.Stderr, "tock: unknown command %q\n%s", args[0], usage)
+			return 2
+		}
+		err = cmd(env, args[1:])
 	}
-	cmd, ok := commands[args[0]]
-	if !ok {
-		fmt.Fprintf(env.Stderr, "tock: unknown command %q\n%s", args[0], usage)
-		return 2
-	}
-	err := cmd(env, args[1:])
 	var ue usageError
 	switch {
 	case err == nil:

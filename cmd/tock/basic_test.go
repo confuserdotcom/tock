@@ -70,3 +70,11 @@ func TestRulesCheck(t *testing.T) {
 		t.Fatalf("invalid rules: code %d err %q", code, te.errb.String())
 	}
 }
+
+func TestInteractiveStartupErrorsBeforeTheScreen(t *testing.T) {
+	te := newTestEnv(t, "")
+	te.Interactive = true
+	if code, out := te.run(t, ""); code != 1 || out != "" || !strings.Contains(te.errb.String(), "tock init") {
+		t.Fatalf("no rules: code %d out %q err %q", code, out, te.errb.String())
+	}
+}
