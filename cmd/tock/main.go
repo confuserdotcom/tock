@@ -13,6 +13,7 @@ import (
 )
 
 const usage = `usage:
+  tock status                            one line for a status bar
   tock init                              write starter ~/.config/tock/rules.toml
   tock today [--date YYYY-MM-DD] [--keys]
   tock inbox [--days N] [--all]          unlabelled activity, numbered
@@ -86,6 +87,7 @@ var commands = map[string]func(Env, []string) error{
 	"inbox":  cmdInbox,
 	"ignore": cmdIgnore,
 	"tag":    cmdTag,
+	"status": cmdStatus,
 }
 
 // run executes one command and returns the exit code: 0 ok, 1 error, 2 usage.
