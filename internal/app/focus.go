@@ -1,0 +1,199 @@
+package app
+
+import (
+	"fmt"
+	"strconv"
+	"time"
+
+	"tock/internal/config"
+	"tock/internal/focus"
+	"tock/internal/report"
+	"tock/internal/store"
+)
+
+// FocusTick runs the focus engine once, for trackd: it reloads changed rule
+// and config files, applies the engine's store events and returns the
+// notifications to send. It stops at the first failed write, before any
+// notification. A session notification is dropped when tock closed that
+// session between the read and the write.
+func (a *App) FocusTick(camera bool) ([]focus.Event, error) {
+	a.Reload() // a failure is kept in RulesErr / ConfigErr; the last good files stay
+	nowT := a.now()
+	now := nowT.UnixMilli()
+	day := a.midnight(nowT)
+	open, err := a.st.OpenSession()
+	if err != nil {
+		return nil, err
+	}
+	from := day.UnixMilli()
+	if open != nil && open.StartMS < from {
+		from = open.StartMS
+	}
+	vs, labels, err := a.labelled(from, now, now)
+	if err != nil {
+		return nil, err
+	}
+	ss, err := a.st.Sessions(from, now+1)
+	if err != nil {
+		return nil, err
+	}
+	st, err := a.focusState()
+	if err != nil {
+		return nil, err
+	}
+	in := focus.Input{Now: now, Day: day, Views: vs, Labels: labels, Sessions: focusSessions(ss),
+		Camera: camera, State: st, Cfg: a.cfg.Focus}
+	if focus.RecapDue(in) {
+		d, err := a.Day(nowT)
+		if err != nil {
+			return nil, err
+		}
+		in.RecapBody = report.Recap(d)
+	}
+
+	var notes []focus.Event
+	stale := false
+	for _, ev := range focus.Step(in) {
+		var ok bool
+		var err error
+		switch ev.Kind {
+		case focus.SessionUpdate:
+			ok, err = a.st.UpdateSession(store.Session(ev.Sess))
+			stale = stale || (err == nil && !ok)
+		case focus.SessionEnd:
+			ok, err = a.st.EndSession(store.Session(ev.Sess))
+			stale = stale || (err == nil && !ok)
+		case focus.AutoSession:
+			_, err = a.st.AddAutoSession(store.Session(ev.Sess))
+		case focus.StateUpdate:
+			err = a.setFocusState(ev.State, now)
+		case focus.Notify:
+			if !(stale && ev.OfSession) {
+				notes = append(notes, ev)
+			}
+		}
+		if err != nil {
+			return nil, err
+		}
+	}
+	return notes, nil
+}
+
+func focusSessions(ss []store.Session) []focus.Session {
+	out := make([]focus.Session, len(ss))
+	for i, s := range ss {
+		out[i] = focus.Session(s)
+	}
+	return out
+}
+
+func (a *App) focusState() (focus.State, error) {
+	m, err := a.st.States()
+	if err != nil {
+		return focus.State{}, err
+	}
+	from, _ := strconv.ParseInt(m[store.KeyFocusBreakFrom], 10, 64)
+	at, _ := strconv.ParseInt(m[store.KeyFocusBreakAt], 10, 64)
+	return focus.State{BreakFrom: from, BreakAt: at, RecapDay: m[store.KeyFocusRecapDay]}, nil
+}
+
+func (a *App) setFocusState(s focus.State, nowMS int64) error {
+	for _, kv := range [][2]string{
+		{store.KeyFocusBreakFrom, strconv.FormatInt(s.BreakFrom, 10)},
+		{store.KeyFocusBreakAt, strconv.FormatInt(s.BreakAt, 10)},
+		{store.KeyFocusRecapDay, s.RecapDay},
+	} {
+		if err := a.st.SetState(kv[0], kv[1], nowMS); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// StartSession starts a manual session of minutes minutes now. It fails
+// with store.ErrSessionRunning when one is running.
+func (a *App) StartSession(minutes int) (focus.Session, error) {
+	if minutes < 1 || minutes > config.MaxSessionMin {
+		return focus.Session{}, fmt.Errorf("session length %d min, want 1 to %d", minutes, config.MaxSessionMin)
+	}
+	now := a.nowMS()
+	s, err := a.st.StartSession(now, now+int64(minutes)*60_000)
+	return focus.Session(s), err
+}
+
+// StopSession ends the running session now (at its planned end if that has
+// passed, as when trackd was down) with its final counters. It fails with
+// store.ErrNoSession when none is running.
+func (a *App) StopSession() (focus.Session, error) {
+	open, err := a.st.OpenSession()
+	if err != nil {
+		return focus.Session{}, err
+	}
+	if open == nil {
+		return focus.Session{}, store.ErrNoSession
+	}
+	now := a.nowMS()
+	s, err := a.live(focus.Session(*open), now)
+	if err != nil {
+		return focus.Session{}, err
+	}
+	s.EndMS = max(min(now, s.PlannedMS), s.StartMS)
+	ok, err := a.st.EndSession(store.Session(s))
+	if err != nil {
+		return focus.Session{}, err
+	}
+	if !ok {
+		return focus.Session{}, store.ErrNoSession
+	}
+	return s, nil
+}
+
+// live fills a running session's deep, distraction and longest times up to
+// nowMS (capped at its planned end).
+func (a *App) live(s focus.Session, nowMS int64) (focus.Session, error) {
+	end := max(min(nowMS, s.PlannedMS), s.StartMS)
+	vs, labels, err := a.labelled(s.StartMS, end, nowMS)
+	if err != nil {
+		return s, err
+	}
+	ws := focus.WindowStats(vs, labels, s.StartMS, end, a.cfg.Focus)
+	s.DeepMS, s.DistractMS, s.LongestMS = ws.DeepMS, ws.DistractMS, ws.LongestMS
+	return s, nil
+}
+
+// Focus reports the running session (live counters) and this Monday-start
+// week's closed sessions.
+func (a *App) Focus(now time.Time) (report.Focus, error) {
+	nowMS := now.UnixMilli()
+	today := a.midnight(now)
+	ss, err := a.st.Sessions(report.MondayOf(today).UnixMilli(), nowMS+1)
+	if err != nil {
+		return report.Focus{}, err
+	}
+	f := report.Focus{NowMS: nowMS}
+	for i := len(ss) - 1; i >= 0; i-- {
+		s := focus.Session(ss[i])
+		switch {
+		case s.EndMS == 0:
+			live, err := a.live(s, nowMS)
+			if err != nil {
+				return report.Focus{}, err
+			}
+			f.Open = &live
+		case s.StartMS >= today.UnixMilli():
+			f.Today = append(f.Today, s)
+		default:
+			f.Week = append(f.Week, s)
+		}
+	}
+	return f, nil
+}
+
+// Recap is the recap text of the calendar day of day.
+func (a *App) Recap(day time.Time) (string, error) {
+	d, err := a.Day(day)
+	if err != nil {
+		return "", err
+	}
+	return report.Recap(d), nil
+}

@@ -76,6 +76,13 @@ func (a *App) Status() (string, error) {
 	}
 	in := report.StatusInput{TrackedMS: d.TrackedMS, FocusMS: d.Stats.FocusMS, Score: d.Score.Value,
 		Active: d.Stats.ActiveMS > 0, TrackdUp: h.TrackdUp}
+	open, err := a.st.OpenSession()
+	if err != nil {
+		return "", err
+	}
+	if open != nil {
+		in.InSession, in.SessionLeftMS = true, open.PlannedMS-a.nowMS()
+	}
 	if n := len(d.Timeline); n > 0 && d.Timeline[n-1].Open {
 		in.Open = &d.Timeline[n-1]
 	}
