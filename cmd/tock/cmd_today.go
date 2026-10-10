@@ -55,6 +55,9 @@ func cmdToday(env Env, args []string) error {
 		return nil
 	}
 	fmt.Fprintln(env.Stdout, report.ScoreLine(d))
+	if len(d.Goals) > 0 {
+		fmt.Fprintln(env.Stdout, "goals  "+report.GoalsLine(d.Goals))
+	}
 
 	var maxMS int64
 	for _, r := range d.Categories {

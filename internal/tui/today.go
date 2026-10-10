@@ -230,7 +230,7 @@ func rowLabel(r report.Row) string {
 // the timeline is. view and the key handlers must agree on it.
 func (t *todayTab) layout(h int) (catRows, timelineH int) {
 	const minTimeline = 4
-	top := 3 + 1 + len(t.day.Hours.MS) + 1 // title, totals, blank, axis, kinds, blank
+	top := 3 + len(t.notes()) + 1 + len(t.day.Hours.MS) + 1 // title, totals, notes, blank, axis, kinds, blank
 	catRows = max(len(t.day.Categories), 1)
 	catRows = min(catRows, max(h-top-1-minTimeline, 1))
 	return catRows, max(h-top-catRows-1, 1)
@@ -243,7 +243,7 @@ func (t *todayTab) rowAt(line, h int) (int, bool) {
 		return 0, false
 	}
 	catRows, timelineH := t.layout(h)
-	start := 3 + 1 + len(t.day.Hours.MS) + 1 + catRows + 1
+	start := 3 + len(t.notes()) + 1 + len(t.day.Hours.MS) + 1 + catRows + 1
 	i := t.top + line - start
 	if line < start || line >= start+timelineH || i >= len(t.rows()) {
 		return 0, false
@@ -264,6 +264,9 @@ func (t todayTab) view(w, h int, now time.Time) []string {
 	var out []string
 	out = append(out, " "+sHead.Render(title)+"  "+scoreText(d))
 	out = append(out, " "+statsLine(d))
+	for _, n := range t.notes() {
+		out = append(out, fit(n, w))
+	}
 	out = append(out, "")
 	out = append(out, heatmap(d, w)...)
 	out = append(out, "")
@@ -296,6 +299,31 @@ func (t todayTab) view(w, h int, now time.Time) []string {
 		out = append(out, sDim.Render(fmt.Sprintf(" no rows match %q", t.filter)))
 	}
 	return out
+}
+
+// notes are the lines between the stats line and the heatmap: the goals.
+func (t *todayTab) notes() []string {
+	var out []string
+	if len(t.day.Goals) > 0 {
+		out = append(out, goalsLine(t.day.Goals))
+	}
+	return out
+}
+
+// goalsLine is report.GoalsLine with each goal styled by its state.
+func goalsLine(rows []report.GoalRow) string {
+	parts := make([]string, len(rows))
+	for i, r := range rows {
+		st := sText
+		switch r.State {
+		case report.GoalMet, report.GoalOK:
+			st = sDim
+		case report.GoalOver:
+			st = sAccent
+		}
+		parts[i] = st.Render(report.GoalText(r))
+	}
+	return " " + sHead.Render("goals") + "  " + strings.Join(parts, sDim.Render(" · "))
 }
 
 // scoreText is report.ScoreLine with the score in the accent colour.

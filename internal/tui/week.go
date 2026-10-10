@@ -140,6 +140,19 @@ func (t weekTab) view(w, h int) []string {
 		}
 	}
 	out = append(out, "")
+	if len(wk.Goals) > 0 {
+		for _, g := range wk.Goals {
+			st := sText
+			switch {
+			case g.State == report.GoalOver || (!g.Goal.Week && g.Goal.AtMost && g.Held < g.Days):
+				st = sAccent
+			case g.State == report.GoalMet || g.State == report.GoalOK || (!g.Goal.Week && g.Days > 0 && g.Held == g.Days):
+				st = sDim
+			}
+			out = append(out, " "+fit(g.Goal.Text(), 28)+"  "+st.Render(report.WeekGoalText(g)))
+		}
+		out = append(out, "")
+	}
 	var catMax int64
 	for _, c := range wk.Categories {
 		catMax = max(catMax, c.MS)

@@ -83,7 +83,7 @@ func (a *App) Status() (string, error) {
 		return "", err
 	}
 	in := report.StatusInput{TrackedMS: d.TrackedMS, FocusMS: d.Stats.FocusMS, Score: d.Score.Value,
-		Active: d.Stats.ActiveMS > 0, TrackdUp: h.TrackdUp}
+		Active: d.Stats.ActiveMS > 0, TrackdUp: h.TrackdUp, Goals: d.Goals}
 	open, err := a.st.OpenSession()
 	if err != nil {
 		return "", err

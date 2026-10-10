@@ -39,6 +39,7 @@ type Day struct {
 	Timeline   []Row // chronological
 	Stats      stats.Day
 	Score      stats.Score
+	Goals      []GoalRow // filled by the caller from the week to date; nil without goals
 }
 
 // CatRow is one category's time.

@@ -21,6 +21,7 @@ type WeekInput struct {
 	Labels  []classify.Label
 	Targets [7]stats.Target // each day's focus target; future days are not scored
 	Weights stats.Weights
+	Goals   []classify.Goal
 }
 
 // Week is what the week view shows.
@@ -32,6 +33,7 @@ type Week struct {
 	Categories []CatRow // Items unused
 	Projects   []NameMS // top TopProjects
 	Apps       []NameMS // top TopProjects apps and sites (see AppName)
+	Goals      []WeekGoalRow
 }
 
 // DayTotal is one day of a week.
@@ -102,6 +104,9 @@ func BuildWeek(in WeekInput) Week {
 	w.Projects = projects[:min(len(projects), TopProjects)]
 	sortNameMS(apps)
 	w.Apps = apps[:min(len(apps), TopProjects)]
+	if len(in.Goals) > 0 {
+		w.Goals = WeekGoals(in.Goals, in.Views, in.Labels, in.Monday, in.NowMS)
+	}
 	for i, day := range splitDays(in.Monday, in.Views, in.Labels) {
 		if w.Days[i].Future {
 			continue

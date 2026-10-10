@@ -14,6 +14,7 @@ type StatusInput struct {
 	TrackdUp           bool
 	InSession          bool  // a manual focus session is running
 	SessionLeftMS      int64 // its time left
+	Goals              []GoalRow
 }
 
 // Status renders the line `tock status` prints, for example
@@ -28,6 +29,13 @@ func Status(in StatusInput) string {
 	}
 	if in.FocusMS > 0 {
 		parts = append(parts, "focus "+Dur(in.FocusMS))
+	}
+	if len(in.Goals) > 0 {
+		held, over := GoalsHeld(in.Goals)
+		parts = append(parts, "goals "+strconv.Itoa(held)+"/"+strconv.Itoa(len(in.Goals)))
+		if over != "" {
+			parts = append(parts, "over "+over)
+		}
 	}
 	if r := in.Open; r != nil {
 		switch {

@@ -145,8 +145,17 @@ func (a *App) Day(day time.Time) (report.Day, error) {
 	if err != nil {
 		return report.Day{}, err
 	}
-	return report.BuildDay(report.DayInput{Date: from, NowMS: now, Views: vs, Labels: labels, Ignored: ignored,
-		Target: target, Weights: a.cfg.Score}), nil
+	d := report.BuildDay(report.DayInput{Date: from, NowMS: now, Views: vs, Labels: labels, Ignored: ignored,
+		Target: target, Weights: a.cfg.Score})
+	if goals := a.rs.Goals; len(goals) > 0 {
+		mon := report.MondayOf(from)
+		wvs, wls, err := a.labelled(mon.UnixMilli(), to.UnixMilli(), now)
+		if err != nil {
+			return report.Day{}, err
+		}
+		d.Goals = report.Goals(goals, wvs, wls, from, mon)
+	}
+	return d, nil
 }
 
 // Week reports the Monday-start week containing anyDay.
@@ -157,7 +166,7 @@ func (a *App) Week(anyDay time.Time) (report.Week, error) {
 	if err != nil {
 		return report.Week{}, err
 	}
-	in := report.WeekInput{Monday: mon, NowMS: now, Views: vs, Labels: labels, Weights: a.cfg.Score}
+	in := report.WeekInput{Monday: mon, NowMS: now, Views: vs, Labels: labels, Weights: a.cfg.Score, Goals: a.rs.Goals}
 	today := a.midnight(a.now())
 	for i := range in.Targets {
 		day := mon.AddDate(0, 0, i)
