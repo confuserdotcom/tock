@@ -16,7 +16,7 @@ CODESIGN_TIMEOUT ?= 60
 # receives SIGALRM and exits 142 when it overruns.
 WITH_TIMEOUT = perl -e 'alarm shift; exec @ARGV or exit 127'
 
-.PHONY: build test test-quick vet clean bundle print-dr
+.PHONY: build test test-quick vet clean bundle print-dr cert cert-trust dump dump-bg dump-stop
 
 build:
 	CGO_ENABLED=1 go build -ldflags "-X main.version=$(VERSION)" -o bin/trackd ./cmd/trackd
@@ -85,3 +85,49 @@ bundle:
 print-dr:
 	@codesign -d -r- "$(BUNDLE)" 2>&1 | grep -E '^designated|# designated' || true
 	@codesign -dv "$(BUNDLE)" 2>&1 | grep -E '^CDHash' || true
+
+# cert: create the local code-signing identity (idempotent). Public cert only
+# is kept on disk; key.pem and the p12 are deleted.
+cert:
+	@if security find-certificate -c tock-local-codesign >/dev/null 2>&1; then \
+		echo "cert: tock-local-codesign already in keychain"; exit 0; \
+	fi; \
+	D=$$(mktemp -d) && chmod 700 "$$D" || exit 1; \
+	rc=0; \
+	{ \
+		openssl req -x509 -newkey rsa:2048 -nodes -keyout "$$D/key.pem" -out "$$D/cert.pem" -days 3650 -config packaging/cs.cnf \
+		&& P=$$(openssl rand -hex 16) \
+		&& openssl pkcs12 -export -legacy -name tock-local-codesign -inkey "$$D/key.pem" -in "$$D/cert.pem" -out "$$D/tock.p12" -passout pass:$$P \
+		&& security import "$$D/tock.p12" -k $(HOME)/Library/Keychains/login.keychain-db -P $$P -T /usr/bin/codesign -x \
+		&& mkdir -p "$(dir $(CERT_PEM))" && chmod 700 "$(dir $(CERT_PEM))" \
+		&& cp "$$D/cert.pem" "$(CERT_PEM)" && chmod 644 "$(CERT_PEM)"; \
+	} || rc=$$?; \
+	rm -rf "$$D"; \
+	exit $$rc
+
+# cert-trust: a person runs this (macOS authorization dialog). Never run by an executor.
+cert-trust:
+	security add-trusted-cert -r trustRoot -p codeSign -k $(HOME)/Library/Keychains/login.keychain-db "$(CERT_PEM)"
+	@security find-identity -v -p codesigning | grep -q '"tock-local-codesign"' \
+		&& echo "cert-trust: tock-local-codesign is a valid code-signing identity" \
+		|| { echo "cert-trust: tock-local-codesign is still not a valid code-signing identity" >&2; exit 1; }
+
+# dump: run the bundle itself as the responsible process (RESEARCH Pitfall 2).
+dump:
+	@out="$${DUMP_OUT:-}"; \
+	if [ -z "$$out" ]; then \
+		out=$$(tty 2>/dev/null) || { echo "not a terminal: set DUMP_OUT=/path/to/file" >&2; exit 1; }; \
+	fi; \
+	open -W -n -a "$(BUNDLE)" --stdout "$$out" --stderr "$$out" --args --dump
+
+dump-bg:
+	@[ -n "$(DUMP_OUT)" ] || { echo "dump-bg requires DUMP_OUT=/path/to/file" >&2; exit 1; }
+	@install -m 600 /dev/null "$(DUMP_OUT)"
+	open -n -g -a "$(BUNDLE)" --stdout "$(DUMP_OUT)" --stderr "$(DUMP_OUT)" --args --dump
+
+dump-stop:
+	@if pkill -INT -f '$(BUNDLE)/Contents/MacOS/[t]rackd --dump'; then \
+		echo "dump-stop: sent SIGINT"; \
+	else \
+		echo "dump-stop: no dump process running (ok)"; \
+	fi

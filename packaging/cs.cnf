@@ -1,0 +1,15 @@
+# OpenSSL req config for the local tock code-signing certificate (plan 01-08).
+# Self-signed, leaf only (CA:false), usable for code signing and nothing else.
+[req]
+prompt = no
+distinguished_name = dn
+x509_extensions = ext
+
+[dn]
+CN = tock-local-codesign
+
+[ext]
+basicConstraints = critical, CA:false
+keyUsage = critical, digitalSignature
+extendedKeyUsage = critical, codeSigning
+subjectKeyIdentifier = hash
