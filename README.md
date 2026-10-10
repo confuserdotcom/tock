@@ -41,7 +41,9 @@ make install       # builds, signs, installs, starts trackd, runs tock doctor
 `make install` puts:
 - `tock` in `~/.local/bin`, so add that directory to `PATH`;
 - the signed `trackd.app` in `~/.local/share/tock`;
-- a launchd agent, `com.tock.trackd`, that starts at login.
+- a launchd agent, `com.tock.trackd`, that starts at login;
+- the menu bar app `tock.app` and its agent `com.tock.bar` (see
+  [Menu bar and notifications](#menu-bar-and-notifications)).
 
 It also writes the starter `~/.config/tock/rules.toml` if you have none.
 
@@ -52,6 +54,7 @@ ok  rules: 22 rules, 0 learned
 ok  config: defaults (no config.toml)
 ok  trackd: running (version 3f2a1c0)
 ok  accessibility: granted
+ok  notifications: native, with buttons (menu bar)
 ok  automation: no browser denied
 ok  suggestions: off (set ANTHROPIC_API_KEY to enable)
 ```
@@ -346,6 +349,35 @@ project = "ATLAS"
 `t` on a meeting row relabels it. Answered time away wins over an event,
 and tock does not ask about time an event explains.
 
+## Menu bar and notifications
+
+`make install` also installs `tock.app`, a small menu bar app that runs at
+login. The first time it starts, macOS asks whether **tock** may send
+notifications; allow it.
+
+The menu bar shows today's tracked time (`◷ 2h54`), or the countdown while
+a focus session runs (`◉ 18:42`). A `!` means trackd is not running. The
+menu has:
+
+- the day at a glance: focus, score and unlabelled time;
+- items to start a session (your presets) or stop the running one.
+
+With the app running and allowed to notify, focus notifications come from
+tock with buttons:
+
+| Notification | Buttons |
+|---|---|
+| distracted in a session | Stop session |
+| session done | Start again |
+| break due | Snooze 30 min |
+| time away | your recent away labels, then Leave idle |
+
+Without the app, or with its notifications turned off, trackd sends plain
+notifications as before. `tock doctor` says which is in use. **Quit tock
+menu bar** keeps it closed until the next login; `make install` starts it
+again. Its log is `~/.local/state/tock/tockbar.log`, and it never logs
+notification text.
+
 ## Backup
 
 `tock backup` writes `~/.local/share/tock/backups/tock-YYYYMMDD-HHMMSS.tar.gz`
@@ -366,7 +398,8 @@ To restore:
 
 ## Uninstall
 
-`make uninstall` stops trackd and removes its launchd agent. Your data stays.
+`make uninstall` stops trackd and the menu bar app and removes their launchd
+agents. Your data stays.
 To delete the data too, remove `~/.local/share/tock`, `~/.local/state/tock`
 and `~/.config/tock`.
 
