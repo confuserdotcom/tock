@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"tock/internal/app"
 	"tock/internal/classify"
@@ -19,11 +20,23 @@ type inboxTab struct {
 	loaded  bool
 	cursor  int
 	top     int
-	height  int      // list rows that fit; set by Model.Update
-	ignored []string // keys ignored this session, for u
+	height  int                      // list rows that fit; set by Model.Update
+	ignored []string                 // keys ignored this session, for u
+	sugg    map[string]classify.Want // valid suggestions by key
 }
 
 func (t *inboxTab) count() int { return len(t.items) }
+
+// suggested counts the listed keys that have a suggestion.
+func (t *inboxTab) suggested() int {
+	n := 0
+	for _, it := range t.items {
+		if _, ok := t.sugg[it.Key]; ok {
+			n++
+		}
+	}
+	return n
+}
 
 func (t *inboxTab) set(items []classify.Item) {
 	var key string
@@ -74,6 +87,15 @@ func (m Model) inboxKey(k string) (tea.Model, tea.Cmd) {
 		if it := t.selected(); it != nil {
 			m.picker = newPicker(m.src, pickLearn, nil, it.Key, "")
 		}
+	case "a":
+		if it := t.selected(); it != nil {
+			w, ok := t.sugg[it.Key]
+			if !ok {
+				m.setFlash("no suggestion · enter to label", true)
+				return m, nil
+			}
+			return m, m.propose(it.Key, w)
+		}
 	case "o":
 		if it := t.selected(); it != nil {
 			m.picker = newPicker(m.src, pickOnce, nil, it.Key, spansWhat(it.Spans, it.TotalMS))
@@ -119,10 +141,11 @@ func (t inboxTab) view(w, h int) []string {
 	for _, it := range t.items {
 		total += it.TotalMS
 	}
-	out := []string{
-		" " + sHead.Render("Inbox") + sDim.Render(fmt.Sprintf(" · last %d days · %d keys · %s unlabelled", InboxDays, len(t.items), report.Dur(total))),
-		"",
+	head := fmt.Sprintf(" · last %d days · %d keys · %s unlabelled", InboxDays, len(t.items), report.Dur(total))
+	if n := t.suggested(); n > 0 {
+		head += fmt.Sprintf(" · %d suggested", n)
 	}
+	out := []string{" " + sHead.Render("Inbox") + sDim.Render(head), ""}
 	if len(t.items) == 0 {
 		return append(out, " "+sDim.Render("Inbox empty: everything is labelled."))
 	}
@@ -134,8 +157,18 @@ func (t inboxTab) view(w, h int) []string {
 		if it.Example != "" {
 			ex = fmt.Sprintf("%q", report.Safe(it.Example))
 		}
+		rest := max(w-keyW-21, 0)
+		tail := fit(ex, rest)
+		if wnt, ok := t.sugg[it.Key]; ok {
+			sug := "→ " + report.Safe(report.LabelText(wnt.Category, wnt.Project))
+			if sw := ansi.StringWidth(sug); sw+2 > rest {
+				tail = fit(sug, rest)
+			} else {
+				tail = fit(ex, rest-sw-2) + "  " + sug
+			}
+		}
 		line := fitRight(report.Dur(it.TotalMS), 5) + fitRight(plural(it.Spans, "span"), 10) + "  " +
-			fit(report.Safe(it.Key), keyW) + "  " + sDim.Render(fit(ex, max(w-keyW-21, 0)))
+			fit(report.Safe(it.Key), keyW) + "  " + sDim.Render(tail)
 		if i == t.cursor {
 			out = append(out, sSel.Render("▶"+line))
 		} else {

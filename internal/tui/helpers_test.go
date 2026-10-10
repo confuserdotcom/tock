@@ -9,11 +9,19 @@ import (
 
 	"tock/internal/app"
 	"tock/internal/apptest"
+	"tock/internal/suggest"
 )
 
 // newModel opens a seeded app and returns a 100×30 model with its first
+// newModel opens a seeded app and returns a 100×30 model with its first
 // load done. The refresh timer is off; tests send tickMsg themselves.
 func newModel(t *testing.T, e *apptest.Env) Model {
+	t.Helper()
+	return newModelWith(t, e, nil)
+}
+
+// newModelWith is newModel with a suggestion client (nil: none).
+func newModelWith(t *testing.T, e *apptest.Env, c suggest.Client) Model {
 	t.Helper()
 	a, err := app.Open(app.Paths{DB: e.DB, Rules: e.Rules, Learned: e.Learned, Config: e.Config}, e.NowFunc())
 	if err != nil {
@@ -21,6 +29,9 @@ func newModel(t *testing.T, e *apptest.Env) Model {
 	}
 	t.Cleanup(func() { a.Close() })
 	m := New(a, e.NowFunc())
+	if c != nil {
+		m = m.WithSuggester(c)
+	}
 	m.tick = nil
 	m.clockTick = nil
 	m = step(t, m, tea.WindowSizeMsg{Width: 100, Height: 30})

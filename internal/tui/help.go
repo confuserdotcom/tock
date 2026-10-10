@@ -12,7 +12,7 @@ var helpText = []string{
 	"                   h/l previous/next day · . today · / filter",
 	"                   t tag row · p project only · T tag and learn a rule",
 	"  week             j/k day · h/l week · . this week · enter open day",
-	"  inbox            enter learn a rule · o tag once · x ignore · u undo",
+	"  inbox            enter learn a rule · a accept suggestion · o tag once · x ignore · u undo",
 	"  focus            s start a session (presets or custom) · x stop",
 	"  pickers          type a prefix · ↑/↓ · enter · esc",
 	"",

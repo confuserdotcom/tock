@@ -12,6 +12,7 @@ import (
 	"tock/internal/app"
 	"tock/internal/classify"
 	"tock/internal/report"
+	"tock/internal/suggest"
 )
 
 const (
@@ -62,6 +63,10 @@ type Model struct {
 	flashUntil  time.Time
 	loading     bool
 	reloadAgain bool
+
+	suggester  suggest.Client // nil: no key, no suggestions
+	suggesting bool           // a background run is in flight
+	suggestAt  time.Time      // earliest start of the next run
 }
 
 // New returns the model for an open app. now is the clock used for "today"
@@ -85,6 +90,7 @@ type loadedMsg struct {
 	day       *report.Day
 	week      *report.Week
 	focus     *report.Focus
+	sugg      map[string]classify.Want
 	err       error
 }
 
@@ -123,6 +129,9 @@ func (m *Model) load() tea.Cmd {
 			}
 			msg.focus = &f
 			if msg.items, msg.err = a.Inbox(InboxDays); msg.err != nil {
+				return
+			}
+			if msg.sugg, msg.err = a.Suggestions(); msg.err != nil {
 				return
 			}
 			switch tab {
@@ -190,6 +199,7 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.setFlash("load failed: "+msg.err.Error(), true)
 		} else {
 			m.inbox.set(msg.items)
+			m.inbox.sugg = msg.sugg
 			if msg.day != nil {
 				m.today.set(*msg.day, m.now())
 			}
@@ -201,14 +211,17 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 		clock := m.maybeClock()
+		run := m.maybeSuggest()
 		if m.reloadAgain {
 			m.reloadAgain = false
-			return m, tea.Batch(m.load(), clock)
+			return m, tea.Batch(m.load(), clock, run)
 		}
-		return m, clock
+		return m, tea.Batch(clock, run)
 	case clockMsg:
 		m.clockOn = false
 		return m, m.maybeClock()
+	case suggestedMsg:
+		return m.suggested(msg)
 	case doneMsg:
 		if msg.err != nil {
 			m.setFlash(msg.err.Error(), true)
@@ -416,7 +429,7 @@ func (m Model) footer() string {
 	case m.tab == tabFocus:
 		hint = "s start · x stop · ? help"
 	default:
-		hint = "enter learn rule · o tag once · x ignore · u undo · ? help"
+		hint = "enter learn rule · a accept suggestion · o tag once · x ignore · u undo · ? help"
 	}
 	return sDim.Render(fit(hint, m.width))
 }

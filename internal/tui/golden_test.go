@@ -55,6 +55,13 @@ func TestGoldenInbox(t *testing.T) {
 	golden.RequireEqual(t, screen(m))
 }
 
+// Phase 6: the inbox with one suggestion.
+func TestGoldenInboxSuggested(t *testing.T) {
+	m, _ := withSuggestions(t, &fakeSuggester{answer: studyTock})
+	m = press(t, m, "3")
+	golden.RequireEqual(t, screen(m))
+}
+
 func TestGoldenPicker(t *testing.T) {
 	m, e := seeded(t)
 	e.Heartbeat(t, e.Clock.UnixMilli())

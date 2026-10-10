@@ -14,6 +14,10 @@ func cmdTUI(env Env) error {
 		return err
 	}
 	defer a.Close()
-	_, err = tea.NewProgram(tui.New(a, env.Now), tea.WithInput(env.Stdin), tea.WithOutput(env.Stdout)).Run()
+	m := tui.New(a, env.Now)
+	if env.APIKey != "" {
+		m = m.WithSuggester(env.NewClient(env.APIKey))
+	}
+	_, err = tea.NewProgram(m, tea.WithInput(env.Stdin), tea.WithOutput(env.Stdout)).Run()
 	return err
 }
