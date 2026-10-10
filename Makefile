@@ -8,8 +8,9 @@ BUNDLE ?= $(TOCK_DATA)/trackd.app
 BUNDLE_ID := com.tock.trackd
 AGENT_LABEL := com.tock.trackd
 SIGN_ID ?= tock-local-codesign
-# auto | cert | adhoc
-SIGN_MODE ?= auto
+# auto | cert | adhoc. Pinned to cert (plan 01-09): a missing identity is a hard
+# error, never a silent switch to ad-hoc that would orphan TCC grants.
+SIGN_MODE ?= cert
 CERT_PEM ?= $(TOCK_DATA)/codesign/tock-local-codesign.pem
 CODESIGN_TIMEOUT ?= 60
 # macOS has no GNU timeout. A perl alarm survives exec, so the wrapped command
