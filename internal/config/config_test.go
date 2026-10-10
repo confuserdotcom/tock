@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -20,7 +21,7 @@ func write(t *testing.T, body string) string {
 
 func TestLoadMissingIsDefault(t *testing.T) {
 	c, err := Load(filepath.Join(t.TempDir(), File))
-	if err != nil || c != Default() || c.Score != stats.DefaultWeights {
+	if err != nil || !reflect.DeepEqual(c, Default()) || c.Score != stats.DefaultWeights {
 		t.Fatalf("Load(missing) = %+v, %v", c, err)
 	}
 }
@@ -47,7 +48,7 @@ func TestLoadPartialKeepsDefaults(t *testing.T) {
 }
 
 func TestLoadEmptyFile(t *testing.T) {
-	if c, err := Load(write(t, "")); err != nil || c != Default() {
+	if c, err := Load(write(t, "")); err != nil || !reflect.DeepEqual(c, Default()) {
 		t.Fatalf("Load(empty) = %+v, %v", c, err)
 	}
 }
@@ -65,7 +66,88 @@ func TestLoadErrors(t *testing.T) {
 		if err == nil || !strings.HasPrefix(err.Error(), tt.want) {
 			t.Errorf("Load(%q) error = %v, want prefix %q", tt.body, err, tt.want)
 		}
-		if c != Default() {
+		if !reflect.DeepEqual(c, Default()) {
+			t.Errorf("Load(%q) config = %+v, want Default()", tt.body, c)
+		}
+	}
+}
+
+func TestFocusDefaults(t *testing.T) {
+	f := Default().Focus
+	want := Focus{
+		Presets:      []int{25, 50, 90},
+		BreakAfterMS: 50 * 60_000, BreakRepeatMS: 10 * 60_000,
+		DistractGraceMS: 60_000, DistractRepeatMS: 120_000,
+		AutoMinMS: 25 * 60_000, RecapAt: 21 * 60, Notify: true,
+		MeetingApps: []string{"us.zoom.xos", "com.apple.FaceTime", "com.microsoft.teams2",
+			"com.microsoft.teams", "Cisco-Systems.Spark", "com.cisco.webexmeetingsapp"},
+		MeetingHosts: []string{"meet.google.com", "teams.microsoft.com", "app.zoom.us", "whereby.com"},
+	}
+	if !reflect.DeepEqual(f, want) {
+		t.Fatalf("DefaultFocus = %+v\nwant %+v", f, want)
+	}
+	f.Presets[0] = 1
+	if Default().Focus.Presets[0] != 25 {
+		t.Fatal("Default must return fresh slices")
+	}
+}
+
+func TestFocusValid(t *testing.T) {
+	c, err := Load(write(t, `[focus]
+presets = [30, 45]
+break_after = 40
+break_repeat = 5
+distract_grace = 30
+distract_repeat = 90
+auto_min = 20
+recap = "08:30"
+notify = false
+meeting_apps = ["a.b"]
+meeting_hosts = []
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := Focus{
+		Presets: []int{30, 45}, BreakAfterMS: 40 * 60_000, BreakRepeatMS: 5 * 60_000,
+		DistractGraceMS: 30_000, DistractRepeatMS: 90_000, AutoMinMS: 20 * 60_000,
+		RecapAt: 8*60 + 30, Notify: false, MeetingApps: []string{"a.b"}, MeetingHosts: []string{},
+	}
+	if !reflect.DeepEqual(c.Focus, want) {
+		t.Fatalf("focus = %+v\nwant %+v", c.Focus, want)
+	}
+	if c.Score != stats.DefaultWeights {
+		t.Fatalf("score = %+v", c.Score)
+	}
+}
+
+func TestFocusRecapOff(t *testing.T) {
+	c, err := Load(write(t, "[focus]\nrecap = \"\"\n"))
+	if err != nil || c.Focus.RecapAt != -1 {
+		t.Fatalf("recap off: %+v, %v", c.Focus, err)
+	}
+}
+
+func TestFocusErrors(t *testing.T) {
+	tests := []struct{ body, want string }{
+		{"[focus]\npresets = []\n", "config.toml: [focus] presets is empty, want at least one length"},
+		{"[focus]\npresets = [25, 0]\n", "config.toml: [focus] presets has 0, want 1 to 240 minutes"},
+		{"[focus]\npresets = [241]\n", "config.toml: [focus] presets has 241, want 1 to 240 minutes"},
+		{"[focus]\nbreak_after = 0\n", "config.toml: [focus] break_after = 0, want 1 to 480"},
+		{"[focus]\nbreak_repeat = 241\n", "config.toml: [focus] break_repeat = 241, want 1 to 240"},
+		{"[focus]\ndistract_grace = 3601\n", "config.toml: [focus] distract_grace = 3601, want 1 to 3600"},
+		{"[focus]\ndistract_repeat = -1\n", "config.toml: [focus] distract_repeat = -1, want 1 to 3600"},
+		{"[focus]\nauto_min = 4\n", "config.toml: [focus] auto_min = 4, want 5 to 240"},
+		{"[focus]\nrecap = \"25:00\"\n", `config.toml: [focus] recap = "25:00", want "HH:MM" or ""`},
+		{"[focus]\nrecap = \"9:00\"\n", `config.toml: [focus] recap = "9:00", want "HH:MM" or ""`},
+		{"[focus]\nx = 1\n", "config.toml: unknown key focus.x"},
+	}
+	for _, tt := range tests {
+		c, err := Load(write(t, tt.body))
+		if err == nil || err.Error() != tt.want {
+			t.Errorf("Load(%q) error = %v, want %q", tt.body, err, tt.want)
+		}
+		if !reflect.DeepEqual(c, Default()) {
 			t.Errorf("Load(%q) config = %+v, want Default()", tt.body, c)
 		}
 	}
