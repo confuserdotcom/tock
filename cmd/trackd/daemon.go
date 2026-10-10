@@ -46,6 +46,10 @@ type daemonOpts struct {
 	FocusEvery time.Duration
 	// Notifier sends focus notifications; nil drops them.
 	Notifier Notifier
+	// Remover blocks distractions for the focus guard; nil never blocks.
+	Remover Remover
+	// Tock is the tock binary session hooks run for Slack; "" = none.
+	Tock string
 	// Camera and Mic report a camera or a microphone in use; nil means
 	// never. Either one means a call.
 	Camera, Mic func() bool

@@ -98,6 +98,8 @@ func main() {
 		NewSource: newSource,
 		Stderr:    os.Stderr,
 		Notifier:  osascriptNotifier{},
+		Remover:   defaultRemover(),
+		Tock:      findTock(),
 		Camera:    collect.CameraInUse,
 		Mic:       collect.MicInUse,
 		Calendar:  collect.EventKit{},

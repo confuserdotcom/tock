@@ -78,13 +78,48 @@ static NSString *const kSafariWarmScript =
      "end tell\n"
      "end timeout";
 
+// Close scripts for the focus guard. Constant like the others; the caller
+// checks the front tab's host with the URL script first.
+static NSString *const kCloseChromeScript =
+    @"with timeout of 1.0 seconds\n"
+     "tell application \"Google Chrome\"\n"
+     "if (count of windows) is 0 then return \"\"\n"
+     "close active tab of front window\n"
+     "return \"ok\"\n"
+     "end tell\n"
+     "end timeout";
+static NSString *const kCloseArcScript =
+    @"with timeout of 1.0 seconds\n"
+     "tell application \"Arc\"\n"
+     "if (count of windows) is 0 then return \"\"\n"
+     "close active tab of front window\n"
+     "return \"ok\"\n"
+     "end tell\n"
+     "end timeout";
+static NSString *const kCloseBraveScript =
+    @"with timeout of 1.0 seconds\n"
+     "tell application \"Brave Browser\"\n"
+     "if (count of windows) is 0 then return \"\"\n"
+     "close active tab of front window\n"
+     "return \"ok\"\n"
+     "end tell\n"
+     "end timeout";
+static NSString *const kCloseSafariScript =
+    @"with timeout of 1.0 seconds\n"
+     "tell application \"Safari\"\n"
+     "if (count of windows) is 0 then return \"\"\n"
+     "close current tab of front window\n"
+     "return \"ok\"\n"
+     "end tell\n"
+     "end timeout";
+
 // Self-test scripts exercise the same execution path without a browser.
 static NSString *const kSelftestURLScript =
     @"return \"https://user:pw@Example.COM:8080/a/b/?q=1#f\"";
 static NSString *const kSelftestErrorScript =
     @"error \"selftest\" number -1712";
 
-#define TOCK_SCRIPT_SLOTS 12
+#define TOCK_SCRIPT_SLOTS 20
 
 // slot maps (kind, warm) to a cache index, or -1 for an unknown kind.
 static int tock_script_slot(int kind, int warm) {
@@ -96,6 +131,10 @@ static int tock_script_slot(int kind, int warm) {
     case TOCK_SCRIPT_SAFARI: base = 3; break;
     case TOCK_SCRIPT_SELFTEST_URL: base = 4; break;
     case TOCK_SCRIPT_SELFTEST_ERROR: base = 5; break;
+    case TOCK_SCRIPT_CLOSE_CHROME: base = 6; break;
+    case TOCK_SCRIPT_CLOSE_ARC: base = 7; break;
+    case TOCK_SCRIPT_CLOSE_BRAVE: base = 8; break;
+    case TOCK_SCRIPT_CLOSE_SAFARI: base = 9; break;
     default: return -1;
     }
     return base * 2 + (warm ? 1 : 0);
@@ -109,6 +148,10 @@ static NSString *tock_script_source(int kind, int warm) {
     case TOCK_SCRIPT_SAFARI: return warm ? kSafariWarmScript : kSafariScript;
     case TOCK_SCRIPT_SELFTEST_URL: return kSelftestURLScript;
     case TOCK_SCRIPT_SELFTEST_ERROR: return kSelftestErrorScript;
+    case TOCK_SCRIPT_CLOSE_CHROME: return kCloseChromeScript;
+    case TOCK_SCRIPT_CLOSE_ARC: return kCloseArcScript;
+    case TOCK_SCRIPT_CLOSE_BRAVE: return kCloseBraveScript;
+    case TOCK_SCRIPT_CLOSE_SAFARI: return kCloseSafariScript;
     }
     return nil;
 }
@@ -185,4 +228,29 @@ void tock_automation_check(const char *bundle, int ask) {
         goAutomationResult(copy, (int)status);
         free(copy);
     });
+}
+
+static int tock_hide_app_main(NSString *bundle) {
+    int n = 0;
+    for (NSRunningApplication *app in [NSRunningApplication runningApplicationsWithBundleIdentifier:bundle]) {
+        if ([app hide]) {
+            n++;
+        }
+    }
+    return n;
+}
+
+int tock_hide_app(const char *bundle) {
+    NSString *b = [NSString stringWithUTF8String:bundle];
+    if (b == nil) {
+        return 0;
+    }
+    if ([NSThread isMainThread]) {
+        return tock_hide_app_main(b);
+    }
+    __block int n = 0;
+    dispatch_sync(dispatch_get_main_queue(), ^{
+        n = tock_hide_app_main(b);
+    });
+    return n;
 }

@@ -3,6 +3,7 @@ package main
 import (
 	"log/slog"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"tock/internal/app"
@@ -19,9 +20,13 @@ const defaultFocusEvery = 5 * time.Second
 // error is logged (once per distinct message) and the tick skipped.
 type focusLoop struct {
 	open    func() (*app.App, error)
-	camera  func() bool // nil: no camera check
-	mic     func() bool // nil: no microphone check
-	notify  Notifier    // nil: notifications dropped
+	camera  func() bool         // nil: no camera check
+	mic     func() bool         // nil: no microphone check
+	notify  Notifier            // nil: notifications dropped
+	remover Remover             // nil: the focus guard never blocks
+	hooks   func(argv []string) // nil: session hooks dropped
+	tock    string              // the tock binary for Slack; "" = none
+	goos    string
 	log     *slog.Logger
 	a       *app.App
 	lastErr string
@@ -40,7 +45,8 @@ func newFocusLoop(o daemonOpts, log *slog.Logger) *focusLoop {
 	now := func() time.Time { return time.UnixMilli(o.Now()) }
 	return &focusLoop{
 		open:   func() (*app.App, error) { return app.Open(paths, now) },
-		camera: o.Camera, mic: o.Mic, notify: o.Notifier, log: log,
+		camera: o.Camera, mic: o.Mic, notify: o.Notifier, remover: o.Remover,
+		tock: o.Tock, goos: runtime.GOOS, log: log,
 	}
 }
 
@@ -57,12 +63,30 @@ func (f *focusLoop) tick() {
 		f.log.Info("focus engine started")
 	}
 	call := (f.camera != nil && f.camera()) || (f.mic != nil && f.mic())
-	notes, err := f.a.FocusTick(call)
+	notes, g, err := f.a.GuardTick(call)
 	if err != nil {
 		f.warn("focus tick failed", err)
 		return
 	}
 	f.lastErr = ""
+	if f.hooks != nil {
+		cfg := f.a.Config()
+		if g.Stop {
+			for _, argv := range hookCommands(cfg, f.tock, nil, f.goos) {
+				f.hooks(argv)
+			}
+		}
+		if g.Start != nil {
+			for _, argv := range hookCommands(cfg, f.tock, g.Start, f.goos) {
+				f.hooks(argv)
+			}
+		}
+	}
+	if g.Block != nil {
+		if n, ok := f.block(g.Block); ok {
+			notes = append(notes, n)
+		}
+	}
 	if !f.a.Config().Focus.Notify {
 		return
 	}
@@ -112,6 +136,9 @@ func startFocus(o daemonOpts, log *slog.Logger) (stop func()) {
 	f := newFocusLoop(o, log)
 	t := time.NewTicker(every)
 	done, finished := make(chan struct{}), make(chan struct{})
+	w := newHookWorker(log)
+	f.hooks = w.enqueue
+	go w.loop(done)
 	go func() {
 		defer close(finished)
 		for {

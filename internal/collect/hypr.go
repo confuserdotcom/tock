@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -326,4 +327,41 @@ func ClearIdle(path string) error {
 		return err
 	}
 	return nil
+}
+
+// HyprHideCommand is the request that moves every window of class to the
+// special workspace "tock", out of sight (togglespecialworkspace tock shows
+// it again).
+func HyprHideCommand(class string) string {
+	return "dispatch movetoworkspacesilent special:tock,class:^(" + regexp.QuoteMeta(class) + ")$"
+}
+
+// HyprHide sends HyprHideCommand to the Hyprland instance of this session.
+// Hyprland answers "ok" on success.
+func HyprHide(class string) (bool, error) {
+	dir, err := HyprDir(os.Getenv("XDG_RUNTIME_DIR"), os.Getenv("HYPRLAND_INSTANCE_SIGNATURE"))
+	if err != nil {
+		return false, err
+	}
+	return hyprRequest(dir, HyprHideCommand(class))
+}
+
+func hyprRequest(dir, cmd string) (bool, error) {
+	c, err := net.DialTimeout("unix", filepath.Join(dir, ".socket.sock"), time.Second)
+	if err != nil {
+		return false, err
+	}
+	defer c.Close()
+	_ = c.SetDeadline(time.Now().Add(time.Second))
+	if _, err := c.Write([]byte(cmd)); err != nil {
+		return false, err
+	}
+	b, err := io.ReadAll(io.LimitReader(c, 4096))
+	if err != nil {
+		return false, err
+	}
+	if s := strings.TrimSpace(string(b)); s != "ok" {
+		return false, fmt.Errorf("hyprland: %s", s)
+	}
+	return true, nil
 }

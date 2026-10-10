@@ -221,3 +221,42 @@ func TestHyprlandSourceSocketLost(t *testing.T) {
 		t.Fatal("no socket must fail Run")
 	}
 }
+
+func TestHyprHide(t *testing.T) {
+	if got := HyprHideCommand("org.mozilla.firefox"); got != `dispatch movetoworkspacesilent special:tock,class:^(org\.mozilla\.firefox)$` {
+		t.Fatalf("command = %q", got)
+	}
+	dir, err := os.MkdirTemp("", "hy")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(dir)
+	ln, err := net.Listen("unix", filepath.Join(dir, ".socket.sock"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close()
+	got := make(chan string, 2)
+	go func() {
+		for _, reply := range []string{"ok", "Invalid dispatcher"} {
+			c, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			b := make([]byte, 512)
+			n, _ := c.Read(b)
+			got <- string(b[:n])
+			c.Write([]byte(reply))
+			c.Close()
+		}
+	}()
+	if ok, err := hyprRequest(dir, HyprHideCommand("kitty")); !ok || err != nil {
+		t.Fatalf("hide = %v, %v", ok, err)
+	}
+	if s := <-got; s != HyprHideCommand("kitty") {
+		t.Fatalf("sent %q", s)
+	}
+	if ok, err := hyprRequest(dir, "x"); ok || err == nil {
+		t.Fatalf("error reply = %v, %v", ok, err)
+	}
+}

@@ -6,6 +6,11 @@
 #define TOCK_SCRIPT_ARC 2
 #define TOCK_SCRIPT_BRAVE 3
 #define TOCK_SCRIPT_SAFARI 4
+// Close the front tab of the front window (focus guard).
+#define TOCK_SCRIPT_CLOSE_CHROME 21
+#define TOCK_SCRIPT_CLOSE_ARC 22
+#define TOCK_SCRIPT_CLOSE_BRAVE 23
+#define TOCK_SCRIPT_CLOSE_SAFARI 24
 #define TOCK_SCRIPT_SELFTEST_URL 90
 #define TOCK_SCRIPT_SELFTEST_ERROR 91
 
@@ -19,5 +24,9 @@ int tock_run_script(int kind, int warm, char *out, int outlen, int *errnum);
 // background queue (never the main thread) and reports it through the Go
 // export goAutomationResult. ask non-zero lets macOS show the consent prompt.
 void tock_automation_check(const char *bundle, int ask);
+
+// tock_hide_app hides every running app with bundle id bundle, on the main
+// thread. It returns how many were asked to hide.
+int tock_hide_app(const char *bundle);
 
 #endif
