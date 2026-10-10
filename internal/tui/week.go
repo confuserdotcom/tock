@@ -164,12 +164,18 @@ func stacked(byKind map[string]int64, maxMS int64, cells int) string {
 	return b.String() + strings.Repeat(" ", cells-used)
 }
 
-// weekHead is the lines above the day rows: title and a blank line.
-const weekHead = 2
+// head is the number of lines above the day rows: the title, the plan when
+// the week has one, and a blank line.
+func (t *weekTab) head() int {
+	if t.week.Plan != "" {
+		return 3
+	}
+	return 2
+}
 
 // rowAt is the day (0 = Monday) shown on body line line, if any.
 func (t *weekTab) rowAt(line int) (int, bool) {
-	i := line - weekHead
+	i := line - t.head()
 	if !t.loaded || t.month || i < 0 || i >= len(t.week.Days) {
 		return 0, false
 	}
@@ -187,10 +193,11 @@ func (t weekTab) view(w, h int) []string {
 			parts = append(parts, kindStyle(k).Render(kindName(k)+" "+report.Dur(ms)))
 		}
 	}
-	out := []string{
-		" " + sHead.Render("Week of "+wk.Monday.Format("Mon 2 Jan")) + "  " + strings.Join(parts, sDim.Render(" · ")),
-		"",
+	out := []string{" " + sHead.Render("Week of "+wk.Monday.Format("Mon 2 Jan")) + "  " + strings.Join(parts, sDim.Render(" · "))}
+	if wk.Plan != "" {
+		out = append(out, fit(" "+sDim.Render("plan: ")+sText.Render(wk.Plan), w))
 	}
+	out = append(out, "")
 	var maxMS int64
 	for _, d := range wk.Days {
 		maxMS = max(maxMS, d.TrackedMS)

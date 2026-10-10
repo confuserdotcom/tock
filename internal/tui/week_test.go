@@ -66,3 +66,14 @@ func TestMonthMode(t *testing.T) {
 	m = press(t, m, "m")
 	mustContain(t, m, "Week of Mon 5 Oct")
 }
+
+func TestWeekPlanLine(t *testing.T) {
+	m, e := seeded(t)
+	e.Plan(t, "2026-10-05", "ship tier 2")
+	m = press(t, m, "2")
+	mustContain(t, m, " plan: ship tier 2")
+	m = clickOn(t, m, "Wed  7")
+	if l := line(t, m, "Wed  7"); !strings.HasPrefix(l, "▶") {
+		t.Fatalf("click below the plan line: %q", l)
+	}
+}

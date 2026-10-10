@@ -34,6 +34,10 @@ type Week struct {
 	Projects   []NameMS // top TopProjects
 	Apps       []NameMS // top TopProjects apps and sites (see AppName)
 	Goals      []WeekGoalRow
+	// Distractions are the top TopProjects apps and sites in distract-kind
+	// categories.
+	Distractions []NameMS
+	Plan         string // the week's plan from tock review; filled by the caller
 }
 
 // DayTotal is one day of a week.
@@ -64,7 +68,7 @@ func BuildWeek(in WeekInput) Week {
 		w.Days[i] = DayTotal{Date: date, ByKind: map[string]int64{}, Future: date.After(today)}
 	}
 	cats := map[string]*CatRow{}
-	var projects, apps []NameMS
+	var projects, apps, distract []NameMS
 	for i, v := range in.Views {
 		if v.BundleID == span.IdleBundleID {
 			continue
@@ -72,6 +76,9 @@ func BuildWeek(in WeekInput) Week {
 		l := in.Labels[i]
 		ms := v.DurMS()
 		apps = addMS(apps, AppName(v), ms)
+		if l.Kind == classify.KindDistract {
+			distract = addMS(distract, AppName(v), ms)
+		}
 		w.TrackedMS += ms
 		w.ByKind[l.Kind] += ms
 		eachHour(loc, v.Start, v.End, func(h time.Time, part int64) {
@@ -104,6 +111,8 @@ func BuildWeek(in WeekInput) Week {
 	w.Projects = projects[:min(len(projects), TopProjects)]
 	sortNameMS(apps)
 	w.Apps = apps[:min(len(apps), TopProjects)]
+	sortNameMS(distract)
+	w.Distractions = distract[:min(len(distract), TopProjects)]
 	if len(in.Goals) > 0 {
 		w.Goals = WeekGoals(in.Goals, in.Views, in.Labels, in.Monday, in.NowMS)
 	}

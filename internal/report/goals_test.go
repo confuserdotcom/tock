@@ -1,6 +1,7 @@
 package report
 
 import (
+	"strings"
 	"testing"
 
 	"tock/internal/classify"
@@ -113,5 +114,15 @@ func TestStatusGoals(t *testing.T) {
 	in.Goals[2].State = GoalOK
 	if got := Status(in); got != "1h00 · goals 2/3" {
 		t.Fatalf("status = %q", got)
+	}
+}
+
+func TestCleanPlan(t *testing.T) {
+	if got := CleanPlan("  a\tb\n"); got != "a?b" {
+		t.Fatalf("CleanPlan = %q", got)
+	}
+	long := strings.Repeat("é", PlanMaxRunes+5)
+	if got := CleanPlan(long); len([]rune(got)) != PlanMaxRunes {
+		t.Fatalf("len = %d", len([]rune(got)))
 	}
 }

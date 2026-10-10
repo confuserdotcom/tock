@@ -205,7 +205,16 @@ func (a *App) Week(anyDay time.Time) (report.Week, error) {
 			return report.Week{}, err
 		}
 	}
-	return report.BuildWeek(in), nil
+	w := report.BuildWeek(in)
+	if w.Plan, err = a.st.Plan(dateKey(mon)); err != nil {
+		return report.Week{}, err
+	}
+	return w, nil
+}
+
+// SetPlan saves the plan of the Monday-start week containing anyDay.
+func (a *App) SetPlan(anyDay time.Time, text string) error {
+	return a.st.SetPlan(dateKey(report.MondayOf(a.midnight(anyDay))), report.CleanPlan(text), a.nowMS())
 }
 
 // Inbox returns the unlabelled keys of the last days days, largest first.

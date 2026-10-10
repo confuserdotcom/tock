@@ -173,6 +173,16 @@ func (e *Env) Call(t testing.TB, from, to string) {
 	}
 }
 
+// Plan saves the plan of the week starting on monday (YYYY-MM-DD).
+func (e *Env) Plan(t testing.TB, monday, text string) {
+	t.Helper()
+	db := e.raw(t)
+	defer db.Close()
+	if _, err := db.Exec(`INSERT INTO plan(week, text, at_ms) VALUES(?, ?, 1)`, monday, text); err != nil {
+		t.Fatal(err)
+	}
+}
+
 // Heartbeat records a trackd heartbeat at ms.
 func (e *Env) Heartbeat(t testing.TB, ms int64) {
 	t.Helper()
