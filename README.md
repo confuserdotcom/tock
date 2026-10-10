@@ -117,6 +117,7 @@ tock suggest [--dry-run | --force]     Claude label suggestions for the inbox (n
 tock doctor [--wait] [--open]          check trackd, permissions, rules and config
 tock export [--from D] [--to D] [--format csv|json]
                                        labelled spans, default the last 7 days as csv
+tock backup [--out FILE]               archive tock.db and the rule, config and shell files
 ```
 
 Names match on a unique prefix: `tock tag 2 stu/atl`.
@@ -167,6 +168,24 @@ depth = 0.5
 blocks = 0.3
 calm = 0.2
 ```
+
+## Backup
+
+`tock backup` writes `~/.local/share/tock/backups/tock-YYYYMMDD-HHMMSS.tar.gz`
+(owner-only) with a consistent snapshot of `tock.db`, safe while trackd runs,
+plus `rules.toml`, `learned.toml`, `config.toml` and `shell.log` when they
+exist. `--out FILE` writes elsewhere; an existing file is never overwritten.
+The archive holds your titles and URLs, so keep it out of git and shared
+folders.
+
+To restore:
+
+1. `make uninstall` to stop trackd.
+2. Move `~/.local/share/tock/tock.db` and its `-wal` and `-shm` files aside.
+3. Extract the archive in a temp directory. Put `tock.db` in
+   `~/.local/share/tock/`, the `.toml` files in `~/.config/tock/` and
+   `shell.log` in `~/.local/state/tock/`.
+4. `make install`.
 
 ## Uninstall
 

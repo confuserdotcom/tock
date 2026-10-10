@@ -2,6 +2,7 @@ package store
 
 import (
 	"errors"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -339,5 +340,24 @@ func TestNextIDAfterDelete(t *testing.T) {
 	apply(t, s, span.Op{Kind: span.OpDelete, ID: 3}, span.Op{Kind: span.OpDelete, ID: 1})
 	if n, err := s.NextID(); err != nil || n != 3 {
 		t.Fatalf("NextID = %d (err %v), want MAX(id)+1 = 3", n, err)
+	}
+}
+
+func TestBackupTo(t *testing.T) {
+	s := openAt(t, dbPath(t))
+	apply(t, s, openOp(1, 10))
+	dst := filepath.Join(t.TempDir(), "snap.db")
+	if err := s.BackupTo(dst); err != nil {
+		t.Fatal(err)
+	}
+	if fi, err := os.Stat(dst); err != nil || fi.Mode().Perm() != 0o600 {
+		t.Fatalf("snapshot mode: %v %v", fi, err)
+	}
+	cp := openAt(t, dst)
+	if n, err := cp.NextID(); err != nil || n != 2 {
+		t.Fatalf("snapshot NextID = %d, %v; want 2", n, err)
+	}
+	if err := s.BackupTo(dst); err == nil {
+		t.Fatal("BackupTo must not overwrite")
 	}
 }

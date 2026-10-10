@@ -176,3 +176,12 @@ func (s *Store) NextID() (int64, error) {
 	}
 	return n, nil
 }
+
+// BackupTo writes a consistent copy of the database to path with VACUUM
+// INTO, which is safe while trackd writes. path must not exist.
+func (s *Store) BackupTo(path string) error {
+	if _, err := s.db.Exec(`VACUUM INTO ?`, path); err != nil {
+		return fmt.Errorf("store: backup: %w", err)
+	}
+	return os.Chmod(path, 0o600)
+}

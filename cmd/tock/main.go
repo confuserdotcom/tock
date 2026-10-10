@@ -34,6 +34,8 @@ const usage = `usage:
   tock doctor [--wait] [--open]          check trackd, permissions, rules and config
   tock export [--from D] [--to D] [--format csv|json]
                                          labelled spans, default the last 7 days as csv
+  tock backup [--out FILE]               archive tock.db and the rule, config and shell files
+                                         (default ~/.local/share/tock/backups/)
 Names match on a unique prefix: "tock tag 2 stu/atl". "/Project" sets only the project.
 `
 
@@ -58,10 +60,11 @@ type Env struct {
 	Sleep func(time.Duration)
 }
 
-func (e Env) dbPath() string      { return filepath.Join(e.DataDir, "tock.db") }
-func (e Env) rulesPath() string   { return filepath.Join(e.ConfigDir, "rules.toml") }
-func (e Env) learnedPath() string { return filepath.Join(e.ConfigDir, "learned.toml") }
-func (e Env) listingPath() string { return filepath.Join(e.StateDir, "listing.json") }
+func (e Env) dbPath() string       { return filepath.Join(e.DataDir, "tock.db") }
+func (e Env) rulesPath() string    { return filepath.Join(e.ConfigDir, "rules.toml") }
+func (e Env) learnedPath() string  { return filepath.Join(e.ConfigDir, "learned.toml") }
+func (e Env) listingPath() string  { return filepath.Join(e.StateDir, "listing.json") }
+func (e Env) shellLogPath() string { return filepath.Join(e.StateDir, "shell.log") }
 
 func envDir(name string, def ...string) string {
 	if d := os.Getenv(name); d != "" {
@@ -123,6 +126,7 @@ var commands = map[string]func(Env, []string) error{
 	"suggest": cmdSuggest,
 	"export":  cmdExport,
 	"doctor":  cmdDoctor,
+	"backup":  cmdBackup,
 }
 
 // run executes one command and returns the exit code: 0 ok, 1 error, 2 usage.
