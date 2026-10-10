@@ -34,6 +34,8 @@ const usage = `usage:
                                          label time away (idle or asleep) or leave it idle
   tock rules check | tock rules stats [--days N]
                                          validate the rules | time each rule decided (default 30 days)
+  tock rules dupes | tock rules merge [--project] <from> <into>
+                                         look-alike names | fold one name into another everywhere
   tock session [start [MIN] | stop]      focus session: show, start (default 25), stop
   tock recap [YYYY-MM-DD]                the daily recap
   tock trends [--month YYYY-MM]          a month against the one before

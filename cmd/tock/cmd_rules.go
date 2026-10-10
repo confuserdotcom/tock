@@ -40,13 +40,17 @@ func cmdInit(env Env, args []string) error {
 	return nil
 }
 
-const rulesUsage = "usage: tock rules check | tock rules stats [--days N]"
+const rulesUsage = "usage: tock rules check | tock rules stats [--days N] | tock rules dupes | tock rules merge [--project] <from> <into>"
 
 // cmdRules implements "tock rules check" and "tock rules stats".
 func cmdRules(env Env, args []string) error {
 	switch {
 	case len(args) > 0 && args[0] == "stats":
 		return cmdRulesStats(env, args[1:])
+	case len(args) > 0 && args[0] == "dupes":
+		return cmdRulesDupes(env, args[1:])
+	case len(args) > 0 && args[0] == "merge":
+		return cmdRulesMerge(env, args[1:])
 	case len(args) != 1 || args[0] != "check":
 		return usagef(rulesUsage)
 	}
@@ -145,4 +149,81 @@ func cmdRulesStats(env Env, args []string) error {
 		fmt.Fprintln(env.Stdout, line)
 	}
 	return nil
+}
+
+// dupesDays is the window whose time tock rules dupes shows per name.
+const dupesDays = 30
+
+// cmdRulesDupes lists look-alike category and project names.
+func cmdRulesDupes(env Env, args []string) error {
+	if len(args) > 0 {
+		return usagef(rulesUsage)
+	}
+	a, err := openApp(env)
+	if err != nil {
+		return err
+	}
+	defer a.Close()
+	dups, err := a.Duplicates(dupesDays)
+	if err != nil {
+		return err
+	}
+	if len(dups) == 0 {
+		fmt.Fprintln(env.Stdout, "no look-alike category or project names")
+		return nil
+	}
+	fmt.Fprintf(env.Stdout, "look-alike names · time in the last %d days\n", dupesDays)
+	for _, d := range dups {
+		fmt.Fprintf(env.Stdout, "%-8s  %s (%s)  ~  %s (%s)\n", d.Kind,
+			report.Safe(d.A), usedText(d.AMS), report.Safe(d.B), usedText(d.BMS))
+	}
+	// Suggest folding the less used name into the other; on a tie, the
+	// later-declared one into the earlier.
+	d := dups[0]
+	from, into := d.B, d.A
+	if d.AMS < d.BMS {
+		from, into = d.A, d.B
+	}
+	flag := ""
+	if d.Kind == classify.NameProject {
+		flag = "--project "
+	}
+	fmt.Fprintf(env.Stdout, "merge one into the other: tock rules merge %s%q %q\n", flag, from, into)
+	return nil
+}
+
+// cmdRulesMerge folds one category (or, with --project, project) into
+// another across the rule files and the database.
+func cmdRulesMerge(env Env, args []string) error {
+	fs := newFlags("rules merge")
+	project := fs.Bool("project", false, "merge projects, not categories")
+	if err := parseFlags(fs, args); err != nil {
+		return err
+	}
+	if fs.NArg() != 2 {
+		return usagef(rulesUsage)
+	}
+	kind := classify.NameCategory
+	if *project {
+		kind = classify.NameProject
+	}
+	a, err := openApp(env)
+	if err != nil {
+		return err
+	}
+	defer a.Close()
+	from, into, err := a.MergeNames(kind, fs.Arg(0), fs.Arg(1))
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(env.Stdout, "merged %s %s into %s: rules, learned rules, manual tags and away labels now say %s (old rules.toml kept as rules.toml.bak)\n",
+		kind, report.Safe(from), report.Safe(into), report.Safe(into))
+	return nil
+}
+
+func usedText(ms int64) string {
+	if ms == 0 {
+		return "unused"
+	}
+	return report.Dur(ms)
 }

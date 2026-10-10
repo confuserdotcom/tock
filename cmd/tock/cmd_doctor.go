@@ -56,7 +56,11 @@ func cmdDoctor(env Env, args []string) error {
 	case err != nil:
 		bad("rules", err.Error(), "fix the file (tock rules check)")
 	default:
-		ok("rules", fmt.Sprintf("%d rules, %d learned", len(rs.Rules), len(rs.Learned)))
+		detail := fmt.Sprintf("%d rules, %d learned", len(rs.Rules), len(rs.Learned))
+		if n := len(classify.Duplicates(rs)); n > 0 {
+			detail += fmt.Sprintf(" · %s look alike (tock rules dupes)", plural(n, "name pair"))
+		}
+		ok("rules", detail)
 		doctorRepos(env, rs, ok, bad)
 	}
 

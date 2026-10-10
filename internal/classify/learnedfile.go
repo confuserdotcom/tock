@@ -96,6 +96,11 @@ func AppendLearned(path string, r Rule, comment string) error {
 	return writeAtomic(path, ".learned-*.toml", []byte(out))
 }
 
+// WriteFile replaces the rule file at path atomically (see writeAtomic).
+func WriteFile(path string, data []byte) error {
+	return writeAtomic(path, "."+strings.TrimSuffix(filepath.Base(path), ".toml")+"-*.toml", data)
+}
+
 // writeAtomic replaces path with data: a 0600 temp file in the same 0700
 // directory, synced, then renamed over path.
 func writeAtomic(path, pattern string, data []byte) error {
