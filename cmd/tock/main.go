@@ -15,6 +15,7 @@ import (
 	"github.com/charmbracelet/x/term"
 
 	"tock/internal/claude"
+	"tock/internal/shell"
 	"tock/internal/suggest"
 )
 
@@ -65,7 +66,7 @@ func (e Env) dbPath() string       { return filepath.Join(e.DataDir, "tock.db") 
 func (e Env) rulesPath() string    { return filepath.Join(e.ConfigDir, "rules.toml") }
 func (e Env) learnedPath() string  { return filepath.Join(e.ConfigDir, "learned.toml") }
 func (e Env) listingPath() string  { return filepath.Join(e.StateDir, "listing.json") }
-func (e Env) shellLogPath() string { return filepath.Join(e.StateDir, "shell.log") }
+func (e Env) shellLogPath() string { return filepath.Join(e.StateDir, shell.File) }
 
 func envDir(name string, def ...string) string {
 	if d := os.Getenv(name); d != "" {

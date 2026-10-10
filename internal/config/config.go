@@ -24,6 +24,20 @@ type Config struct {
 	Score stats.Weights
 	Focus Focus
 	LLM   LLM
+	Shell Shell
+}
+
+// Shell is the [shell] section: which apps are terminals, so their views get
+// the working directory the zsh hook records.
+type Shell struct {
+	Terminals []string // bundle ids
+}
+
+// DefaultShell is the [shell] section used when the file does not set it.
+// Every call returns a fresh slice.
+func DefaultShell() Shell {
+	return Shell{Terminals: []string{"com.github.wez.wezterm", "com.apple.Terminal", "com.googlecode.iterm2",
+		"com.mitchellh.ghostty", "net.kovidgoyal.kitty", "org.alacritty", "dev.warp.Warp-Stable"}}
 }
 
 // MaxSessionMin is the longest focus session, in minutes.
@@ -89,7 +103,7 @@ func DefaultLLM() LLM {
 
 // Default is the configuration used when there is no file.
 func Default() Config {
-	return Config{Score: stats.DefaultWeights, Focus: DefaultFocus(), LLM: DefaultLLM()}
+	return Config{Score: stats.DefaultWeights, Focus: DefaultFocus(), LLM: DefaultLLM(), Shell: DefaultShell()}
 }
 
 type scoreTOML struct {
@@ -120,10 +134,15 @@ type llmTOML struct {
 	DenyTitles *[]string `toml:"deny_titles"`
 }
 
+type shellTOML struct {
+	Terminals *[]string `toml:"terminals"`
+}
+
 type fileTOML struct {
 	Score scoreTOML `toml:"score"`
 	Focus focusTOML `toml:"focus"`
 	LLM   llmTOML   `toml:"llm"`
+	Shell shellTOML `toml:"shell"`
 }
 
 // Load reads path. A missing file is Default() and no error. Any other
@@ -171,6 +190,9 @@ func Load(path string) (Config, error) {
 	}
 	if err := decodeLLM(f.LLM, &c.LLM); err != nil {
 		return Default(), fmt.Errorf("%s: %w", name, err)
+	}
+	if f.Shell.Terminals != nil {
+		c.Shell.Terminals = append([]string{}, *f.Shell.Terminals...)
 	}
 	return c, nil
 }

@@ -206,3 +206,17 @@ func TestLLMErrors(t *testing.T) {
 		}
 	}
 }
+
+func TestShell(t *testing.T) {
+	c, err := Load(write(t, ""))
+	if err != nil || !slices.Contains(c.Shell.Terminals, "com.github.wez.wezterm") || len(c.Shell.Terminals) != 7 {
+		t.Fatalf("default terminals = %v, %v", c.Shell.Terminals, err)
+	}
+	c, err = Load(write(t, "[shell]\nterminals = [\"x.term\"]\n"))
+	if err != nil || !reflect.DeepEqual(c.Shell.Terminals, []string{"x.term"}) {
+		t.Fatalf("override = %v, %v", c.Shell.Terminals, err)
+	}
+	if _, err := Load(write(t, "[shell]\nnope = 1\n")); err == nil {
+		t.Fatal("unknown [shell] key must fail")
+	}
+}

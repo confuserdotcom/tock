@@ -14,7 +14,7 @@ var errNoDB = app.ErrNoDB
 
 func (e Env) paths() app.Paths {
 	return app.Paths{DB: e.dbPath(), Rules: e.rulesPath(), Learned: e.learnedPath(),
-		Config: filepath.Join(e.ConfigDir, config.File)}
+		Config: filepath.Join(e.ConfigDir, config.File), ShellLog: e.shellLogPath()}
 }
 
 // openApp loads the rules and opens the database.

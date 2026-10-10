@@ -13,7 +13,7 @@ import (
 
 func open(t *testing.T, e *apptest.Env) *App {
 	t.Helper()
-	a, err := Open(Paths{DB: e.DB, Rules: e.Rules, Learned: e.Learned, Config: e.Config}, e.NowFunc())
+	a, err := Open(Paths{DB: e.DB, Rules: e.Rules, Learned: e.Learned, Config: e.Config, ShellLog: e.ShellLog}, e.NowFunc())
 	if err != nil {
 		t.Fatal(err)
 	}

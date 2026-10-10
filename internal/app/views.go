@@ -6,6 +6,7 @@ import (
 
 	"tock/internal/classify"
 	"tock/internal/report"
+	"tock/internal/shell"
 	"tock/internal/store"
 )
 
@@ -65,8 +66,22 @@ func (a *App) labelled(from, to, nowMS int64) ([]classify.SpanView, []classify.L
 	if err != nil {
 		return nil, nil, err
 	}
-	vs := views(rows, from, to, nowMS)
+	vs := a.decorate(views(rows, from, to, nowMS))
 	return vs, a.rs.LabelAll(vs, ovs), nil
+}
+
+// decorate adds what is not in the span table: the shell's working
+// directory on terminal views.
+func (a *App) decorate(vs []classify.SpanView) []classify.SpanView {
+	if a.paths.ShellLog == "" {
+		return vs
+	}
+	ev, err := a.shell.Events()
+	a.shellErr = err
+	if err == nil {
+		shell.Attach(vs, ev, a.cfg.Shell.Terminals, a.home)
+	}
+	return vs
 }
 
 // history is every span, labelled, with the overrides.
@@ -80,7 +95,7 @@ func (a *App) history() ([]classify.SpanView, []classify.Label, map[int64]classi
 		return nil, nil, nil, err
 	}
 	o := overrides(ovs)
-	vs := views(rows, math.MinInt64, math.MaxInt64, a.nowMS())
+	vs := a.decorate(views(rows, math.MinInt64, math.MaxInt64, a.nowMS()))
 	return vs, a.rs.LabelAll(vs, o), o, nil
 }
 

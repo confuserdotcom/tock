@@ -8,6 +8,7 @@ import (
 	"tock/internal/app"
 	"tock/internal/classify"
 	"tock/internal/config"
+	"tock/internal/shell"
 )
 
 // defaultFocusEvery is the focus engine period.
@@ -31,6 +32,9 @@ func newFocusLoop(o daemonOpts, log *slog.Logger) *focusLoop {
 		Rules:   filepath.Join(o.ConfigDir, classify.RulesFile),
 		Learned: filepath.Join(o.ConfigDir, classify.LearnedFile),
 		Config:  filepath.Join(o.ConfigDir, config.File),
+	}
+	if o.StateDir != "" {
+		paths.ShellLog = filepath.Join(o.StateDir, shell.File)
 	}
 	now := func() time.Time { return time.UnixMilli(o.Now()) }
 	return &focusLoop{

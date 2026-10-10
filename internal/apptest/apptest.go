@@ -4,9 +4,11 @@ package apptest
 
 import (
 	"database/sql"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -23,6 +25,7 @@ var Now = time.Date(2026, 10, 10, 15, 0, 0, 0, Zone)
 // clock.
 type Env struct {
 	DB, Rules, Learned, Config string
+	ShellLog                   string
 	Clock                      time.Time
 }
 
@@ -32,11 +35,12 @@ func New(t testing.TB, rules string) *Env {
 	t.Helper()
 	root := t.TempDir()
 	e := &Env{
-		DB:      filepath.Join(root, "data", "tock.db"),
-		Rules:   filepath.Join(root, "config", "rules.toml"),
-		Learned: filepath.Join(root, "config", "learned.toml"),
-		Config:  filepath.Join(root, "config", "config.toml"),
-		Clock:   Now,
+		DB:       filepath.Join(root, "data", "tock.db"),
+		Rules:    filepath.Join(root, "config", "rules.toml"),
+		Learned:  filepath.Join(root, "config", "learned.toml"),
+		Config:   filepath.Join(root, "config", "config.toml"),
+		ShellLog: filepath.Join(root, "state", "shell.log"),
+		Clock:    Now,
 	}
 	if rules != "" {
 		e.WriteRules(t, rules)
@@ -58,6 +62,20 @@ func (e *Env) WriteConfig(t testing.TB, body string) {
 	t.Helper()
 	write(t, e.Config, body)
 }
+
+// WriteShellLog replaces the shell log with one "<ms>\t<dir>" line per
+// event: at is "HH:MM" on the day of Now.
+func (e *Env) WriteShellLog(t testing.TB, events ...ShellEvent) {
+	t.Helper()
+	var b strings.Builder
+	for _, ev := range events {
+		fmt.Fprintf(&b, "%d\t%s\n", At(t, ev.At, 0), ev.Dir)
+	}
+	write(t, e.ShellLog, b.String())
+}
+
+// ShellEvent is one seeded shell hook line.
+type ShellEvent struct{ At, Dir string }
 
 func write(t testing.TB, path, body string) {
 	t.Helper()
