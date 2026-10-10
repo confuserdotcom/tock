@@ -41,8 +41,9 @@ func overrides(m map[int64]store.Override) map[int64]classify.Override {
 }
 
 // labelled loads the spans overlapping [from, to), clipped, with their
-// labels.
-func (a *App) labelled(from, to int64) ([]classify.SpanView, []classify.Label, error) {
+// labels. The open span ends at nowMS; callers pass the same nowMS to the
+// report so it can tell which row is open.
+func (a *App) labelled(from, to, nowMS int64) ([]classify.SpanView, []classify.Label, error) {
 	rows, err := a.st.Spans(from, to)
 	if err != nil {
 		return nil, nil, err
@@ -51,7 +52,7 @@ func (a *App) labelled(from, to int64) ([]classify.SpanView, []classify.Label, e
 	if err != nil {
 		return nil, nil, err
 	}
-	vs := views(rows, from, to, a.nowMS())
+	vs := views(rows, from, to, nowMS)
 	return vs, a.rs.LabelAll(vs, overrides(ovs)), nil
 }
 
@@ -80,7 +81,8 @@ func (a *App) midnight(t time.Time) time.Time {
 func (a *App) Day(day time.Time) (report.Day, error) {
 	from := a.midnight(day)
 	to := from.AddDate(0, 0, 1)
-	vs, labels, err := a.labelled(from.UnixMilli(), to.UnixMilli())
+	now := a.nowMS()
+	vs, labels, err := a.labelled(from.UnixMilli(), to.UnixMilli(), now)
 	if err != nil {
 		return report.Day{}, err
 	}
@@ -88,23 +90,24 @@ func (a *App) Day(day time.Time) (report.Day, error) {
 	if err != nil {
 		return report.Day{}, err
 	}
-	return report.BuildDay(report.DayInput{Date: from, NowMS: a.nowMS(), Views: vs, Labels: labels, Ignored: ignored}), nil
+	return report.BuildDay(report.DayInput{Date: from, NowMS: now, Views: vs, Labels: labels, Ignored: ignored}), nil
 }
 
 // Week reports the Monday-start week containing anyDay.
 func (a *App) Week(anyDay time.Time) (report.Week, error) {
 	mon := report.MondayOf(a.midnight(anyDay))
-	vs, labels, err := a.labelled(mon.UnixMilli(), mon.AddDate(0, 0, 7).UnixMilli())
+	now := a.nowMS()
+	vs, labels, err := a.labelled(mon.UnixMilli(), mon.AddDate(0, 0, 7).UnixMilli(), now)
 	if err != nil {
 		return report.Week{}, err
 	}
-	return report.BuildWeek(report.WeekInput{Monday: mon, NowMS: a.nowMS(), Views: vs, Labels: labels}), nil
+	return report.BuildWeek(report.WeekInput{Monday: mon, NowMS: now, Views: vs, Labels: labels}), nil
 }
 
 // Inbox returns the unlabelled keys of the last days days, largest first.
 func (a *App) Inbox(days int) ([]classify.Item, error) {
 	now := a.nowMS()
-	vs, labels, err := a.labelled(now-int64(days)*24*60*60*1000, now)
+	vs, labels, err := a.labelled(now-int64(days)*24*60*60*1000, now, now)
 	if err != nil {
 		return nil, err
 	}

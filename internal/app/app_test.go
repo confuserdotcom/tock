@@ -113,3 +113,28 @@ func TestReloadOnEditAndBrokenEdit(t *testing.T) {
 		t.Fatalf("fixed file: changed %v err %v rulesErr %v", changed, err, a.RulesErr())
 	}
 }
+
+// A real clock moves between reads; the open row must still be found.
+func TestOpenRowWithMovingClock(t *testing.T) {
+	e := apptest.New(t, apptest.Rules)
+	e.Seed(t, apptest.DaySpans()...)
+	e.Heartbeat(t, e.Clock.UnixMilli())
+	a, err := Open(Paths{DB: e.DB, Rules: e.Rules, Learned: e.Learned}, func() time.Time {
+		e.Clock = e.Clock.Add(time.Millisecond)
+		return e.Clock
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer a.Close()
+	d, err := a.Day(e.Clock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if last := d.Timeline[len(d.Timeline)-1]; !last.Open {
+		t.Fatalf("last row must be open: %+v", last)
+	}
+	if s, _ := a.Status(); s != "2h54 · deep 2h14 · now unlabelled" {
+		t.Fatalf("status = %q", s)
+	}
+}
