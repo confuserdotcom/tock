@@ -32,8 +32,12 @@ type Health struct {
 	// reports); CalendarSyncMS the last sync, 0 when none.
 	CalendarStatus string
 	CalendarSyncMS int64
-	RulesErr       error
-	ConfigErr      error
+	// BarUp says the menu bar app's heartbeat is fresh; BarNotify is its
+	// notification access ("" before it reports).
+	BarUp     bool
+	BarNotify string
+	RulesErr  error
+	ConfigErr error
 }
 
 // Health reads trackd's liveness and permission state.
@@ -64,6 +68,9 @@ func ReadHealth(st *store.Store, nowMS int64) (Health, error) {
 	h.Version = states[store.KeyVersion]
 	h.CalendarStatus = states[store.KeyCalendarStatus]
 	h.CalendarSyncMS, _ = strconv.ParseInt(states[store.KeyCalendarSync], 10, 64)
+	beat, _ := strconv.ParseInt(states[store.KeyBarBeat], 10, 64)
+	h.BarUp = beat > 0 && nowMS-beat <= BarFreshMS && beat <= nowMS+BarFreshMS
+	h.BarNotify = states[store.KeyBarNotify]
 	for k, v := range states {
 		id, ok := strings.CutPrefix(k, store.AutomationKey(""))
 		if !ok || v != "denied" {

@@ -86,13 +86,8 @@ func (a *App) BarBeat(access string) error {
 // BarState reports whether the menu bar app is running (its heartbeat is
 // fresh) and its notification access.
 func (a *App) BarState() (running bool, access string, err error) {
-	m, err := a.st.States()
-	if err != nil {
-		return false, "", err
-	}
-	beat, _ := strconv.ParseInt(m[store.KeyBarBeat], 10, 64)
-	now := a.nowMS()
-	return beat > 0 && now-beat <= BarFreshMS && beat <= now+BarFreshMS, m[store.KeyBarNotify], nil
+	h, err := ReadHealth(a.st, a.nowMS())
+	return h.BarUp, h.BarNotify, err
 }
 
 // BarReady reports whether trackd should hand notifications to the menu

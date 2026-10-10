@@ -100,6 +100,7 @@ func cmdDoctor(env Env, args []string) error {
 		}
 		if cfgErr == nil {
 			doctorCalendar(env, cfg.Calendar.Enabled, h, ok, bad, open)
+			doctorNotify(cfg.Focus.Notify, h, ok)
 		}
 		if len(h.AutomationOff) > 0 {
 			bad("automation", "no URLs from "+strings.Join(h.AutomationOff, ", "),
@@ -152,6 +153,23 @@ func doctorCalendar(env Env, enabled bool, h app.Health, ok func(name, detail st
 		bad("calendar", "EventKit read failed", "see ~/.local/state/tock/trackd.log")
 	default:
 		bad("calendar", "waiting for the permission prompt", "restart trackd: make install")
+	}
+}
+
+// doctorNotify says how focus notifications go out. osascript always
+// works, so this is never a problem.
+func doctorNotify(on bool, h app.Health, ok func(name, detail string)) {
+	switch {
+	case !on:
+		ok("notifications", "off (config.toml [focus] notify = false)")
+	case !h.BarUp:
+		ok("notifications", "plain, without buttons (menu bar app not running; make install)")
+	case h.BarNotify == app.NotifyGranted:
+		ok("notifications", "native, with buttons (menu bar)")
+	case h.BarNotify == app.NotifyDenied:
+		ok("notifications", "plain, without buttons (turned off in System Settings › Notifications › tock)")
+	default:
+		ok("notifications", "plain until the menu bar app is allowed to notify")
 	}
 }
 

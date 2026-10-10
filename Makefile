@@ -7,6 +7,10 @@ TOCK_STATE ?= $(HOME)/.local/state/tock
 BUNDLE ?= $(TOCK_DATA)/trackd.app
 BUNDLE_ID := com.tock.trackd
 AGENT_LABEL := com.tock.trackd
+# The menu bar app (v2 NTF-01/BAR-01): its own bundle, so notifications show
+# as tock and trackd's TCC identity never changes.
+BAR_BUNDLE ?= $(TOCK_DATA)/tock.app
+BAR_ID := com.tock.bar
 BIN_DIR ?= $(HOME)/.local/bin
 SIGN_ID ?= tock-local-codesign
 # auto | cert | adhoc. Pinned to cert (plan 01-09): a missing identity is a hard
@@ -18,11 +22,12 @@ CODESIGN_TIMEOUT ?= 60
 # receives SIGALRM and exits 142 when it overruns.
 WITH_TIMEOUT = perl -e 'alarm shift; exec @ARGV or exit 127'
 
-.PHONY: build test test-quick vet clean bundle print-dr cert cert-trust dump dump-bg dump-stop install uninstall
+.PHONY: build test test-quick vet clean bundle bundle-bar print-dr cert cert-trust dump dump-bg dump-stop install uninstall
 
 build:
 	CGO_ENABLED=1 go build -ldflags "-X main.version=$(VERSION)" -o bin/trackd ./cmd/trackd
 	CGO_ENABLED=0 go build -o bin/tock ./cmd/tock
+	CGO_ENABLED=1 go build -ldflags "-X main.version=$(VERSION)" -o bin/tockbar ./cmd/tockbar
 
 test-quick:
 	CGO_ENABLED=0 go test ./internal/span/... ./internal/store/... ./internal/classify/... ./internal/stats/... ./internal/focus/... ./internal/config/... ./internal/report/... ./internal/suggest/... ./internal/claude/... ./internal/app/... ./internal/tui/... -count=1
@@ -85,6 +90,30 @@ bundle:
 	codesign --verify --strict --verbose=2 "$(BUNDLE)"
 	codesign -d -r- "$(BUNDLE)"
 
+# bundle-bar: build the menu bar app, assemble tock.app and sign it with the
+# same identity as trackd (ad-hoc only when SIGN_MODE=adhoc, or auto without
+# the identity). Notification access keys on the bundle id.
+bundle-bar:
+	@if launchctl print "gui/$$(id -u)/$(BAR_ID)" >/dev/null 2>&1; then \
+		echo "agent $(BAR_ID) is loaded; use make install" >&2; exit 1; \
+	fi
+	@mkdir -p build
+	CGO_ENABLED=1 go build -ldflags "-X main.version=$(VERSION)" -o build/tockbar ./cmd/tockbar
+	@mkdir -p "$(TOCK_DATA)" && chmod 700 "$(TOCK_DATA)"
+	@mkdir -p "$(BAR_BUNDLE)/Contents/MacOS"
+	cp build/tockbar "$(BAR_BUNDLE)/Contents/MacOS/tockbar"
+	cp packaging/bar/Info.plist "$(BAR_BUNDLE)/Contents/Info.plist"
+	chmod -R go-w "$(BAR_BUNDLE)"
+	@id="$(SIGN_ID)"; \
+	if [ "$(SIGN_MODE)" = adhoc ] || ! security find-identity -v -p codesigning 2>/dev/null | grep -q '"$(SIGN_ID)"'; then \
+		[ "$(SIGN_MODE)" = cert ] && { echo "signing identity $(SIGN_ID) not found; run make cert && make cert-trust, or SIGN_MODE=adhoc" >&2; exit 1; }; \
+		id=-; \
+	fi; \
+	rc=0; $(WITH_TIMEOUT) $(CODESIGN_TIMEOUT) codesign --force --sign "$$id" --identifier $(BAR_ID) "$(BAR_BUNDLE)" || rc=$$?; \
+	if [ "$$rc" = 142 ]; then echo "codesign timed out after $(CODESIGN_TIMEOUT) s: a keychain prompt is probably waiting" >&2; exit 1; fi; \
+	[ "$$rc" = 0 ] || exit $$rc
+	codesign --verify --strict "$(BAR_BUNDLE)"
+
 print-dr:
 	@codesign -d -r- "$(BUNDLE)" 2>&1 | grep -E '^designated|# designated' || true
 	@codesign -dvvv "$(BUNDLE)" 2>&1 | grep -E "^CDHash=" || true
@@ -138,6 +167,7 @@ dump-stop:
 # install: bootout, rebuild and sign the bundle, install the tock CLI, then
 # bootstrap the agent (Pitfall 12: never replace the binary under a running
 # agent). Both binaries come from one build so they agree on the schema.
+# The menu bar app follows the same steps after trackd.
 # Then write starter rules if there are none, and run tock doctor: it waits
 # for trackd's first heartbeat and opens System Settings for missing grants
 # (trackd itself shows the Accessibility prompt). A doctor problem does not
@@ -149,6 +179,9 @@ install:
 	install -d -m 755 "$(BIN_DIR)"
 	install -m 755 build/tock "$(BIN_DIR)/tock"
 	"$(BUNDLE)/Contents/MacOS/trackd" install
+	-launchctl bootout gui/$$(id -u)/$(BAR_ID) 2>/dev/null
+	$(MAKE) bundle-bar
+	"$(BAR_BUNDLE)/Contents/MacOS/tockbar" install
 	@[ -f "$${TOCK_CONFIG_DIR:-$(HOME)/.config/tock}/rules.toml" ] || "$(BIN_DIR)/tock" init
 	-"$(BIN_DIR)/tock" doctor --wait --open
 
@@ -160,4 +193,10 @@ uninstall:
 		launchctl bootout gui/$$(id -u)/$(AGENT_LABEL) 2>/dev/null; \
 		rm -f "$(HOME)/Library/LaunchAgents/$(AGENT_LABEL).plist"; \
 		echo "uninstalled $(AGENT_LABEL) (data kept)"; \
+	fi
+	@if [ -x "$(BAR_BUNDLE)/Contents/MacOS/tockbar" ]; then \
+		"$(BAR_BUNDLE)/Contents/MacOS/tockbar" uninstall; \
+	else \
+		launchctl bootout gui/$$(id -u)/$(BAR_ID) 2>/dev/null; \
+		rm -f "$(HOME)/Library/LaunchAgents/$(BAR_ID).plist"; \
 	fi

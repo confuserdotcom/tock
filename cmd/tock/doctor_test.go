@@ -45,7 +45,7 @@ func TestDoctorAllGood(t *testing.T) {
 		store.KeyHeartbeat: nowMS(), store.KeyAXTrusted: "1", store.KeyVersion: "v1",
 	})
 	code, out := te.run(t, "", "doctor", "--open")
-	if code != 0 || strings.Count(out, "ok  ") != 8 || strings.Contains(out, "!!") {
+	if code != 0 || strings.Count(out, "ok  ") != 9 || strings.Contains(out, "!!") {
 		t.Fatalf("exit %d:\n%s%s", code, out, te.errb)
 	}
 	for _, want := range []string{"rules: 3 rules, 0 learned", "config: defaults", "trackd: running (version v1)",
@@ -155,5 +155,34 @@ func writeFile(t *testing.T, path, body string) {
 	}
 	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestDoctorNotifications(t *testing.T) {
+	fresh := nowMS()
+	old := strconv.FormatInt(testNow.Add(-time.Minute).UnixMilli(), 10)
+	for _, c := range []struct {
+		config, beat, access, want string
+	}{
+		{"", "", "", "ok  notifications: plain, without buttons (menu bar app not running; make install)"},
+		{"", old, "granted", "ok  notifications: plain, without buttons (menu bar app not running; make install)"},
+		{"", fresh, "granted", "ok  notifications: native, with buttons (menu bar)"},
+		{"", fresh, "denied", "ok  notifications: plain, without buttons (turned off in System Settings › Notifications › tock)"},
+		{"", fresh, "unknown", "ok  notifications: plain until the menu bar app is allowed to notify"},
+		{"[focus]\nnotify = false\n", fresh, "granted", "ok  notifications: off (config.toml [focus] notify = false)"},
+	} {
+		te, _ := doctorEnv(t, testRules)
+		te.seed(t, daySpans()...)
+		if c.config != "" {
+			writeFile(t, te.paths().Config, c.config)
+		}
+		kv := map[string]string{store.KeyHeartbeat: nowMS(), store.KeyAXTrusted: "1"}
+		if c.beat != "" {
+			kv[store.KeyBarBeat], kv[store.KeyBarNotify] = c.beat, c.access
+		}
+		setStates(t, te, kv)
+		if _, out := te.run(t, "", "doctor"); !strings.Contains(out, c.want) {
+			t.Errorf("beat %q access %q:\n%s", c.beat, c.access, out)
+		}
 	}
 }
