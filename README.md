@@ -114,10 +114,12 @@ r · q            refresh · quit
 today            enter label the row (accepts a ★ suggestion, or labels time away)
                  t tag · p project only · T tag and learn a rule · i why this score
                  a label the latest time away · A leave it idle
+                 s split (label part of the row) · d delete its time · + add time
                  j/k move · h/l previous/next day · . today · / filter
 week             enter open day · h/l week · . this week · m month trends
 inbox            enter accept the suggestion, else learn a rule · T pick a label
-                 o tag once · x ignore · u undo
+                 o tag once · x ignore
+anywhere         u undo the last change (tag, rule, ignore, time away, edit)
 focus            s start a session · x stop
 rules            e edit rules.toml · J/K move a rule down/up
 pickers          ★ suggested and ↺ recent labels come first · type to filter · enter · esc
@@ -152,6 +154,13 @@ tock tag --span <id> <Category>[/<Project>]
 tock ignore <n> | tock ignore --undo <key>
 tock away [--date D] [<HH:MM> <Category>[/<Project>] | --skip <HH:MM>]
                                        label time away (idle or asleep) or leave it idle
+tock edit add <HH:MM-HH:MM> <Category>[/<Project>] [note]
+                                       add time you forgot to track
+tock edit label <HH:MM-HH:MM> <Category>[/<Project>]
+                                       label part of a span (a split) or several at once (a merge)
+tock edit delete <HH:MM-HH:MM>         remove time, or trim a span's start or end
+tock edit [--date D] | tock edit remove <id>   list the day's edits | drop one
+tock undo [--list]                     reverse the last change
 tock rules check | tock rules stats [--days N]   validate | time each rule decided
 tock rules dupes                       look-alike category and project names
 tock rules merge [--project] <from> <into>
@@ -336,6 +345,37 @@ idle. A labelled absence counts towards totals and goals, but not towards
 focus blocks, context switches or break reminders. Absences that cross
 midnight are never asked about.
 
+## Editing the timeline
+
+What trackd recorded never changes; edits sit on top of it and every view
+uses them (today, the week, the score, goals, the inbox, exports).
+
+- **Add** time you forgot to track, such as a meeting away from the Mac:
+  `tock edit add 14:00-15:00 Meeting/ATLAS standup`. The entry replaces
+  whatever was recorded in that range and shows as `Entry`.
+- **Label** part of the timeline: `tock edit label 11:14-11:20 Study`. The
+  apps keep their names; idle time and gaps inside become entries. Labelling
+  the end of a span is a split, and labelling several spans at once is a
+  merge.
+- **Delete** time: `tock edit delete 09:00-09:15`. Deleting the first or last
+  minutes of a span trims it.
+
+`--date YYYY-MM-DD` edits another day, and the end may be `now`. `tock edit`
+lists the day's edits and `tock edit remove <id>` drops one. When edits
+overlap, the newest wins. In the TUI's today tab, `s` splits the row (type
+where the labelled part starts and ends), `d` deletes the row's time and `+`
+adds time (an idle row's range is filled in); `t` on an entry relabels it.
+In `tock web`, a row's sheet has **Delete time**.
+
+## Undo
+
+`tock undo` reverses the last change: a tag, a learned rule (learned.toml
+goes back as it was; tock refuses if you edited the file since), an ignore,
+a label for time away, or a timeline edit. Run it again to go further back;
+`tock undo --list` shows the last 20 changes. `u` does the same in the TUI
+and in `tock web`. tock keeps the last 200 changes. `tock rules merge`
+is not in the list: it keeps `rules.toml.bak` instead.
+
 ## Trends and review
 
 `tock trends` (and `m` on the week tab) compares a month with the previous
@@ -371,7 +411,7 @@ ctrl-c:
   labels just these spans or previews the rules to learn. **Ignore** has
   an undo. Keys: `j`/`k` move, `a` accept, `l` label, `i` ignore.
 
-Keys `1`–`4` switch views, and `r` refreshes. Today refreshes itself every
+Keys `1`–`4` switch views, `r` refreshes and `u` undoes the last change. Today refreshes itself every
 minute.
 
 The server listens on 127.0.0.1 only, on a free port (`--port N` to choose
