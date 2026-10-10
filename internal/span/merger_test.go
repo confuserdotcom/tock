@@ -156,7 +156,9 @@ func TestSleepClosesAtEventTS(t *testing.T) {
 
 func TestSleepEventOlderThanSpanClampsToStart(t *testing.T) {
 	// The Sleep event is older than the open span's start: the span closes
-	// at its own start (zero-length) and never ends before it starts.
+	// at its own start (zero-length) and never ends before it starts (replay
+	// fails on an end before its start). With rule 7 the zero-length Mail span
+	// is then folded into the adjacent Terminal span (Extend by 0 ms).
 	m := New(DefaultConfig())
 	ops := feedAll(m,
 		S(t0, "Terminal", "", 0),
@@ -166,7 +168,6 @@ func TestSleepEventOlderThanSpanClampsToStart(t *testing.T) {
 	)
 	assertSpans(t, replay(t, ops), []Span{
 		W(t0, t0+4000, "Terminal"),
-		W(t0+4000, t0+4000, "Mail"),
 	})
 }
 
@@ -621,8 +622,9 @@ func TestMergeEqualTSArrivalOrder(t *testing.T) {
 		t.Fatalf("open span after second Feed = %s, want B open", fmtSpan(last))
 	}
 	more := m.Feed(*S(t0+5000, "B", "", 0))
+	// Rule 7: the zero-length A has no previous span, so it folds into the
+	// next span and B inherits its start.
 	assertSpans(t, replay(t, append(all, more...)), []Span{
-		W(t0, t0, "A"),
 		WO(t0, "B"),
 	})
 }

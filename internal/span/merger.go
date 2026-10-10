@@ -10,8 +10,8 @@ type key struct {
 	private bool
 }
 
-// closeReason says why a span is being closed. Plan 01-03 (folding) uses it to
-// decide whether a boundary is hard (never folded across).
+// closeReason says why a span is being closed. Anything but reasonKeyChange is
+// a hard boundary: folding never crosses it (rule 7).
 type closeReason int
 
 const (
@@ -42,6 +42,8 @@ type closedSpan struct {
 	bundleID string
 	idle     bool
 	hardEnd  bool // closed by anything except a key change
+
+	afterBoundary bool // carried over so a Reopen restores the open span exactly
 }
 
 // Merger turns inputs into storage ops. It is pure: no clock, no I/O (D-15).
@@ -96,8 +98,41 @@ func idleMillis(idleS float64) int64 {
 	return int64(math.Floor(idleS * 1000))
 }
 
+// foldMS is the fold threshold in ms (2000 with DefaultConfig). A span is short
+// when it is strictly shorter, so exactly FoldMin is kept.
+func (m *Merger) foldMS() int64 { return m.cfg.FoldMin.Milliseconds() }
+
+// isShort reports whether the open span, closed at end, is a non-idle span
+// under the fold threshold. Idle spans are never folded.
+func (m *Merger) isShort(end int64) bool {
+	c := m.cur
+	if c == nil || c.idle {
+		return false
+	}
+	if end < c.start {
+		end = c.start
+	}
+	return end-c.start < m.foldMS()
+}
+
+// adjacentPrev returns the previous span when the open one may be folded into
+// it: a non-idle span closed by a key change (not a hard boundary) at exactly
+// the open span's start. Otherwise nil.
+func (m *Merger) adjacentPrev() *closedSpan {
+	p, c := m.prev, m.cur
+	if p == nil || c == nil || p.idle || p.hardEnd || p.end != c.start {
+		return nil
+	}
+	return p
+}
+
 // closeCur closes the open span at end (clamped to its start) and remembers it
 // as prev. Every close in the merger goes through here.
+//
+// A short non-idle span closed by a hard boundary (rule 7) is folded into an
+// adjacent previous span (Delete + Extend), or kept with a normal Close when
+// there is none. Either way prev ends up marked hardEnd, so nothing folds
+// across the boundary. Key-change closes are handled by switchTo.
 func (m *Merger) closeCur(end int64, reason closeReason) []Op {
 	c := m.cur
 	if c == nil {
@@ -106,9 +141,19 @@ func (m *Merger) closeCur(end int64, reason closeReason) []Op {
 	if end < c.start {
 		end = c.start
 	}
+	if reason != reasonKeyChange && m.isShort(end) {
+		if p := m.adjacentPrev(); p != nil {
+			p.end, p.hardEnd = end, true
+			m.cur = nil
+			return []Op{
+				{Kind: OpDelete, ID: c.id},
+				{Kind: OpExtend, ID: p.id, TS: end},
+			}
+		}
+	}
 	m.prev = &closedSpan{
 		id: c.id, start: c.start, end: end, key: c.key, bundleID: c.bundleID,
-		idle: c.idle, hardEnd: reason != reasonKeyChange,
+		idle: c.idle, hardEnd: reason != reasonKeyChange, afterBoundary: c.afterBoundary,
 	}
 	m.cur = nil
 	return []Op{{Kind: OpClose, ID: c.id, TS: end}}
@@ -142,12 +187,49 @@ func (m *Merger) openNew(start int64, s *Sample, idle bool) []Op {
 	return []Op{{Kind: OpOpen, Span: sp}}
 }
 
-// switchTo is the key-change path: close the open span at `at` and open the
-// sample's span there, so prev.end == next.start. Plan 01-03 replaces its body
-// with fold-aware logic.
+// switchTo is the key-change path (rule 7). When the open span is long enough
+// it is closed at `at` and the sample's span opens there, so prev.end ==
+// next.start. When it is short (under FoldMin, never idle) it is folded, with
+// a deterministic preference:
+//
+//	(a) the sample has the same BundleID: Delete the short span and open the
+//	    sample's span at the short span's start (title settling after a switch).
+//	(b) an adjacent previous span exists (see adjacentPrev): Delete the short
+//	    span; if the sample's key equals the previous span's key, Reopen the
+//	    previous span, otherwise Extend it to `at` and open the sample's span
+//	    there.
+//	(c) otherwise: Delete the short span and open the sample's span at the
+//	    short span's start.
 func (m *Merger) switchTo(s *Sample, at int64) []Op {
-	ops := m.closeCur(at, reasonKeyChange)
-	return append(ops, m.openNew(at, s, false)...)
+	c := m.cur
+	if c == nil || !m.isShort(at) {
+		ops := m.closeCur(at, reasonKeyChange)
+		return append(ops, m.openNew(at, s, false)...)
+	}
+	ops := []Op{{Kind: OpDelete, ID: c.id}}
+	if s.BundleID != c.bundleID {
+		if p := m.adjacentPrev(); p != nil {
+			if m.keyOf(s) == p.key {
+				ops = append(ops, Op{Kind: OpReopen, ID: p.id})
+				m.cur = &openSpan{
+					id: p.id, start: p.start, key: p.key, bundleID: p.bundleID,
+					afterBoundary: p.afterBoundary,
+				}
+				// The reopened span is at least FoldMin long and the span
+				// before it is no longer needed: nothing can fold into it.
+				m.prev = nil
+				return ops
+			}
+			ops = append(ops, Op{Kind: OpExtend, ID: p.id, TS: at})
+			p.end = at
+			m.cur = nil
+			return append(ops, m.openNew(at, s, false)...)
+		}
+	}
+	// (a) and (c): the sample's span inherits the short span's start.
+	start := c.start
+	m.cur = nil
+	return append(ops, m.openNew(start, s, false)...)
 }
 
 const (
