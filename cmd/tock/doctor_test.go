@@ -119,7 +119,7 @@ func TestDoctorCalendar(t *testing.T) {
 	stale := strconv.FormatInt(testNow.Add(-31*time.Minute).UnixMilli(), 10)
 	for _, c := range []struct {
 		status, sync, want string
-		code              int
+		code               int
 	}{
 		{"granted", recent, "ok  calendar: synced 14:55", 0},
 		{"granted", stale, "!!  calendar: no sync in the last 30 min", 1},

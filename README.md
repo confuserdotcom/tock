@@ -78,28 +78,42 @@ forgets the grants on every rebuild.
 
 ## TUI keys
 
+You don't need to learn the keys:
+
+- The footer shows only the keys that work on the selected row.
+- `?` lists every key, by tab.
+- `:` (or `ctrl+k`) opens the command palette. Type a few letters of what
+  you want, such as `week`, `50 min` or `edit rules`, and press enter.
+
 ```
 1-5 / tab        today · week · inbox · focus · rules
-r                refresh now (also every 5 s)
-?                today: score breakdown (? again for keys) · other tabs: keys
-q / ctrl+c       quit
+: / ctrl+k       command palette
+?                all keys
+r · q            refresh · quit
 
-today            j/k move · g/G first/last · ctrl+d/u half page
-                 h/l previous/next day · . today · / filter
-                 t tag row · p project only · T tag and learn a rule
-                 a label the latest time away · A leave it idle · t on an idle row labels it
-week             j/k day · h/l week · . this week · enter open day
-                 m month trends: h/l month · . this month · m back
-inbox            enter learn a rule · a accept suggestion · o tag once · x ignore · u undo
-focus            s start a session (presets or custom) · x stop
-rules            j/k move · g/G first/last · J/K move rule down/up · e edit file
-pickers          type a prefix · ↑/↓ · enter · esc
+today            enter label the row (accepts a ★ suggestion, or labels time away)
+                 t tag · p project only · T tag and learn a rule · i why this score
+                 a label the latest time away · A leave it idle
+                 j/k move · h/l previous/next day · . today · / filter
+week             enter open day · h/l week · . this week · m month trends
+inbox            enter accept the suggestion, else learn a rule · T pick a label
+                 o tag once · x ignore · u undo
+focus            s start a session · x stop
+rules            e edit rules.toml · J/K move a rule down/up
+pickers          ★ suggested and ↺ recent labels come first · type to filter · enter · esc
 ```
+
+Colours follow the kind of time: teal deep, sand shallow, slate neutral,
+coral distraction, violet unlabelled. The palette has light and dark
+variants and follows your terminal's background.
+
+The first time you run `tock` without rules, it offers to write the starter
+rules.
 
 The mouse works too. Click a tab name to switch tabs, click a row to select
 it, and click the selected row again for `enter` (open a day, label an inbox
 key, pick an option, start a session). Click a key in the footer, such as
-`s start`, to press it. The wheel moves the cursor.
+`t tag`, to press it. The wheel moves the cursor.
 
 While tock has the mouse, dragging no longer selects text. Hold Shift (WezTerm,
 kitty, most terminals) or Option (Terminal.app, iTerm2) while you drag to
