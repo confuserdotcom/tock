@@ -83,7 +83,9 @@ q / ctrl+c       quit
 today            j/k move · g/G first/last · ctrl+d/u half page
                  h/l previous/next day · . today · / filter
                  t tag row · p project only · T tag and learn a rule
+                 a label the latest time away · A leave it idle · t on an idle row labels it
 week             j/k day · h/l week · . this week · enter open day
+                 m month trends: h/l month · . this month · m back
 inbox            enter learn a rule · a accept suggestion · o tag once · x ignore · u undo
 focus            s start a session (presets or custom) · x stop
 rules            j/k move · g/G first/last · J/K move rule down/up · e edit file
@@ -110,9 +112,14 @@ tock inbox [--days N] [--all]          unlabelled activity, numbered
 tock tag [--once] <n> <Category>[/<Project>]
 tock tag --span <id> <Category>[/<Project>]
 tock ignore <n> | tock ignore --undo <key>
+tock away [--date D] [<HH:MM> <Category>[/<Project>] | --skip <HH:MM>]
+                                       label time away (idle or asleep) or leave it idle
 tock rules check | tock rules stats [--days N]   validate | time each rule decided
 tock session [start [MIN] | stop]      focus session: show, start (default 25), stop
 tock recap [YYYY-MM-DD]                the daily recap
+tock trends [--month YYYY-MM]          a month against the one before
+tock review [--week YYYY-MM-DD] [--plan TEXT]
+                                       weekly recap, then next week's focus
 tock suggest [--dry-run | --force]     Claude label suggestions for the inbox (needs ANTHROPIC_API_KEY)
 tock doctor [--wait] [--open]          check trackd, permissions, rules and config
 tock export [--from D] [--to D] [--format csv|json]
@@ -168,11 +175,65 @@ deny_titles = []              # title regexes
 [shell]
 terminals = [...]             # bundle ids that get shell dirs; replaces the built-in list
 
-[score]                       # weights of the focus score
+[away]                        # which absences tock asks about
+min = 10                      # minutes; at least 5
+max = 240                     # minutes; at most 720
+
+[score]                       # weights of the focus score; they sum to 1
 depth = 0.5
 blocks = 0.3
 calm = 0.2
+stretch = 0.0                 # longest run without a context switch, full at 1h30
 ```
+
+## Goals
+
+`[[goal]]` tables in `rules.toml` set goals (`at_least`) and limits
+(`at_most`) per day or week, for a category, a project or both:
+
+```toml
+[[goal]]
+category = "Study"
+at_least = "2h"
+per = "day"            # the default; or "week" (Monday to Sunday)
+
+[[goal]]
+project = "tock"
+at_least = "10h"
+per = "week"
+
+[[goal]]
+category = "Entertainment"
+at_most = "45m"
+```
+
+The today tab and `tock today` show a goals line, the week tab shows each
+goal over the week (`met 3 of 5 days` for a day goal), and `tock status`
+adds `goals 2/3` plus `over Entertainment` when a limit is passed.
+`tock rules check` lists the goals.
+
+## Time away
+
+An absence is idle time, or time with no record at all (asleep, locked),
+between two stretches of activity: 10 minutes to 4 hours by default
+(`[away]` in config.toml). When you come back, trackd sends one
+notification. Label the absence with `a` on the today tab, `t` on its idle
+row, or `tock away 12:10 Meeting`; `A` or `tock away --skip 12:10` leaves it
+idle. A labelled absence counts towards totals and goals, but not towards
+focus blocks, context switches or break reminders. Absences that cross
+midnight are never asked about.
+
+## Trends and review
+
+`tock trends` (and `m` on the week tab) compares a month with the previous
+one: the whole month for a past month, the same days so far for the
+current one. It shows tracked and focus time, the average workday score
+with a daily sparkline, switches per hour and each category's change.
+
+`tock review` recaps a week (this week on a weekend, else last week):
+totals, each goal, the top distractions and the best day. It then asks
+for next week's focus, or takes `--plan`. The week tab shows the plan of
+the week on screen. Plans stay in tock.db.
 
 ## Calls
 
