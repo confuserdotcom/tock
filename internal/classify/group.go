@@ -1,6 +1,7 @@
 package classify
 
 import (
+	"slices"
 	"sort"
 
 	"tock/internal/span"
@@ -14,8 +15,13 @@ type Item struct {
 	Spans   int
 	// Example is the raw title (else URL) of the most recent span; "" for
 	// private spans.
-	Example   string
-	lastStart int64
+	Example string
+	// Bundles are the distinct bundle ids of the spans, sorted.
+	Bundles []string
+	// Private is true for the "<app> (private)" key; ByURL is true when the
+	// key holds a URL host and segment rather than a title.
+	Private, ByURL bool
+	lastStart      int64
 }
 
 // Group groups the views for which keep(i) is true by Key, sorted by total
@@ -30,11 +36,15 @@ func Group(views []SpanView, keep func(i int) bool) []Item {
 		k := Key(*v)
 		it := byKey[k]
 		if it == nil {
-			it = &Item{Key: k, App: v.App, lastStart: v.Start - 1}
+			it = &Item{Key: k, App: v.App, lastStart: v.Start - 1, Private: v.Private,
+				ByURL: !v.Private && v.URL != nil && *v.URL != ""}
 			byKey[k] = it
 		}
 		it.TotalMS += v.DurMS()
 		it.Spans++
+		if !slices.Contains(it.Bundles, v.BundleID) {
+			it.Bundles = append(it.Bundles, v.BundleID)
+		}
 		if v.Start > it.lastStart {
 			it.lastStart = v.Start
 			it.Example = example(v)
@@ -42,6 +52,7 @@ func Group(views []SpanView, keep func(i int) bool) []Item {
 	}
 	out := make([]Item, 0, len(byKey))
 	for _, it := range byKey {
+		sort.Strings(it.Bundles)
 		out = append(out, *it)
 	}
 	sort.Slice(out, func(a, b int) bool {

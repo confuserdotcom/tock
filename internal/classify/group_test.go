@@ -1,6 +1,9 @@
 package classify
 
-import "testing"
+import (
+	"reflect"
+	"testing"
+)
 
 func TestInboxGroupsUnlabelled(t *testing.T) {
 	rs := mustParse(t, labelRules, "")
@@ -34,5 +37,29 @@ func TestGroupSortsByTimeThenKey(t *testing.T) {
 	items := Group(views, func(int) bool { return true })
 	if items[0].App != "C" || items[1].App != "A" || items[2].App != "B" {
 		t.Fatalf("order = %v %v %v", items[0].App, items[1].App, items[2].App)
+	}
+}
+
+func TestGroupBundlesAndKind(t *testing.T) {
+	views := []SpanView{
+		{Start: 0, End: 10, BundleID: "b2", App: "A", Title: sp("x")},
+		{Start: 10, End: 20, BundleID: "b1", App: "A", Title: sp("x")},
+		{Start: 20, End: 30, BundleID: "b2", App: "A", Title: sp("x")},
+		{Start: 30, End: 40, BundleID: "arc", App: "Arc", URL: sp("github.com/tock/x")},
+		{Start: 40, End: 50, BundleID: "arc", App: "Arc", Private: true},
+	}
+	items := Group(views, func(int) bool { return true })
+	byKey := map[string]Item{}
+	for _, it := range items {
+		byKey[it.Key] = it
+	}
+	if it := byKey["A · x"]; !reflect.DeepEqual(it.Bundles, []string{"b1", "b2"}) || it.ByURL || it.Private {
+		t.Fatalf("title item = %+v", it)
+	}
+	if it := byKey["Arc · github.com/tock"]; !it.ByURL || it.Private || !reflect.DeepEqual(it.Bundles, []string{"arc"}) {
+		t.Fatalf("url item = %+v", it)
+	}
+	if it := byKey["Arc (private)"]; !it.Private || it.ByURL {
+		t.Fatalf("private item = %+v", it)
 	}
 }
