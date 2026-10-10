@@ -14,7 +14,8 @@ import (
 	"tock/internal/report"
 )
 
-// clockEvery is how often the countdown redraws while a session runs.
+// clockEvery is how often the countdown redraws while a session runs. The
+// header shows it on every tab, so the redraw does not depend on the tab.
 const clockEvery = time.Second
 
 // focusTab shows the running session and this week's sessions.
@@ -31,7 +32,7 @@ type clockMsg struct{}
 // maybeClock starts the one-second redraw when the focus tab shows a
 // running session and it is not already ticking.
 func (m *Model) maybeClock() tea.Cmd {
-	if m.clockOn || m.clockTick == nil || m.tab != tabFocus || m.focus.data.Open == nil {
+	if m.clockOn || m.clockTick == nil || m.focus.data.Open == nil {
 		return nil
 	}
 	m.clockOn = true
