@@ -93,16 +93,22 @@ func AppendLearned(path string, r Rule, comment string) error {
 		out = text[:start] + block + text[start:]
 	}
 
+	return writeAtomic(path, ".learned-*.toml", []byte(out))
+}
+
+// writeAtomic replaces path with data: a 0600 temp file in the same 0700
+// directory, synced, then renamed over path.
+func writeAtomic(path, pattern string, data []byte) error {
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}
-	tmp, err := os.CreateTemp(dir, ".learned-*.toml")
+	tmp, err := os.CreateTemp(dir, pattern)
 	if err != nil {
 		return err
 	}
 	defer os.Remove(tmp.Name()) // no-op after a successful rename
-	if _, err := tmp.WriteString(out); err != nil {
+	if _, err := tmp.Write(data); err != nil {
 		tmp.Close()
 		return err
 	}
