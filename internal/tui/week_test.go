@@ -18,9 +18,9 @@ func TestWeekTab(t *testing.T) {
 		t.Fatalf("cursor starts on Monday: %q", l)
 	}
 	m = press(t, m, "enter")
-	mustContain(t, m, "Mon 5 Oct  tracked 2h00")
+	mustContain(t, m, "Mon 5 Oct  score", " tracked 2h00")
 	m = press(t, m, "2", "j", "j", "j", "j", "j", "enter")
-	mustContain(t, m, "Today  tracked 2h54")
+	mustContain(t, m, "Today  score 74", " tracked 2h54")
 	m = press(t, m, "2", "j", "enter") // Sunday is in the future
 	mustContain(t, m, "Week of Mon 5 Oct")
 }

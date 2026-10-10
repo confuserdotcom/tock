@@ -14,6 +14,7 @@ func TestTodayReport(t *testing.T) {
 		t.Fatalf("code %d err %q", code, te.errb.String())
 	}
 	want := "Today  2h54 tracked · 41m idle\n" +
+		"score 74 · focus 2h14 / 4h00 · 1 block, longest 2h14 · 2 switches\n" +
 		"Code            2h14  ████████████  tock 1h40\n" +
 		"Entertainment    12m  █\n" +
 		"Unclassified     28m  ██▌           3 keys → tock inbox\n"

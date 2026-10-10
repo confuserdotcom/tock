@@ -147,7 +147,7 @@ func (t *todayTab) hint() string {
 	if t.filtering {
 		return "filter: " + t.filter + "▏ · enter keep · esc clear"
 	}
-	return "j/k move · h/l day · t tag · p project · T learn · / filter · ? help"
+	return "j/k move · h/l day · t tag · p project · T learn · / filter · ? score"
 }
 
 func (m Model) todayKey(k string) (tea.Model, tea.Cmd) {
@@ -230,7 +230,7 @@ func rowLabel(r report.Row) string {
 // the timeline is. view and the key handlers must agree on it.
 func (t *todayTab) layout(h int) (catRows, timelineH int) {
 	const minTimeline = 4
-	top := 2 + 1 + len(t.day.Hours.MS) + 1 // title, blank, axis, kinds, blank
+	top := 3 + 1 + len(t.day.Hours.MS) + 1 // title, totals, blank, axis, kinds, blank
 	catRows = max(len(t.day.Categories), 1)
 	catRows = min(catRows, max(h-top-1-minTimeline, 1))
 	return catRows, max(h-top-catRows-1, 1)
@@ -247,7 +247,8 @@ func (t todayTab) view(w, h int, now time.Time) []string {
 		title = d.Date.Format("Mon 2 Jan")
 	}
 	var out []string
-	out = append(out, " "+sHead.Render(title)+"  "+statsLine(d))
+	out = append(out, " "+sHead.Render(title)+"  "+scoreText(d))
+	out = append(out, " "+statsLine(d))
 	out = append(out, "")
 	out = append(out, heatmap(d, w)...)
 	out = append(out, "")
@@ -280,6 +281,12 @@ func (t todayTab) view(w, h int, now time.Time) []string {
 		out = append(out, sDim.Render(fmt.Sprintf(" no rows match %q", t.filter)))
 	}
 	return out
+}
+
+// scoreText is report.ScoreLine with the score in the accent colour.
+func scoreText(d report.Day) string {
+	first, rest, _ := strings.Cut(report.ScoreLine(d), " · ")
+	return sAccent.Render(first) + sDim.Render(" · ") + sText.Render(rest)
 }
 
 func statsLine(d report.Day) string {

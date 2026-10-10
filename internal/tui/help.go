@@ -5,6 +5,7 @@ var helpText = []string{
 	"",
 	"  1 2 3 / tab      today · week · inbox",
 	"  r                refresh now (also every 5 s)",
+	"  ?                today: score breakdown (? again for keys) · other tabs: keys",
 	"  q / ctrl+c       quit",
 	"",
 	"  today            j/k move · g/G first/last · ctrl+d/u half page",

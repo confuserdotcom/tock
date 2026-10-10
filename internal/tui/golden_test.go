@@ -12,8 +12,9 @@ import (
 	"tock/internal/apptest"
 )
 
-// Phase 3 criterion 4: each tab, the picker, the learn dialog and the
-// trackd-down banner match their snapshots at 100×30 without colour.
+// Phase 3 criterion 4: each tab, the picker, the learn dialog, the score
+// panel and the trackd-down banner match their snapshots at 100×30 without
+// colour.
 // Regenerate with: go test ./internal/tui -run Golden -update
 
 func TestGoldenToday(t *testing.T) {
@@ -27,6 +28,14 @@ func TestGoldenToday(t *testing.T) {
 // the banner.
 func TestGoldenTodayTrackdDown(t *testing.T) {
 	m, _ := seeded(t)
+	golden.RequireEqual(t, screen(m))
+}
+
+// Phase 4 criterion 2: ? on today explains the score.
+func TestGoldenScore(t *testing.T) {
+	m, e := seeded(t)
+	e.Heartbeat(t, e.Clock.UnixMilli())
+	m = press(t, m, "r", "?")
 	golden.RequireEqual(t, screen(m))
 }
 
@@ -67,7 +76,7 @@ func TestGoldenLearn(t *testing.T) {
 func TestProgramRuns(t *testing.T) {
 	e := apptest.New(t, apptest.Rules)
 	e.Seed(t, apptest.DaySpans()...)
-	a, err := app.Open(app.Paths{DB: e.DB, Rules: e.Rules, Learned: e.Learned}, e.NowFunc())
+	a, err := app.Open(app.Paths{DB: e.DB, Rules: e.Rules, Learned: e.Learned, Config: e.Config}, e.NowFunc())
 	if err != nil {
 		t.Fatal(err)
 	}

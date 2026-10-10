@@ -1,6 +1,7 @@
 tock   1 today   2 week   3 inbox 3                                   Sat 10 Oct 15:00 · trackd down
 trackd is not running — showing history. Restart: launchctl kickstart -k gui/$UID/com.tock.trackd   
- Today  tracked 2h54 · deep 2h14 · unlabelled 28m · distract 12m · idle 41m
+ Today  score 74 · focus 2h14 / 4h00 · 1 block, longest 2h14 · 2 switches
+ tracked 2h54 · deep 2h14 · unlabelled 28m · distract 12m · idle 41m
 
             09  11  13  15
  deep       ████░░          
@@ -26,5 +27,4 @@ trackd is not running — showing history. Restart: launchctl kickstart -k gui/$
 
 
 
-
-j/k move · h/l day · t tag · p project · T learn · / filter · ? help                                
+j/k move · h/l day · t tag · p project · T learn · / filter · ? score                               

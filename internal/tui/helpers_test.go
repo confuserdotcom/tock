@@ -15,7 +15,7 @@ import (
 // load done. The refresh timer is off; tests send tickMsg themselves.
 func newModel(t *testing.T, e *apptest.Env) Model {
 	t.Helper()
-	a, err := app.Open(app.Paths{DB: e.DB, Rules: e.Rules, Learned: e.Learned}, e.NowFunc())
+	a, err := app.Open(app.Paths{DB: e.DB, Rules: e.Rules, Learned: e.Learned, Config: e.Config}, e.NowFunc())
 	if err != nil {
 		t.Fatal(err)
 	}

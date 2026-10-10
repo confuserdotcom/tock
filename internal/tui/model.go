@@ -50,6 +50,7 @@ type Model struct {
 	picker *picker
 	learn  *learnDlg
 	help   bool
+	score  bool // the today tab's score breakdown
 
 	flash       string
 	flashErr    bool
@@ -217,6 +218,14 @@ func (m Model) key(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			m.help = false
 		}
 		return m, nil
+	case m.score:
+		switch k {
+		case "?":
+			m.score, m.help = false, true
+		case "esc", "q":
+			m.score = false
+		}
+		return m, nil
 	case m.tab == tabToday && m.today.filtering:
 		m.today.filterKey(msg)
 		return m, nil
@@ -225,7 +234,11 @@ func (m Model) key(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "q":
 		return m, tea.Quit
 	case "?":
-		m.help = true
+		if m.tab == tabToday {
+			m.score = true
+		} else {
+			m.help = true
+		}
 		return m, nil
 	case "r":
 		return m, m.reload()
@@ -276,6 +289,8 @@ func (m Model) render() string {
 	switch {
 	case m.help:
 		body = helpBody(m.width)
+	case m.score:
+		body = m.today.scoreView(m.width, bodyH, m.now().Location())
 	case m.picker != nil:
 		body = m.picker.view(m.width, bodyH)
 	case m.learn != nil:
@@ -333,6 +348,8 @@ func (m Model) banner() string {
 		return "trackd is not running — showing history. Restart: launchctl kickstart -k gui/$UID/com.tock.trackd"
 	case h.RulesErr != nil:
 		return "rule error, using the last good rules: " + h.RulesErr.Error()
+	case h.ConfigErr != nil:
+		return "config error, using the last good settings: " + h.ConfigErr.Error()
 	case h.AXTrusted != nil && !*h.AXTrusted:
 		return "no window titles: allow trackd in System Settings › Privacy & Security › Accessibility"
 	case len(h.AutomationOff) > 0:
@@ -352,6 +369,8 @@ func (m Model) footer() string {
 	switch {
 	case m.help:
 		hint = "esc close"
+	case m.score:
+		hint = "? keys · esc close"
 	case m.picker != nil:
 		hint = "type to filter · ↑/↓ move · enter pick · esc cancel"
 	case m.learn != nil:

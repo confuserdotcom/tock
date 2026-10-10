@@ -39,7 +39,7 @@ func TestTabsHelpAndQuit(t *testing.T) {
 	m = press(t, m, "tab")
 	mustContain(t, m, "Inbox ·")
 	m = press(t, m, "tab")
-	mustContain(t, m, "Today  tracked")
+	mustContain(t, m, "Today  score")
 	m = press(t, m, "shift+tab")
 	mustContain(t, m, "Inbox ·")
 	m = press(t, m, "?")

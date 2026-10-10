@@ -54,6 +54,7 @@ func cmdToday(env Env, args []string) error {
 		fmt.Fprintln(env.Stdout, "(no activity)")
 		return nil
 	}
+	fmt.Fprintln(env.Stdout, report.ScoreLine(d))
 
 	var maxMS int64
 	for _, r := range d.Categories {
