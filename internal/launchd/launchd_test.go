@@ -1,4 +1,4 @@
-package main
+package launchd
 
 import (
 	"encoding/json"
@@ -11,9 +11,9 @@ import (
 
 // plistJSON renders c and converts it to JSON with plutil, failing on any
 // plist that plutil rejects.
-func plistJSON(t *testing.T, c agentConfig) map[string]any {
+func plistJSON(t *testing.T, c Agent) map[string]any {
 	t.Helper()
-	b, err := renderPlist(c)
+	b, err := Render(c)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -35,7 +35,7 @@ func plistJSON(t *testing.T, c agentConfig) map[string]any {
 	return m
 }
 
-var testAgent = agentConfig{
+var testAgent = Agent{
 	Label:   "com.tock.trackd",
 	Program: "/Users/x/.local/share/tock/trackd.app/Contents/MacOS/trackd",
 	LogPath: "/Users/x/.local/state/tock/trackd.log",
@@ -69,7 +69,7 @@ func TestRenderPlistKeys(t *testing.T) {
 func TestRenderPlistEscapesXML(t *testing.T) {
 	c := testAgent
 	c.Program = "/Users/a&b/<x>/trackd"
-	b, err := renderPlist(c)
+	b, err := Render(c)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -95,16 +95,18 @@ func TestRenderPlistKeepAliveIsDictNotBool(t *testing.T) {
 	}
 }
 
-func TestInstallRequiresBundle(t *testing.T) {
+func TestInstallRequiresProgram(t *testing.T) {
 	dir := t.TempDir()
 	plist := filepath.Join(dir, "LaunchAgents", "com.tock.trackd.plist")
-	oldPath, oldRun := plistPathFn, runLaunchctl
-	t.Cleanup(func() { plistPathFn, runLaunchctl = oldPath, oldRun })
-	plistPathFn = func() string { return plist }
+	oldPath, oldRun := PlistPath, Run
+	t.Cleanup(func() { PlistPath, Run = oldPath, oldRun })
+	PlistPath = func(string) string { return plist }
 	ran := false
-	runLaunchctl = func(args ...string) error { ran = true; return nil }
+	Run = func(args ...string) error { ran = true; return nil }
 
-	err := installAgent(filepath.Join(dir, "data"), filepath.Join(dir, "state"))
+	c := testAgent
+	c.Program, c.LogPath, c.Missing = filepath.Join(dir, "nope"), filepath.Join(dir, "state", "x.log"), "run make bundle"
+	err := Install(c)
 	if err == nil || !strings.Contains(err.Error(), "run make bundle") {
 		t.Fatalf("err = %v; want bundle-not-found", err)
 	}
@@ -113,5 +115,36 @@ func TestInstallRequiresBundle(t *testing.T) {
 	}
 	if ran {
 		t.Fatal("launchctl called without a bundle")
+	}
+}
+
+func TestInstallWritesAndLoads(t *testing.T) {
+	dir := t.TempDir()
+	plist := filepath.Join(dir, "LaunchAgents", "com.tock.bar.plist")
+	oldPath, oldRun := PlistPath, Run
+	t.Cleanup(func() { PlistPath, Run = oldPath, oldRun })
+	var gotLabel string
+	PlistPath = func(label string) string { gotLabel = label; return plist }
+	var calls []string
+	Run = func(args ...string) error { calls = append(calls, args[0]); return nil }
+	prog := filepath.Join(dir, "tockbar")
+	if err := os.WriteFile(prog, nil, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	c := Agent{Label: "com.tock.bar", Program: prog, LogPath: filepath.Join(dir, "state", "tockbar.log")}
+	if err := Install(c); err != nil {
+		t.Fatal(err)
+	}
+	if gotLabel != "com.tock.bar" || strings.Join(calls, ",") != "bootout,bootstrap" {
+		t.Fatalf("label %q, launchctl %v", gotLabel, calls)
+	}
+	if fi, err := os.Stat(c.LogPath); err != nil || fi.Mode().Perm() != 0o600 {
+		t.Fatalf("log: %v %v", fi, err)
+	}
+	if err := Uninstall("com.tock.bar"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(plist); !os.IsNotExist(err) {
+		t.Fatalf("plist kept: %v", err)
 	}
 }
