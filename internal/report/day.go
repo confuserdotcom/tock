@@ -42,6 +42,8 @@ type Day struct {
 	Goals      []GoalRow           // filled by the caller from the week to date; nil without goals
 	Away       []classify.Interval // pending absences, filled by the caller
 	Commits    []NameN             // commits per project, filled by the caller
+	Blocks     []Block             // work blocks, in order
+	Summary    string              // the day's AI summary, filled by the caller when one is saved
 }
 
 // CatRow is one category's time.
@@ -130,6 +132,7 @@ func BuildDay(in DayInput) Day {
 	d.Timeline = timeline(in.Views, in.Labels, in.NowMS)
 	d.Stats = stats.Compute(in.Views, in.Labels)
 	d.Score = stats.ScoreDay(d.Stats, in.Target, in.Weights)
+	d.Blocks = Blocks(in.Views, in.Labels)
 	return d
 }
 

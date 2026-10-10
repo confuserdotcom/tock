@@ -87,11 +87,29 @@ var safeType = regexp.MustCompile(`^[a-z_]{1,40}$`)
 // Suggest sends payload as the user message and returns the input of the
 // suggest tool call.
 func (c *Client) Suggest(ctx context.Context, model string, payload []byte) (json.RawMessage, error) {
+	return c.call(ctx, model, system, tool, "suggest", payload)
+}
+
+// Summarize asks for the day's summary (tock summary) and returns the input
+// of the summarize tool call.
+func (c *Client) Summarize(ctx context.Context, model string, payload []byte) (json.RawMessage, error) {
+	return c.call(ctx, model, summarySystem, summaryTool, "summarize", payload)
+}
+
+// Ask turns a question into a query tock runs on this machine (tock ask)
+// and returns the input of the query tool call.
+func (c *Client) Ask(ctx context.Context, model string, payload []byte) (json.RawMessage, error) {
+	return c.call(ctx, model, askSystem, askTool, "query", payload)
+}
+
+// call sends payload as the user message with one forced tool and returns
+// that tool call's input.
+func (c *Client) call(ctx context.Context, model, sys string, t json.RawMessage, name string, payload []byte) (json.RawMessage, error) {
 	body, err := json.Marshal(request{
-		Model: model, MaxTokens: maxTokens, System: system,
+		Model: model, MaxTokens: maxTokens, System: sys,
 		Messages:   []message{{Role: "user", Content: string(payload)}},
-		Tools:      []json.RawMessage{tool},
-		ToolChoice: toolChoice{Type: "tool", Name: "suggest"},
+		Tools:      []json.RawMessage{t},
+		ToolChoice: toolChoice{Type: "tool", Name: name},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("claude: %w", err)
@@ -136,9 +154,9 @@ func (c *Client) Suggest(ctx context.Context, model string, payload []byte) (jso
 		return nil, errors.New("claude: response is not JSON")
 	}
 	for _, b := range r.Content {
-		if b.Type == "tool_use" && b.Name == "suggest" {
+		if b.Type == "tool_use" && b.Name == name {
 			return b.Input, nil
 		}
 	}
-	return nil, errors.New("claude: response has no suggest tool call")
+	return nil, fmt.Errorf("claude: response has no %s tool call", name)
 }

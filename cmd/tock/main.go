@@ -51,6 +51,9 @@ const usage = `usage:
   tock review [--week YYYY-MM-DD] [--plan TEXT]
                                          weekly recap, then next week's focus
   tock suggest [--dry-run | --force]     Claude label suggestions for the inbox (needs ANTHROPIC_API_KEY)
+  tock blocks [--date D]                 the day's work blocks: stretches of work on one thing
+  tock summary [--date D] [--dry-run]    Claude writes what you worked on (needs ANTHROPIC_API_KEY)
+  tock ask [--dry-run] "<question>"      ask about your time in plain words; answered on this machine
   tock doctor [--wait] [--open]          check trackd, permissions, rules and config
   tock export [--from D] [--to D] [--format csv|json] [--by project]
                                          labelled spans, default the last 7 days as csv
@@ -85,6 +88,8 @@ type Env struct {
 	Sleep func(time.Duration)
 	// Git runs git for the commit counts; nil runs the git on PATH.
 	Git gitlog.Runner
+	// NewLLM builds the client for summaries and questions; nil: Claude.
+	NewLLM func(key string) LLM
 	// SlackToken is TOCK_SLACK_TOKEN; NewSlack builds the Slack client
 	// (nil: the real one).
 	SlackToken string
@@ -182,6 +187,9 @@ var commands = map[string]func(Env, []string) error{
 	"web":        cmdWeb,
 	"slack":      cmdSlack,
 	"edit":       cmdEdit,
+	"blocks":     cmdBlocks,
+	"summary":    cmdSummary,
+	"ask":        cmdAsk,
 	"undo":       cmdUndo,
 }
 

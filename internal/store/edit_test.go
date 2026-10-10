@@ -56,3 +56,24 @@ func TestEditsAndUndo(t *testing.T) {
 		t.Log("override without span accepted")
 	}
 }
+
+func TestSummaries(t *testing.T) {
+	st, err := Open(filepath.Join(t.TempDir(), "tock.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	if m, _, err := st.Summaries("2026-10-10"); err != nil || len(m) != 0 {
+		t.Fatalf("empty = %v, %v", m, err)
+	}
+	if err := st.SaveSummary("2026-10-10", "m", "day", map[int64]string{5: "b"}, 9); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.SaveSummary("2026-10-10", "m", "day2", nil, 10); err != nil {
+		t.Fatal(err)
+	}
+	m, at, err := st.Summaries("2026-10-10")
+	if err != nil || len(m) != 1 || m[0] != "day2" || at != 10 {
+		t.Fatalf("summaries = %v %d %v", m, at, err)
+	}
+}

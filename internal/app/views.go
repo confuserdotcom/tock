@@ -233,6 +233,15 @@ func (a *App) Day(day time.Time) (report.Day, error) {
 		return report.Day{}, err
 	}
 	d.Commits = a.commits(from.UnixMilli(), to.UnixMilli())
+	if err := a.fillSummaries(from, &d.Summary, func(start int64, text string) {
+		for i := range d.Blocks {
+			if d.Blocks[i].Start == start {
+				d.Blocks[i].Summary = text
+			}
+		}
+	}); err != nil {
+		return report.Day{}, err
+	}
 	if goals := a.rs.Goals; len(goals) > 0 {
 		mon := report.MondayOf(from)
 		wvs, wls, err := a.labelled(mon.UnixMilli(), to.UnixMilli(), now)

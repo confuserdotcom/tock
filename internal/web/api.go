@@ -93,6 +93,21 @@ type dayJSON struct {
 	Timeline   []rowJSON            `json:"timeline"`
 	Goals      []goalJSON           `json:"goals"`
 	Commits    []report.NameN       `json:"commits"`
+	Blocks     []blockJSON          `json:"blocks"`
+	Summary    string               `json:"summary"`
+}
+
+type blockJSON struct {
+	Start      int64    `json:"start"`
+	End        int64    `json:"end"`
+	Name       string   `json:"name"`
+	Category   string   `json:"category"`
+	Kind       string   `json:"kind"`
+	ActiveMS   int64    `json:"activeMS"`
+	DeepMS     int64    `json:"deepMS"`
+	DistractMS int64    `json:"distractMS"`
+	Top        []nameMS `json:"top"`
+	Summary    string   `json:"summary"`
 }
 
 type weekDayJSON struct {
@@ -218,6 +233,7 @@ func (s *Server) day(r *http.Request) (any, error) {
 		Stats:      statsJSON{d.Stats.ActiveMS, d.Stats.DeepMS, d.Stats.FocusMS, d.Stats.LongestMS, d.Stats.Switches, d.Stats.DistractMS, d.Stats.LongestRunMS},
 		Categories: cats(d.Categories), HourFirst: d.Hours.First, HourLast: d.Hours.Last, Hours: d.Hours.MS,
 		Timeline: make([]rowJSON, len(d.Timeline)), Goals: []goalJSON{}, Commits: d.Commits,
+		Blocks: make([]blockJSON, len(d.Blocks)), Summary: report.Safe(d.Summary),
 	}
 	for i, row := range d.Timeline {
 		out.Timeline[i] = rowJSON{IDs: row.IDs, Start: row.Start, End: row.End, Key: report.Safe(row.Key),
@@ -227,6 +243,14 @@ func (s *Server) day(r *http.Request) (any, error) {
 	for _, g := range d.Goals {
 		out.Goals = append(out.Goals, goalJSON{Name: g.Goal.Name(), Text: g.Goal.Text(), AtMost: g.Goal.AtMost,
 			Week: g.Goal.Week, MS: g.Goal.MS, DoneMS: g.DoneMS, State: g.State})
+	}
+	for i, b := range d.Blocks {
+		bj := blockJSON{Start: b.Start, End: b.End, Name: report.Safe(b.Name), Category: report.Safe(b.Category), Kind: b.Kind,
+			ActiveMS: b.ActiveMS, DeepMS: b.DeepMS, DistractMS: b.DistractMS, Top: []nameMS{}, Summary: report.Safe(b.Summary)}
+		for _, t := range b.Top {
+			bj.Top = append(bj.Top, nameMS{report.Safe(t.Name), t.MS})
+		}
+		out.Blocks[i] = bj
 	}
 	return out, nil
 }
