@@ -339,12 +339,15 @@ func (t todayTab) view(w, h int, now time.Time) []string {
 	return out
 }
 
-// notes are the lines between the stats line and the heatmap: the goals and
-// the latest unanswered time away.
+// notes are the lines between the stats line and the heatmap: the goals,
+// the commits and the latest unanswered time away.
 func (t *todayTab) notes() []string {
 	var out []string
 	if len(t.day.Goals) > 0 {
 		out = append(out, goalsLine(t.day.Goals))
+	}
+	if len(t.day.Commits) > 0 {
+		out = append(out, " "+sHead.Render("commits")+"  "+sText.Render(report.CommitsLine(t.day.Commits)))
 	}
 	if n := len(t.day.Away); n > 0 {
 		line := " " + sAccent.Render("away "+awayWhat(t.day.Away[n-1], t.day.Date.Location())) +

@@ -15,6 +15,7 @@ import (
 	"github.com/charmbracelet/x/term"
 
 	"tock/internal/claude"
+	"tock/internal/gitlog"
 	"tock/internal/shell"
 	"tock/internal/suggest"
 )
@@ -67,6 +68,8 @@ type Env struct {
 	// both.
 	Open  func(url string) error
 	Sleep func(time.Duration)
+	// Git runs git for the commit counts; nil runs the git on PATH.
+	Git gitlog.Runner
 }
 
 func (e Env) dbPath() string       { return filepath.Join(e.DataDir, "tock.db") }

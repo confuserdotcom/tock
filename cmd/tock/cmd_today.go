@@ -58,6 +58,9 @@ func cmdToday(env Env, args []string) error {
 	if len(d.Goals) > 0 {
 		fmt.Fprintln(env.Stdout, "goals  "+report.GoalsLine(d.Goals))
 	}
+	if len(d.Commits) > 0 {
+		fmt.Fprintln(env.Stdout, "commits  "+report.CommitsLine(d.Commits))
+	}
 
 	var maxMS int64
 	for _, r := range d.Categories {

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"tock/internal/app"
 	"tock/internal/classify"
 	"tock/internal/config"
+	"tock/internal/gitlog"
 )
 
 // System Settings panes for the grants trackd needs.
@@ -54,6 +56,7 @@ func cmdDoctor(env Env, args []string) error {
 		bad("rules", err.Error(), "fix the file (tock rules check)")
 	default:
 		ok("rules", fmt.Sprintf("%d rules, %d learned", len(rs.Rules), len(rs.Learned)))
+		doctorRepos(env, rs, ok, bad)
 	}
 
 	cfgPath := env.paths().Config
@@ -115,6 +118,32 @@ func cmdDoctor(env Env, args []string) error {
 		return fmt.Errorf("doctor: %d problems", problems)
 	}
 	return nil
+}
+
+// doctorRepos checks that git reads every [[project]] repo.
+func doctorRepos(env Env, rs *classify.Ruleset, ok func(name, detail string), bad func(name, detail, fix string)) {
+	run := env.Git
+	if run == nil {
+		run = gitlog.Exec
+	}
+	home, _ := os.UserHomeDir()
+	n, failed := 0, false
+	for _, p := range rs.Projects {
+		for _, r := range p.Repos {
+			n++
+			if err := gitlog.Check(context.Background(), run, classify.ExpandHome(r, home)); err != nil {
+				failed = true
+				bad("git", fmt.Sprintf("project %s: %s is not a readable git repo (%v)", p.Name, r, err),
+					"fix repos in rules.toml")
+			}
+		}
+	}
+	switch {
+	case n == 0:
+		ok("git", "no repos (rules.toml [[project]] repos)")
+	case !failed:
+		ok("git", fmt.Sprintf("%d %s", n, map[bool]string{true: "repo", false: "repos"}[n == 1]))
+	}
 }
 
 // doctorHealth reads trackd's state, polling once a second for up to

@@ -175,6 +175,7 @@ func (a *App) Day(day time.Time) (report.Day, error) {
 	if d.Away, err = a.pending(vs, from.UnixMilli(), to.UnixMilli()); err != nil {
 		return report.Day{}, err
 	}
+	d.Commits = a.commits(from.UnixMilli(), to.UnixMilli())
 	if goals := a.rs.Goals; len(goals) > 0 {
 		mon := report.MondayOf(from)
 		wvs, wls, err := a.labelled(mon.UnixMilli(), to.UnixMilli(), now)
@@ -206,6 +207,7 @@ func (a *App) Week(anyDay time.Time) (report.Week, error) {
 		}
 	}
 	w := report.BuildWeek(in)
+	w.Commits = a.commits(mon.UnixMilli(), mon.AddDate(0, 0, 7).UnixMilli())
 	if w.Plan, err = a.st.Plan(dateKey(mon)); err != nil {
 		return report.Week{}, err
 	}

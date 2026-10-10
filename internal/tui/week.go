@@ -249,6 +249,9 @@ func (t weekTab) view(w, h int) []string {
 	if len(wk.Projects) > 0 {
 		out = append(out, " "+fit("Projects", 15)+"  "+names(wk.Projects))
 	}
+	if len(wk.Commits) > 0 {
+		out = append(out, " "+fit("Commits", 15)+"  "+report.CommitsLine(wk.Commits))
+	}
 	if len(wk.Apps) > 0 {
 		out = append(out, " "+fit("Apps", 15)+"  "+names(wk.Apps))
 	}

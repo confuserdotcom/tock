@@ -37,7 +37,8 @@ type Week struct {
 	// Distractions are the top TopProjects apps and sites in distract-kind
 	// categories.
 	Distractions []NameMS
-	Plan         string // the week's plan from tock review; filled by the caller
+	Plan         string  // the week's plan from tock review; filled by the caller
+	Commits      []NameN // commits per project, filled by the caller
 }
 
 // DayTotal is one day of a week.

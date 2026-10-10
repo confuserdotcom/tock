@@ -9,6 +9,7 @@ import (
 
 	"tock/internal/classify"
 	"tock/internal/config"
+	"tock/internal/gitlog"
 	"tock/internal/shell"
 	"tock/internal/stats"
 	"tock/internal/store"
@@ -37,6 +38,9 @@ type App struct {
 	shell    shell.Log
 	shellErr error
 	home     string // the user's home, for "~/…" dirs
+
+	git      gitlog.Runner // nil = gitlog.Exec
+	gitCache map[gitKey]gitEntry
 
 	past    map[string]stats.Day // stats of days before today, by date
 	pastKey uint64               // overrides fingerprint the cache was built with
@@ -134,7 +138,7 @@ func (a *App) Reload() (changed bool, err error) {
 		return changed, err
 	}
 	a.rs, a.rulesErr = rs, nil
-	a.past = nil
+	a.past, a.gitCache = nil, nil
 	return true, nil
 }
 

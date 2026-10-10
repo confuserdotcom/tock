@@ -41,6 +41,7 @@ type Day struct {
 	Score      stats.Score
 	Goals      []GoalRow           // filled by the caller from the week to date; nil without goals
 	Away       []classify.Interval // pending absences, filled by the caller
+	Commits    []NameN             // commits per project, filled by the caller
 }
 
 // CatRow is one category's time.

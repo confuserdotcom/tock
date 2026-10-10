@@ -18,7 +18,13 @@ func (e Env) paths() app.Paths {
 }
 
 // openApp loads the rules and opens the database.
-func openApp(env Env) (*app.App, error) { return app.Open(env.paths(), env.Now) }
+func openApp(env Env) (*app.App, error) {
+	a, err := app.Open(env.paths(), env.Now)
+	if err == nil && env.Git != nil {
+		a.SetGitRunner(env.Git)
+	}
+	return a, err
+}
 
 // openStore opens tock.db but never creates it: an absent database means
 // trackd has not run yet. For commands that work without rules.

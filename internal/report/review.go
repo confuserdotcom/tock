@@ -61,6 +61,9 @@ func ReviewLines(w Week) []string {
 			out = append(out, "  "+Pad(g.Goal.Text(), 28)+"  "+WeekGoalText(g))
 		}
 	}
+	if len(w.Commits) > 0 {
+		out = append(out, "", "commits  "+CommitsLine(w.Commits))
+	}
 	out = append(out, "")
 	if len(w.Distractions) == 0 {
 		out = append(out, "top distractions  none")
