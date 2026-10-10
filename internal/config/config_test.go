@@ -48,6 +48,16 @@ func TestLoadPartialKeepsDefaults(t *testing.T) {
 	}
 }
 
+func TestLoadStretchWeight(t *testing.T) {
+	c, err := Load(write(t, "[score]\ndepth = 0.4\nstretch = 0.1\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.Score != (stats.Weights{Depth: 0.4, Blocks: 0.3, Calm: 0.2, Stretch: 0.1}) {
+		t.Fatalf("weights = %+v", c.Score)
+	}
+}
+
 func TestLoadEmptyFile(t *testing.T) {
 	if c, err := Load(write(t, "")); err != nil || !reflect.DeepEqual(c, Default()) {
 		t.Fatalf("Load(empty) = %+v, %v", c, err)
@@ -61,6 +71,7 @@ func TestLoadErrors(t *testing.T) {
 		{"[score]\ndepth = 0.6\n", "config.toml: [score] weights sum to 1.10, want 1"},
 		{"[score]\ndepth = 1.5\nblocks = -0.3\ncalm = -0.2\n", "config.toml: [score] depth = 1.5, want 0 to 1"},
 		{"[score\n", "config.toml: "},
+		{"[score]\nstretch = 0.1\n", "config.toml: [score] weights sum to 1.10, want 1"},
 	}
 	for _, tt := range tests {
 		c, err := Load(write(t, tt.body))

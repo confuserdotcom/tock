@@ -23,7 +23,8 @@ const (
 	LookbackDays    = 42 // calendar days searched for workdays
 	CalmZeroPerHour = 20 // switches per active hour that make calm 0
 	PenaltyCap      = 15
-	PenaltyPerMin   = 4 // distraction minutes per penalty point
+	PenaltyPerMin   = 4           // distraction minutes per penalty point
+	StretchFullMS   = 90 * 60_000 // a run this long makes the stretch term 1
 )
 
 // Block is one focus block.
@@ -34,14 +35,17 @@ type Block struct {
 
 // Day is the focus numbers of one day.
 type Day struct {
-	ActiveMS   int64   // non-idle time
-	DeepMS     int64   // all deep time
-	FocusMS    int64   // sum of Blocks[i].DeepMS
-	LongMS     int64   // sum of DeepMS of blocks with DeepMS >= LongBlockMS
-	Blocks     []Block // chronological
-	LongestMS  int64   // largest block DeepMS, 0 with no blocks
-	Switches   int
-	DistractMS int64
+	ActiveMS  int64   // non-idle time
+	DeepMS    int64   // all deep time
+	FocusMS   int64   // sum of Blocks[i].DeepMS
+	LongMS    int64   // sum of DeepMS of blocks with DeepMS >= LongBlockMS
+	Blocks    []Block // chronological
+	LongestMS int64   // largest block DeepMS, 0 with no blocks
+	Switches  int
+	// LongestRunMS is the longest unbroken stretch: activity with no context
+	// switch, idle or long gap in it.
+	LongestRunMS int64
+	DistractMS   int64
 }
 
 func isIdle(v classify.SpanView) bool { return v.BundleID == span.IdleBundleID }
@@ -71,7 +75,7 @@ func Compute(views []classify.SpanView, labels []classify.Label) Day {
 		}
 		d.LongestMS = max(d.LongestMS, b.DeepMS)
 	}
-	d.Switches = switches(views, labels)
+	d.Switches, d.LongestRunMS = switches(views, labels)
 	return d
 }
 

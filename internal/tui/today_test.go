@@ -183,10 +183,10 @@ func TestScorePanelEmptyDayAndManyBlocks(t *testing.T) {
 	e.Seed(t, spans...)
 	m := newModel(t, e)
 	m = press(t, m, "?")
-	// 30 rows: header, banner and footer leave 27; the panel uses 11 before
-	// the blocks, so 15 blocks show and one line counts the other 5.
-	mustContain(t, m, "  blocks   09:00–09:06  6m", "           10:52–10:58  6m", "           +5 more")
-	mustNotContain(t, m, "11:00–11:06")
+	// 30 rows: header, banner and footer leave 27; the panel uses 12 before
+	// the blocks, so 14 blocks show and one line counts the other 6.
+	mustContain(t, m, "  blocks   09:00–09:06  6m", "           10:44–10:50  6m", "           +6 more")
+	mustNotContain(t, m, "10:52–10:58")
 	m = press(t, m, "esc", "h", "?")
 	mustContain(t, m, "Score · Fri 9 Oct", "no activity on this day")
 }

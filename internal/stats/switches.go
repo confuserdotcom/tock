@@ -38,22 +38,25 @@ func stretches(views []classify.SpanView, labels []classify.Label) []stretch {
 
 // switches counts context switches: a stretch of at least SwitchMinMS whose
 // kind differs from the last such stretch. Shorter stretches are ignored; a
-// reset forgets the last kind.
-func switches(views []classify.SpanView, labels []classify.Label) int {
-	n := 0
+// reset forgets the last kind. It also returns the longest run: the most
+// activity between two switches or resets, short stretches included.
+func switches(views []classify.SpanView, labels []classify.Label) (n int, longest int64) {
 	var last string
 	have := false
+	var run int64
 	for _, s := range stretches(views, labels) {
 		if s.reset {
-			have = false
+			have, run = false, 0
 		}
-		if s.ms < SwitchMinMS {
-			continue
+		if s.ms >= SwitchMinMS {
+			if have && s.kind != last {
+				n++
+				run = 0
+			}
+			last, have = s.kind, true
 		}
-		if have && s.kind != last {
-			n++
-		}
-		last, have = s.kind, true
+		run += s.ms
+		longest = max(longest, run)
 	}
-	return n
+	return n, longest
 }

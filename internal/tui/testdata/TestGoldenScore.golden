@@ -4,6 +4,7 @@ tock   1 today   2 week   3 inbox 3   4 focus   5 rules                 Sat 10 O
   depth    0.56 × 0.5 = 27.9   focus 2h14 of target 4h00
   blocks   1.00 × 0.3 = 30.0   2h14 in blocks of 25m or more
   calm     0.97 × 0.2 = 19.3   2 switches in 2h54 active = 0.7 an hour (20 = 0)
+  stretch  1.00 × 0.0 =  0.0   longest 2h14 without a switch (1h30 = 1)
   penalty             −    3   12m distraction, 1 point per 4m, at most 15
                         ────
                  77 − 3 = 74   (sum rounded, then penalty, 0–100)
@@ -11,7 +12,6 @@ tock   1 today   2 week   3 inbox 3   4 focus   5 rules                 Sat 10 O
   target   4h00 default: 0 of 7 workdays so far
 
   blocks   09:00–11:14  2h14                                                                        
-
 
 
 

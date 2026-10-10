@@ -37,6 +37,8 @@ func (t todayTab) scoreView(w, h int, loc *time.Location) []string {
 		term("calm", sc.Calm, sc.Weights.Calm,
 			fmt.Sprintf("%s in %s active = %.1f an hour (%d = 0)", switches(st.Switches),
 				report.Dur(st.ActiveMS), sc.SwitchesPerHour, stats.CalmZeroPerHour)),
+		term("stretch", sc.Stretch, sc.Weights.Stretch,
+			fmt.Sprintf("longest %s without a switch (%s = 1)", report.Dur(st.LongestRunMS), report.Dur(stats.StretchFullMS))),
 		fmt.Sprintf("  %-8s            − %4d   %s distraction, 1 point per %dm, at most %d", "penalty",
 			sc.Penalty, report.Dur(st.DistractMS), stats.PenaltyPerMin, stats.PenaltyCap),
 		strings.Repeat(" ", 24) + "────",

@@ -107,9 +107,10 @@ func Default() Config {
 }
 
 type scoreTOML struct {
-	Depth  *float64 `toml:"depth"`
-	Blocks *float64 `toml:"blocks"`
-	Calm   *float64 `toml:"calm"`
+	Depth   *float64 `toml:"depth"`
+	Blocks  *float64 `toml:"blocks"`
+	Calm    *float64 `toml:"calm"`
+	Stretch *float64 `toml:"stretch"`
 }
 
 type focusTOML struct {
@@ -173,7 +174,8 @@ func Load(path string) (Config, error) {
 		key string
 		v   *float64
 		dst *float64
-	}{{"depth", f.Score.Depth, &c.Score.Depth}, {"blocks", f.Score.Blocks, &c.Score.Blocks}, {"calm", f.Score.Calm, &c.Score.Calm}} {
+	}{{"depth", f.Score.Depth, &c.Score.Depth}, {"blocks", f.Score.Blocks, &c.Score.Blocks}, {"calm", f.Score.Calm, &c.Score.Calm},
+		{"stretch", f.Score.Stretch, &c.Score.Stretch}} {
 		if w.v == nil {
 			continue
 		}
@@ -182,7 +184,7 @@ func Load(path string) (Config, error) {
 		}
 		*w.dst = *w.v
 	}
-	if sum := c.Score.Depth + c.Score.Blocks + c.Score.Calm; math.Abs(sum-1) > 0.001 {
+	if sum := c.Score.Depth + c.Score.Blocks + c.Score.Calm + c.Score.Stretch; math.Abs(sum-1) > 0.001 {
 		return Default(), fmt.Errorf("%s: [score] weights sum to %.2f, want 1", name, sum)
 	}
 	if err := decodeFocus(f.Focus, &c.Focus); err != nil {
