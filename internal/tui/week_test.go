@@ -49,3 +49,20 @@ func TestSparkCells(t *testing.T) {
 		}
 	}
 }
+
+func TestMonthMode(t *testing.T) {
+	m, e := seeded(t)
+	e.Seed(t, apptest.Span{ID: 9, Start: "09:00", End: "11:00", Bundle: "term", App: "WezTerm", Title: "tock │ y", Day: -36}) // Fri 4 Sep
+	m = press(t, m, "2", "m")
+	mustContain(t, m, " October 2026 · 1–10 vs September 1–10", "tracked     2h54    +54m  +45%",
+		"Code               2h14    +14m  +12%", "h/l month · . this month · m week")
+	m = press(t, m, "l") // no future months
+	mustContain(t, m, " October 2026 · 1–10")
+	m = press(t, m, "h")
+	mustContain(t, m, " September 2026 vs August", "Code               2h00  new")
+	m = clickOn(t, m, "September 2026") // clicks do nothing in month mode
+	m = press(t, m, ".")
+	mustContain(t, m, " October 2026 · 1–10")
+	m = press(t, m, "m")
+	mustContain(t, m, "Week of Mon 5 Oct")
+}

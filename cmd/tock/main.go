@@ -34,6 +34,7 @@ const usage = `usage:
                                          validate the rules | time each rule decided (default 30 days)
   tock session [start [MIN] | stop]      focus session: show, start (default 25), stop
   tock recap [YYYY-MM-DD]                the daily recap
+  tock trends [--month YYYY-MM]          a month against the one before
   tock suggest [--dry-run | --force]     Claude label suggestions for the inbox (needs ANTHROPIC_API_KEY)
   tock doctor [--wait] [--open]          check trackd, permissions, rules and config
   tock export [--from D] [--to D] [--format csv|json]
@@ -135,6 +136,7 @@ var commands = map[string]func(Env, []string) error{
 	"backup":     cmdBackup,
 	"shell-init": cmdShellInit,
 	"away":       cmdAway,
+	"trends":     cmdTrends,
 }
 
 // run executes one command and returns the exit code: 0 ok, 1 error, 2 usage.

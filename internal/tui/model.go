@@ -96,6 +96,7 @@ type loadedMsg struct {
 	items     []classify.Item
 	day       *report.Day
 	week      *report.Week
+	month     *report.Month
 	focus     *report.Focus
 	rules     *rulesSnap
 	sugg      map[string]classify.Want
@@ -124,6 +125,7 @@ func (m *Model) load() tea.Cmd {
 	m.loading = true
 	now := m.now()
 	tab, dayDate, weekDate := m.tab, m.today.dateOr(now), m.week.dateOr(now)
+	month, monthDate := m.week.month, m.week.monthOr(now)
 	src := m.src
 	return func() tea.Msg {
 		var msg loadedMsg
@@ -147,6 +149,11 @@ func (m *Model) load() tea.Cmd {
 				d, err := a.Day(dayDate)
 				msg.day, msg.err = &d, err
 			case tabWeek:
+				if month {
+					mo, err := a.Month(monthDate)
+					msg.month, msg.err = &mo, err
+					break
+				}
 				w, err := a.Week(weekDate)
 				msg.week, msg.err = &w, err
 			case tabRules:
@@ -217,6 +224,9 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			if msg.week != nil {
 				m.week.set(*msg.week)
+			}
+			if msg.month != nil {
+				m.week.setMonth(*msg.month)
 			}
 			if msg.focus != nil {
 				m.focus.set(*msg.focus)
@@ -372,6 +382,8 @@ func (m Model) body(bodyH int) []string {
 		body = m.start.view(m.width)
 	case m.tab == tabToday:
 		body = m.today.view(m.width, bodyH, m.now())
+	case m.tab == tabWeek && m.week.month:
+		body = m.week.monthView(m.width)
 	case m.tab == tabWeek:
 		body = m.week.view(m.width, bodyH)
 	case m.tab == tabFocus:
@@ -473,8 +485,10 @@ func (m Model) hint() string {
 		hint = "↑/↓ move · digits custom length · enter start · esc cancel"
 	case m.tab == tabToday:
 		hint = m.today.hint()
+	case m.tab == tabWeek && m.week.month:
+		hint = "h/l month · . this month · m week · ? help"
 	case m.tab == tabWeek:
-		hint = "j/k day · h/l week · . this week · enter open day · ? help"
+		hint = "j/k day · h/l week · . this week · enter open day · m month · ? help"
 	case m.tab == tabFocus:
 		hint = "s start · x stop · ? help"
 	case m.tab == tabRules:

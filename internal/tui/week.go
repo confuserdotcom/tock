@@ -10,13 +10,27 @@ import (
 	"tock/internal/report"
 )
 
-// weekTab shows one Monday-start week.
+// weekTab shows one Monday-start week, or (m) one month's trends.
 type weekTab struct {
 	date   time.Time // any day of the shown week; zero = this week
 	week   report.Week
 	loaded bool
 	cursor int // 0 = Monday
+
+	month       bool      // month mode
+	monthDate   time.Time // any day of the shown month; zero = this month
+	monthData   report.Month
+	monthLoaded bool
 }
+
+func (t *weekTab) monthOr(now time.Time) time.Time {
+	if t.monthDate.IsZero() {
+		return now
+	}
+	return t.monthDate
+}
+
+func (t *weekTab) setMonth(m report.Month) { t.monthData, t.monthLoaded = m, true }
 
 func (t *weekTab) dateOr(now time.Time) time.Time {
 	if t.date.IsZero() {
@@ -32,6 +46,13 @@ func (t *weekTab) clamp() { t.cursor = min(max(t.cursor, 0), 6) }
 func (m Model) weekKey(k string) (tea.Model, tea.Cmd) {
 	t := &m.week
 	now := m.now()
+	if k == "m" {
+		t.month = !t.month
+		return m, m.reload()
+	}
+	if t.month {
+		return m.monthKey(k)
+	}
 	switch k {
 	case "j", "down":
 		t.cursor++
@@ -70,6 +91,59 @@ func (m Model) weekKey(k string) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+func (m Model) monthKey(k string) (tea.Model, tea.Cmd) {
+	t := &m.week
+	now := m.now()
+	cur := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+	shown := t.monthOr(now)
+	shown = time.Date(shown.Year(), shown.Month(), 1, 0, 0, 0, 0, now.Location())
+	switch k {
+	case "h":
+		t.monthDate, t.monthLoaded = shown.AddDate(0, -1, 0), false
+	case "l":
+		next := shown.AddDate(0, 1, 0)
+		if next.After(cur) {
+			return m, nil
+		}
+		if next.Equal(cur) {
+			next = time.Time{}
+		}
+		t.monthDate, t.monthLoaded = next, false
+	case ".":
+		if t.monthDate.IsZero() {
+			return m, nil
+		}
+		t.monthDate, t.monthLoaded = time.Time{}, false
+	default:
+		return m, nil
+	}
+	return m, m.reload()
+}
+
+// monthView renders the trends: report.MonthLines with the title in the
+// heading style and each category name in its kind's colour.
+func (t weekTab) monthView(w int) []string {
+	if !t.monthLoaded {
+		return []string{"", " loading…"}
+	}
+	lines := report.MonthLines(t.monthData)
+	cats := t.monthData.Categories
+	first := len(lines) - len(cats) // the category rows come last
+	out := make([]string, len(lines))
+	for i, l := range lines {
+		switch c := i - first; {
+		case i == 0:
+			out[i] = " " + sHead.Render(l)
+		case c >= 0 && len(cats) > 0:
+			name := report.Pad(cats[c].Name, 16)
+			out[i] = fit(" "+kindStyle(cats[c].Kind).Render(name)+strings.TrimPrefix(l, name), w)
+		default:
+			out[i] = fit(" "+l, w)
+		}
+	}
+	return out
+}
+
 // stacked draws a day's time by kind as one bar of up to cells blocks.
 func stacked(byKind map[string]int64, maxMS int64, cells int) string {
 	var b strings.Builder
@@ -96,7 +170,7 @@ const weekHead = 2
 // rowAt is the day (0 = Monday) shown on body line line, if any.
 func (t *weekTab) rowAt(line int) (int, bool) {
 	i := line - weekHead
-	if !t.loaded || i < 0 || i >= len(t.week.Days) {
+	if !t.loaded || t.month || i < 0 || i >= len(t.week.Days) {
 		return 0, false
 	}
 	return i, true
@@ -182,8 +256,8 @@ func names(list []report.NameMS) string {
 	return strings.Join(ps, " · ")
 }
 
-// spark is the sparkline cell of a score: ▁ for 0-12 up to █ for 88-100.
-func spark(score int) rune { return []rune("▁▂▃▄▅▆▇█")[min(max(score, 0)*8/100, 7)] }
+// spark is the sparkline cell of a score.
+func spark(score int) rune { return report.SparkCell(score) }
 
 // weekScore is "avg score 64 ▃▅▇▆▂· " over the days with activity, with one
 // sparkline cell per day: · for no activity, space for the future.
