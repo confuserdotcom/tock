@@ -34,6 +34,10 @@ const usage = `usage:
   tock ignore <n> | tock ignore --undo <key>
   tock away [--date D] [<HH:MM> <Category>[/<Project>] | --skip <HH:MM>]
                                          label time away (idle or asleep) or leave it idle
+  tock edit [add | label | delete] <HH:MM-HH:MM> [<Category>[/<Project>] [note]]
+                                         fix the timeline: add missing time, label part of it, delete some
+  tock edit [--date D] | tock edit remove <id>   list the day's edits | drop one
+  tock undo [--list]                     reverse the last tag, rule, ignore, away label or edit
   tock rules check | tock rules stats [--days N]
                                          validate the rules | time each rule decided (default 30 days)
   tock rules dupes | tock rules merge [--project] <from> <into>
@@ -177,6 +181,8 @@ var commands = map[string]func(Env, []string) error{
 	"review":     cmdReview,
 	"web":        cmdWeb,
 	"slack":      cmdSlack,
+	"edit":       cmdEdit,
+	"undo":       cmdUndo,
 }
 
 // run executes one command and returns the exit code: 0 ok, 1 error, 2 usage.
