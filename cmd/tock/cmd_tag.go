@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -128,23 +129,11 @@ func answer(in *bufio.Reader) byte {
 
 // parseWant resolves "Category", "Category/Project" or "/Project".
 func parseWant(rs *classify.Ruleset, arg string) (classify.Want, error) {
-	catPart, projPart, hasProj := strings.Cut(arg, "/")
-	var w classify.Want
-	var err error
-	if strings.TrimSpace(catPart) == "" && (!hasProj || strings.TrimSpace(projPart) == "") {
-		return w, usagef("tag: give a category, Category/Project or /Project")
+	w, err := rs.ParseWant(arg)
+	if errors.Is(err, classify.ErrNoLabel) {
+		return w, usagef("tag: %v", err)
 	}
-	if strings.TrimSpace(catPart) != "" {
-		if w.Category, err = rs.ResolveCategory(catPart); err != nil {
-			return w, err
-		}
-	}
-	if hasProj && strings.TrimSpace(projPart) != "" {
-		if w.Project, err = rs.ResolveProject(projPart); err != nil {
-			return w, err
-		}
-	}
-	return w, nil
+	return w, err
 }
 
 func tagSpans(env Env, a *app.App, ids []int64, want classify.Want, what string) error {

@@ -1,6 +1,7 @@
 package classify
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -49,4 +50,29 @@ func resolveName(what, s string, names []string) (string, error) {
 		return "", fmt.Errorf("unknown %s %q (have: %s)", what, s, strings.Join(names, ", "))
 	}
 	return "", fmt.Errorf("ambiguous %s %q: %s", what, s, strings.Join(hits, ", "))
+}
+
+// ErrNoLabel is a label string with neither a category nor a project.
+var ErrNoLabel = errors.New("give a category, Category/Project or /Project")
+
+// ParseWant resolves "Category", "Category/Project" or "/Project", each
+// name by ResolveCategory or ResolveProject.
+func (rs *Ruleset) ParseWant(arg string) (Want, error) {
+	catPart, projPart, hasProj := strings.Cut(arg, "/")
+	var w Want
+	var err error
+	if strings.TrimSpace(catPart) == "" && (!hasProj || strings.TrimSpace(projPart) == "") {
+		return w, ErrNoLabel
+	}
+	if strings.TrimSpace(catPart) != "" {
+		if w.Category, err = rs.ResolveCategory(catPart); err != nil {
+			return w, err
+		}
+	}
+	if hasProj && strings.TrimSpace(projPart) != "" {
+		if w.Project, err = rs.ResolveProject(projPart); err != nil {
+			return w, err
+		}
+	}
+	return w, nil
 }
