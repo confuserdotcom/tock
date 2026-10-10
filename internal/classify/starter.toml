@@ -28,6 +28,10 @@ name = "Communication"
 kind = "shallow"
 
 [[category]]
+name = "Meeting"
+kind = "shallow"
+
+[[category]]
 name = "Admin & Planning"
 kind = "shallow"
 
@@ -38,6 +42,10 @@ kind = "distract"
 [[category]]
 name = "Utilities"
 kind = "neutral"
+
+# Time with a camera or microphone in use (calls) gets this category.
+[calls]
+category = "Meeting"
 
 [[project]]
 name = "tock"

@@ -10,6 +10,7 @@ const (
 	SourceRule    Source = "rule"
 	SourceLearned Source = "learned"
 	SourceManual  Source = "manual"
+	SourceCall    Source = "call"
 )
 
 // Override is a manual label for one span. Empty fields fall through to rules.
@@ -33,8 +34,9 @@ type memoKey struct {
 }
 
 // Label classifies v. Idle spans get an empty label. o may be nil. Each field
-// is decided separately: manual override, else the first matching learned
-// rule that sets the field, else the first matching user rule, else empty.
+// is decided separately: manual override, else (category only) CallCategory
+// for a view in a call, else the first matching learned rule that sets the
+// field, else the first matching user rule, else empty.
 func (rs *Ruleset) Label(v SpanView, o *Override) Label {
 	var l Label
 	if v.BundleID != span.IdleBundleID {
@@ -42,6 +44,11 @@ func (rs *Ruleset) Label(v SpanView, o *Override) Label {
 	} else {
 		l = Label{CategorySource: SourceNone, ProjectSource: SourceNone}
 		o = nil
+	}
+	// After the memoized rule label, so the memo key needs no InCall.
+	if v.InCall && rs.CallCategory != "" && v.BundleID != span.IdleBundleID {
+		l.Category, l.Kind = rs.CallCategory, rs.Kind(rs.CallCategory)
+		l.CategorySource, l.CategoryRule = SourceCall, ""
 	}
 	if o != nil && o.Category != "" {
 		l.Category, l.Kind = o.Category, rs.Kind(o.Category)

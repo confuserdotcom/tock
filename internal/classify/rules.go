@@ -130,6 +130,9 @@ type Ruleset struct {
 	Projects   []Project
 	Learned    []Rule
 	Rules      []Rule
+	// CallCategory labels call time ([calls] category); "" leaves calls
+	// unlabelled.
+	CallCategory string
 
 	catByLower  map[string]Category
 	projByLower map[string]Project
@@ -157,7 +160,10 @@ type rulesTOML struct {
 		Name     string `toml:"name"`
 		Archived bool   `toml:"archived"`
 	} `toml:"project"`
-	Rule []ruleTOML `toml:"rule"`
+	Rule  []ruleTOML `toml:"rule"`
+	Calls struct {
+		Category string `toml:"category"`
+	} `toml:"calls"`
 }
 
 type learnedTOML struct {
@@ -226,6 +232,13 @@ func Parse(rulesData, learnedData []byte) (*Ruleset, error) {
 		cat := Category{Name: c.Name, Kind: c.Kind}
 		rs.catByLower[lower] = cat
 		rs.Categories = append(rs.Categories, cat)
+	}
+	if c := strings.TrimSpace(rf.Calls.Category); c != "" {
+		cat, ok := rs.catByLower[strings.ToLower(c)]
+		if !ok {
+			return nil, fmt.Errorf("%s: [calls]: unknown category %q", RulesFile, rf.Calls.Category)
+		}
+		rs.CallCategory = cat.Name
 	}
 	for i, p := range rf.Project {
 		lower := strings.ToLower(strings.TrimSpace(p.Name))

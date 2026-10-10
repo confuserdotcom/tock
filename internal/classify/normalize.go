@@ -17,6 +17,7 @@ type SpanView struct {
 	Title, URL     *string
 	Private        bool
 	Dir            *string // the shell's working directory, for terminal views; "~/…" under home
+	InCall         bool    // a camera or microphone was in use (see MarkCalls)
 }
 
 // DurMS returns End-Start, or 0 when End is before Start.

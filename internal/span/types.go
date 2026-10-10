@@ -17,6 +17,12 @@ const (
 	IdleApp = "Idle"
 	// LoginWindowBundleID is the frontmost bundle while the console is locked.
 	LoginWindowBundleID = "com.apple.loginwindow"
+	// CallBundleID is the bundle id of call time that trackd recorded as
+	// idle (a call you only listen to). It never appears in the span table:
+	// views are rewritten at read time.
+	CallBundleID = "tock.call"
+	// CallApp is the app name of CallBundleID views.
+	CallApp = "Call"
 )
 
 // Automation status values carried by Sample.Automation.
