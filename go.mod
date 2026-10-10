@@ -2,7 +2,10 @@ module tock
 
 go 1.26.3
 
-require modernc.org/sqlite v1.60.1
+require (
+	github.com/BurntSushi/toml v1.5.0
+	modernc.org/sqlite v1.60.1
+)
 
 require (
 	github.com/dustin/go-humanize v1.0.1 // indirect
