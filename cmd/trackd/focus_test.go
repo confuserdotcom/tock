@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"tock/internal/app"
 	"tock/internal/apptest"
@@ -81,6 +82,31 @@ func TestFocusLoopCameraMutes(t *testing.T) {
 	f.tick()
 	if len(n.got) != 0 {
 		t.Fatalf("camera on: %q", n.got)
+	}
+}
+
+func TestFocusLoopMicMutesAndRecords(t *testing.T) {
+	e := distractedEnv(t, apptest.Rules)
+	n := &recNotifier{}
+	f, _ := testLoop(t, e, n, nil)
+	f.mic = func() bool { return true }
+	f.tick()
+	e.Clock = e.Clock.Add(5 * time.Second)
+	f.tick()
+	if len(n.got) != 0 {
+		t.Fatalf("mic on: %q", n.got)
+	}
+	st, err := store.Open(e.DB)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	calls, err := st.Calls(0, e.Clock.UnixMilli()+1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(calls) != 1 || calls[0].EndMS-calls[0].StartMS != 5000 {
+		t.Fatalf("calls = %v, want one 5 s call", calls)
 	}
 }
 

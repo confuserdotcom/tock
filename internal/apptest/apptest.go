@@ -162,6 +162,17 @@ func (e *Env) State(t testing.TB, key, value string) {
 	}
 }
 
+// Call records a call from "HH:MM" to "HH:MM" on the day of Now, as trackd
+// would.
+func (e *Env) Call(t testing.TB, from, to string) {
+	t.Helper()
+	db := e.raw(t)
+	defer db.Close()
+	if _, err := db.Exec(`INSERT INTO call(start_ms, end_ms) VALUES(?, ?)`, At(t, from, 0), At(t, to, 0)); err != nil {
+		t.Fatal(err)
+	}
+}
+
 // Heartbeat records a trackd heartbeat at ms.
 func (e *Env) Heartbeat(t testing.TB, ms int64) {
 	t.Helper()

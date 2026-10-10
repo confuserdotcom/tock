@@ -77,7 +77,7 @@ func TestSessionMeetingMutes(t *testing.T) {
 		vw{at(14, 0, 0), at(14, 5, 0), classify.KindDeep, "", ""},
 		vw{at(14, 5, 0), at(14, 6, 10), classify.KindDistract, "", ""})
 	in.Sessions = []Session{running()}
-	in.Camera = true
+	in.Call = true
 	evs := Step(in)
 	if len(only(evs, Notify)) != 0 {
 		t.Fatalf("camera on: %+v", evs)

@@ -9,7 +9,7 @@ import (
 func TestBreaks(t *testing.T) {
 	deep, neutral := classify.KindDeep, classify.KindNeutral
 	withState := func(in Input, s State) Input { in.State = s; return in }
-	withCamera := func(in Input) Input { in.Camera = true; return in }
+	withCall := func(in Input) Input { in.Call = true; return in }
 	withSession := func(in Input) Input {
 		in.Sessions = []Session{{ID: 1, Kind: KindManual, StartMS: at(13, 30, 0), PlannedMS: at(14, 20, 0)}}
 		return in
@@ -47,7 +47,7 @@ func TestBreaks(t *testing.T) {
 			"60 min without a break. Stand up for 5 min.", State{BreakFrom: at(13, 0, 0), BreakAt: at(14, 0, 0)}},
 		{"deferred in a session", withSession(input(at(14, 0, 0), vw{at(13, 0, 0), at(14, 0, 0), deep, "", ""})), "", State{}},
 		{"meeting app", input(at(14, 55, 0), vw{at(14, 0, 0), at(14, 55, 0), "", "us.zoom.xos", ""}), "", State{}},
-		{"camera", withCamera(input(at(14, 55, 0), vw{at(14, 0, 0), at(14, 55, 0), deep, "", ""})), "", State{}},
+		{"camera", withCall(input(at(14, 55, 0), vw{at(14, 0, 0), at(14, 55, 0), deep, "", ""})), "", State{}},
 		{"nothing open now", input(at(14, 55, 0), vw{at(14, 0, 0), at(14, 50, 0), deep, "", ""}), "", State{}},
 		{"idle now", input(at(14, 55, 0),
 			vw{at(13, 0, 0), at(14, 0, 0), deep, "", ""},

@@ -55,6 +55,11 @@ func cmdRules(env Env, args []string) error {
 	}
 	fmt.Fprintf(env.Stdout, "rules.toml: %d categories, %d projects, %d rules\nlearned.toml: %d rules\n",
 		len(rs.Categories), len(rs.Projects), len(rs.Rules), len(rs.Learned))
+	if rs.CallCategory != "" {
+		fmt.Fprintf(env.Stdout, "calls: labelled %s\n", rs.CallCategory)
+	} else {
+		fmt.Fprintln(env.Stdout, "calls: not labelled (add [calls] category to rules.toml)")
+	}
 
 	st, err := openStore(env)
 	if errors.Is(err, errNoDB) {

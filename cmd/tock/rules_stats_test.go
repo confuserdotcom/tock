@@ -30,3 +30,14 @@ func TestRulesStats(t *testing.T) {
 		t.Fatalf("bad subcommand exit %d, want 2", code)
 	}
 }
+
+func TestRulesCheckCalls(t *testing.T) {
+	te := newTestEnv(t, testRules)
+	if code, out := te.run(t, "", "rules", "check"); code != 0 || !strings.Contains(out, "calls: not labelled (add [calls] category to rules.toml)\n") {
+		t.Fatalf("exit %d: %q", code, out)
+	}
+	te = newTestEnv(t, testRules+"\n[calls]\ncategory = \"communication\"\n")
+	if code, out := te.run(t, "", "rules", "check"); code != 0 || !strings.Contains(out, "calls: labelled Communication\n") {
+		t.Fatalf("exit %d: %q", code, out)
+	}
+}

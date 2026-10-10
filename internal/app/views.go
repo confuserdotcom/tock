@@ -66,22 +66,42 @@ func (a *App) labelled(from, to, nowMS int64) ([]classify.SpanView, []classify.L
 	if err != nil {
 		return nil, nil, err
 	}
-	vs := a.decorate(views(rows, from, to, nowMS))
+	vs, err := a.decorate(views(rows, from, to, nowMS), from, to)
+	if err != nil {
+		return nil, nil, err
+	}
 	return vs, a.rs.LabelAll(vs, ovs), nil
 }
 
-// decorate adds what is not in the span table: the shell's working
-// directory on terminal views.
-func (a *App) decorate(vs []classify.SpanView) []classify.SpanView {
-	if a.paths.ShellLog == "" {
-		return vs
+// CallMinMS is the shortest call that labels time, which keeps dictation and
+// Siri out.
+const CallMinMS = 2 * 60_000
+
+// decorate adds what is not in the span table to views clipped to
+// [from, to): the shell's working directory on terminal views, and the calls
+// (MarkCalls) when the rules name a call category.
+func (a *App) decorate(vs []classify.SpanView, from, to int64) ([]classify.SpanView, error) {
+	if a.paths.ShellLog != "" {
+		ev, err := a.shell.Events()
+		a.shellErr = err
+		if err == nil {
+			shell.Attach(vs, ev, a.cfg.Shell.Terminals, a.home)
+		}
 	}
-	ev, err := a.shell.Events()
-	a.shellErr = err
-	if err == nil {
-		shell.Attach(vs, ev, a.cfg.Shell.Terminals, a.home)
+	if a.rs.CallCategory == "" || len(vs) == 0 {
+		return vs, nil
 	}
-	return vs
+	cs, err := a.st.Calls(from, to)
+	if err != nil {
+		return nil, err
+	}
+	var iv []classify.Interval
+	for _, c := range cs {
+		if c.EndMS-c.StartMS >= CallMinMS {
+			iv = append(iv, classify.Interval{From: c.StartMS, To: c.EndMS})
+		}
+	}
+	return classify.MarkCalls(vs, iv), nil
 }
 
 // history is every span, labelled, with the overrides.
@@ -95,7 +115,10 @@ func (a *App) history() ([]classify.SpanView, []classify.Label, map[int64]classi
 		return nil, nil, nil, err
 	}
 	o := overrides(ovs)
-	vs := a.decorate(views(rows, math.MinInt64, math.MaxInt64, a.nowMS()))
+	vs, err := a.decorate(views(rows, math.MinInt64, math.MaxInt64, a.nowMS()), math.MinInt64, math.MaxInt64)
+	if err != nil {
+		return nil, nil, nil, err
+	}
 	return vs, a.rs.LabelAll(vs, o), o, nil
 }
 

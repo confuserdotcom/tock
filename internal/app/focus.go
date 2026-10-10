@@ -11,16 +11,22 @@ import (
 	"tock/internal/store"
 )
 
-// FocusTick runs the focus engine once, for trackd: it reloads changed rule
-// and config files, applies the engine's store events and returns the
-// notifications to send. It stops at the first failed write, before any
-// notification. A session notification is dropped when tock closed that
+// FocusTick runs the focus engine once, for trackd: it records the call
+// going on (call is true while a camera or microphone is in use), reloads
+// changed rule and config files, applies the engine's store events and
+// returns the notifications to send. It stops at the first failed write,
+// before any notification. A session notification is dropped when tock closed that
 // session between the read and the write.
-func (a *App) FocusTick(camera bool) ([]focus.Event, error) {
+func (a *App) FocusTick(call bool) ([]focus.Event, error) {
 	a.Reload() // a failure is kept in RulesErr / ConfigErr; the last good files stay
 	nowT := a.now()
 	now := nowT.UnixMilli()
 	day := a.midnight(nowT)
+	if call {
+		if err := a.st.RecordCall(now); err != nil {
+			return nil, err
+		}
+	}
 	open, err := a.st.OpenSession()
 	if err != nil {
 		return nil, err
@@ -42,7 +48,7 @@ func (a *App) FocusTick(camera bool) ([]focus.Event, error) {
 		return nil, err
 	}
 	in := focus.Input{Now: now, Day: day, Views: vs, Labels: labels, Sessions: focusSessions(ss),
-		Camera: camera, State: st, Cfg: a.cfg.Focus}
+		Call: call, State: st, Cfg: a.cfg.Focus}
 	if focus.RecapDue(in) {
 		d, err := a.Day(nowT)
 		if err != nil {

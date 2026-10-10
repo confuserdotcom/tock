@@ -20,6 +20,7 @@ const defaultFocusEvery = 5 * time.Second
 type focusLoop struct {
 	open    func() (*app.App, error)
 	camera  func() bool // nil: no camera check
+	mic     func() bool // nil: no microphone check
 	notify  Notifier    // nil: notifications dropped
 	log     *slog.Logger
 	a       *app.App
@@ -39,7 +40,7 @@ func newFocusLoop(o daemonOpts, log *slog.Logger) *focusLoop {
 	now := func() time.Time { return time.UnixMilli(o.Now()) }
 	return &focusLoop{
 		open:   func() (*app.App, error) { return app.Open(paths, now) },
-		camera: o.Camera, notify: o.Notifier, log: log,
+		camera: o.Camera, mic: o.Mic, notify: o.Notifier, log: log,
 	}
 }
 
@@ -55,8 +56,8 @@ func (f *focusLoop) tick() {
 		f.a = a
 		f.log.Info("focus engine started")
 	}
-	camera := f.camera != nil && f.camera()
-	notes, err := f.a.FocusTick(camera)
+	call := (f.camera != nil && f.camera()) || (f.mic != nil && f.mic())
+	notes, err := f.a.FocusTick(call)
 	if err != nil {
 		f.warn("focus tick failed", err)
 		return

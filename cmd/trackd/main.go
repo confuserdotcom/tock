@@ -91,5 +91,6 @@ func main() {
 		Stderr:    os.Stderr,
 		Notifier:  osascriptNotifier{},
 		Camera:    collect.CameraInUse,
+		Mic:       collect.MicInUse,
 	}))
 }

@@ -85,7 +85,7 @@ type Input struct {
 	Views     []classify.SpanView // start order, from Day (or the running session's start, if earlier) to Now; the open span ends at Now
 	Labels    []classify.Label    // Labels[i] labels Views[i]
 	Sessions  []Session           // sessions overlapping the Views' range, the running one included
-	Camera    bool                // a camera is in use now
+	Call      bool                // a camera or microphone is in use now
 	State     State
 	Cfg       config.Focus
 	RecapBody string // the recap text; the caller fills it when RecapDue
@@ -121,9 +121,10 @@ func current(in Input) *classify.SpanView {
 	return nil
 }
 
-// inMeeting reports a call now: a camera in use or a meeting view in front.
+// inMeeting reports a call now: a camera or microphone in use, or a meeting
+// view in front.
 func inMeeting(in Input) bool {
-	if in.Camera {
+	if in.Call {
 		return true
 	}
 	c := current(in)

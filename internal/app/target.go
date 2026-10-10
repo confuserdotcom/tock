@@ -76,7 +76,11 @@ func (a *App) fillPast(from, to time.Time) error {
 	}
 	now := a.nowMS()
 	for _, d := range missing {
-		vs := a.decorate(views(rows, d.UnixMilli(), d.AddDate(0, 0, 1).UnixMilli(), now))
+		from, to := d.UnixMilli(), d.AddDate(0, 0, 1).UnixMilli()
+		vs, err := a.decorate(views(rows, from, to, now), from, to)
+		if err != nil {
+			return err
+		}
 		a.past[dateKey(d)] = stats.Compute(vs, a.rs.LabelAll(vs, ovs))
 	}
 	return nil
