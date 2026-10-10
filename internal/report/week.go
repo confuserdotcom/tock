@@ -1,21 +1,26 @@
 package report
 
 import (
+	"strings"
 	"time"
 
 	"tock/internal/classify"
 	"tock/internal/span"
+	"tock/internal/stats"
 )
 
-// TopProjects is how many projects a week lists.
+// TopProjects is how many projects, and how many apps and sites, a week
+// lists.
 const TopProjects = 5
 
 // WeekInput is one Monday-start week of labelled spans.
 type WeekInput struct {
-	Monday time.Time // local midnight of the week's Monday
-	NowMS  int64
-	Views  []classify.SpanView // clipped to the week; the open span ends at NowMS
-	Labels []classify.Label
+	Monday  time.Time // local midnight of the week's Monday
+	NowMS   int64
+	Views   []classify.SpanView // clipped to the week; the open span ends at NowMS
+	Labels  []classify.Label
+	Targets [7]stats.Target // each day's focus target; future days are not scored
+	Weights stats.Weights
 }
 
 // Week is what the week view shows.
@@ -26,6 +31,7 @@ type Week struct {
 	ByKind     map[string]int64
 	Categories []CatRow // Items unused
 	Projects   []NameMS // top TopProjects
+	Apps       []NameMS // top TopProjects apps and sites (see AppName)
 }
 
 // DayTotal is one day of a week.
@@ -34,6 +40,8 @@ type DayTotal struct {
 	TrackedMS int64
 	ByKind    map[string]int64
 	Future    bool // after the day of NowMS
+	Stats     stats.Day
+	Score     stats.Score
 }
 
 // MondayOf returns local midnight of the Monday on or before t.
@@ -54,13 +62,14 @@ func BuildWeek(in WeekInput) Week {
 		w.Days[i] = DayTotal{Date: date, ByKind: map[string]int64{}, Future: date.After(today)}
 	}
 	cats := map[string]*CatRow{}
-	var projects []NameMS
+	var projects, apps []NameMS
 	for i, v := range in.Views {
 		if v.BundleID == span.IdleBundleID {
 			continue
 		}
 		l := in.Labels[i]
 		ms := v.DurMS()
+		apps = addMS(apps, AppName(v), ms)
 		w.TrackedMS += ms
 		w.ByKind[l.Kind] += ms
 		eachHour(loc, v.Start, v.End, func(h time.Time, part int64) {
@@ -91,7 +100,48 @@ func BuildWeek(in WeekInput) Week {
 	sortCats(w.Categories)
 	sortNameMS(projects)
 	w.Projects = projects[:min(len(projects), TopProjects)]
+	sortNameMS(apps)
+	w.Apps = apps[:min(len(apps), TopProjects)]
+	for i, day := range splitDays(in.Monday, in.Views, in.Labels) {
+		if w.Days[i].Future {
+			continue
+		}
+		w.Days[i].Stats = stats.Compute(day.views, day.labels)
+		w.Days[i].Score = stats.ScoreDay(w.Days[i].Stats, in.Targets[i], in.Weights)
+	}
 	return w
+}
+
+// AppName names a view for the week's apps and sites: the host of its URL
+// without a leading "www." when it has one and is not private, else its app.
+func AppName(v classify.SpanView) string {
+	if v.Private || v.URL == nil || *v.URL == "" {
+		return v.App
+	}
+	host, _, _ := strings.Cut(*v.URL, "/")
+	return strings.TrimPrefix(host, "www.")
+}
+
+type dayViews struct {
+	views  []classify.SpanView
+	labels []classify.Label
+}
+
+// splitDays clips the week's views to each of its seven local days.
+func splitDays(monday time.Time, views []classify.SpanView, labels []classify.Label) [7]dayViews {
+	var out [7]dayViews
+	for i := range out {
+		from, to := monday.AddDate(0, 0, i).UnixMilli(), monday.AddDate(0, 0, i+1).UnixMilli()
+		for j, v := range views {
+			if v.End <= from || v.Start >= to {
+				continue
+			}
+			v.Start, v.End = max(v.Start, from), min(v.End, to)
+			out[i].views = append(out[i].views, v)
+			out[i].labels = append(out[i].labels, labels[j])
+		}
+	}
+	return out
 }
 
 // dayIndex counts calendar days from monday to t's local date.

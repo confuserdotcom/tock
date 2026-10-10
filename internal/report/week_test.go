@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"tock/internal/classify"
+	"tock/internal/stats"
 )
 
 func TestMondayOf(t *testing.T) {
@@ -64,6 +65,61 @@ func TestBuildWeek(t *testing.T) {
 	}
 	if w.Categories[0].Name != "Code" || w.Categories[len(w.Categories)-1].Name != Unclassified {
 		t.Fatalf("categories = %+v", w.Categories)
+	}
+}
+
+func TestBuildWeekScoresEachDay(t *testing.T) {
+	mon := time.Date(2026, 10, 5, 0, 0, 0, 0, zone)
+	ms := func(d, h, m int) int64 {
+		return mon.AddDate(0, 0, d).Add(time.Duration(h)*time.Hour + time.Duration(m)*time.Minute).UnixMilli()
+	}
+	deep := classify.Label{Category: "Code", Kind: "deep"}
+	vs := []classify.SpanView{
+		{ID: 1, Start: ms(0, 9, 0), End: ms(0, 10, 0), BundleID: "term", App: "WezTerm"},
+		{ID: 2, Start: ms(1, 23, 50), End: ms(2, 0, 20), BundleID: "term", App: "WezTerm"}, // 10m Tue, 20m Wed
+		{ID: 3, Start: ms(5, 9, 0), End: ms(5, 9, 30), BundleID: "term", App: "WezTerm"},
+		{ID: 4, Start: ms(6, 9, 0), End: ms(6, 10, 0), BundleID: "term", App: "WezTerm"}, // future
+	}
+	ls := []classify.Label{deep, deep, deep, deep}
+	var targets [7]stats.Target
+	for i := range targets {
+		targets[i] = stats.Target{MS: int64(i+1) * 3_600_000}
+	}
+	w := BuildWeek(WeekInput{Monday: mon, NowMS: ms(5, 9, 30), Views: vs, Labels: ls,
+		Targets: targets, Weights: stats.DefaultWeights})
+	var focus []int64
+	for _, d := range w.Days {
+		focus = append(focus, d.Stats.FocusMS/60_000)
+	}
+	if !reflect.DeepEqual(focus, []int64{60, 10, 20, 0, 0, 30, 0}) {
+		t.Fatalf("focus minutes per day = %v", focus)
+	}
+	for i, d := range w.Days[:6] {
+		if want := stats.ScoreDay(d.Stats, targets[i], stats.DefaultWeights); d.Score != want {
+			t.Errorf("day %d score = %+v, want %+v", i, d.Score, want)
+		}
+	}
+	if sun := w.Days[6]; sun.Score != (stats.Score{}) || sun.Stats.ActiveMS != 0 {
+		t.Fatalf("future day is scored: %+v", sun)
+	}
+}
+
+func TestWeekApps(t *testing.T) {
+	mon := time.Date(2026, 10, 5, 0, 0, 0, 0, zone)
+	at := func(m int) int64 { return mon.Add(9*time.Hour + time.Duration(m)*time.Minute).UnixMilli() }
+	u := func(s string) *string { return &s }
+	vs := []classify.SpanView{
+		{ID: 1, Start: at(0), End: at(50), BundleID: "term", App: "WezTerm"},
+		{ID: 2, Start: at(50), End: at(80), BundleID: "arc", App: "Arc", URL: u("www.youtube.com/watch")},
+		{ID: 3, Start: at(80), End: at(90), BundleID: "arc", App: "Arc", URL: u("youtube.com/feed")},
+		{ID: 4, Start: at(90), End: at(110), BundleID: "arc", App: "Arc", URL: u("github.com/a/b"), Private: true},
+		{ID: 5, Start: at(110), End: at(115), BundleID: "arc", App: "Arc"},
+		{ID: 6, Start: at(115), End: at(200), BundleID: "tock.idle", App: "Idle"},
+	}
+	w := BuildWeek(WeekInput{Monday: mon, NowMS: at(200), Views: vs, Labels: make([]classify.Label, len(vs))})
+	want := []NameMS{{"WezTerm", 50 * 60_000}, {"youtube.com", 40 * 60_000}, {"Arc", 25 * 60_000}}
+	if !reflect.DeepEqual(w.Apps, want) {
+		t.Fatalf("apps = %v, want %v", w.Apps, want)
 	}
 }
 

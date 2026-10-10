@@ -6,6 +6,7 @@ import (
 
 	"tock/internal/classify"
 	"tock/internal/span"
+	"tock/internal/stats"
 )
 
 // Unclassified is the category row of time without a category.
@@ -22,6 +23,8 @@ type DayInput struct {
 	Views   []classify.SpanView // clipped to the day, in start order; the open span ends at NowMS
 	Labels  []classify.Label    // Labels[i] labels Views[i]
 	Ignored map[string]bool     // inbox keys hidden by tock ignore
+	Target  stats.Target        // the day's focus target
+	Weights stats.Weights       // score weights
 }
 
 // Day is everything the today views show.
@@ -34,6 +37,8 @@ type Day struct {
 	Categories []CatRow
 	Hours      Heatmap
 	Timeline   []Row // chronological
+	Stats      stats.Day
+	Score      stats.Score
 }
 
 // CatRow is one category's time.
@@ -120,6 +125,8 @@ func BuildDay(in DayInput) Day {
 	sortCats(d.Categories)
 	d.Hours.First, d.Hours.Last = hourRange(d.Hours.MS, in.Date, in.NowMS)
 	d.Timeline = timeline(in.Views, in.Labels, in.NowMS)
+	d.Stats = stats.Compute(in.Views, in.Labels)
+	d.Score = stats.ScoreDay(d.Stats, in.Target, in.Weights)
 	return d
 }
 
