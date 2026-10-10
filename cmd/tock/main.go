@@ -85,6 +85,7 @@ var commands = map[string]func(Env, []string) error{
 	"today":  cmdToday,
 	"inbox":  cmdInbox,
 	"ignore": cmdIgnore,
+	"tag":    cmdTag,
 }
 
 // run executes one command and returns the exit code: 0 ok, 1 error, 2 usage.
