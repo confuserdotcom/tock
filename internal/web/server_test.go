@@ -260,3 +260,35 @@ func TestProposeAndLearn(t *testing.T) {
 		t.Fatalf("labels %+v", l)
 	}
 }
+
+func TestEditAndUndo(t *testing.T) {
+	f := newFixture(t)
+	var before dayJSON
+	f.get("/api/day", &before)
+	r := before.Timeline[0]
+	if code, _, b := f.do("POST", "/api/edit", testToken, map[string]any{"kind": "cut", "from": r.Start, "to": r.End}); code != 200 {
+		t.Fatalf("cut: %d %s", code, b)
+	}
+	var after dayJSON
+	f.get("/api/day", &after)
+	if after.TrackedMS != before.TrackedMS-(r.End-r.Start) {
+		t.Fatalf("tracked %d, was %d", after.TrackedMS, before.TrackedMS)
+	}
+	if code, _, b := f.do("POST", "/api/edit", testToken, map[string]any{"kind": "add", "from": r.Start, "to": r.End, "label": "Nope"}); code != 400 {
+		t.Fatalf("bad label: %d %s", code, b)
+	}
+	if code, _, b := f.do("POST", "/api/edit", testToken, map[string]any{"kind": "cut", "from": r.End, "to": r.Start}); code != 400 {
+		t.Fatalf("bad range: %d %s", code, b)
+	}
+	code, _, b := f.do("POST", "/api/undo", testToken, map[string]any{})
+	if code != 200 || !strings.Contains(string(b), `"what":"delete`) {
+		t.Fatalf("undo: %d %s", code, b)
+	}
+	f.get("/api/day", &after)
+	if after.TrackedMS != before.TrackedMS {
+		t.Fatal("undo did not restore the time")
+	}
+	if _, _, b := f.do("POST", "/api/undo", testToken, map[string]any{}); string(b) != `{"what":""}`+"\n" && string(b) != `{"what":""}` {
+		t.Fatalf("empty undo: %s", b)
+	}
+}

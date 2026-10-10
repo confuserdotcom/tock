@@ -1,12 +1,14 @@
 package web
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"slices"
 	"strconv"
 	"time"
 
+	"tock/internal/app"
 	"tock/internal/classify"
 	"tock/internal/report"
 	"tock/internal/stats"
@@ -504,4 +506,46 @@ func (s *Server) ignore(r *http.Request) (any, error) {
 		return nil, err
 	}
 	return map[string]bool{"ok": true}, nil
+}
+
+// edit adds a timeline edit: an entry ("add"), a label over a range
+// ("label") or a cut ("cut").
+func (s *Server) edit(r *http.Request) (any, error) {
+	var body struct {
+		Kind  string `json:"kind"`
+		From  int64  `json:"from"`
+		To    int64  `json:"to"`
+		Label string `json:"label"`
+		Note  string `json:"note"`
+	}
+	if err := decode(r, &body); err != nil {
+		return nil, err
+	}
+	var w classify.Want
+	if body.Kind != classify.EditCut {
+		var err error
+		if w, err = s.want(body.Label); err != nil {
+			return nil, err
+		}
+	}
+	id, err := s.a.AddEdit(body.Kind, body.From, body.To, w, body.Note)
+	if err != nil {
+		return nil, badRequest(err.Error())
+	}
+	return map[string]int64{"id": id}, nil
+}
+
+// undo reverses the newest change.
+func (s *Server) undo(r *http.Request) (any, error) {
+	if err := decode(r, &struct{}{}); err != nil {
+		return nil, err
+	}
+	what, err := s.a.Undo()
+	if errors.Is(err, app.ErrNothingToUndo) {
+		return map[string]string{"what": ""}, nil
+	}
+	if err != nil {
+		return nil, httpError{http.StatusConflict, err.Error()}
+	}
+	return map[string]string{"what": report.Safe(what)}, nil
 }

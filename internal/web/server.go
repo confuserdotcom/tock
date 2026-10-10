@@ -76,6 +76,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/tag", s.api(s.tag))
 	mux.HandleFunc("POST /api/learn", s.api(s.learn))
 	mux.HandleFunc("POST /api/ignore", s.api(s.ignore))
+	mux.HandleFunc("POST /api/edit", s.api(s.edit))
+	mux.HandleFunc("POST /api/undo", s.api(s.undo))
 	return s.guard(mux)
 }
 

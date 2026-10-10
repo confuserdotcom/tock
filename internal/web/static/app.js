@@ -744,6 +744,12 @@
     } catch (e) { toast(e.message); }
   }
 
+  async function undo() {
+    const res = await api('/api/undo', {});
+    toast(res.what ? `Undid: ${res.what}` : 'Nothing to undo');
+    afterChange();
+  }
+
   function afterChange() {
     load({ quiet: true });
     if (state.view !== 'inbox') refreshBadge();
@@ -805,7 +811,7 @@
   function openRowSheet(r, from) {
     const now = r.category ? (r.project ? `${r.category} / ${r.project}` : r.category) : 'unlabelled';
     labelSheet({
-      key: r.key, ids: r.ids, title: r.text || r.app,
+      key: r.key, ids: r.ids, title: r.text || r.app, range: { from: r.start, to: r.end },
       ctx: `${r.app} · ${clock(r.start)}–${r.open ? 'now' : clock(r.end)} · ${dur(r.end - r.start)} · now ${now}${r.source === 'learned' ? ' by a learned rule' : ''}`,
       preset: r.category ? (r.project ? `${r.category}/${r.project}` : r.category) : '',
     }, from);
@@ -848,8 +854,15 @@
       afterChange();
     });
     const mk = (text, cls, fn) => { const b = h('button', { class: `btn lg ${cls}`, onclick: fn }, text); buttons.push(b); return b; };
+    const cut = () => run(async () => {
+      await api('/api/edit', { kind: 'cut', from: target.range.from, to: target.range.to });
+      closeSheet();
+      toast(`Deleted ${clock(target.range.from)}–${clock(target.range.to)}`, 'Undo', undo);
+      afterChange();
+    });
     const foot = h('div', { class: 'foot' },
       h('button', { class: 'btn lg ghost', onclick: closeSheet }, 'Cancel'),
+      target.range ? h('button', { class: 'btn lg ghost', onclick: cut, title: 'Remove this time from the day (u undoes it)' }, 'Delete time') : null,
       h('span', { class: 'spacer' }),
       target.ids ? mk('Just this block', '', () => once({ ids: target.ids, label: label() }, 'this block')) : null,
       target.key ? mk(target.ids ? 'All like it' : 'Just these', '', () => once({ key: target.key, label: label() })) : null,
@@ -954,6 +967,7 @@
     if (e.key === 'ArrowLeft') { step(-1); return; }
     if (e.key === 'ArrowRight') { step(1); return; }
     if (e.key === 'r') { load({ quiet: true }); return; }
+    if (e.key === 'u') { undo().catch((err) => toast(err.message)); return; }
     if (state.view !== 'inbox' || !state.data || !state.data.items) return;
     const items = state.data.items;
     if (!items.length) return;
