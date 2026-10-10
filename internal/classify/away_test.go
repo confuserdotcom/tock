@@ -62,3 +62,10 @@ func TestMarkAway(t *testing.T) {
 		t.Fatal("no marks must keep views")
 	}
 }
+
+func TestInboxSkipsAway(t *testing.T) {
+	vs := []SpanView{{ID: -1, Start: 0, End: 600_000, BundleID: span.AwayBundleID, App: span.AwayApp}}
+	if got := Inbox(vs, []Label{{Project: "tock"}}, nil); len(got) != 0 {
+		t.Fatalf("inbox = %+v", got)
+	}
+}

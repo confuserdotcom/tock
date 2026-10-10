@@ -82,6 +82,7 @@ func Inbox(views []SpanView, labels []Label, ignored map[string]bool) []Item {
 	return Group(views, func(i int) bool {
 		return labels[i].Category == "" &&
 			views[i].BundleID != span.IdleBundleID &&
+			!IsAway(views[i]) && // answered in tock away; t relabels it
 			!ignored[Key(views[i])]
 	})
 }
