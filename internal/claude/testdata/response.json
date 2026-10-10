@@ -1,0 +1,13 @@
+{
+  "id": "msg_test",
+  "type": "message",
+  "role": "assistant",
+  "model": "claude-haiku-5-5",
+  "content": [
+    {"type": "text", "text": "Labels follow."},
+    {"type": "tool_use", "id": "toolu_test", "name": "suggest",
+     "input": {"suggestions": [{"id": "k1", "category": "Code", "project": "tock"}, {"id": "k2", "category": null, "project": null}]}}
+  ],
+  "stop_reason": "tool_use",
+  "usage": {"input_tokens": 1, "output_tokens": 1}
+}
