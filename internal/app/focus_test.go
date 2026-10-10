@@ -204,3 +204,28 @@ func TestSnoozeBreak(t *testing.T) {
 		t.Fatalf("after the snooze = %+v, %v", notes, err)
 	}
 }
+
+func TestGuardTickHooksAndBlock(t *testing.T) {
+	e := distracted(t)
+	e.WriteConfig(t, "[focus]\nblock = true\n")
+	a := open(t, e)
+	startAt(t, e, a, "14:50", 25)
+	e.Clock = apptest.Now
+	_, g, err := a.GuardTick(false)
+	if err != nil || g.Start == nil || g.Stop {
+		t.Fatalf("first tick = %+v, %v", g, err)
+	}
+	if g.Block == nil || g.Block.Host != "www.youtube.com" || g.Block.Bundle != "arc" {
+		t.Fatalf("block = %+v", g.Block)
+	}
+	b := open(t, e) // trackd restarted: hooks and the block are remembered
+	if _, g, err := b.GuardTick(false); err != nil || g.Start != nil || g.Block != nil {
+		t.Fatalf("after restart = %+v, %v", g, err)
+	}
+	if _, err := b.StopSession(); err != nil {
+		t.Fatal(err)
+	}
+	if _, g, err := b.GuardTick(false); err != nil || !g.Stop {
+		t.Fatalf("after stop = %+v, %v", g, err)
+	}
+}

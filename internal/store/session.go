@@ -24,6 +24,10 @@ const (
 	KeyFocusAwayAt   = "focus_away_at"
 	// KeyFocusBreakSnooze is when (ms) snoozed break reminders resume.
 	KeyFocusBreakSnooze = "focus_break_snooze"
+	// KeyGuardSession is the id of the session whose start hooks ran.
+	KeyGuardSession = "guard_session"
+	// KeyGuardBlockAt is when (ms) the focus guard last blocked something.
+	KeyGuardBlockAt = "guard_block_at"
 )
 
 var (

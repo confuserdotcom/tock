@@ -28,6 +28,21 @@ type Config struct {
 	Away     Away
 	Calendar Calendar
 	Sync     Sync
+	Slack    Slack
+}
+
+// Slack is the [slack] section: the status and do-not-disturb tock sets in
+// Slack while a focus session runs.
+type Slack struct {
+	Enabled bool
+	Status  string // status text
+	Emoji   string // ":name:"
+	DND     bool   // snooze notifications for the session
+}
+
+// DefaultSlack is the [slack] section used when the file does not set it.
+func DefaultSlack() Slack {
+	return Slack{Status: "In a focus session", Emoji: ":dart:", DND: true}
 }
 
 // Sync is the [sync] section: the folder shared with tock's other machines
@@ -113,6 +128,15 @@ type Focus struct {
 	Notify           bool
 	MeetingApps      []string // bundle ids
 	MeetingHosts     []string // URL hosts; subdomains match too
+	// Block removes distractions during a manual session: the front tab is
+	// closed or the app hidden once it has been in front BlockGraceMS.
+	Block        bool
+	BlockApps    []string // bundle ids blocked besides distraction-kind time
+	BlockHosts   []string // lowercase URL hosts; subdomains match too
+	BlockGraceMS int64
+	// FocusOn and FocusOff name Shortcuts run when a session starts and
+	// ends; "" = none.
+	FocusOn, FocusOff string
 }
 
 // DefaultFocus is the [focus] section used when the file does not set it.
@@ -126,6 +150,7 @@ func DefaultFocus() Focus {
 		MeetingApps: []string{"us.zoom.xos", "com.apple.FaceTime", "com.microsoft.teams2",
 			"com.microsoft.teams", "Cisco-Systems.Spark", "com.cisco.webexmeetingsapp"},
 		MeetingHosts: []string{"meet.google.com", "teams.microsoft.com", "app.zoom.us", "whereby.com"},
+		BlockGraceMS: 10_000,
 	}
 }
 
@@ -160,7 +185,7 @@ func DefaultLLM() LLM {
 
 // Default is the configuration used when there is no file.
 func Default() Config {
-	return Config{Score: stats.DefaultWeights, Focus: DefaultFocus(), LLM: DefaultLLM(), Shell: DefaultShell(), Away: DefaultAway()}
+	return Config{Score: stats.DefaultWeights, Focus: DefaultFocus(), LLM: DefaultLLM(), Shell: DefaultShell(), Away: DefaultAway(), Slack: DefaultSlack()}
 }
 
 type scoreTOML struct {
@@ -181,6 +206,19 @@ type focusTOML struct {
 	Notify         *bool     `toml:"notify"`
 	MeetingApps    *[]string `toml:"meeting_apps"`
 	MeetingHosts   *[]string `toml:"meeting_hosts"`
+	Block          *bool     `toml:"block"`
+	BlockApps      *[]string `toml:"block_apps"`
+	BlockHosts     *[]string `toml:"block_hosts"`
+	BlockGrace     *int      `toml:"block_grace"`
+	FocusOn        *string   `toml:"focus_on"`
+	FocusOff       *string   `toml:"focus_off"`
+}
+
+type slackTOML struct {
+	Enabled *bool   `toml:"enabled"`
+	Status  *string `toml:"status"`
+	Emoji   *string `toml:"emoji"`
+	DND     *bool   `toml:"dnd"`
 }
 
 type llmTOML struct {
@@ -219,6 +257,7 @@ type fileTOML struct {
 	Away     awayTOML     `toml:"away"`
 	Calendar calendarTOML `toml:"calendar"`
 	Sync     syncTOML     `toml:"sync"`
+	Slack    slackTOML    `toml:"slack"`
 }
 
 // Load reads path. A missing file is Default() and no error. Any other
@@ -279,6 +318,9 @@ func Load(path string) (Config, error) {
 		return Default(), fmt.Errorf("%s: [away] min = %d, want at least 5", name, mn)
 	case mx <= mn || mx > 720:
 		return Default(), fmt.Errorf("%s: [away] max = %d, want more than min (%d) and at most 720", name, mx, mn)
+	}
+	if err := decodeSlack(f.Slack, &c.Slack); err != nil {
+		return Default(), fmt.Errorf("%s: %w", name, err)
 	}
 	if f.Calendar.Enabled != nil {
 		c.Calendar.Enabled = *f.Calendar.Enabled
@@ -342,6 +384,7 @@ func decodeFocus(f focusTOML, c *Focus) error {
 		{"distract_grace", f.DistractGrace, 1, 3600, 1000, &c.DistractGraceMS},
 		{"distract_repeat", f.DistractRepeat, 1, 3600, 1000, &c.DistractRepeatMS},
 		{"auto_min", f.AutoMin, 5, 240, 60_000, &c.AutoMinMS},
+		{"block_grace", f.BlockGrace, 1, 600, 1000, &c.BlockGraceMS},
 	} {
 		if d.v == nil {
 			continue
@@ -366,6 +409,58 @@ func decodeFocus(f focusTOML, c *Focus) error {
 	}
 	if f.MeetingHosts != nil {
 		c.MeetingHosts = append([]string{}, *f.MeetingHosts...)
+	}
+	if f.Block != nil {
+		c.Block = *f.Block
+	}
+	if f.BlockApps != nil {
+		c.BlockApps = append([]string{}, *f.BlockApps...)
+	}
+	if f.BlockHosts != nil {
+		c.BlockHosts = nil
+		for _, h := range *f.BlockHosts {
+			h = strings.ToLower(strings.TrimSpace(h))
+			if !hostRE.MatchString(h) {
+				return fmt.Errorf("[focus] block_hosts has %q, want a host such as youtube.com", h)
+			}
+			c.BlockHosts = append(c.BlockHosts, h)
+		}
+	}
+	if f.FocusOn != nil {
+		c.FocusOn = strings.TrimSpace(*f.FocusOn)
+	}
+	if f.FocusOff != nil {
+		c.FocusOff = strings.TrimSpace(*f.FocusOff)
+	}
+	return nil
+}
+
+// hostRE is a URL host as block_hosts takes it.
+var hostRE = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$`)
+
+// emojiRE is a Slack emoji code.
+var emojiRE = regexp.MustCompile(`^:[a-z0-9_+'-]+:$`)
+
+// decodeSlack applies the keys present in f to c and validates them.
+func decodeSlack(f slackTOML, c *Slack) error {
+	if f.Enabled != nil {
+		c.Enabled = *f.Enabled
+	}
+	if f.Status != nil {
+		s := strings.TrimSpace(*f.Status)
+		if s == "" || len([]rune(s)) > 100 {
+			return fmt.Errorf("[slack] status = %q, want 1 to 100 characters", *f.Status)
+		}
+		c.Status = s
+	}
+	if f.Emoji != nil {
+		if !emojiRE.MatchString(*f.Emoji) {
+			return fmt.Errorf(`[slack] emoji = %q, want a code such as ":dart:"`, *f.Emoji)
+		}
+		c.Emoji = *f.Emoji
+	}
+	if f.DND != nil {
+		c.DND = *f.DND
 	}
 	return nil
 }

@@ -127,6 +127,7 @@ func TestFocusDefaults(t *testing.T) {
 		MeetingApps: []string{"us.zoom.xos", "com.apple.FaceTime", "com.microsoft.teams2",
 			"com.microsoft.teams", "Cisco-Systems.Spark", "com.cisco.webexmeetingsapp"},
 		MeetingHosts: []string{"meet.google.com", "teams.microsoft.com", "app.zoom.us", "whereby.com"},
+		BlockGraceMS: 10_000,
 	}
 	if !reflect.DeepEqual(f, want) {
 		t.Fatalf("DefaultFocus = %+v\nwant %+v", f, want)
@@ -156,7 +157,7 @@ meeting_hosts = []
 	want := Focus{
 		Presets: []int{30, 45}, BreakAfterMS: 40 * 60_000, BreakRepeatMS: 5 * 60_000,
 		DistractGraceMS: 30_000, DistractRepeatMS: 90_000, AutoMinMS: 20 * 60_000,
-		RecapAt: 8*60 + 30, Notify: false, MeetingApps: []string{"a.b"}, MeetingHosts: []string{},
+		RecapAt: 8*60 + 30, Notify: false, MeetingApps: []string{"a.b"}, MeetingHosts: []string{}, BlockGraceMS: 10_000,
 	}
 	if !reflect.DeepEqual(c.Focus, want) {
 		t.Fatalf("focus = %+v\nwant %+v", c.Focus, want)
@@ -281,6 +282,47 @@ func TestSync(t *testing.T) {
 	for _, bad := range []string{"[sync]\ndir = \"rel/dir\"\n", "[sync]\nmachine = \"Ryuk\"\n", "[sync]\nmachine = \"a/b\"\n"} {
 		if _, err := Load(write(t, bad)); err == nil || !strings.Contains(err.Error(), "[sync]") {
 			t.Errorf("%q: %v", bad, err)
+		}
+	}
+}
+
+func TestLoadFocusGuard(t *testing.T) {
+	d := Default().Focus
+	if d.Block || d.BlockGraceMS != 10_000 || d.FocusOn != "" || d.FocusOff != "" {
+		t.Fatalf("default guard = %+v", d)
+	}
+	c, err := Load(write(t, "[focus]\nblock = true\nblock_apps = [\"com.valvesoftware.steam\"]\n"+
+		"block_hosts = [\"YouTube.com\"]\nblock_grace = 30\nfocus_on = \"Work\"\nfocus_off = \"Off\"\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	f := c.Focus
+	if !f.Block || f.BlockGraceMS != 30_000 || f.FocusOn != "Work" || f.FocusOff != "Off" ||
+		!reflect.DeepEqual(f.BlockApps, []string{"com.valvesoftware.steam"}) ||
+		!reflect.DeepEqual(f.BlockHosts, []string{"youtube.com"}) {
+		t.Fatalf("guard = %+v", f)
+	}
+	for _, bad := range []string{"[focus]\nblock_grace = 0\n", "[focus]\nblock_grace = 700\n",
+		"[focus]\nblock_hosts = [\"\"]\n", "[focus]\nblock_hosts = [\"a b\"]\n"} {
+		if _, err := Load(write(t, bad)); err == nil {
+			t.Errorf("Load(%q) = nil error", bad)
+		}
+	}
+}
+
+func TestLoadSlack(t *testing.T) {
+	d := Default().Slack
+	if d.Enabled || d.Status != "In a focus session" || d.Emoji != ":dart:" || !d.DND {
+		t.Fatalf("default slack = %+v", d)
+	}
+	c, err := Load(write(t, "[slack]\nenabled = true\nstatus = \"Deep work\"\nemoji = \":brain:\"\ndnd = false\n"))
+	if err != nil || c.Slack != (Slack{Enabled: true, Status: "Deep work", Emoji: ":brain:"}) {
+		t.Fatalf("slack = %+v, %v", c.Slack, err)
+	}
+	for _, bad := range []string{"[slack]\nstatus = \"\"\n", "[slack]\nemoji = \"dart\"\n",
+		"[slack]\nstatus = \"" + strings.Repeat("x", 101) + "\"\n"} {
+		if _, err := Load(write(t, bad)); err == nil {
+			t.Errorf("Load(%q) = nil error", bad)
 		}
 	}
 }

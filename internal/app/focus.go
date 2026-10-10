@@ -18,18 +18,26 @@ import (
 // before any notification. A session notification is dropped when tock closed that
 // session between the read and the write.
 func (a *App) FocusTick(call bool) ([]focus.Event, error) {
+	notes, _, err := a.GuardTick(call)
+	return notes, err
+}
+
+// GuardTick is FocusTick that also returns what the focus guard asks of
+// trackd (session hooks, a block). The guard's state is saved before it
+// returns.
+func (a *App) GuardTick(call bool) ([]focus.Event, focus.Guard, error) {
 	a.Reload() // a failure is kept in RulesErr / ConfigErr; the last good files stay
 	nowT := a.now()
 	now := nowT.UnixMilli()
 	day := a.midnight(nowT)
 	if call {
 		if err := a.st.RecordCall(now); err != nil {
-			return nil, err
+			return nil, focus.Guard{}, err
 		}
 	}
 	open, err := a.st.OpenSession()
 	if err != nil {
-		return nil, err
+		return nil, focus.Guard{}, err
 	}
 	from := day.UnixMilli()
 	if open != nil && open.StartMS < from {
@@ -37,21 +45,21 @@ func (a *App) FocusTick(call bool) ([]focus.Event, error) {
 	}
 	vs, labels, err := a.labelled(from, now, now)
 	if err != nil {
-		return nil, err
+		return nil, focus.Guard{}, err
 	}
 	ss, err := a.st.Sessions(from, now+1)
 	if err != nil {
-		return nil, err
+		return nil, focus.Guard{}, err
 	}
 	st, err := a.focusState()
 	if err != nil {
-		return nil, err
+		return nil, focus.Guard{}, err
 	}
 	in := focus.Input{Now: now, Day: day, Views: vs, Labels: labels, Sessions: focusSessions(ss),
 		Call: call, State: st, Cfg: a.cfg.Focus}
 	abs, err := a.pending(vs, from, now)
 	if err != nil {
-		return nil, err
+		return nil, focus.Guard{}, err
 	}
 	if n := len(abs); n > 0 {
 		in.Absence = &abs[n-1]
@@ -59,10 +67,16 @@ func (a *App) FocusTick(call bool) ([]focus.Event, error) {
 	if focus.RecapDue(in) {
 		d, err := a.Day(nowT)
 		if err != nil {
-			return nil, err
+			return nil, focus.Guard{}, err
 		}
 		in.RecapBody = report.Recap(d)
 	}
+
+	gs, err := a.guardState()
+	if err != nil {
+		return nil, focus.Guard{}, err
+	}
+	guard := focus.GuardStep(in, gs)
 
 	var notes []focus.Event
 	stale := false
@@ -86,10 +100,15 @@ func (a *App) FocusTick(call bool) ([]focus.Event, error) {
 			}
 		}
 		if err != nil {
-			return nil, err
+			return nil, focus.Guard{}, err
 		}
 	}
-	return notes, nil
+	if guard.Changed {
+		if err := a.setGuardState(guard.State, now); err != nil {
+			return nil, focus.Guard{}, err
+		}
+	}
+	return notes, guard, nil
 }
 
 func focusSessions(ss []store.Session) []focus.Session {
@@ -126,6 +145,23 @@ func (a *App) setFocusState(s focus.State, nowMS int64) error {
 		}
 	}
 	return nil
+}
+
+func (a *App) guardState() (focus.GuardState, error) {
+	m, err := a.st.States()
+	if err != nil {
+		return focus.GuardState{}, err
+	}
+	id, _ := strconv.ParseInt(m[store.KeyGuardSession], 10, 64)
+	at, _ := strconv.ParseInt(m[store.KeyGuardBlockAt], 10, 64)
+	return focus.GuardState{HookSession: id, BlockAt: at}, nil
+}
+
+func (a *App) setGuardState(s focus.GuardState, nowMS int64) error {
+	if err := a.st.SetState(store.KeyGuardSession, strconv.FormatInt(s.HookSession, 10), nowMS); err != nil {
+		return err
+	}
+	return a.st.SetState(store.KeyGuardBlockAt, strconv.FormatInt(s.BlockAt, 10), nowMS)
 }
 
 // SnoozeBreak holds break reminders back for d from now.
