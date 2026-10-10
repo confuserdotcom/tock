@@ -19,6 +19,10 @@ score your focus, run focus sessions and help you label what is left.
   - `tock suggest --dry-run` prints the exact payload without sending it.
   - The key is read from the environment only and is never written anywhere.
 - `tock export` prints titles and URLs to stdout. Where that output goes is up to you.
+- Calendar events (opt-in) are read through macOS Calendar, never fetched, and
+  stay in tock.db. They are never sent to Claude.
+- Commit counts come from `git log` on your local repos: only author times
+  are read, never messages or code.
 
 ## Requirements
 
@@ -122,7 +126,7 @@ tock review [--week YYYY-MM-DD] [--plan TEXT]
                                        weekly recap, then next week's focus
 tock suggest [--dry-run | --force]     Claude label suggestions for the inbox (needs ANTHROPIC_API_KEY)
 tock doctor [--wait] [--open]          check trackd, permissions, rules and config
-tock export [--from D] [--to D] [--format csv|json]
+tock export [--from D] [--to D] [--format csv|json] [--by project]
                                        labelled spans, default the last 7 days as csv
 tock backup [--out FILE]               archive tock.db and the rule, config and shell files
 tock shell-init zsh                    shell hook for terminal projects (docs/shell-hook.md)
@@ -131,8 +135,9 @@ tock shell-init zsh                    shell hook for terminal projects (docs/sh
 Names match on a unique prefix: `tock tag 2 stu/atl`.
 
 The export has one row per span:
-`id,start,end,duration_s,app,bundle_id,title,url,private,category,kind,project,category_source,project_source`.
-Times are RFC 3339 with your local offset.
+`id,start,end,duration_s,app,bundle_id,title,url,private,category,kind,project,category_source,project_source,rate,amount`.
+Times are RFC 3339 with your local offset. `rate` and `amount` are empty
+(`null` in JSON) unless the row's project has a rate (see Billing).
 
 ## Files
 
@@ -178,6 +183,10 @@ terminals = [...]             # bundle ids that get shell dirs; replaces the bui
 [away]                        # which absences tock asks about
 min = 10                      # minutes; at least 5
 max = 240                     # minutes; at most 720
+
+[calendar]                    # meetings from macOS Calendar, see Calendar
+enabled = false               # true: trackd asks for calendar access once
+calendars = []                # calendar names to read; empty = all
 
 [score]                       # weights of the focus score; they sum to 1
 depth = 0.5
@@ -250,6 +259,78 @@ category = "Meeting"   # a declared category
 ```
 
 A manual tag still wins. `tock rules check` says whether calls are labelled.
+
+## Commits
+
+List a project's local git repositories in `rules.toml` and tock counts
+your commits beside its time:
+
+```toml
+[[project]]
+name = "tock"
+repos = ["~/tock"]
+```
+
+The today tab and `tock today` show `commits  tock 4 · ATLAS 1`, and the
+week tab and `tock review` show the week's commits. tock runs
+`git log --all --no-merges` and counts only commits by the repo's
+`user.email`, including ones fetched from another machine. It reads
+author times only and never fetches. `tock doctor` checks every repo.
+
+## Billing
+
+Give a project an hourly rate and `tock export` bills its time:
+
+```toml
+[[project]]
+name = "ATLAS"
+rate = 80
+```
+
+Each span row gets `rate` and `amount` (rate × hours, to the cent).
+`tock export --by project --from 2026-10-01 --to 2026-10-31` writes one row
+per project instead: `project,duration_s,hours,rate,amount`, with the
+amount computed from the total time. Time without a project is left out.
+There is no currency setting: amounts are in the rate's unit.
+
+## Calendar
+
+Calendar events can label the time you spend away from the Mac in a
+meeting. tock reads them through macOS Calendar, so a Google Calendar
+works once its account is added under System Settings › Internet Accounts
+(Calendars on). No Google credential ever reaches tock.
+
+1. In `config.toml`: `[calendar]` `enabled = true` (and optionally
+   `calendars = ["Work"]`).
+2. In `rules.toml`:
+
+   ```toml
+   [[category]]
+   name = "Meetings"
+   kind = "shallow"
+
+   [calendar]
+   category = "Meetings"
+   ```
+
+3. `make install` (or restart trackd) and allow the calendar prompt.
+   `tock doctor` shows the state and the last sync.
+
+trackd copies timed events from two days back to one day ahead every 10
+minutes, skipping all-day, free and declined ones. An event only labels
+time when you were not at the Mac: idle time and gaps inside it become
+`Meeting` rows titled with the event. What you did at the Mac during an
+event keeps its own label. Rules can set a meeting's project:
+
+```toml
+[[rule]]
+bundle = ["tock.meeting"]
+title = '^ATLAS'
+project = "ATLAS"
+```
+
+`t` on a meeting row relabels it. Answered time away wins over an event,
+and tock does not ask about time an event explains.
 
 ## Backup
 
