@@ -38,6 +38,8 @@ const usage = `usage:
                                          labelled spans, default the last 7 days as csv
   tock backup [--out FILE]               archive tock.db and the rule, config and shell files
                                          (default ~/.local/share/tock/backups/)
+  tock shell-init zsh                    shell hook for terminal projects; in ~/.zshrc:
+                                         eval "$(tock shell-init zsh)"
 Names match on a unique prefix: "tock tag 2 stu/atl". "/Project" sets only the project.
 `
 
@@ -116,19 +118,20 @@ func parseFlags(fs *flag.FlagSet, args []string) error {
 }
 
 var commands = map[string]func(Env, []string) error{
-	"init":    cmdInit,
-	"rules":   cmdRules,
-	"today":   cmdToday,
-	"inbox":   cmdInbox,
-	"ignore":  cmdIgnore,
-	"tag":     cmdTag,
-	"status":  cmdStatus,
-	"session": cmdSession,
-	"recap":   cmdRecap,
-	"suggest": cmdSuggest,
-	"export":  cmdExport,
-	"doctor":  cmdDoctor,
-	"backup":  cmdBackup,
+	"init":       cmdInit,
+	"rules":      cmdRules,
+	"today":      cmdToday,
+	"inbox":      cmdInbox,
+	"ignore":     cmdIgnore,
+	"tag":        cmdTag,
+	"status":     cmdStatus,
+	"session":    cmdSession,
+	"recap":      cmdRecap,
+	"suggest":    cmdSuggest,
+	"export":     cmdExport,
+	"doctor":     cmdDoctor,
+	"backup":     cmdBackup,
+	"shell-init": cmdShellInit,
 }
 
 // run executes one command and returns the exit code: 0 ok, 1 error, 2 usage.

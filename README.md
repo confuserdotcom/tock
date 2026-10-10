@@ -110,7 +110,7 @@ tock inbox [--days N] [--all]          unlabelled activity, numbered
 tock tag [--once] <n> <Category>[/<Project>]
 tock tag --span <id> <Category>[/<Project>]
 tock ignore <n> | tock ignore --undo <key>
-tock rules check
+tock rules check | tock rules stats [--days N]   validate | time each rule decided
 tock session [start [MIN] | stop]      focus session: show, start (default 25), stop
 tock recap [YYYY-MM-DD]                the daily recap
 tock suggest [--dry-run | --force]     Claude label suggestions for the inbox (needs ANTHROPIC_API_KEY)
@@ -118,6 +118,7 @@ tock doctor [--wait] [--open]          check trackd, permissions, rules and conf
 tock export [--from D] [--to D] [--format csv|json]
                                        labelled spans, default the last 7 days as csv
 tock backup [--out FILE]               archive tock.db and the rule, config and shell files
+tock shell-init zsh                    shell hook for terminal projects (docs/shell-hook.md)
 ```
 
 Names match on a unique prefix: `tock tag 2 stu/atl`.
@@ -135,6 +136,7 @@ Times are RFC 3339 with your local offset.
 | `~/.config/tock/config.toml` | optional settings, see below |
 | `~/.local/share/tock/tock.db` | the spans (SQLite) |
 | `~/.local/state/tock/trackd.log` | trackd's log |
+| `~/.local/state/tock/shell.log` | working directories from the shell hook, see [docs/shell-hook.md](docs/shell-hook.md) |
 
 `TOCK_CONFIG_DIR`, `TOCK_DATA_DIR` and `TOCK_STATE_DIR` override the three
 directories.
@@ -162,6 +164,9 @@ min_minutes = 2               # inbox time a key needs before it is sent
 deny_apps = []                # bundle ids added to the built-in deny list
 deny_hosts = []               # host regexes added to the built-in list
 deny_titles = []              # title regexes
+
+[shell]
+terminals = [...]             # bundle ids that get shell dirs; replaces the built-in list
 
 [score]                       # weights of the focus score
 depth = 0.5

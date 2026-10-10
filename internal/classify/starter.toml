@@ -72,6 +72,13 @@ bundle = ["com.github.wez.wezterm"]
 title = '^mandarin-anki │'
 project = "mandarin-anki"
 
+# Any terminal, by working directory: needs the shell hook in
+# docs/shell-hook.md (eval "$(tock shell-init zsh)" in ~/.zshrc).
+#
+# [[rule]]
+# dir = '^~/code/tock(/|$)'
+# project = "tock"
+
 # --- Code -------------------------------------------------------------------
 
 [[rule]]
