@@ -146,3 +146,28 @@ func emptyState(w int, title string, lines ...string) []string {
 }
 
 func ansiWidth(s string) int { return ansi.StringWidth(s) }
+
+// overlay draws top over base, both lines of a w-wide screen: where a top
+// line has content, that content replaces the cells it covers; everything
+// else of base shows through, faded, so the tab stays visible behind a
+// dialog.
+func overlay(base, top []string, w int) []string {
+	out := make([]string, len(base))
+	for i := range base {
+		under := ansi.Strip(base[i])
+		var t string
+		if i < len(top) {
+			t = top[i]
+		}
+		plain := strings.TrimRight(ansi.Strip(t), " ")
+		if strings.TrimSpace(plain) == "" {
+			out[i] = sFaint.Render(under)
+			continue
+		}
+		x := len(plain) - len(strings.TrimLeft(plain, " "))
+		end := ansi.StringWidth(plain)
+		under += strings.Repeat(" ", max(w-ansi.StringWidth(under), 0))
+		out[i] = sFaint.Render(ansi.Cut(under, 0, x)) + ansi.Cut(t, x, end) + sFaint.Render(ansi.Cut(under, end, w))
+	}
+	return out
+}

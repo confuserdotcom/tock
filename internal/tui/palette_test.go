@@ -93,5 +93,5 @@ func TestEnterLabelsRow(t *testing.T) {
 		t.Fatalf("enter on an unlabelled row: picker %+v", m.picker)
 	}
 	m = press(t, m, "esc", "k", "k", "enter") // the idle row in pending time away
-	mustContain(t, m, "Category  away 11:41–12:22 (41m)")
+	mustContain(t, m, "─ Category ─", "away 11:41–12:22 (41m)")
 }

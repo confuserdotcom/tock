@@ -126,5 +126,5 @@ func (d *learnDlg) view(w int) []string {
 	}
 	box := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(colFaint).Padding(0, 1).
 		Render(strings.Join(lines, "\n"))
-	return append([]string{""}, strings.Split(box, "\n")...)
+	return center2(strings.Split(box, "\n"), w)
 }

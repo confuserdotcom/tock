@@ -88,7 +88,7 @@ func (m Model) inboxKey(k string) (tea.Model, tea.Cmd) {
 			if w, ok := t.sugg[it.Key]; ok && k == "enter" {
 				return m, m.propose(it.Key, w)
 			}
-			m.picker = newPicker(m.src, pickLearn, nil, it.Key, "")
+			m.picker = newPicker(m.src, pickLearn, nil, it.Key, "").withQuick(&m, it.Key)
 		}
 	case "a":
 		if it := t.selected(); it != nil {
@@ -101,7 +101,7 @@ func (m Model) inboxKey(k string) (tea.Model, tea.Cmd) {
 		}
 	case "o":
 		if it := t.selected(); it != nil {
-			m.picker = newPicker(m.src, pickOnce, nil, it.Key, spansWhat(it.Spans, it.TotalMS))
+			m.picker = newPicker(m.src, pickOnce, nil, it.Key, spansWhat(it.Spans, it.TotalMS)).withQuick(&m, it.Key)
 		}
 	case "x":
 		if it := t.selected(); it != nil {

@@ -127,3 +127,29 @@ func TestFocusTickAsksAboutAwayOnce(t *testing.T) {
 		t.Fatalf("second tick (restarted) = %+v, %v", notes, err)
 	}
 }
+
+func TestRecentAwayLabels(t *testing.T) {
+	e := apptest.New(t, apptest.Rules)
+	e.Seed(t, apptest.DaySpans()...)
+	a := open(t, e)
+	answer := func(from, to string, w classify.Want) {
+		t.Helper()
+		if err := a.Answer(iv(t, from, to), w); err != nil {
+			t.Fatal(err)
+		}
+		e.Clock = e.Clock.Add(time.Minute) // later answers are newer
+	}
+	answer("01:00", "01:30", classify.Want{Category: "Communication"})
+	answer("02:00", "02:30", classify.Want{Category: "Study", Project: "ATLAS"})
+	answer("03:00", "03:30", classify.Want{}) // skipped: not a label
+	answer("04:00", "04:30", classify.Want{Category: "Communication"})
+	answer("05:00", "05:30", classify.Want{Category: "Gone"}) // undeclared
+	got, err := a.RecentAwayLabels(3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []classify.Want{{Category: "Communication"}, {Category: "Study", Project: "ATLAS"}}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("recent = %+v", got)
+	}
+}

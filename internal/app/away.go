@@ -36,3 +36,23 @@ func (a *App) Answer(iv classify.Interval, want classify.Want) error {
 		Project: want.Project, AtMS: a.nowMS()})
 	return err
 }
+
+// RecentAwayLabels returns up to n distinct labels of answered time away,
+// newest first, for quick answers. Labels whose category or project no
+// longer exists are left out.
+func (a *App) RecentAwayLabels(n int) ([]classify.Want, error) {
+	ls, err := a.st.RecentAwayLabels(n * 2)
+	if err != nil {
+		return nil, err
+	}
+	var out []classify.Want
+	for _, l := range ls {
+		if (l[0] != "" && !a.rs.HasCategory(l[0])) || (l[1] != "" && !a.rs.HasProject(l[1])) {
+			continue
+		}
+		if out = append(out, classify.Want{Category: l[0], Project: l[1]}); len(out) == n {
+			break
+		}
+	}
+	return out, nil
+}

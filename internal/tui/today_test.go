@@ -61,10 +61,14 @@ func TestTagRow(t *testing.T) {
 	m = press(t, m, "t")
 	mustContain(t, m, "Category", "Communication")
 	m = typeText(t, m, "comm")
-	mustNotContain(t, m, "Entertainment")
+	if opts := optNames(m.picker); strings.Contains(opts, "Entertainment") {
+		t.Fatalf("filter kept Entertainment: %s", opts)
+	}
 	m = press(t, m, "enter")
 	mustContain(t, m, "Project for Communication", "(no project)", "ATLAS")
-	mustNotContain(t, m, "Old") // archived
+	if opts := optNames(m.picker); strings.Contains(opts, "Old") { // archived
+		t.Fatalf("archived project offered: %s", opts)
+	}
 	m = press(t, m, "enter")
 	mustContain(t, m, "tagged 1 span (10m) → Communication", "inbox ²")
 	if l := line(t, m, "14:50–15:00"); !strings.Contains(l, "Communication") {
@@ -200,4 +204,12 @@ func TestConfigBanner(t *testing.T) {
 	e.WriteConfig(t, "[score]\ndepth = 0.9\n")
 	m = step(t, m, tickMsg{})
 	mustContain(t, m, "config error, using the last good settings: config.toml: [score] weights sum to 1.40, want 1")
+}
+
+func optNames(p *picker) string {
+	var b []string
+	for _, o := range p.options() {
+		b = append(b, o.name)
+	}
+	return strings.Join(b, "|")
 }

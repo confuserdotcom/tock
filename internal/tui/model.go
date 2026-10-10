@@ -382,20 +382,43 @@ func (m Model) render() string {
 // body is the screen between the header (and banner) and the footer,
 // exactly h lines.
 func (m Model) body(bodyH int) []string {
-	var body []string
+	var top []string
 	switch {
 	case m.palette != nil:
-		body = center2(m.palette.view(&m, m.width), m.width)
+		top = center2(m.palette.view(&m, m.width), m.width)
 	case m.help:
-		body = center2(m.helpBody(m.width), m.width)
+		top = center2(m.helpBody(m.width), m.width)
 	case m.score:
-		body = m.today.scoreView(m.width, bodyH, m.now().Location())
+		return fitBody(m.today.scoreView(m.width, bodyH, m.now().Location()), bodyH)
 	case m.picker != nil:
-		body = m.picker.view(m.width, bodyH)
+		top = m.picker.view(m.width, bodyH)
 	case m.learn != nil:
-		body = m.learn.view(m.width)
+		top = m.learn.view(m.width)
 	case m.start != nil:
-		body = m.start.view(m.width)
+		top = m.start.view(m.width)
+	}
+	base := fitBody(m.tabBody(bodyH), bodyH)
+	if top == nil {
+		return base
+	}
+	return overlay(base, fitBody(top, bodyH), m.width)
+}
+
+// fitBody cuts or pads body to exactly h lines.
+func fitBody(body []string, h int) []string {
+	if len(body) > h {
+		body = body[:h]
+	}
+	for len(body) < h {
+		body = append(body, "")
+	}
+	return body
+}
+
+// tabBody is the open tab's view.
+func (m Model) tabBody(bodyH int) []string {
+	var body []string
+	switch {
 	case m.tab == tabToday:
 		body = m.today.view(m.width, bodyH, m.now())
 	case m.tab == tabWeek && m.week.month:
@@ -408,12 +431,6 @@ func (m Model) body(bodyH int) []string {
 		body = m.rules.view(m.width, bodyH)
 	default:
 		body = m.inbox.view(m.width, bodyH)
-	}
-	if len(body) > bodyH {
-		body = body[:bodyH]
-	}
-	for len(body) < bodyH {
-		body = append(body, "")
 	}
 	return body
 }

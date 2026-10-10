@@ -86,3 +86,18 @@ func TestInboxEnterAcceptsSuggestion(t *testing.T) {
 		t.Fatalf("enter on a suggested key must open the learn dialog:\n%s", screen(m))
 	}
 }
+
+func TestPickerOffersSuggestion(t *testing.T) {
+	m, _ := withSuggestions(t, &fakeSuggester{answer: studyTock})
+	m = press(t, m, "3")
+	for i := 0; i < 3 && !strings.Contains(line(t, m, "→ Study / tock"), "▸"); i++ {
+		m = press(t, m, "j")
+	}
+	m = press(t, m, "o") // tag once, through the picker
+	mustContain(t, m, "★ suggested")
+	m = press(t, m, "enter")
+	mustContain(t, m, "→ Study / tock")
+	if m.picker != nil {
+		t.Fatal("a quick option must finish the pick")
+	}
+}

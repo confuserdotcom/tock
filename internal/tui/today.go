@@ -237,10 +237,10 @@ func (m Model) todayKey(k string) (tea.Model, tea.Cmd) {
 		case "accept":
 			return m, m.propose(r.Key, m.inbox.sugg[r.Key])
 		case "tag":
-			m.picker = newPicker(m.src, pickTag, r.IDs, "", spansWhat(len(r.IDs), r.End-r.Start))
+			m.picker = newPicker(m.src, pickTag, r.IDs, "", spansWhat(len(r.IDs), r.End-r.Start)).withQuick(&m, r.Key)
 		case "away":
 			iv := *t.awayOf(r)
-			m.picker = newAwayPicker(m.src, iv, awayWhat(iv, m.now().Location()))
+			m.picker = newAwayPicker(m.src, iv, awayWhat(iv, m.now().Location())).withQuick(&m, "")
 		}
 		return m, nil
 	case "a", "A":
@@ -251,7 +251,7 @@ func (m Model) todayKey(k string) (tea.Model, tea.Cmd) {
 		}
 		iv := t.day.Away[n-1]
 		if k == "a" {
-			m.picker = newAwayPicker(m.src, iv, awayWhat(iv, m.now().Location()))
+			m.picker = newAwayPicker(m.src, iv, awayWhat(iv, m.now().Location())).withQuick(&m, "")
 			return m, nil
 		}
 		what := awayWhat(iv, m.now().Location())
@@ -264,7 +264,7 @@ func (m Model) todayKey(k string) (tea.Model, tea.Cmd) {
 		case r == nil:
 		case r.Idle && k == "t":
 			if iv := t.awayOf(r); iv != nil {
-				m.picker = newAwayPicker(m.src, *iv, awayWhat(*iv, m.now().Location()))
+				m.picker = newAwayPicker(m.src, *iv, awayWhat(*iv, m.now().Location())).withQuick(&m, "")
 				return m, nil
 			}
 			m.setFlash("not an away period: too short, too long or already answered", true)
@@ -275,11 +275,11 @@ func (m Model) todayKey(k string) (tea.Model, tea.Cmd) {
 		case r.App == span.MeetingApp && k == "T":
 			m.setFlash("meetings are learned by hand: a [[rule]] with bundle tock.meeting; t to relabel this one", true)
 		case k == "t":
-			m.picker = newPicker(m.src, pickTag, r.IDs, "", spansWhat(len(r.IDs), r.End-r.Start))
+			m.picker = newPicker(m.src, pickTag, r.IDs, "", spansWhat(len(r.IDs), r.End-r.Start)).withQuick(&m, r.Key)
 		case k == "p":
 			m.picker = newPicker(m.src, pickProject, r.IDs, "", spansWhat(len(r.IDs), r.End-r.Start))
 		default:
-			m.picker = newPicker(m.src, pickLearn, nil, r.Key, "")
+			m.picker = newPicker(m.src, pickLearn, nil, r.Key, "").withQuick(&m, r.Key)
 		}
 	}
 	return m, nil

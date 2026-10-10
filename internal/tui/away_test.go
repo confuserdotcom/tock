@@ -11,7 +11,7 @@ func TestAwayPromptAndAnswer(t *testing.T) {
 	m, _ := seeded(t)
 	mustContain(t, m, "⚑ Away 12:25–14:50 (2h25) — what was it?   a label   A leave idle   +1 more", "a label time away")
 	m = press(t, m, "a")
-	mustContain(t, m, "Category  away 12:25–14:50 (2h25)")
+	mustContain(t, m, "─ Category ─", "away 12:25–14:50 (2h25)")
 	m = typeText(t, m, "comm")
 	m = press(t, m, "enter", "enter")
 	mustContain(t, m, "labelled away 12:25–14:50 (2h25) → Communication")
@@ -30,7 +30,7 @@ func TestAwayPromptAndAnswer(t *testing.T) {
 func TestAwayFromIdleRowAndRelabel(t *testing.T) {
 	m, _ := seeded(t)
 	m = press(t, m, "k", "k", "t") // the idle row 11:41–12:22
-	mustContain(t, m, "Category  away 11:41–12:22 (41m)")
+	mustContain(t, m, "─ Category ─", "away 11:41–12:22 (41m)")
 	m = typeText(t, m, "stu")
 	m = press(t, m, "enter")
 	m = typeText(t, m, "atl")
@@ -59,4 +59,15 @@ func TestAwayNoneOnQuietDay(t *testing.T) {
 	e.Seed(t, apptest.Span{ID: 1, Start: "09:00", End: "10:00", Bundle: "term", App: "WezTerm", Title: "x"})
 	m := newModel(t, e)
 	mustNotContain(t, m, "a what was it?", "a away")
+}
+
+func TestAwayPickerOffersRecentLabels(t *testing.T) {
+	m, _ := seeded(t)
+	m = press(t, m, "a") // 12:25–14:50
+	m = typeText(t, m, "comm")
+	m = press(t, m, "enter", "enter")
+	m = press(t, m, "a") // 11:41–12:22: the last answer comes first
+	mustContain(t, m, "Communication", "↺ recent")
+	m = press(t, m, "enter")
+	mustContain(t, m, "labelled away 11:41–12:22 (41m) → Communication")
 }

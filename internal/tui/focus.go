@@ -147,20 +147,20 @@ func (d *startDlg) rowAt(line int) (int, bool) {
 }
 
 func (d *startDlg) view(w int) []string {
-	out := []string{" " + sHead.Render("Start a focus session"), ""}
-	cell := min(w-4, 30)
+	var out []string
+	cell := min(w-8, 30)
 	for i := 0; i <= len(d.presets); i++ {
 		label := "custom: " + d.custom + "▏ min"
 		if i < len(d.presets) {
 			label = fmt.Sprintf("%d min", d.presets[i])
 		}
 		if i == d.cursor {
-			out = append(out, "  "+sSel.Render(fit(sBrand.Bold(true).Render("▸ ")+label, cell)))
+			out = append(out, sSel.Render(fit(sBrand.Bold(true).Render("▸ ")+label, cell)))
 		} else {
-			out = append(out, "  "+sText.Render(fit("  "+label, cell)))
+			out = append(out, sText.Render(fit("  "+label, cell)))
 		}
 	}
-	return out
+	return center2(card("Start a focus session", out, cell+4), w)
 }
 
 func (t focusTab) view(w int, now time.Time) []string {
@@ -185,7 +185,7 @@ func (t focusTab) view(w int, now time.Time) []string {
 	} else {
 		body = card("Session", []string{"",
 			sText.Render("No session running."),
-			sDim.Render("A session silences nothing; it nudges you when you drift."),
+			sDim.Render("A session nudges you when you drift and records how deep it went."),
 			"",
 			keycap("s", "choose a length") + "    " + keycap(":", "then \"50 min\""),
 			""}, cw)

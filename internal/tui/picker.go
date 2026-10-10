@@ -24,7 +24,12 @@ const (
 
 const noProject = "(no project)"
 
-type option struct{ name, note string }
+// option is one picker row. A quick option carries a whole label (want) and
+// finishes the pick at once.
+type option struct {
+	name, note string
+	want       *classify.Want
+}
 
 // picker chooses a category, then a project, by prefix filter.
 type picker struct {
@@ -34,6 +39,7 @@ type picker struct {
 	what     string
 	cats     []option
 	projects []option
+	quick    []option // whole labels listed first: suggested, then recent
 	stage    int // 0 category, 1 project
 	query    string
 	cursor   int
@@ -53,14 +59,14 @@ func newPicker(src *source, action pickAction, ids []int64, key, what string) *p
 	src.do(func(a *app.App) {
 		rs := a.Rules()
 		for _, c := range rs.Categories {
-			p.cats = append(p.cats, option{c.Name, c.Kind})
+			p.cats = append(p.cats, option{name: c.Name, note: c.Kind})
 		}
 		if action != pickProject {
-			p.projects = append(p.projects, option{noProject, ""})
+			p.projects = append(p.projects, option{name: noProject})
 		}
 		for _, pr := range rs.Projects {
 			if !pr.Archived {
-				p.projects = append(p.projects, option{pr.Name, ""})
+				p.projects = append(p.projects, option{name: pr.Name})
 			}
 		}
 	})
@@ -70,7 +76,26 @@ func newPicker(src *source, action pickAction, ids []int64, key, what string) *p
 	return p
 }
 
-// options is the current stage's list after the prefix filter.
+// withQuick adds the quick options: the suggestion for key, and for time
+// away the recent away labels.
+func (p *picker) withQuick(m *Model, key string) *picker {
+	if w, ok := m.inbox.sugg[key]; ok && key != "" {
+		w := w
+		p.quick = append(p.quick, option{name: report.LabelText(w.Category, w.Project), note: "★ suggested", want: &w})
+	}
+	if p.action == pickAway {
+		var recent []classify.Want
+		m.src.do(func(a *app.App) { recent, _ = a.RecentAwayLabels(3) })
+		for _, w := range recent {
+			w := w
+			p.quick = append(p.quick, option{name: report.LabelText(w.Category, w.Project), note: "↺ recent", want: &w})
+		}
+	}
+	return p
+}
+
+// options is the current stage's list after the prefix filter; quick
+// options lead the category stage while nothing is typed.
 func (p *picker) options() []option {
 	list := p.cats
 	if p.stage == 1 {
@@ -78,6 +103,9 @@ func (p *picker) options() []option {
 	}
 	q := strings.ToLower(p.query)
 	var out []option
+	if p.stage == 0 && q == "" {
+		out = append(out, p.quick...)
+	}
 	for _, o := range list {
 		if q == "" || (o.name != noProject && strings.HasPrefix(strings.ToLower(o.name), q)) {
 			out = append(out, o)
@@ -108,7 +136,13 @@ func (m Model) pickerKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if len(opts) == 0 {
 			return m, nil
 		}
-		choice := opts[min(p.cursor, len(opts)-1)].name
+		opt := opts[min(p.cursor, len(opts)-1)]
+		if opt.want != nil {
+			p.want = *opt.want
+			m.picker = nil
+			return m, m.finishPick(p)
+		}
+		choice := opt.name
 		if p.stage == 0 {
 			p.want.Category = choice
 			p.stage, p.query, p.cursor = 1, "", 0
@@ -195,22 +229,31 @@ func (p *picker) view(w, h int) []string {
 	if subject == "" {
 		subject = report.Safe(p.key)
 	}
-	lines := []string{sHead.Render(title) + sDim.Render("  "+subject), sDim.Render("> ") + p.query + "▏", ""}
+	const cw = 44
+	lines := []string{sDim.Render(subject), sBrand.Render("› ") + sBright.Render(p.query) + sBrand.Render("▏"), ""}
 	opts := p.options()
 	first, end := p.window(h, len(opts))
 	for i := first; i < end; i++ {
-		line := fit(opts[i].name, 20) + " " + sDim.Render(fit(opts[i].note, 10))
+		o := opts[i]
+		name := sText.Render(fit(o.name, 24))
+		note := sDim.Render(fit(o.note, 12))
+		if o.want != nil {
+			name = sUnl.Render(fit(o.name, 24))
+			note = sBrand.Render(fit(o.note, 12))
+		} else if p.stage == 0 {
+			name = dot(o.note) + " " + kindStyle(o.note).Render(fit(o.name, 22))
+		}
+		line := name + " " + note
 		if i == p.cursor {
-			line = sSel.Render(sBrand.Bold(true).Render("▸") + line)
+			line = sSel.Render(fit(sBrand.Bold(true).Render("▸ ")+line, cw-4))
 		} else {
-			line = " " + line
+			line = "  " + line
 		}
 		lines = append(lines, line)
 	}
 	if len(opts) == 0 {
-		lines = append(lines, sDim.Render(" no match"))
+		lines = append(lines, sDim.Render("  no match · backspace"))
 	}
-	box := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(colFaint).Padding(0, 1).
-		Render(strings.Join(lines, "\n"))
+	box := strings.Join(card(title, lines, cw), "\n")
 	return strings.Split(lipgloss.Place(w, h, lipgloss.Center, lipgloss.Center, box), "\n")
 }

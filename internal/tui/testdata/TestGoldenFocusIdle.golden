@@ -3,7 +3,7 @@ tock   today   week   inbox ³   focus   rules                            Sat 10
               ╭─ Session ────────────────────────────────────────────────────────────╮
               │                                                                      │
               │ No session running.                                                  │
-              │ A session silences nothing; it nudges you when you drift.            │
+              │ A session nudges you when you drift and records how deep it went.    │
               │                                                                      │
               │ s choose a length    : then "50 min"                                 │
               │                                                                      │

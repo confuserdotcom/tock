@@ -68,3 +68,23 @@ func (s *Store) AwayStamp() (n, lastAt int64, err error) {
 	err = s.db.QueryRow(`SELECT COUNT(*), COALESCE(MAX(at_ms), 0) FROM away`).Scan(&n, &lastAt)
 	return n, lastAt, err
 }
+
+// RecentAwayLabels returns up to n distinct labels of answered away rows,
+// most recently written first.
+func (s *Store) RecentAwayLabels(n int) ([][2]string, error) {
+	rows, err := s.db.Query(`SELECT category, project FROM away WHERE category <> '' OR project <> ''
+		GROUP BY category, project ORDER BY MAX(at_ms) DESC, MAX(id) DESC LIMIT ?`, n)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out [][2]string
+	for rows.Next() {
+		var l [2]string
+		if err := rows.Scan(&l[0], &l[1]); err != nil {
+			return nil, err
+		}
+		out = append(out, l)
+	}
+	return out, rows.Err()
+}
