@@ -3,7 +3,7 @@ package tui
 var helpText = []string{
 	"tock — keys",
 	"",
-	"  1 2 3 / tab      today · week · inbox",
+	"  1 2 3 4 / tab    today · week · inbox · focus",
 	"  r                refresh now (also every 5 s)",
 	"  ?                today: score breakdown (? again for keys) · other tabs: keys",
 	"  q / ctrl+c       quit",
@@ -13,6 +13,7 @@ var helpText = []string{
 	"                   t tag row · p project only · T tag and learn a rule",
 	"  week             j/k day · h/l week · . this week · enter open day",
 	"  inbox            enter learn a rule · o tag once · x ignore · u undo",
+	"  focus            s start a session (presets or custom) · x stop",
 	"  pickers          type a prefix · ↑/↓ · enter · esc",
 	"",
 	"  colours: bright deep · gray shallow · dark neutral · red distraction and unlabelled",

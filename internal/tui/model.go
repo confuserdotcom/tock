@@ -1,4 +1,4 @@
-// Package tui is tock's terminal interface: today, week and inbox tabs over
+// Package tui is tock's terminal interface: today, week, inbox and focus tabs over
 // an app session. It never touches the database directly.
 package tui
 
@@ -18,6 +18,7 @@ const (
 	tabToday = iota
 	tabWeek
 	tabInbox
+	tabFocus
 	numTabs
 )
 
@@ -35,9 +36,11 @@ const MinWidth, MinHeight = 60, 16
 
 // Model is the root Bubble Tea model.
 type Model struct {
-	src  *source
-	now  func() time.Time
-	tick func() tea.Cmd // nil disables the refresh timer (tests)
+	src       *source
+	now       func() time.Time
+	tick      func() tea.Cmd // nil disables the refresh timer (tests)
+	clockTick func() tea.Cmd // nil disables the countdown redraw (tests)
+	clockOn   bool
 
 	width, height int
 	tab           int
@@ -46,9 +49,11 @@ type Model struct {
 	inbox         inboxTab
 	today         todayTab
 	week          weekTab
+	focus         focusTab
 
 	picker *picker
 	learn  *learnDlg
+	start  *startDlg
 	help   bool
 	score  bool // the today tab's score breakdown
 
@@ -63,9 +68,10 @@ type Model struct {
 // and status messages; it should be the app's clock.
 func New(a *app.App, now func() time.Time) Model {
 	return Model{
-		src:  &source{a: a},
-		now:  now,
-		tick: func() tea.Cmd { return tea.Tick(Refresh, func(time.Time) tea.Msg { return tickMsg{} }) },
+		src:       &source{a: a},
+		now:       now,
+		tick:      func() tea.Cmd { return tea.Tick(Refresh, func(time.Time) tea.Msg { return tickMsg{} }) },
+		clockTick: func() tea.Cmd { return tea.Tick(clockEvery, func(time.Time) tea.Msg { return clockMsg{} }) },
 	}
 }
 
@@ -78,6 +84,7 @@ type loadedMsg struct {
 	items     []classify.Item
 	day       *report.Day
 	week      *report.Week
+	focus     *report.Focus
 	err       error
 }
 
@@ -101,13 +108,20 @@ func (m Model) schedule() tea.Cmd {
 // load reloads the rules, health, the inbox and the open tab's data.
 func (m *Model) load() tea.Cmd {
 	m.loading = true
-	tab, dayDate, weekDate := m.tab, m.today.dateOr(m.now()), m.week.dateOr(m.now())
+	now := m.now()
+	tab, dayDate, weekDate := m.tab, m.today.dateOr(now), m.week.dateOr(now)
 	src := m.src
 	return func() tea.Msg {
 		var msg loadedMsg
 		src.do(func(a *app.App) {
 			a.Reload() // a failure is kept in RulesErr and shown in the banner
 			msg.health, msg.healthErr = a.Health()
+			f, err := a.Focus(now)
+			if err != nil {
+				msg.err = err
+				return
+			}
+			msg.focus = &f
 			if msg.items, msg.err = a.Inbox(InboxDays); msg.err != nil {
 				return
 			}
@@ -182,12 +196,19 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if msg.week != nil {
 				m.week.set(*msg.week)
 			}
+			if msg.focus != nil {
+				m.focus.set(*msg.focus)
+			}
 		}
+		clock := m.maybeClock()
 		if m.reloadAgain {
 			m.reloadAgain = false
-			return m, m.load()
+			return m, tea.Batch(m.load(), clock)
 		}
-		return m, nil
+		return m, clock
+	case clockMsg:
+		m.clockOn = false
+		return m, m.maybeClock()
 	case doneMsg:
 		if msg.err != nil {
 			m.setFlash(msg.err.Error(), true)
@@ -211,6 +232,8 @@ func (m Model) key(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case m.picker != nil:
 		return m.pickerKey(msg)
+	case m.start != nil:
+		return m.startKey(msg)
 	case m.learn != nil:
 		return m.learnKey(k)
 	case m.help:
@@ -242,7 +265,7 @@ func (m Model) key(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "r":
 		return m, m.reload()
-	case "1", "2", "3":
+	case "1", "2", "3", "4":
 		return m.switchTab(int(k[0] - '1'))
 	case "tab":
 		return m.switchTab((m.tab + 1) % numTabs)
@@ -254,6 +277,8 @@ func (m Model) key(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m.todayKey(k)
 	case tabWeek:
 		return m.weekKey(k)
+	case tabFocus:
+		return m.focusKey(k)
 	}
 	return m.inboxKey(k)
 }
@@ -295,10 +320,14 @@ func (m Model) render() string {
 		body = m.picker.view(m.width, bodyH)
 	case m.learn != nil:
 		body = m.learn.view(m.width)
+	case m.start != nil:
+		body = m.start.view(m.width)
 	case m.tab == tabToday:
 		body = m.today.view(m.width, bodyH, m.now())
 	case m.tab == tabWeek:
 		body = m.week.view(m.width, bodyH)
+	case m.tab == tabFocus:
+		body = m.focus.view(m.width, m.now())
 	default:
 		body = m.inbox.view(m.width, bodyH)
 	}
@@ -314,7 +343,7 @@ func (m Model) render() string {
 }
 
 func (m Model) header() string {
-	names := []string{"1 today", "2 week", "3 inbox"}
+	names := []string{"1 today", "2 week", "3 inbox", "4 focus"}
 	if n := m.inbox.count(); n > 0 {
 		names[tabInbox] = fmt.Sprintf("3 inbox %d", n)
 	}
@@ -328,6 +357,9 @@ func (m Model) header() string {
 	}
 	left := strings.Join(parts, "   ")
 	right := sDim.Render(m.now().Format("Mon 2 Jan 15:04")+" · ") + m.trackdText()
+	if s := m.focus.data.Open; s != nil {
+		right = sBright.Render("◷ "+report.Countdown(s.PlannedMS-m.now().UnixMilli())) + sDim.Render(" · ") + right
+	}
 	return spread(left, right, m.width)
 }
 
@@ -375,10 +407,14 @@ func (m Model) footer() string {
 		hint = "type to filter · ↑/↓ move · enter pick · esc cancel"
 	case m.learn != nil:
 		hint = m.learn.hint()
+	case m.start != nil:
+		hint = "↑/↓ move · digits custom length · enter start · esc cancel"
 	case m.tab == tabToday:
 		hint = m.today.hint()
 	case m.tab == tabWeek:
 		hint = "j/k day · h/l week · . this week · enter open day · ? help"
+	case m.tab == tabFocus:
+		hint = "s start · x stop · ? help"
 	default:
 		hint = "enter learn rule · o tag once · x ignore · u undo · ? help"
 	}

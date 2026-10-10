@@ -10,6 +10,7 @@ import (
 
 	"tock/internal/app"
 	"tock/internal/apptest"
+	"tock/internal/store"
 )
 
 // Phase 3 criterion 4: each tab, the picker, the learn dialog, the score
@@ -83,6 +84,7 @@ func TestProgramRuns(t *testing.T) {
 	defer a.Close()
 	m := New(a, e.NowFunc())
 	m.tick = nil
+	m.clockTick = nil
 	tm := teatest.NewTestModel(t, m, teatest.WithInitialTermSize(100, 30))
 	teatest.WaitFor(t, tm.Output(), func(b []byte) bool { return bytes.Contains(b, []byte("Today")) },
 		teatest.WithDuration(5*time.Second))
@@ -92,4 +94,32 @@ func TestProgramRuns(t *testing.T) {
 	if got := screen(final); got != screen(want) {
 		t.Fatalf("program screen:\n%s\nwant:\n%s", got, screen(want))
 	}
+}
+
+// Phase 5 criterion 1: the running session's countdown, with history.
+func TestGoldenFocus(t *testing.T) {
+	m, e := seeded(t)
+	e.Heartbeat(t, e.Clock.UnixMilli())
+	st, err := store.Open(e.DB)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range []store.Session{
+		{Kind: store.SessionAuto, StartMS: apptest.At(t, "09:00", 0), EndMS: apptest.At(t, "11:14", 0), DeepMS: 134 * 60_000},
+		{Kind: store.SessionAuto, StartMS: apptest.At(t, "10:00", -2), EndMS: apptest.At(t, "10:40", -2), DeepMS: 38 * 60_000},
+	} {
+		if _, err := st.AddAutoSession(s); err != nil {
+			t.Fatal(err)
+		}
+	}
+	st.Close()
+	m = press(t, m, "4", "s", "enter")
+	golden.RequireEqual(t, screen(m))
+}
+
+func TestGoldenFocusStart(t *testing.T) {
+	m, e := seeded(t)
+	e.Heartbeat(t, e.Clock.UnixMilli())
+	m = press(t, m, "4", "s")
+	golden.RequireEqual(t, screen(m))
 }

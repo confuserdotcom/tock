@@ -22,6 +22,7 @@ func newModel(t *testing.T, e *apptest.Env) Model {
 	t.Cleanup(func() { a.Close() })
 	m := New(a, e.NowFunc())
 	m.tick = nil
+	m.clockTick = nil
 	m = step(t, m, tea.WindowSizeMsg{Width: 100, Height: 30})
 	return runCmd(t, m, m.Init())
 }
