@@ -60,7 +60,12 @@ func (a *App) spans(from, to int64) ([]store.SpanRow, map[int64]classify.Overrid
 	if err != nil {
 		return nil, nil, err
 	}
-	if fp := fingerprint(ovs) ^ uint64(n)<<48 ^ uint64(lastAt) ^ uint64(en)<<32 ^ uint64(eid)<<8; fp != a.pastKey {
+	rn, rid, err := a.st.RemoteStamp()
+	if err != nil {
+		return nil, nil, err
+	}
+	if fp := fingerprint(ovs) ^ uint64(n)<<48 ^ uint64(lastAt) ^ uint64(en)<<32 ^ uint64(eid)<<8 ^
+		uint64(rn)<<40 ^ uint64(rid)<<16; fp != a.pastKey {
 		a.past, a.pastKey = nil, fp
 	}
 	return rows, overrides(ovs), nil
@@ -87,12 +92,16 @@ const CallMinMS = 2 * 60_000
 
 // decorate adds what is not in the span table to views clipped to
 // [from, to): the shell's working directory on terminal views, the calls
-// (MarkCalls) when the rules name a call category, the labelled time away
+// (MarkCalls) when the rules name a call category, the other machines'
+// activity in idle time (MarkRemote), the labelled time away
 // (MarkAway), whose labels it adds to ovs under the views' negative ids, and
 // the calendar events (MarkEvents) when the rules name a calendar category.
 func (a *App) decorate(vs []classify.SpanView, ovs map[int64]classify.Override, from, to int64) ([]classify.SpanView, error) {
 	vs, err := a.markCalls(vs, from, to)
 	if err != nil {
+		return nil, err
+	}
+	if vs, err = a.markRemote(vs, ovs, from, to); err != nil {
 		return nil, err
 	}
 	aw, err := a.st.Aways(from, to)
@@ -119,6 +128,32 @@ func (a *App) decorate(vs []classify.SpanView, ovs map[int64]classify.Override, 
 		em[i] = classify.EventMark{ID: e.ID, Title: e.Title, Interval: classify.Interval{From: e.StartMS, To: e.EndMS}}
 	}
 	return classify.MarkEvents(vs, em, from, min(to, a.nowMS())), nil
+}
+
+// markRemote fills idle time and gaps with the other machines' views. Their
+// labels go into ovs under the views' ids when the category and project
+// exist here; otherwise this machine's rules label them.
+func (a *App) markRemote(vs []classify.SpanView, ovs map[int64]classify.Override, from, to int64) ([]classify.SpanView, error) {
+	rv, err := a.st.RemoteViews(from, to)
+	if err != nil || len(rv) == 0 {
+		return vs, err
+	}
+	marks := make([]classify.RemoteMark, len(rv))
+	for i, r := range rv {
+		marks[i] = classify.RemoteMark{ID: r.ID, Machine: r.Machine, View: classify.SpanView{
+			Start: r.StartMS, End: r.EndMS, BundleID: r.Bundle, App: r.App, Title: r.Title, URL: r.URL}}
+		var o classify.Override
+		if r.Category != "" && a.rs.HasCategory(r.Category) {
+			o.Category = r.Category
+		}
+		if r.Project != "" && a.rs.HasProject(r.Project) {
+			o.Project = r.Project
+		}
+		if o != (classify.Override{}) {
+			ovs[-(classify.RemoteIDBase + r.ID)] = o
+		}
+	}
+	return classify.MarkRemote(vs, marks, from, min(to, a.nowMS())), nil
 }
 
 // markCalls attaches shell dirs and marks the calls of at least CallMinMS.

@@ -45,6 +45,8 @@ const usage = `usage:
                                          labelled spans, default the last 7 days as csv
   tock backup [--out FILE]               archive tock.db and the rule, config and shell files
                                          (default ~/.local/share/tock/backups/)
+  tock sync [--days N]                   write this machine's last N days (default 2) to the
+                                         [sync] folder now and read the other machines'
   tock shell-init zsh                    shell hook for terminal projects; in ~/.zshrc:
                                          eval "$(tock shell-init zsh)"
 Names match on a unique prefix: "tock tag 2 stu/atl". "/Project" sets only the project.
@@ -144,6 +146,7 @@ var commands = map[string]func(Env, []string) error{
 	"export":     cmdExport,
 	"doctor":     cmdDoctor,
 	"backup":     cmdBackup,
+	"sync":       cmdSync,
 	"shell-init": cmdShellInit,
 	"away":       cmdAway,
 	"trends":     cmdTrends,

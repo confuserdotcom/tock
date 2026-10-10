@@ -121,6 +121,10 @@ func cmdDoctor(env Env, args []string) error {
 		}
 	}
 
+	if cfgErr == nil {
+		doctorSync(env, cfg.Sync, ok, bad)
+	}
+
 	if env.APIKey != "" {
 		ok("suggestions", "on (ANTHROPIC_API_KEY set)")
 	} else {
@@ -181,6 +185,35 @@ func doctorNotify(on bool, h app.Health, ok func(name, detail string)) {
 	default:
 		ok("notifications", "plain until the menu bar app is allowed to notify")
 	}
+}
+
+// doctorSync checks the sync folder and names the other machines seen.
+func doctorSync(env Env, s config.Sync, ok func(name, detail string), bad func(name, detail, fix string)) {
+	if s.Dir == "" {
+		ok("sync", "off (config.toml [sync] dir)")
+		return
+	}
+	if fi, err := os.Stat(s.Dir); err != nil || !fi.IsDir() {
+		bad("sync", "no folder "+s.Dir, "create it, or fix [sync] dir in config.toml")
+		return
+	}
+	detail := "as " + s.MachineName() + ", no other machine yet"
+	if st, err := openStore(env); err == nil {
+		ms, err := st.RemoteMachines()
+		st.Close()
+		if err == nil && len(ms) > 0 {
+			var names []string
+			for _, m := range ms {
+				n := m.Name
+				if m.LastMS > 0 {
+					n += " (last " + time.UnixMilli(m.LastMS).In(env.Now().Location()).Format("Mon 15:04") + ")"
+				}
+				names = append(names, n)
+			}
+			detail = "as " + s.MachineName() + " with " + strings.Join(names, ", ")
+		}
+	}
+	ok("sync", detail)
 }
 
 // doctorRepos checks that git reads every [[project]] repo.

@@ -20,7 +20,7 @@ type EventMark struct {
 // MeetingEventID returns the event id of a meeting view id, and false when
 // id is not one.
 func MeetingEventID(id int64) (int64, bool) {
-	if id > -MeetingIDBase {
+	if id > -MeetingIDBase || id <= -RemoteIDBase {
 		return 0, false
 	}
 	return -id - MeetingIDBase, true

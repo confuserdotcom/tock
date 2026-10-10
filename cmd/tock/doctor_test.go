@@ -45,7 +45,7 @@ func TestDoctorAllGood(t *testing.T) {
 		store.KeyHeartbeat: nowMS(), store.KeyAXTrusted: "1", store.KeyVersion: "v1",
 	})
 	code, out := te.run(t, "", "doctor", "--open")
-	if code != 0 || strings.Count(out, "ok  ") != 9 || strings.Contains(out, "!!") {
+	if code != 0 || strings.Count(out, "ok  ") != 10 || strings.Contains(out, "!!") {
 		t.Fatalf("exit %d:\n%s%s", code, out, te.errb)
 	}
 	for _, want := range []string{"rules: 3 rules, 0 learned", "config: defaults", "trackd: running (version v1)",

@@ -172,6 +172,7 @@ func (t *todayTab) awayOf(r *report.Row) *classify.Interval {
 // an unlabelled row, label the "away" time of an idle row, or "" nothing.
 func (t *todayTab) enterAction(r *report.Row, sugg map[string]classify.Want) string {
 	switch {
+	case remoteRow(r):
 	case r.Idle:
 		if t.awayOf(r) != nil {
 			return "away"
@@ -184,6 +185,9 @@ func (t *todayTab) enterAction(r *report.Row, sugg map[string]classify.Want) str
 	}
 	return ""
 }
+
+// remoteRow reports a row of another machine's activity (tock sync).
+func remoteRow(r *report.Row) bool { return len(r.IDs) > 0 && app.IsRemoteView(r.IDs[0]) }
 
 // awayWhat names an absence: "12:25–14:50 (2h25)".
 func awayWhat(iv classify.Interval, loc *time.Location) string {
@@ -270,6 +274,8 @@ func (m Model) todayKey(k string) (tea.Model, tea.Cmd) {
 			m.setFlash("not an away period: too short, too long or already answered", true)
 		case r.Idle:
 			m.setFlash("idle time has no label", true)
+		case remoteRow(r):
+			m.setFlash("recorded on another machine: label it there", true)
 		case r.App == span.AwayApp && k == "T":
 			m.setFlash("away time has no rules: t to relabel it", true)
 		case r.App == span.MeetingApp && k == "T":

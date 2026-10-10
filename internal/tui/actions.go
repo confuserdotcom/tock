@@ -93,14 +93,14 @@ func actionTable() []action {
 		{key: "A", name: "leave time away idle", group: grToday, prio: 45,
 			when: func(m *Model) bool { return m.tab == tabToday && len(m.today.day.Away) > 0 }},
 		{key: "t", name: "tag", group: grToday, prio: 10,
-			when: rowIs(func(m *Model, r *report.Row) bool { return !r.Idle })},
+			when: rowIs(func(m *Model, r *report.Row) bool { return !r.Idle && !remoteRow(r) })},
 		{key: "t", name: "label away", group: grToday, prio: 10,
 			when: rowIs(func(m *Model, r *report.Row) bool { return r.Idle && inAway(m, r) })},
 		{key: "p", name: "set project", group: grToday, prio: 20,
-			when: rowIs(func(m *Model, r *report.Row) bool { return !r.Idle })},
+			when: rowIs(func(m *Model, r *report.Row) bool { return !r.Idle && !remoteRow(r) })},
 		{key: "T", name: "tag and learn a rule", group: grToday, prio: 30,
 			when: rowIs(func(m *Model, r *report.Row) bool {
-				return !r.Idle && r.App != span.AwayApp && r.App != span.MeetingApp
+				return !r.Idle && r.App != span.AwayApp && r.App != span.MeetingApp && !remoteRow(r)
 			})},
 		{key: "j/k", name: "move", group: grToday},
 		{key: "h", name: "previous day", group: grToday, prio: 50, when: onTab(tabToday)},

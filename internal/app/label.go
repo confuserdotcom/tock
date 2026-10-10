@@ -1,11 +1,15 @@
 package app
 
 import (
+	"errors"
 	"fmt"
 
 	"tock/internal/classify"
 	"tock/internal/store"
 )
+
+// ErrRemote means a label was asked for another machine's time.
+var ErrRemote = errors.New("this time was recorded on another machine: label it there")
 
 // Propose returns the learned-rule candidates for key over all history.
 func (a *App) Propose(key string, want classify.Want) ([]classify.Candidate, error) {
@@ -36,6 +40,9 @@ func (a *App) Tag(ids []int64, want classify.Want) error {
 	at := a.nowMS()
 	ovs := make([]store.Override, 0, len(ids))
 	for _, id := range ids {
+		if _, ok := classify.RemoteRowID(id); ok {
+			return ErrRemote
+		}
 		if eid, ok := classify.MeetingEventID(id); ok {
 			if err := a.tagMeeting(eid, want, at); err != nil {
 				return err

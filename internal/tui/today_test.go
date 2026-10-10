@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"tock/internal/app"
 	"tock/internal/apptest"
 )
 
@@ -212,4 +213,40 @@ func optNames(p *picker) string {
 		b = append(b, o.name)
 	}
 	return strings.Join(b, "|")
+}
+
+func TestRemoteRowsRefuseLabels(t *testing.T) {
+	dir := t.TempDir()
+	er := apptest.New(t, apptest.Rules)
+	er.Seed(t, apptest.Span{ID: 1, Start: "11:45", End: "12:15", Bundle: "term", App: "WezTerm", Title: "tock │ ryuk"})
+	er.WriteConfig(t, "[sync]\ndir = \""+dir+"\"\nmachine = \"ryuk\"\n")
+	ra, err := app.Open(app.Paths{DB: er.DB, Rules: er.Rules, Learned: er.Learned, Config: er.Config}, er.NowFunc())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ra.Sync(app.SyncDays); err != nil {
+		t.Fatal(err)
+	}
+	ra.Close()
+
+	m, e := seeded(t)
+	e.WriteConfig(t, "[sync]\ndir = \""+dir+"\"\nmachine = \"mac\"\n")
+	ma, err := app.Open(app.Paths{DB: e.DB, Rules: e.Rules, Learned: e.Learned, Config: e.Config}, e.NowFunc())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ma.Sync(app.SyncDays); err != nil {
+		t.Fatal(err)
+	}
+	ma.Close()
+	m = press(t, m, "r")
+	mustContain(t, m, "ryuk · We")
+	m = clickOn(t, m, "tock │ ryuk")
+	for _, k := range []string{"t", "p", "T", "enter"} {
+		m = press(t, m, k)
+		if m.picker != nil {
+			t.Fatalf("%s opened a picker on a remote row", k)
+		}
+	}
+	mustContain(t, m, "recorded on another machine")
 }

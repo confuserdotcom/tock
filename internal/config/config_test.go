@@ -253,7 +253,7 @@ func TestLLMErrors(t *testing.T) {
 
 func TestShell(t *testing.T) {
 	c, err := Load(write(t, ""))
-	if err != nil || !slices.Contains(c.Shell.Terminals, "com.github.wez.wezterm") || len(c.Shell.Terminals) != 7 {
+	if err != nil || !slices.Contains(c.Shell.Terminals, "com.github.wez.wezterm") || len(c.Shell.Terminals) != 11 || !slices.Contains(c.Shell.Terminals, "kitty") {
 		t.Fatalf("default terminals = %v, %v", c.Shell.Terminals, err)
 	}
 	c, err = Load(write(t, "[shell]\nterminals = [\"x.term\"]\n"))
@@ -262,5 +262,25 @@ func TestShell(t *testing.T) {
 	}
 	if _, err := Load(write(t, "[shell]\nnope = 1\n")); err == nil {
 		t.Fatal("unknown [shell] key must fail")
+	}
+}
+
+func TestSync(t *testing.T) {
+	c, err := Load(write(t, ""))
+	if err != nil || c.Sync.Dir != "" || c.Sync.MachineName() == "" {
+		t.Fatalf("default sync = %+v, %v", c.Sync, err)
+	}
+	if !machineRE.MatchString(c.Sync.MachineName()) {
+		t.Fatalf("host name gives an invalid machine %q", c.Sync.MachineName())
+	}
+	home, _ := os.UserHomeDir()
+	c, err = Load(write(t, "[sync]\ndir = \"~/Sync/tock\"\nmachine = \"ryuk\"\n"))
+	if err != nil || c.Sync.Dir != filepath.Join(home, "Sync", "tock") || c.Sync.MachineName() != "ryuk" {
+		t.Fatalf("sync = %+v, %v", c.Sync, err)
+	}
+	for _, bad := range []string{"[sync]\ndir = \"rel/dir\"\n", "[sync]\nmachine = \"Ryuk\"\n", "[sync]\nmachine = \"a/b\"\n"} {
+		if _, err := Load(write(t, bad)); err == nil || !strings.Contains(err.Error(), "[sync]") {
+			t.Errorf("%q: %v", bad, err)
+		}
 	}
 }

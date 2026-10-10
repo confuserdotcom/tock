@@ -27,6 +27,44 @@ type Config struct {
 	Shell    Shell
 	Away     Away
 	Calendar Calendar
+	Sync     Sync
+}
+
+// Sync is the [sync] section: the folder shared with tock's other machines
+// (synced by Syncthing or the like) and this machine's name in it.
+type Sync struct {
+	Dir     string // absolute; "" = off
+	Machine string // "" = the host name
+}
+
+// machineRE is a valid machine name: it becomes a folder name.
+var machineRE = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,31}$`)
+
+// MachineName is this machine's name in the sync folder: the configured
+// one, else the short host name, lowercased and reduced to a valid name.
+func (s Sync) MachineName() string {
+	if s.Machine != "" {
+		return s.Machine
+	}
+	h, _ := os.Hostname()
+	h, _, _ = strings.Cut(strings.ToLower(h), ".")
+	var b strings.Builder
+	for _, r := range h {
+		switch {
+		case r >= 'a' && r <= 'z', r >= '0' && r <= '9':
+			b.WriteRune(r)
+		case b.Len() > 0:
+			b.WriteRune('-')
+		}
+	}
+	name := strings.Trim(b.String(), "-")
+	if len(name) > 32 {
+		name = name[:32]
+	}
+	if !machineRE.MatchString(name) {
+		return "this-machine"
+	}
+	return name
 }
 
 // Calendar is the [calendar] section: whether trackd reads calendar events
@@ -54,7 +92,9 @@ type Shell struct {
 // Every call returns a fresh slice.
 func DefaultShell() Shell {
 	return Shell{Terminals: []string{"com.github.wez.wezterm", "com.apple.Terminal", "com.googlecode.iterm2",
-		"com.mitchellh.ghostty", "net.kovidgoyal.kitty", "org.alacritty", "dev.warp.Warp-Stable"}}
+		"com.mitchellh.ghostty", "net.kovidgoyal.kitty", "org.alacritty", "dev.warp.Warp-Stable",
+		// Hyprland window classes on Linux.
+		"kitty", "org.wezfurlong.wezterm", "Alacritty", "foot"}}
 }
 
 // MaxSessionMin is the longest focus session, in minutes.
@@ -166,6 +206,11 @@ type calendarTOML struct {
 	Calendars *[]string `toml:"calendars"`
 }
 
+type syncTOML struct {
+	Dir     *string `toml:"dir"`
+	Machine *string `toml:"machine"`
+}
+
 type fileTOML struct {
 	Score    scoreTOML    `toml:"score"`
 	Focus    focusTOML    `toml:"focus"`
@@ -173,6 +218,7 @@ type fileTOML struct {
 	Shell    shellTOML    `toml:"shell"`
 	Away     awayTOML     `toml:"away"`
 	Calendar calendarTOML `toml:"calendar"`
+	Sync     syncTOML     `toml:"sync"`
 }
 
 // Load reads path. A missing file is Default() and no error. Any other
@@ -247,6 +293,26 @@ func Load(path string) (Config, error) {
 	}
 	if f.Shell.Terminals != nil {
 		c.Shell.Terminals = append([]string{}, *f.Shell.Terminals...)
+	}
+	if f.Sync.Dir != nil && strings.TrimSpace(*f.Sync.Dir) != "" {
+		d := *f.Sync.Dir
+		if rest, ok := strings.CutPrefix(d, "~/"); ok {
+			home, err := os.UserHomeDir()
+			if err != nil {
+				return Default(), fmt.Errorf("%s: [sync] dir: %w", name, err)
+			}
+			d = filepath.Join(home, rest)
+		}
+		if !filepath.IsAbs(d) {
+			return Default(), fmt.Errorf("%s: [sync] dir = %q, want an absolute path or ~/…", name, *f.Sync.Dir)
+		}
+		c.Sync.Dir = filepath.Clean(d)
+	}
+	if f.Sync.Machine != nil {
+		if !machineRE.MatchString(*f.Sync.Machine) {
+			return Default(), fmt.Errorf("%s: [sync] machine = %q, want lowercase letters, digits and -, at most 32", name, *f.Sync.Machine)
+		}
+		c.Sync.Machine = *f.Sync.Machine
 	}
 	return c, nil
 }

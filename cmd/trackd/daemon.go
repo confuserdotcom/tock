@@ -56,6 +56,8 @@ type daemonOpts struct {
 	CalendarPrompt bool
 	// CalendarEvery is the calendar loop period (default 1 min).
 	CalendarEvery time.Duration
+	// SyncEvery is the sync loop period (default 1 min).
+	SyncEvery time.Duration
 }
 
 func wallNowMS() int64 { return time.Now().Round(0).UnixMilli() }
@@ -168,6 +170,13 @@ func runWithStore(o daemonOpts, log *slog.Logger, st *store.Store) int {
 	if o.ConfigDir != "" {
 		stopFocus := startFocus(o, log)
 		defer stopFocus()
+		every := o.SyncEvery
+		if every <= 0 {
+			every = syncEvery
+		}
+		f := newFocusLoop(o, log) // only for its app opener
+		stopSync := startSync(&syncLoop{open: f.open, log: log}, every)
+		defer stopSync()
 		if o.Calendar != nil {
 			every := o.CalendarEvery
 			if every <= 0 {
