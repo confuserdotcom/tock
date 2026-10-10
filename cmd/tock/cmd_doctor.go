@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -127,6 +129,7 @@ func cmdDoctor(env Env, args []string) error {
 
 	if cfgErr == nil {
 		doctorSync(env, cfg.Sync, ok, bad)
+		doctorGuard(env, cfg, ok, bad)
 	}
 
 	if env.APIKey != "" {
@@ -266,4 +269,63 @@ func readHealth(env Env) (app.Health, error) {
 	}
 	defer st.Close()
 	return app.ReadHealth(st, env.Now().UnixMilli())
+}
+
+// doctorGuard reports the focus guard: blocking, the Focus mode shortcuts
+// (which must exist in the Shortcuts app) and Slack.
+func doctorGuard(env Env, cfg config.Config, ok func(name, detail string), bad func(name, detail, fix string)) {
+	f := cfg.Focus
+	if f.Block {
+		ok("blocking", fmt.Sprintf("on in sessions: distractions, %s, %s",
+			plural(len(f.BlockApps), "extra app"), plural(len(f.BlockHosts), "extra site")))
+	} else {
+		ok("blocking", "off (config.toml [focus] block = true)")
+	}
+	var names []string
+	for _, n := range []string{f.FocusOn, f.FocusOff} {
+		if n != "" {
+			names = append(names, n)
+		}
+	}
+	switch {
+	case len(names) == 0:
+		ok("focus mode", "off (config.toml [focus] focus_on / focus_off)")
+	case env.Linux:
+		bad("focus mode", "Shortcuts exist only on macOS", "remove focus_on / focus_off")
+	default:
+		var missing []string
+		if env.ListShortcuts != nil {
+			have, err := env.ListShortcuts()
+			if err != nil {
+				bad("focus mode", "cannot list shortcuts: "+err.Error(), "open the Shortcuts app once")
+				break
+			}
+			for _, n := range names {
+				if !slices.Contains(have, n) {
+					missing = append(missing, strconv.Quote(n))
+				}
+			}
+		}
+		if len(missing) > 0 {
+			bad("focus mode", "no shortcut "+strings.Join(missing, ", "), "create it in Shortcuts (README: Focus mode)")
+			break
+		}
+		ok("focus mode", "shortcuts "+strings.Join(quoteAll(names), " / "))
+	}
+	switch {
+	case !cfg.Slack.Enabled:
+		ok("slack", "off (config.toml [slack] enabled = true)")
+	case env.slackToken() == "":
+		bad("slack", "on, but no token", "tock slack login")
+	default:
+		ok("slack", "on (tock slack checks the token)")
+	}
+}
+
+func quoteAll(ss []string) []string {
+	out := make([]string, len(ss))
+	for i, s := range ss {
+		out[i] = strconv.Quote(s)
+	}
+	return out
 }

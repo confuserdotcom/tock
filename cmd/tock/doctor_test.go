@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"tock/internal/config"
 
 	"tock/internal/store"
 )
@@ -45,7 +46,7 @@ func TestDoctorAllGood(t *testing.T) {
 		store.KeyHeartbeat: nowMS(), store.KeyAXTrusted: "1", store.KeyVersion: "v1",
 	})
 	code, out := te.run(t, "", "doctor", "--open")
-	if code != 0 || strings.Count(out, "ok  ") != 10 || strings.Contains(out, "!!") {
+	if code != 0 || strings.Count(out, "ok  ") != 13 || strings.Contains(out, "!!") {
 		t.Fatalf("exit %d:\n%s%s", code, out, te.errb)
 	}
 	for _, want := range []string{"rules: 3 rules, 0 learned", "config: defaults", "trackd: running (version v1)",
@@ -202,5 +203,31 @@ func TestDoctorLinux(t *testing.T) {
 	te.seed(t, daySpans()...)
 	if _, out := te.run(t, "", "doctor"); !strings.Contains(out, "!!  trackd: not running — systemctl --user restart trackd") {
 		t.Fatalf("down:\n%s", out)
+	}
+}
+
+func TestDoctorGuardLines(t *testing.T) {
+	te := newTestEnv(t, "")
+	cfg := config.Default()
+	var lines []string
+	ok := func(n, d string) { lines = append(lines, "ok "+n+": "+d) }
+	bad := func(n, d, fix string) { lines = append(lines, "!! "+n+": "+d) }
+	doctorGuard(te.Env, cfg, ok, bad)
+	if strings.Join(lines, "\n") != "ok blocking: off (config.toml [focus] block = true)\n"+
+		"ok focus mode: off (config.toml [focus] focus_on / focus_off)\nok slack: off (config.toml [slack] enabled = true)" {
+		t.Fatalf("defaults:\n%s", strings.Join(lines, "\n"))
+	}
+	lines = nil
+	cfg.Focus.Block, cfg.Focus.BlockHosts = true, []string{"youtube.com"}
+	cfg.Focus.FocusOn, cfg.Focus.FocusOff = "Work", "Off"
+	cfg.Slack.Enabled = true
+	te.ListShortcuts = func() ([]string, error) { return []string{"Work", "Other"}, nil }
+	doctorGuard(te.Env, cfg, ok, bad)
+	got := strings.Join(lines, "\n")
+	for _, want := range []string{"ok blocking: on in sessions: distractions, 0 extra apps, 1 extra site",
+		`!! focus mode: no shortcut "Off"`, "!! slack: on, but no token"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in\n%s", want, got)
+		}
 	}
 }

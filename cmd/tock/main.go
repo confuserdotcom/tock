@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/charmbracelet/x/term"
@@ -18,6 +19,7 @@ import (
 	"tock/internal/claude"
 	"tock/internal/gitlog"
 	"tock/internal/shell"
+	"tock/internal/slack"
 	"tock/internal/suggest"
 )
 
@@ -52,6 +54,7 @@ const usage = `usage:
                                          (default ~/.local/share/tock/backups/)
   tock sync [--days N]                   write this machine's last N days (default 2) to the
                                          [sync] folder now and read the other machines'
+  tock slack [login | logout | status]   Slack status and do-not-disturb during focus sessions
   tock shell-init zsh                    shell hook for terminal projects; in ~/.zshrc:
                                          eval "$(tock shell-init zsh)"
 Names match on a unique prefix: "tock tag 2 stu/atl". "/Project" sets only the project.
@@ -78,6 +81,13 @@ type Env struct {
 	Sleep func(time.Duration)
 	// Git runs git for the commit counts; nil runs the git on PATH.
 	Git gitlog.Runner
+	// SlackToken is TOCK_SLACK_TOKEN; NewSlack builds the Slack client
+	// (nil: the real one).
+	SlackToken string
+	NewSlack   func(token string) *slack.Client
+	// ListShortcuts lists the Shortcuts app's shortcuts; nil skips the
+	// check.
+	ListShortcuts func() ([]string, error)
 	// Linux is true on Linux (Hyprland): doctor then checks the systemd
 	// service and skips the macOS permissions.
 	Linux bool
@@ -109,10 +119,18 @@ func defaultEnv() Env {
 		StateDir:    envDir("TOCK_STATE_DIR", ".local", "state", "tock"),
 		ConfigDir:   envDir("TOCK_CONFIG_DIR", ".config", "tock"),
 		APIKey:      os.Getenv("ANTHROPIC_API_KEY"),
-		NewClient:   func(key string) suggest.Client { return claude.New(key) },
-		Open:        func(url string) error { return exec.Command("open", url).Run() },
-		Sleep:       time.Sleep,
-		Linux:       runtime.GOOS == "linux",
+		SlackToken:  os.Getenv("TOCK_SLACK_TOKEN"),
+		ListShortcuts: func() ([]string, error) {
+			out, err := exec.Command("/usr/bin/shortcuts", "list").Output()
+			if err != nil {
+				return nil, err
+			}
+			return strings.Split(strings.TrimSpace(string(out)), "\n"), nil
+		},
+		NewClient: func(key string) suggest.Client { return claude.New(key) },
+		Open:      func(url string) error { return exec.Command("open", url).Run() },
+		Sleep:     time.Sleep,
+		Linux:     runtime.GOOS == "linux",
 	}
 }
 
@@ -158,6 +176,7 @@ var commands = map[string]func(Env, []string) error{
 	"top":        cmdTop,
 	"review":     cmdReview,
 	"web":        cmdWeb,
+	"slack":      cmdSlack,
 }
 
 // run executes one command and returns the exit code: 0 ok, 1 error, 2 usage.
