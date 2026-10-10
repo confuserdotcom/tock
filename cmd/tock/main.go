@@ -27,7 +27,8 @@ const usage = `usage:
   tock tag [--once] <n> <Category>[/<Project>]
   tock tag --span <id> <Category>[/<Project>]
   tock ignore <n> | tock ignore --undo <key>
-  tock rules check
+  tock rules check | tock rules stats [--days N]
+                                         validate the rules | time each rule decided (default 30 days)
   tock session [start [MIN] | stop]      focus session: show, start (default 25), stop
   tock recap [YYYY-MM-DD]                the daily recap
   tock suggest [--dry-run | --force]     Claude label suggestions for the inbox (needs ANTHROPIC_API_KEY)

@@ -28,3 +28,16 @@ func (a *App) MoveRule(file string, index int, up bool) error {
 	_, err := a.Reload()
 	return err
 }
+
+// StatsDays is the default window of rule stats.
+const StatsDays = 30
+
+// RuleStats measures every rule over the last days days.
+func (a *App) RuleStats(days int) ([]classify.RuleStat, error) {
+	now := a.nowMS()
+	vs, labels, err := a.labelled(now-int64(days)*24*60*60*1000, now, now)
+	if err != nil {
+		return nil, err
+	}
+	return a.rs.Stats(vs, labels), nil
+}

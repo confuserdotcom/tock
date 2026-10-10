@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strconv"
 
+	"tock/internal/app"
 	"tock/internal/classify"
+	"tock/internal/report"
 )
 
 // cmdInit writes the starter rules.toml; it never overwrites.
@@ -36,10 +39,15 @@ func cmdInit(env Env, args []string) error {
 	return nil
 }
 
-// cmdRules implements "tock rules check".
+const rulesUsage = "usage: tock rules check | tock rules stats [--days N]"
+
+// cmdRules implements "tock rules check" and "tock rules stats".
 func cmdRules(env Env, args []string) error {
-	if len(args) != 1 || args[0] != "check" {
-		return usagef("usage: tock rules check")
+	switch {
+	case len(args) > 0 && args[0] == "stats":
+		return cmdRulesStats(env, args[1:])
+	case len(args) != 1 || args[0] != "check":
+		return usagef(rulesUsage)
 	}
 	rs, err := classify.Load(env.rulesPath(), env.learnedPath())
 	if err != nil {
@@ -76,6 +84,50 @@ func cmdRules(env Env, args []string) error {
 	sort.Strings(names)
 	for _, n := range names {
 		fmt.Fprintf(env.Stdout, "warning: %d manual tags name undeclared %s\n", stale[n], n)
+	}
+	return nil
+}
+
+// cmdRulesStats prints, for every rule in check order, the time it decided
+// a label over the last days, and flags rules that never matched or never
+// decided anything.
+func cmdRulesStats(env Env, args []string) error {
+	fs := newFlags("rules stats")
+	days := fs.Int("days", app.StatsDays, "window in days")
+	if err := parseFlags(fs, args); err != nil {
+		return err
+	}
+	if *days < 1 || fs.NArg() > 0 {
+		return usagef(rulesUsage)
+	}
+	a, err := openApp(env)
+	if err != nil {
+		return err
+	}
+	defer a.Close()
+	stats, err := a.RuleStats(*days)
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(env.Stdout, "last %d days · time decided\n", *days)
+	for _, s := range stats {
+		ref := strconv.Itoa(s.Rule.Index)
+		if s.Rule.File == classify.LearnedFile {
+			ref = "L" + ref
+		}
+		dur := "0m"
+		if s.DecidedMS > 0 {
+			dur = report.Dur(s.DecidedMS)
+		}
+		line := fmt.Sprintf("%-4s %6s  %s  %s", ref, dur,
+			report.Pad(report.Safe(report.LabelText(s.Rule.Category, s.Rule.Project)), 20), report.Safe(s.Rule.Describe()))
+		switch s.Status() {
+		case classify.StatusUnused:
+			line += "  unused"
+		case classify.StatusShadowed:
+			line += "  shadowed (matched " + report.Dur(s.MatchedMS) + ")"
+		}
+		fmt.Fprintln(env.Stdout, line)
 	}
 	return nil
 }

@@ -53,7 +53,8 @@ func (rs *Ruleset) Label(v SpanView, o *Override) Label {
 	return l
 }
 
-func (rs *Ruleset) ruleLabel(v *SpanView) Label {
+// keyOf is v's memo key and its cleaned title ("" when it has none).
+func keyOf(v *SpanView) (memoKey, string) {
 	k := memoKey{bundle: v.BundleID, app: v.App, private: v.Private}
 	clean := ""
 	if v.Title != nil {
@@ -63,6 +64,11 @@ func (rs *Ruleset) ruleLabel(v *SpanView) Label {
 	if v.URL != nil {
 		k.url, k.hasURL = *v.URL, true
 	}
+	return k, clean
+}
+
+func (rs *Ruleset) ruleLabel(v *SpanView) Label {
+	k, clean := keyOf(v)
 	rs.mu.Lock()
 	l, ok := rs.memo[k]
 	rs.mu.Unlock()
