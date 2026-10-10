@@ -231,4 +231,3 @@ func neighbour(views []SpanView, keys []string, i, dir int) int {
 	}
 	return -1
 }
-
