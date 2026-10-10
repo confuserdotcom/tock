@@ -60,7 +60,7 @@ func TestRecap(t *testing.T) {
 	}
 	evs := Step(in)
 	notes := only(evs, Notify)
-	if len(notes) != 1 || notes[0] != (Event{Kind: Notify, Title: TitleRecap, Body: "R."}) {
+	if len(notes) != 1 || notes[0] != (Event{Kind: Notify, Topic: TopicRecap, Title: TitleRecap, Body: "R."}) {
 		t.Fatalf("notes = %+v", notes)
 	}
 	if st := only(evs, StateUpdate); len(st) != 1 || st[0].State != (State{RecapDay: "2026-10-10"}) {

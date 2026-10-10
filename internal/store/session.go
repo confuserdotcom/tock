@@ -22,6 +22,8 @@ const (
 	// KeyFocusRecapDay is the YYYY-MM-DD of the last recap sent.
 	KeyFocusRecapDay = "focus_recap_day"
 	KeyFocusAwayAt   = "focus_away_at"
+	// KeyFocusBreakSnooze is when (ms) snoozed break reminders resume.
+	KeyFocusBreakSnooze = "focus_break_snooze"
 )
 
 var (

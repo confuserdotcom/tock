@@ -48,7 +48,7 @@ func TestFocusTickAlertsOnceAcrossRestart(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []focus.Event{{Kind: focus.Notify, Title: focus.TitleFocus,
+	want := []focus.Event{{Kind: focus.Notify, Topic: focus.TopicFocus, Title: focus.TitleFocus,
 		Body: "5 min distracted in your 25 min session, 15 min left.", OfSession: true}}
 	if !reflect.DeepEqual(notes, want) {
 		t.Fatalf("notes = %+v, want %+v", notes, want)
@@ -80,8 +80,8 @@ func TestFocusTickEndsSession(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []focus.Event{{Kind: focus.Notify, Title: focus.TitleDone,
-		Body: "25 min: 20% deep, 0 interruptions, longest 5 min. Take a 5 min break.", OfSession: true}}
+	want := []focus.Event{{Kind: focus.Notify, Topic: focus.TopicDone, Title: focus.TitleDone,
+		Body: "25 min: 20% deep, 0 interruptions, longest 5 min. Take a 5 min break.", OfSession: true, Minutes: 25}}
 	if !reflect.DeepEqual(notes, want) {
 		t.Fatalf("notes = %+v, want %+v", notes, want)
 	}
@@ -110,7 +110,7 @@ func TestFocusTickAutoSessionAndRecap(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []focus.Event{{Kind: focus.Notify, Title: focus.TitleRecap, Body: report.Recap(day)}}
+	want := []focus.Event{{Kind: focus.Notify, Topic: focus.TopicRecap, Title: focus.TitleRecap, Body: report.Recap(day)}}
 	if !reflect.DeepEqual(notes, want) || !strings.HasSuffix(want[0].Body, "Top project: tock.") {
 		t.Fatalf("notes = %+v, want %+v", notes, want)
 	}
@@ -181,5 +181,26 @@ func TestStatusShowsSession(t *testing.T) {
 	line, err := a.Status()
 	if err != nil || !strings.HasSuffix(line, " · ◷ 25m") {
 		t.Fatalf("Status = %q, %v", line, err)
+	}
+}
+
+func TestSnoozeBreak(t *testing.T) {
+	e := apptest.New(t, apptest.Rules)
+	e.Seed(t, apptest.Span{ID: 1, Start: "14:00", Bundle: "term", App: "WezTerm", Title: "tock │ a"})
+	a := open(t, e)
+	e.Clock = time.UnixMilli(apptest.At(t, "14:40", 0)).In(apptest.Zone)
+	if err := a.SnoozeBreak(30 * time.Minute); err != nil {
+		t.Fatal(err)
+	}
+	for _, hhmm := range []string{"14:51", "15:09"} {
+		e.Clock = time.UnixMilli(apptest.At(t, hhmm, 0)).In(apptest.Zone)
+		if notes, err := a.FocusTick(false); err != nil || len(notes) != 0 {
+			t.Fatalf("%s: snoozed reminder = %+v, %v", hhmm, notes, err)
+		}
+	}
+	e.Clock = time.UnixMilli(apptest.At(t, "15:10", 0)).In(apptest.Zone)
+	notes, err := a.FocusTick(false)
+	if err != nil || len(notes) != 1 || notes[0].Topic != focus.TopicBreak {
+		t.Fatalf("after the snooze = %+v, %v", notes, err)
 	}
 }

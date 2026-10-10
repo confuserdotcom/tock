@@ -108,7 +108,9 @@ func (a *App) focusState() (focus.State, error) {
 	from, _ := strconv.ParseInt(m[store.KeyFocusBreakFrom], 10, 64)
 	at, _ := strconv.ParseInt(m[store.KeyFocusBreakAt], 10, 64)
 	away, _ := strconv.ParseInt(m[store.KeyFocusAwayAt], 10, 64)
-	return focus.State{BreakFrom: from, BreakAt: at, RecapDay: m[store.KeyFocusRecapDay], AwayAt: away}, nil
+	snooze, _ := strconv.ParseInt(m[store.KeyFocusBreakSnooze], 10, 64)
+	return focus.State{BreakFrom: from, BreakAt: at, RecapDay: m[store.KeyFocusRecapDay], AwayAt: away,
+		SnoozeUntil: snooze}, nil
 }
 
 func (a *App) setFocusState(s focus.State, nowMS int64) error {
@@ -117,12 +119,19 @@ func (a *App) setFocusState(s focus.State, nowMS int64) error {
 		{store.KeyFocusBreakAt, strconv.FormatInt(s.BreakAt, 10)},
 		{store.KeyFocusRecapDay, s.RecapDay},
 		{store.KeyFocusAwayAt, strconv.FormatInt(s.AwayAt, 10)},
+		{store.KeyFocusBreakSnooze, strconv.FormatInt(s.SnoozeUntil, 10)},
 	} {
 		if err := a.st.SetState(kv[0], kv[1], nowMS); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// SnoozeBreak holds break reminders back for d from now.
+func (a *App) SnoozeBreak(d time.Duration) error {
+	now := a.nowMS()
+	return a.st.SetState(store.KeyFocusBreakSnooze, strconv.FormatInt(now+d.Milliseconds(), 10), now)
 }
 
 // StartSession starts a manual session of minutes minutes now. It fails

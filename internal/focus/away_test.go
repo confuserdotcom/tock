@@ -12,7 +12,7 @@ func TestStepAway(t *testing.T) {
 	in.Absence = abs
 	evs := Step(in)
 	notes := only(evs, Notify)
-	if len(notes) != 1 || notes[0].Title != TitleAway ||
+	if len(notes) != 1 || notes[0].Title != TitleAway || notes[0].Topic != TopicAway || notes[0].Away != *abs ||
 		notes[0].Body != "Away 35m (12:10–12:45). What was it? Run tock away or open tock." {
 		t.Fatalf("notes = %+v", notes)
 	}

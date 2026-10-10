@@ -54,8 +54,8 @@ func openSession(in Input) *Session {
 	return nil
 }
 
-func note(title, body string, ofSession bool) Event {
-	return Event{Kind: Notify, Title: title, Body: body, OfSession: ofSession}
+func note(topic, title, body string, ofSession bool) Event {
+	return Event{Kind: Notify, Topic: topic, Title: title, Body: body, OfSession: ofSession}
 }
 
 // minutes rounds ms to whole minutes.
@@ -91,14 +91,14 @@ func runStart(in Input) (from int64, ok bool) {
 // BreakRepeatMS while the run goes on. Calls defer it.
 func stepBreak(in Input, st *State) (Event, bool) {
 	from, ok := runStart(in)
-	if !ok || inMeeting(in) || in.Now-from < in.Cfg.BreakAfterMS {
+	if !ok || in.Now < st.SnoozeUntil || inMeeting(in) || in.Now-from < in.Cfg.BreakAfterMS {
 		return Event{}, false
 	}
 	if st.BreakFrom == from && in.Now-st.BreakAt < in.Cfg.BreakRepeatMS {
 		return Event{}, false
 	}
 	st.BreakFrom, st.BreakAt = from, in.Now
-	return note(TitleBreak, fmt.Sprintf("%d min without a break. Stand up for 5 min.", minutes(in.Now-from)), false), true
+	return note(TopicBreak, TitleBreak, fmt.Sprintf("%d min without a break. Stand up for 5 min.", minutes(in.Now-from)), false), true
 }
 
 // stepSession measures the running session, alerts on distraction and ends
@@ -109,7 +109,9 @@ func stepSession(in Input, s Session) (writes, notes []Event, ended bool) {
 	next.DeepMS, next.DistractMS, next.LongestMS = ws.DeepMS, ws.DistractMS, ws.LongestMS
 	if in.Now >= s.PlannedMS {
 		next.EndMS = s.PlannedMS
-		return []Event{{Kind: SessionEnd, Sess: next}}, []Event{note(TitleDone, doneBody(next), true)}, true
+		done := note(TopicDone, TitleDone, doneBody(next), true)
+		done.Minutes = int(minutes(s.PlannedMS - s.StartMS))
+		return []Event{{Kind: SessionEnd, Sess: next}}, []Event{done}, true
 	}
 	step := in.Cfg.DistractGraceMS
 	if s.Interruptions > 0 {
@@ -118,7 +120,7 @@ func stepSession(in Input, s Session) (writes, notes []Event, ended bool) {
 	if !inMeeting(in) && ws.DistractMS >= s.AlertedMS+step {
 		next.Interruptions++
 		next.AlertedMS = ws.DistractMS
-		notes = append(notes, note(TitleFocus, distractBody(next, in.Now), true))
+		notes = append(notes, note(TopicFocus, TitleFocus, distractBody(next, in.Now), true))
 	}
 	if next != s {
 		writes = append(writes, Event{Kind: SessionUpdate, Sess: next})
@@ -208,7 +210,7 @@ func stepRecap(in Input, st *State) (Event, bool) {
 		return Event{}, false
 	}
 	st.RecapDay = dayKey(in.Day)
-	return note(TitleRecap, in.RecapBody, false), true
+	return note(TopicRecap, TitleRecap, in.RecapBody, false), true
 }
 
 // stepAway asks once what an absence was, within AwayNotifyMS of the
@@ -220,8 +222,10 @@ func stepAway(in Input, st *State) (Event, bool) {
 	}
 	st.AwayAt = a.To
 	clock := func(ms int64) string { return time.UnixMilli(ms).In(in.Day.Location()).Format("15:04") }
-	return note(TitleAway, fmt.Sprintf("Away %s (%s–%s). What was it? Run tock away or open tock.",
-		classify.FormatDur(a.To-a.From), clock(a.From), clock(a.To)), false), true
+	n := note(TopicAway, TitleAway, fmt.Sprintf("Away %s (%s–%s). What was it? Run tock away or open tock.",
+		classify.FormatDur(a.To-a.From), clock(a.From), clock(a.To)), false)
+	n.Away = *a
+	return n, true
 }
 
 // activeSince is the non-idle time of the views after from.

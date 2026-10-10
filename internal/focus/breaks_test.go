@@ -49,6 +49,11 @@ func TestBreaks(t *testing.T) {
 		{"meeting app", input(at(14, 55, 0), vw{at(14, 0, 0), at(14, 55, 0), "", "us.zoom.xos", ""}), "", State{}},
 		{"camera", withCall(input(at(14, 55, 0), vw{at(14, 0, 0), at(14, 55, 0), deep, "", ""})), "", State{}},
 		{"nothing open now", input(at(14, 55, 0), vw{at(14, 0, 0), at(14, 50, 0), deep, "", ""}), "", State{}},
+		{"snoozed", withState(input(at(14, 55, 0), vw{at(14, 0, 0), at(14, 55, 0), deep, "", ""}),
+			State{SnoozeUntil: at(14, 56, 0)}), "", State{}},
+		{"snooze over", withState(input(at(14, 56, 0), vw{at(14, 0, 0), at(14, 56, 0), deep, "", ""}),
+			State{SnoozeUntil: at(14, 56, 0)}),
+			"56 min without a break. Stand up for 5 min.", State{BreakFrom: at(14, 0, 0), BreakAt: at(14, 56, 0), SnoozeUntil: at(14, 56, 0)}},
 		{"idle now", input(at(14, 55, 0),
 			vw{at(13, 0, 0), at(14, 0, 0), deep, "", ""},
 			vw{at(14, 0, 0), at(14, 55, 0), "idle", "", ""}), "", State{}},
@@ -63,7 +68,7 @@ func TestBreaks(t *testing.T) {
 				}
 				return
 			}
-			if len(notes) != 1 || notes[0].Title != TitleBreak || notes[0].Body != tt.body || notes[0].OfSession {
+			if len(notes) != 1 || notes[0].Title != TitleBreak || notes[0].Topic != TopicBreak || notes[0].Body != tt.body || notes[0].OfSession {
 				t.Fatalf("notes = %+v, want one %q", notes, tt.body)
 			}
 			if len(states) != 1 || states[0].State != tt.state {

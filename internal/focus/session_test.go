@@ -21,7 +21,7 @@ func TestSessionFirstAlert(t *testing.T) {
 	upd.DeepMS, upd.DistractMS, upd.LongestMS = 5*minute, 70_000, 5*minute
 	want := []Event{
 		{Kind: SessionUpdate, Sess: upd},
-		{Kind: Notify, Title: TitleFocus, Body: "1 min distracted in your 25 min session, 19 min left.", OfSession: true},
+		{Kind: Notify, Topic: TopicFocus, Title: TitleFocus, Body: "1 min distracted in your 25 min session, 19 min left.", OfSession: true},
 	}
 	if got := Step(in); !reflect.DeepEqual(got, want) {
 		t.Fatalf("Step =\n%+v\nwant\n%+v", got, want)
@@ -107,7 +107,7 @@ func TestSessionEnd(t *testing.T) {
 	want := []Event{
 		{Kind: SessionEnd, Sess: end},
 		{Kind: StateUpdate, State: State{BreakFrom: at(14, 0, 0), BreakAt: at(14, 26, 0)}},
-		{Kind: Notify, Title: TitleDone, Body: "25 min: 80% deep, 0 interruptions, longest 20 min. Take a 5 min break.", OfSession: true},
+		{Kind: Notify, Topic: TopicDone, Title: TitleDone, Body: "25 min: 80% deep, 0 interruptions, longest 20 min. Take a 5 min break.", OfSession: true, Minutes: 25},
 	}
 	if got := Step(in); !reflect.DeepEqual(got, want) {
 		t.Fatalf("Step =\n%+v\nwant\n%+v", got, want)

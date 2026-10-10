@@ -37,6 +37,16 @@ const (
 	TitleAway  = "tock · away"
 )
 
+// Notification topics: what a note is about, so a notifier can offer the
+// right buttons.
+const (
+	TopicFocus = "focus"
+	TopicDone  = "done"
+	TopicBreak = "break"
+	TopicRecap = "recap"
+	TopicAway  = "away"
+)
+
 // AwayNotifyMS is how soon after coming back the away question is sent; an
 // absence that ended earlier is left to the TUI and tock away.
 const AwayNotifyMS = 2 * 60_000
@@ -62,6 +72,8 @@ type State struct {
 	BreakAt   int64  // when the last break reminder or session end fired
 	RecapDay  string // YYYY-MM-DD of the last recap
 	AwayAt    int64  // end of the last absence asked about
+	// SnoozeUntil holds break reminders back until this time (ms).
+	SnoozeUntil int64
 }
 
 // EventKind says what an Event asks the caller to do.
@@ -79,7 +91,10 @@ const (
 type Event struct {
 	Kind        EventKind
 	Title, Body string
-	OfSession   bool // a Notify about the running session; drop it when that session was closed meanwhile
+	Topic       string            // a Notify's topic: TopicFocus, TopicDone, …
+	OfSession   bool              // a Notify about the running session; drop it when that session was closed meanwhile
+	Minutes     int               // TopicDone: the finished session's planned length
+	Away        classify.Interval // TopicAway: the absence asked about
 	Sess        Session
 	State       State
 }
