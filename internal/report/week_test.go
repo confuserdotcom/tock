@@ -1,0 +1,87 @@
+package report
+
+import (
+	"reflect"
+	"testing"
+	"time"
+
+	"tock/internal/classify"
+)
+
+func TestMondayOf(t *testing.T) {
+	sat := time.Date(2026, 10, 10, 15, 0, 0, 0, zone)
+	if got := MondayOf(sat); !got.Equal(time.Date(2026, 10, 5, 0, 0, 0, 0, zone)) {
+		t.Fatalf("MondayOf(Sat) = %v", got)
+	}
+	mon := time.Date(2026, 10, 5, 0, 0, 0, 0, zone)
+	if got := MondayOf(mon); !got.Equal(mon) {
+		t.Fatalf("MondayOf(Mon 00:00) = %v", got)
+	}
+	sun := time.Date(2026, 10, 11, 23, 59, 0, 0, zone)
+	if got := MondayOf(sun); !got.Equal(mon) {
+		t.Fatalf("MondayOf(Sun) = %v", got)
+	}
+}
+
+func TestBuildWeek(t *testing.T) {
+	mon := time.Date(2026, 10, 5, 0, 0, 0, 0, zone)
+	ms := func(d, h, m int) int64 {
+		return mon.AddDate(0, 0, d).Add(time.Duration(h)*time.Hour + time.Duration(m)*time.Minute).UnixMilli()
+	}
+	vs := []classify.SpanView{
+		{ID: 1, Start: ms(0, 9, 0), End: ms(0, 11, 0), BundleID: "term", App: "WezTerm"},
+		{ID: 2, Start: ms(1, 23, 30), End: ms(2, 0, 30), BundleID: "term", App: "WezTerm"}, // crosses midnight
+		{ID: 3, Start: ms(2, 10, 0), End: ms(2, 10, 20), BundleID: "arc", App: "Arc"},
+		{ID: 4, Start: ms(2, 11, 0), End: ms(2, 12, 0), BundleID: "tock.idle", App: "Idle"},
+		{ID: 5, Start: ms(5, 14, 0), End: ms(5, 15, 0), BundleID: "arc", App: "Arc"},
+	}
+	ls := []classify.Label{
+		{Category: "Code", Kind: "deep", Project: "tock"},
+		{Category: "Code", Kind: "deep", Project: "ATLAS"},
+		{Category: "Entertainment", Kind: "distract"},
+		{},
+		{},
+	}
+	w := BuildWeek(WeekInput{Monday: mon, NowMS: ms(5, 15, 0), Views: vs, Labels: ls})
+	if w.TrackedMS != (120+60+20+60)*60_000 {
+		t.Fatalf("tracked %s", Dur(w.TrackedMS))
+	}
+	got := []int64{}
+	for _, d := range w.Days {
+		got = append(got, d.TrackedMS/60_000)
+	}
+	if !reflect.DeepEqual(got, []int64{120, 30, 50, 0, 0, 60, 0}) {
+		t.Fatalf("per-day minutes = %v", got)
+	}
+	if w.Days[2].ByKind["deep"] != 30*60_000 || w.Days[2].ByKind["distract"] != 20*60_000 {
+		t.Fatalf("Wed by kind = %v", w.Days[2].ByKind)
+	}
+	if w.Days[5].Future || !w.Days[6].Future {
+		t.Fatal("only Sunday is in the future on Saturday")
+	}
+	if !reflect.DeepEqual(w.Projects, []NameMS{{"tock", 120 * 60_000}, {"ATLAS", 60 * 60_000}}) {
+		t.Fatalf("projects = %v", w.Projects)
+	}
+	if w.Categories[0].Name != "Code" || w.Categories[len(w.Categories)-1].Name != Unclassified {
+		t.Fatalf("categories = %+v", w.Categories)
+	}
+}
+
+func TestStatus(t *testing.T) {
+	code := &Row{Label: classify.Label{Category: "Code", Project: "tock"}}
+	cases := []struct {
+		in   StatusInput
+		want string
+	}{
+		{StatusInput{TrackedMS: 312 * 60_000, DeepMS: 160 * 60_000, Open: code, TrackdUp: true}, "5h12 · deep 2h40 · now Code / tock"},
+		{StatusInput{TrackedMS: 60_000, TrackdUp: true}, "1m"},
+		{StatusInput{TrackedMS: 60_000, Open: &Row{Idle: true}, TrackdUp: true}, "1m · now idle"},
+		{StatusInput{TrackedMS: 60_000, Open: &Row{}, TrackdUp: true}, "1m · now unlabelled"},
+		{StatusInput{TrackedMS: 312 * 60_000, DeepMS: 5, Open: code}, "trackd down · 5h12"},
+	}
+	for _, c := range cases {
+		if got := Status(c.in); got != c.want {
+			t.Errorf("Status(%+v) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}
