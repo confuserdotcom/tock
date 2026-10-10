@@ -44,18 +44,18 @@ func TestMouseModeOn(t *testing.T) {
 
 func TestMouseHeaderSwitchesTabs(t *testing.T) {
 	m, _ := seeded(t)
-	m = clickOn(t, m, "3 inbox 3")
+	m = clickOn(t, m, "inbox ³")
 	if m.tab != tabInbox {
 		t.Fatalf("tab = %d", m.tab)
 	}
-	m = clickOn(t, m, "5 rules")
+	m = clickOn(t, m, "rules")
 	mustContain(t, m, "rules.toml · 3 rules")
 	m = clickOn(t, m, "tock") // the name, not a tab
 	if m.tab != tabRules {
 		t.Fatalf("click on the name switched to %d", m.tab)
 	}
 	m = press(t, m, "?")
-	m = clickOn(t, m, "1 today")
+	m = clickOn(t, m, "today ")
 	if m.tab != tabRules {
 		t.Fatal("header clicks must wait until the overlay closes")
 	}

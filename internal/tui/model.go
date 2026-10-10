@@ -110,7 +110,7 @@ type doneMsg struct {
 }
 
 func (m Model) Init() tea.Cmd {
-	return tea.Batch(m.load(), m.schedule())
+	return tea.Batch(m.load(), m.schedule(), tea.RequestBackgroundColor)
 }
 
 func (m Model) schedule() tea.Cmd {
@@ -205,6 +205,9 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
+		return m, nil
+	case tea.BackgroundColorMsg:
+		setTheme(msg.IsDark())
 		return m, nil
 	case tickMsg:
 		if !m.flashUntil.IsZero() && !m.now().Before(m.flashUntil) {
@@ -405,38 +408,54 @@ func (m Model) body(bodyH int) []string {
 // headerGap separates the header's names.
 const headerGap = "   "
 
-// tabNames are the header's tab names, in tab order.
+// tabNames are the header's tab names, in tab order. The inbox carries its
+// count as a superscript badge.
 func (m Model) tabNames() []string {
-	names := []string{"1 today", "2 week", "3 inbox", "4 focus", "5 rules"}
+	names := []string{"today", "week", "inbox", "focus", "rules"}
 	if n := m.inbox.count(); n > 0 {
-		names[tabInbox] = fmt.Sprintf("3 inbox %d", n)
+		names[tabInbox] = "inbox " + superscript(n)
 	}
 	return names
 }
 
+// superscript writes n in superscript digits: 12 → ¹².
+func superscript(n int) string {
+	const sup = "⁰¹²³⁴⁵⁶⁷⁸⁹"
+	digits := []rune(sup)
+	var b strings.Builder
+	for _, c := range fmt.Sprint(n) {
+		b.WriteRune(digits[c-'0'])
+	}
+	return b.String()
+}
+
 func (m Model) header() string {
 	names := m.tabNames()
-	parts := []string{sHead.Render("tock")}
+	parts := []string{sBrand.Bold(true).Render("tock")}
 	for i, n := range names {
-		if i == m.tab {
+		switch {
+		case i == m.tab:
 			parts = append(parts, sHead.Underline(true).Render(n))
-		} else {
+		case i == tabInbox && m.inbox.count() > 0:
+			name, badge, _ := strings.Cut(n, " ")
+			parts = append(parts, sDim.Render(name+" ")+sUnl.Render(badge))
+		default:
 			parts = append(parts, sDim.Render(n))
 		}
 	}
 	left := strings.Join(parts, headerGap)
-	right := sDim.Render(m.now().Format("Mon 2 Jan 15:04")+" · ") + m.trackdText()
+	right := sDim.Render(m.now().Format("Mon 2 Jan  15:04")+"  ") + m.trackdText()
 	if s := m.focus.data.Open; s != nil {
-		right = sBright.Render("◷ "+report.Countdown(s.PlannedMS-m.now().UnixMilli())) + sDim.Render(" · ") + right
+		right = pill("◷ "+report.Countdown(s.PlannedMS-m.now().UnixMilli()), sBrand) + "  " + right
 	}
 	return spread(left, right, m.width)
 }
 
 func (m Model) trackdText() string {
 	if m.health.TrackdUp {
-		return sDim.Render("trackd ok")
+		return sGood.Render("●") + sDim.Render(" trackd")
 	}
-	return sAccent.Render("trackd down")
+	return sAccent.Render("● trackd down")
 }
 
 // banner is the most important problem, or "".

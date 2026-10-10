@@ -28,7 +28,7 @@ func TestInboxLearnWritesRuleAndBadgeDrops(t *testing.T) {
 	mustContain(t, m, "Learn a rule", "Arc · chatgpt.com/c", "->  Study",
 		"matches  2 spans (12m): 2 this key, 0 other unlabelled (0s), 0 relabelled", "[y] accept")
 	m = press(t, m, "y")
-	mustContain(t, m, "learned: Study now covers 2 spans (12m)", "3 inbox 2", "2 keys · 16m unlabelled")
+	mustContain(t, m, "learned: Study now covers 2 spans (12m)", "inbox ²", "2 keys · 16m unlabelled")
 	body, err := os.ReadFile(e.Learned)
 	if err != nil || !strings.Contains(string(body), "category = \"Study\"") {
 		t.Fatalf("learned.toml: %s %v", body, err)
@@ -53,7 +53,7 @@ func TestLearnMoreSpecificAndCancel(t *testing.T) {
 		t.Fatalf("s did not move on: %q", second)
 	}
 	m = press(t, m, "n")
-	mustContain(t, m, "cancelled", "3 inbox 3")
+	mustContain(t, m, "cancelled", "inbox ³")
 	if _, err := os.Stat(e.Learned); !os.IsNotExist(err) {
 		t.Fatal("cancel must not write learned.toml")
 	}
@@ -64,7 +64,7 @@ func TestInboxTagOnce(t *testing.T) {
 	m = press(t, m, "3", "o")
 	m = typeText(t, m, "stu")
 	m = press(t, m, "enter", "enter")
-	mustContain(t, m, "tagged 2 spans (12m) → Study", "3 inbox 2")
+	mustContain(t, m, "tagged 2 spans (12m) → Study", "inbox ²")
 	if _, err := os.Stat(e.Learned); !os.IsNotExist(err) {
 		t.Fatal("o must not learn a rule")
 	}
@@ -73,11 +73,11 @@ func TestInboxTagOnce(t *testing.T) {
 func TestInboxIgnoreAndUndo(t *testing.T) {
 	m, _ := seeded(t)
 	m = press(t, m, "3", "x")
-	mustContain(t, m, "ignored: Arc · chatgpt.com/c (u undo)", "3 inbox 2")
+	mustContain(t, m, "ignored: Arc · chatgpt.com/c (u undo)", "inbox ²")
 	m = press(t, m, "u")
-	mustContain(t, m, "showing again: Arc · chatgpt.com/c", "3 inbox 3")
+	mustContain(t, m, "showing again: Arc · chatgpt.com/c", "inbox ³")
 	m = press(t, m, "u")
-	mustContain(t, m, "3 inbox 3")
+	mustContain(t, m, "inbox ³")
 }
 
 // T on a labelled today row: every candidate would relabel the other

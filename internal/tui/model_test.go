@@ -14,7 +14,7 @@ func TestBannerPriority(t *testing.T) {
 	e.Seed(t, apptest.DaySpans()...)
 	e.Heartbeat(t, e.Clock.UnixMilli())
 	m := newModel(t, e)
-	mustContain(t, m, "trackd ok")
+	mustContain(t, m, "● trackd\n")
 	if b := m.banner(); b != "" {
 		t.Fatalf("healthy: banner %q", b)
 	}

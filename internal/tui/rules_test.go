@@ -16,7 +16,7 @@ import (
 func TestRulesTabLists(t *testing.T) {
 	m, _ := seeded(t)
 	m = press(t, m, "5")
-	mustContain(t, m, "5 rules", "rules.toml · 3 rules", "title='^tock │'", "· / tock", "Entertainment",
+	mustContain(t, m, "rules", "rules.toml · 3 rules", "title='^tock │'", "· / tock", "Entertainment",
 		"J/K reorder")
 	mustNotContain(t, m, "learned.toml")
 }

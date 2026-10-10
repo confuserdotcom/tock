@@ -11,7 +11,7 @@ func TestFocusTabStartAndStop(t *testing.T) {
 	m, e := seeded(t)
 	e.Heartbeat(t, e.Clock.UnixMilli())
 	m = press(t, m, "4")
-	mustContain(t, m, "4 focus", "no session · s starts one", "Today", "Earlier this week")
+	mustContain(t, m, "focus", "no session · s starts one", "Today", "Earlier this week")
 	m = press(t, m, "s")
 	mustContain(t, m, "Start a focus session", "25 min", "50 min", "90 min", "custom")
 	m = press(t, m, "enter")

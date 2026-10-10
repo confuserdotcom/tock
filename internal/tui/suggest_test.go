@@ -52,7 +52,7 @@ func TestInboxAcceptSuggestion(t *testing.T) {
 	m = press(t, m, "3", "a")
 	mustContain(t, m, "Learn a rule", "->  Study / tock")
 	m = press(t, m, "y")
-	mustContain(t, m, "learned: Study / tock now covers 2 spans (12m)", "3 inbox 2")
+	mustContain(t, m, "learned: Study / tock now covers 2 spans (12m)", "inbox ²")
 	m = press(t, m, "a")
 	mustContain(t, m, "no suggestion · enter to label")
 }

@@ -11,7 +11,7 @@ import (
 func TestTodayShowsTheDay(t *testing.T) {
 	m, _ := seeded(t)
 	mustContain(t, m,
-		"tock   1 today   2 week   3 inbox 3", "Sat 10 Oct 15:00 · trackd down",
+		"tock   today   week   inbox ³", "Sat 10 Oct  15:00  ● trackd down",
 		"trackd is not running",
 		"Today  score 74 · focus 2h14 / 4h00 · 1 block, longest 2h14 · 2 switches",
 		" tracked 2h54 · deep 2h14 · unlabelled 28m · distract 12m · idle 41m",
@@ -36,7 +36,7 @@ func TestRefreshShowsNewSpansAndFollows(t *testing.T) {
 	e.Heartbeat(t, e.Clock.UnixMilli())
 	m = step(t, m, tickMsg{})
 	mustNotContain(t, m, "trackd is not running")
-	mustContain(t, m, "trackd ok", "15:00–15:02     2m  Code / tock")
+	mustContain(t, m, "● trackd\n", "15:00–15:02     2m  Code / tock")
 	if l := line(t, m, "15:00–15:02"); !strings.HasPrefix(l, "▶") {
 		t.Fatalf("cursor on the last row must follow new rows: %q", l)
 	}
@@ -66,7 +66,7 @@ func TestTagRow(t *testing.T) {
 	mustContain(t, m, "Project for Communication", "(no project)", "ATLAS")
 	mustNotContain(t, m, "Old") // archived
 	m = press(t, m, "enter")
-	mustContain(t, m, "tagged 1 span (10m) → Communication", "3 inbox 2")
+	mustContain(t, m, "tagged 1 span (10m) → Communication", "inbox ²")
 	if l := line(t, m, "14:50–15:00"); !strings.Contains(l, "Communication") {
 		t.Fatalf("row not relabelled: %q", l)
 	}
@@ -136,7 +136,7 @@ func TestMidnightMovesToTheNewDay(t *testing.T) {
 	e.Clock = time.Date(2026, 10, 11, 0, 5, 0, 0, apptest.Zone)
 	m = step(t, m, tickMsg{})
 	// The open Mail span (since 14:50) now counts from midnight.
-	mustContain(t, m, "Sun 11 Oct 00:05", "Today  score", " tracked 5m", "00:00–00:05")
+	mustContain(t, m, "Sun 11 Oct  00:05", "Today  score", " tracked 5m", "00:00–00:05")
 }
 
 func TestTooSmall(t *testing.T) {
