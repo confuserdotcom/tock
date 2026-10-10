@@ -2,6 +2,7 @@ package app
 
 import (
 	"tock/internal/classify"
+	"tock/internal/report"
 	"tock/internal/store"
 )
 
@@ -15,6 +16,14 @@ func (a *App) pending(vs []classify.SpanView, from, to int64) ([]classify.Interv
 	rows, err := a.st.Aways(from, to)
 	if err != nil {
 		return nil, err
+	}
+	// An edit over an absence answers it: the user has said what the time was.
+	es, err := a.st.Edits(from, to)
+	if err != nil {
+		return nil, err
+	}
+	for _, e := range es {
+		rows = append(rows, store.Away{StartMS: e.StartMS, EndMS: e.EndMS})
 	}
 	var out []classify.Interval
 	for _, iv := range abs {
@@ -32,9 +41,16 @@ func (a *App) pending(vs []classify.SpanView, from, to int64) ([]classify.Interv
 // Answer records what the absence iv was. An empty want skips it: it stays
 // idle and tock stops asking.
 func (a *App) Answer(iv classify.Interval, want classify.Want) error {
-	_, err := a.st.AddAway(store.Away{StartMS: iv.From, EndMS: iv.To, Category: want.Category,
+	id, err := a.st.AddAway(store.Away{StartMS: iv.From, EndMS: iv.To, Category: want.Category,
 		Project: want.Project, AtMS: a.nowMS()})
-	return err
+	if err != nil {
+		return err
+	}
+	what := "leave time away idle"
+	if want != (classify.Want{}) {
+		what = "label time away " + report.LabelText(want.Category, want.Project)
+	}
+	return a.journal(what, undoData{AwaysAdded: []int64{id}})
 }
 
 // RecentAwayLabels returns up to n distinct labels of answered time away,

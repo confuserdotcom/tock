@@ -64,8 +64,12 @@ func (a *App) spans(from, to int64) ([]store.SpanRow, map[int64]classify.Overrid
 	if err != nil {
 		return nil, nil, err
 	}
+	dn, dsum, err := a.st.EditStamp()
+	if err != nil {
+		return nil, nil, err
+	}
 	if fp := fingerprint(ovs) ^ uint64(n)<<48 ^ uint64(lastAt) ^ uint64(en)<<32 ^ uint64(eid)<<8 ^
-		uint64(rn)<<40 ^ uint64(rid)<<16; fp != a.pastKey {
+		uint64(rn)<<40 ^ uint64(rid)<<16 ^ uint64(dn)<<52 ^ uint64(dsum)*31; fp != a.pastKey {
 		a.past, a.pastKey = nil, fp
 	}
 	return rows, overrides(ovs), nil
@@ -94,8 +98,9 @@ const CallMinMS = 2 * 60_000
 // [from, to): the shell's working directory on terminal views, the calls
 // (MarkCalls) when the rules name a call category, the other machines'
 // activity in idle time (MarkRemote), the labelled time away
-// (MarkAway), whose labels it adds to ovs under the views' negative ids, and
-// the calendar events (MarkEvents) when the rules name a calendar category.
+// (MarkAway), whose labels it adds to ovs under the views' negative ids,
+// the calendar events (MarkEvents) when the rules name a calendar category,
+// and last the timeline edits (ApplyEdits), whose labels go into ovs too.
 func (a *App) decorate(vs []classify.SpanView, ovs map[int64]classify.Override, from, to int64) ([]classify.SpanView, error) {
 	vs, err := a.markCalls(vs, from, to)
 	if err != nil {
@@ -117,7 +122,7 @@ func (a *App) decorate(vs []classify.SpanView, ovs map[int64]classify.Override, 
 	}
 	vs = classify.MarkAway(vs, marks, from, to)
 	if a.rs.CalendarCategory == "" {
-		return vs, nil
+		return a.markEdits(vs, ovs, from, to)
 	}
 	evs, err := a.st.Events(from, to)
 	if err != nil {
@@ -127,7 +132,7 @@ func (a *App) decorate(vs []classify.SpanView, ovs map[int64]classify.Override, 
 	for i, e := range evs {
 		em[i] = classify.EventMark{ID: e.ID, Title: e.Title, Interval: classify.Interval{From: e.StartMS, To: e.EndMS}}
 	}
-	return classify.MarkEvents(vs, em, from, min(to, a.nowMS())), nil
+	return a.markEdits(classify.MarkEvents(vs, em, from, min(to, a.nowMS())), ovs, from, to)
 }
 
 // markRemote fills idle time and gaps with the other machines' views. Their
