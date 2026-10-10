@@ -95,7 +95,7 @@ func (t weekTab) view(w, h int) []string {
 		return []string{"", " loading…"}
 	}
 	wk := t.week
-	parts := []string{"tracked " + report.Dur(wk.TrackedMS)}
+	parts := []string{"tracked " + report.Dur(wk.TrackedMS), weekScore(wk)}
 	for _, k := range report.Kinds {
 		if ms := wk.ByKind[k]; ms > 0 {
 			parts = append(parts, kindStyle(k).Render(kindName(k)+" "+report.Dur(ms)))
@@ -109,14 +109,18 @@ func (t weekTab) view(w, h int) []string {
 	for _, d := range wk.Days {
 		maxMS = max(maxMS, d.TrackedMS)
 	}
-	cells := max(min(w-20, 48), 8)
+	cells := max(min(w-32, 48), 8)
 	for i, d := range wk.Days {
-		dur := report.Dur(d.TrackedMS)
+		dur, score, focus := report.Dur(d.TrackedMS), "—", "—"
+		if d.Stats.ActiveMS > 0 {
+			score, focus = fmt.Sprint(d.Score.Value), report.Dur(d.Stats.FocusMS)
+		}
 		bar := stacked(d.ByKind, maxMS, cells)
 		if d.Future {
 			dur, bar = "—", ""
 		}
-		line := fmt.Sprintf("%-3s %2d  ", d.Date.Format("Mon"), d.Date.Day()) + fitRight(dur, 5) + "  " + bar
+		line := fmt.Sprintf("%-3s %2d  ", d.Date.Format("Mon"), d.Date.Day()) + fitRight(dur, 5) + "  " +
+			fitRight(score, 3) + "  " + fitRight(focus, 5) + "  " + bar
 		if i == t.cursor {
 			out = append(out, sSel.Render("▶"+line))
 		} else {
@@ -133,12 +137,49 @@ func (t weekTab) view(w, h int) []string {
 		bar := kindStyle(c.Kind).Render(report.Pad(report.Bar(c.MS, catMax, 12), 12))
 		out = append(out, " "+fit(c.Name, 15)+fitRight(report.Dur(c.MS), 6)+"  "+bar+"  "+sDim.Render(projects(c.Projects)))
 	}
+	if len(wk.Projects) > 0 || len(wk.Apps) > 0 {
+		out = append(out, "")
+	}
 	if len(wk.Projects) > 0 {
-		var ps []string
-		for _, p := range wk.Projects {
-			ps = append(ps, p.Name+" "+report.Dur(p.MS))
-		}
-		out = append(out, "", " "+fit("Projects", 15)+"  "+strings.Join(ps, " · "))
+		out = append(out, " "+fit("Projects", 15)+"  "+names(wk.Projects))
+	}
+	if len(wk.Apps) > 0 {
+		out = append(out, " "+fit("Apps", 15)+"  "+names(wk.Apps))
 	}
 	return out
+}
+
+func names(list []report.NameMS) string {
+	var ps []string
+	for _, p := range list {
+		ps = append(ps, report.Safe(p.Name)+" "+report.Dur(p.MS))
+	}
+	return strings.Join(ps, " · ")
+}
+
+// spark is the sparkline cell of a score: ▁ for 0-12 up to █ for 88-100.
+func spark(score int) rune { return []rune("▁▂▃▄▅▆▇█")[min(max(score, 0)*8/100, 7)] }
+
+// weekScore is "avg score 64 ▃▅▇▆▂· " over the days with activity, with one
+// sparkline cell per day: · for no activity, space for the future.
+func weekScore(wk report.Week) string {
+	var b strings.Builder
+	sum, n := 0, 0
+	for _, d := range wk.Days {
+		switch {
+		case d.Future:
+			b.WriteRune(' ')
+		case d.Stats.ActiveMS <= 0:
+			b.WriteRune('·')
+		default:
+			b.WriteRune(spark(d.Score.Value))
+			sum += d.Score.Value
+			n++
+		}
+	}
+	avg := "—"
+	if n > 0 {
+		avg = fmt.Sprint((sum + n/2) / n)
+	}
+	return sText.Render("avg score "+avg+" ") + sAccent.Render(strings.TrimRight(b.String(), " "))
 }
