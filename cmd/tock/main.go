@@ -12,6 +12,9 @@ import (
 	"time"
 
 	"github.com/charmbracelet/x/term"
+
+	"tock/internal/claude"
+	"tock/internal/suggest"
 )
 
 const usage = `usage:
@@ -26,6 +29,7 @@ const usage = `usage:
   tock rules check
   tock session [start [MIN] | stop]      focus session: show, start (default 25), stop
   tock recap [YYYY-MM-DD]                the daily recap
+  tock suggest [--dry-run | --force]     Claude label suggestions for the inbox (needs ANTHROPIC_API_KEY)
 Names match on a unique prefix: "tock tag 2 stu/atl". "/Project" sets only the project.
 `
 
@@ -39,6 +43,11 @@ type Env struct {
 	// Interactive is true when stdin and stdout are terminals: `tock` with
 	// no arguments then opens the TUI instead of printing usage.
 	Interactive bool
+	// APIKey is ANTHROPIC_API_KEY. "" turns suggestions off; it is never
+	// written anywhere.
+	APIKey string
+	// NewClient builds the Claude client; tests substitute a fake.
+	NewClient func(key string) suggest.Client
 }
 
 func (e Env) dbPath() string      { return filepath.Join(e.DataDir, "tock.db") }
@@ -65,6 +74,8 @@ func defaultEnv() Env {
 		DataDir:     envDir("TOCK_DATA_DIR", ".local", "share", "tock"),
 		StateDir:    envDir("TOCK_STATE_DIR", ".local", "state", "tock"),
 		ConfigDir:   envDir("TOCK_CONFIG_DIR", ".config", "tock"),
+		APIKey:      os.Getenv("ANTHROPIC_API_KEY"),
+		NewClient:   func(key string) suggest.Client { return claude.New(key) },
 	}
 }
 
@@ -99,6 +110,7 @@ var commands = map[string]func(Env, []string) error{
 	"status":  cmdStatus,
 	"session": cmdSession,
 	"recap":   cmdRecap,
+	"suggest": cmdSuggest,
 }
 
 // run executes one command and returns the exit code: 0 ok, 1 error, 2 usage.

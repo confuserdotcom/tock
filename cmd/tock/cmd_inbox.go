@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 
+	"tock/internal/classify"
 	"tock/internal/report"
 )
 
@@ -27,6 +28,10 @@ func cmdInbox(env Env, args []string) error {
 	if err != nil {
 		return err
 	}
+	sugg, err := a.Suggestions()
+	if err != nil {
+		return err
+	}
 	if len(items) == 0 {
 		fmt.Fprintf(env.Stdout, "Inbox empty: everything in the last %d days is labelled.\n", *days)
 		return saveListing(env, nil)
@@ -46,6 +51,9 @@ func cmdInbox(env Env, args []string) error {
 		line := fmt.Sprintf("%3d  %5s  %s", i+1, report.Dur(it.TotalMS), report.Safe(it.Key))
 		if it.Example != "" {
 			line += fmt.Sprintf("  %q", it.Example)
+		}
+		if w, ok := sugg[it.Key]; ok {
+			line += "  → " + tagText(w)
 		}
 		fmt.Fprintln(env.Stdout, line)
 	}
@@ -86,4 +94,13 @@ func cmdIgnore(env Env, args []string) error {
 		fmt.Fprintf(env.Stdout, "ignored: %s (undo: tock ignore --undo %q)\n", report.Safe(key), key)
 	}
 	return nil
+}
+
+// tagText is a label in `tock tag` syntax: "Category", "Category/Project"
+// or "/Project".
+func tagText(w classify.Want) string {
+	if w.Project == "" {
+		return w.Category
+	}
+	return w.Category + "/" + w.Project
 }
