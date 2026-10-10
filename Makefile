@@ -22,7 +22,7 @@ CODESIGN_TIMEOUT ?= 60
 # receives SIGALRM and exits 142 when it overruns.
 WITH_TIMEOUT = perl -e 'alarm shift; exec @ARGV or exit 127'
 
-.PHONY: build test test-quick vet clean bundle bundle-bar print-dr cert cert-trust dump dump-bg dump-stop install uninstall
+.PHONY: install-linux uninstall-linux build test test-quick vet clean bundle bundle-bar print-dr cert cert-trust dump dump-bg dump-stop install uninstall
 
 build:
 	CGO_ENABLED=1 go build -ldflags "-X main.version=$(VERSION)" -o bin/trackd ./cmd/trackd
@@ -30,12 +30,12 @@ build:
 	CGO_ENABLED=1 go build -ldflags "-X main.version=$(VERSION)" -o bin/tockbar ./cmd/tockbar
 
 test-quick:
-	CGO_ENABLED=0 go test ./internal/span/... ./internal/store/... ./internal/classify/... ./internal/stats/... ./internal/focus/... ./internal/config/... ./internal/report/... ./internal/suggest/... ./internal/claude/... ./internal/app/... ./internal/tui/... ./internal/bar/... ./internal/launchd/... -count=1
+	CGO_ENABLED=0 go test ./internal/span/... ./internal/store/... ./internal/classify/... ./internal/stats/... ./internal/focus/... ./internal/config/... ./internal/report/... ./internal/suggest/... ./internal/claude/... ./internal/app/... ./internal/tui/... ./internal/bar/... ./internal/service/... -count=1
 
 test:
 	go vet ./...
 	go build ./...
-	CGO_ENABLED=0 go test ./internal/span/... ./internal/store/... ./internal/classify/... ./internal/stats/... ./internal/focus/... ./internal/config/... ./internal/report/... ./internal/suggest/... ./internal/claude/... ./internal/app/... ./internal/tui/... ./internal/bar/... ./internal/launchd/... -count=1
+	CGO_ENABLED=0 go test ./internal/span/... ./internal/store/... ./internal/classify/... ./internal/stats/... ./internal/focus/... ./internal/config/... ./internal/report/... ./internal/suggest/... ./internal/claude/... ./internal/app/... ./internal/tui/... ./internal/bar/... ./internal/service/... -count=1
 	go test ./... -count=1
 
 vet:
@@ -200,3 +200,21 @@ uninstall:
 		launchctl bootout gui/$$(id -u)/$(BAR_ID) 2>/dev/null; \
 		rm -f "$(HOME)/Library/LaunchAgents/$(BAR_ID).plist"; \
 	fi
+
+# install-linux: ryuk (Hyprland). Pure Go, no bundle or signing: trackd and
+# tock go to ~/.local/bin and trackd runs as the systemd user unit
+# trackd.service. Add the hypridle listener from the README for idle time.
+install-linux:
+	CGO_ENABLED=0 go build -ldflags "-X main.version=$(VERSION)" -o build/trackd ./cmd/trackd
+	CGO_ENABLED=0 go build -o build/tock ./cmd/tock
+	install -d -m 755 "$(BIN_DIR)"
+	install -m 755 build/trackd "$(BIN_DIR)/trackd"
+	install -m 755 build/tock "$(BIN_DIR)/tock"
+	"$(BIN_DIR)/trackd" install
+	@[ -f "$${TOCK_CONFIG_DIR:-$(HOME)/.config/tock}/rules.toml" ] || "$(BIN_DIR)/tock" init
+	-"$(BIN_DIR)/tock" doctor --wait
+
+# uninstall-linux: stop and remove the unit; data stays.
+uninstall-linux:
+	@if [ -x "$(BIN_DIR)/trackd" ]; then "$(BIN_DIR)/trackd" uninstall; \
+	else systemctl --user disable --now trackd.service 2>/dev/null; rm -f "$${XDG_CONFIG_HOME:-$(HOME)/.config}/systemd/user/trackd.service"; fi

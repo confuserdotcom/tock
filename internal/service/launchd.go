@@ -1,6 +1,7 @@
-// Package launchd installs and removes the LaunchAgents of trackd and the
-// tock menu bar app.
-package launchd
+// Package service installs and removes the background services: the
+// LaunchAgents of trackd and the tock menu bar app on macOS, and trackd's
+// systemd user unit on Linux.
+package service
 
 import (
 	"bytes"

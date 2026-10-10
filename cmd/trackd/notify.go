@@ -33,3 +33,13 @@ func (osascriptNotifier) Notify(title, body string) error {
 	defer cancel()
 	return exec.CommandContext(ctx, "/usr/bin/osascript", notifyArgs(title, body)...).Run()
 }
+
+// notifySendNotifier shows notifications with notify-send on Linux. Title
+// and body go in as argv.
+type notifySendNotifier struct{}
+
+func (notifySendNotifier) Notify(title, body string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), notifyTimeout)
+	defer cancel()
+	return exec.CommandContext(ctx, "notify-send", "--app-name=tock", "--", title, body).Run()
+}

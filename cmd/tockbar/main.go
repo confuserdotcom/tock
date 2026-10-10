@@ -12,7 +12,7 @@ import (
 	"tock/internal/app"
 	"tock/internal/classify"
 	"tock/internal/config"
-	"tock/internal/launchd"
+	"tock/internal/service"
 	"tock/internal/shell"
 )
 
@@ -39,9 +39,9 @@ func dataDir() string   { return envDir("TOCK_DATA_DIR", ".local", "share", "toc
 func configDir() string { return envDir("TOCK_CONFIG_DIR", ".config", "tock") }
 func stateDir() string  { return envDir("TOCK_STATE_DIR", ".local", "state", "tock") }
 
-func barAgent() launchd.Agent {
+func barAgent() service.Agent {
 	program := filepath.Join(dataDir(), "tock.app", "Contents", "MacOS", "tockbar")
-	return launchd.Agent{
+	return service.Agent{
 		Label:   agentLabel,
 		Program: program,
 		LogPath: filepath.Join(stateDir(), "tockbar.log"),
@@ -64,9 +64,9 @@ func main() {
 		var err error
 		switch os.Args[1] {
 		case "install":
-			err = launchd.Install(barAgent())
+			err = service.Install(barAgent())
 		case "uninstall":
-			err = launchd.Uninstall(agentLabel)
+			err = service.Uninstall(agentLabel)
 		case "version":
 			fmt.Println(version)
 		default:

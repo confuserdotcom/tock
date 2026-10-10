@@ -1,4 +1,4 @@
-package launchd
+package service
 
 import (
 	"encoding/json"

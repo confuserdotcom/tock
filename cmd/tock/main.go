@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/charmbracelet/x/term"
@@ -70,6 +71,9 @@ type Env struct {
 	Sleep func(time.Duration)
 	// Git runs git for the commit counts; nil runs the git on PATH.
 	Git gitlog.Runner
+	// Linux is true on Linux (Hyprland): doctor then checks the systemd
+	// service and skips the macOS permissions.
+	Linux bool
 }
 
 func (e Env) dbPath() string       { return filepath.Join(e.DataDir, "tock.db") }
@@ -101,6 +105,7 @@ func defaultEnv() Env {
 		NewClient:   func(key string) suggest.Client { return claude.New(key) },
 		Open:        func(url string) error { return exec.Command("open", url).Run() },
 		Sleep:       time.Sleep,
+		Linux:       runtime.GOOS == "linux",
 	}
 }
 

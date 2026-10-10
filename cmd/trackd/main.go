@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
+	"time"
 
 	"tock/internal/collect"
 )
@@ -41,10 +43,14 @@ func stateDir() string {
 	return filepath.Join(home(), ".local", "state", "tock")
 }
 
-// newSource builds the macOS collector. Permission prompts are allowed only
-// when launchd (or open) started trackd: a terminal-launched process would
-// attribute them to the terminal (RESEARCH Q1).
+// newSource builds the collector: Hyprland on Linux, else macOS.
+// Permission prompts are allowed only when launchd (or open) started
+// trackd: a terminal-launched process would attribute them to the terminal
+// (RESEARCH Q1).
 func newSource() (collect.Source, error) {
+	if runtime.GOOS == "linux" {
+		return collect.NewHyprland(collect.HyprOptions{IdleFile: filepath.Join(stateDir(), collect.IdleFile)})
+	}
 	underLaunchd := os.Getppid() == 1
 	return collect.NewDarwin(collect.Options{
 		PollInterval:  collect.DefaultPollInterval,
@@ -58,9 +64,11 @@ func main() {
 		var run func() error
 		switch os.Args[1] {
 		case "install":
-			run = func() error { return installAgent(dataDir(), stateDir()) }
+			run = func() error { return installService(dataDir(), stateDir()) }
 		case "uninstall":
-			run = uninstallAgent
+			run = uninstallService
+		case "idle", "active":
+			run = func() error { return runIdleHook(os.Args[1], os.Args[2:], stateDir(), time.Now()) }
 		}
 		if run != nil {
 			if err := run(); err != nil {
@@ -83,7 +91,7 @@ func main() {
 		os.Exit(runDump(src, os.Stdout, os.Getppid()))
 	}
 
-	os.Exit(runDaemon(daemonOpts{
+	o := daemonOpts{
 		DataDir:   dataDir(),
 		StateDir:  stateDir(),
 		ConfigDir: configDir(),
@@ -96,5 +104,9 @@ func main() {
 		// A terminal-launched trackd would attribute the prompt to the
 		// terminal (see newSource).
 		CalendarPrompt: os.Getppid() == 1,
-	}))
+	}
+	if runtime.GOOS == "linux" {
+		o.Notifier, o.Camera, o.Mic, o.Calendar = notifySendNotifier{}, nil, nil, nil
+	}
+	os.Exit(runDaemon(o))
 }

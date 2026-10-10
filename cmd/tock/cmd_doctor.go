@@ -79,6 +79,8 @@ func cmdDoctor(env Env, args []string) error {
 		bad("trackd", "no database yet", "make install")
 	case err != nil:
 		bad("trackd", err.Error(), "make install")
+	case !h.TrackdUp && env.Linux:
+		bad("trackd", "not running", "systemctl --user restart trackd")
 	case !h.TrackdUp:
 		bad("trackd", "not running", "launchctl kickstart -k gui/$UID/com.tock.trackd")
 	default:
@@ -88,7 +90,15 @@ func cmdDoctor(env Env, args []string) error {
 		}
 		ok("trackd", "running (version "+v+")")
 	}
-	if err == nil {
+	if err == nil && env.Linux {
+		if cfgErr == nil {
+			if cfg.Focus.Notify {
+				ok("notifications", "notify-send")
+			} else {
+				ok("notifications", "off (config.toml [focus] notify = false)")
+			}
+		}
+	} else if err == nil {
 		switch {
 		case h.AXTrusted == nil:
 			bad("accessibility", "unknown until trackd reports", "run tock doctor again in a minute")

@@ -186,3 +186,21 @@ func TestDoctorNotifications(t *testing.T) {
 		}
 	}
 }
+
+func TestDoctorLinux(t *testing.T) {
+	te, opened := doctorEnv(t, testRules)
+	te.Linux = true
+	te.seed(t, daySpans()...)
+	setStates(t, te, map[string]string{store.KeyHeartbeat: nowMS(), store.KeyAXTrusted: "1"})
+	code, out := te.run(t, "", "doctor", "--open")
+	if code != 0 || !strings.Contains(out, "ok  notifications: notify-send") ||
+		strings.Contains(out, "accessibility") || strings.Contains(out, "automation") || strings.Contains(out, "calendar") || len(*opened) != 0 {
+		t.Fatalf("exit %d:\n%s", code, out)
+	}
+	te, _ = doctorEnv(t, testRules)
+	te.Linux = true
+	te.seed(t, daySpans()...)
+	if _, out := te.run(t, "", "doctor"); !strings.Contains(out, "!!  trackd: not running — systemctl --user restart trackd") {
+		t.Fatalf("down:\n%s", out)
+	}
+}
