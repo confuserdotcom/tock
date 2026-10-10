@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -146,6 +147,59 @@ func TestFocusErrors(t *testing.T) {
 		c, err := Load(write(t, tt.body))
 		if err == nil || err.Error() != tt.want {
 			t.Errorf("Load(%q) error = %v, want %q", tt.body, err, tt.want)
+		}
+		if !reflect.DeepEqual(c, Default()) {
+			t.Errorf("Load(%q) config = %+v, want Default()", tt.body, c)
+		}
+	}
+}
+
+func TestLLMDefaults(t *testing.T) {
+	l := Default().LLM
+	if !l.Enabled || l.Model != "claude-haiku-5-5" || l.MinMS != 120_000 ||
+		len(l.DenyApps) != 13 || len(l.DenyHosts) != 2 || l.DenyTitles != nil {
+		t.Fatalf("defaults = %+v", l)
+	}
+	for _, b := range []string{"com.apple.mail", "com.apple.MobileSMS", "com.1password.1password", "com.tinyspeck.slackmacgap"} {
+		if !slices.Contains(l.DenyApps, b) {
+			t.Errorf("default deny_apps lacks %s", b)
+		}
+	}
+}
+
+func TestLLMAdditions(t *testing.T) {
+	c, err := Load(write(t, "[llm]\nenabled = false\nmodel = \"m\"\nmin_minutes = 5\n"+
+		"deny_apps = [\"x.y\"]\ndeny_hosts = [\"intranet\"]\ndeny_titles = [\"salary\"]\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	l, d := c.LLM, DefaultLLM()
+	if l.Enabled || l.Model != "m" || l.MinMS != 300_000 {
+		t.Fatalf("scalars = %+v", l)
+	}
+	if !reflect.DeepEqual(l.DenyApps, append(d.DenyApps, "x.y")) ||
+		!reflect.DeepEqual(l.DenyHosts, append(d.DenyHosts, "intranet")) ||
+		!reflect.DeepEqual(l.DenyTitles, []string{"salary"}) {
+		t.Fatalf("lists = %+v", l)
+	}
+	if len(Default().LLM.DenyApps) != 13 {
+		t.Fatal("additions leaked into the defaults")
+	}
+}
+
+func TestLLMErrors(t *testing.T) {
+	tests := []struct{ body, want string }{
+		{"[llm]\nmodel = \"\"\n", "config.toml: [llm] model is empty"},
+		{"[llm]\nmin_minutes = 0\n", "config.toml: [llm] min_minutes = 0, want 1 to 600"},
+		{"[llm]\nmin_minutes = 601\n", "config.toml: [llm] min_minutes = 601, want 1 to 600"},
+		{"[llm]\ndeny_hosts = [\"(\"]\n", `config.toml: [llm] deny_hosts has "("`},
+		{"[llm]\ndeny_titles = [\"[\"]\n", `config.toml: [llm] deny_titles has "["`},
+		{"[llm]\napi_key = \"x\"\n", "config.toml: unknown key llm.api_key"},
+	}
+	for _, tt := range tests {
+		c, err := Load(write(t, tt.body))
+		if err == nil || !strings.HasPrefix(err.Error(), tt.want) {
+			t.Errorf("Load(%q) error = %v, want prefix %q", tt.body, err, tt.want)
 		}
 		if !reflect.DeepEqual(c, Default()) {
 			t.Errorf("Load(%q) config = %+v, want Default()", tt.body, c)
