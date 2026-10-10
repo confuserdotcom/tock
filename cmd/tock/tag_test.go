@@ -146,7 +146,7 @@ func TestTagBadNames(t *testing.T) {
 	if code, _ := te.run(t, "", "tag", "1", "/"); code != 2 {
 		t.Fatalf("empty label must be a usage error")
 	}
-	if code, _ := te.run(t, "", "tag", "1"); code != 2 {
-		t.Fatalf("missing label must be a usage error")
+	if code, _ := te.run(t, "", "tag", "1"); code != 1 || !strings.Contains(te.errb.String(), "no suggestion") {
+		t.Fatalf("missing label without a suggestion: %q", te.errb.String())
 	}
 }

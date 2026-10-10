@@ -13,7 +13,7 @@ func TestInboxListsAndIgnores(t *testing.T) {
 		"  1    12m  Arc · chatgpt.com/c  \"Proofs\"\n" +
 		"  2    10m  Mail · inbox  \"Inbox\"\n" +
 		"  3     6m  Arc · labs.x.tv/lab  \"Low Level Labs\"\n" +
-		"tag: tock tag <n> <Category>[/<Project>]   hide: tock ignore <n>\n"
+		"tag: tock tag <n> <Category>[/<Project>]   accept →: tock tag <n>   hide: tock ignore <n>\n"
 	if code != 0 || out != want {
 		t.Fatalf("inbox: code %d\n%s\nwant:\n%s", code, out, want)
 	}
@@ -69,5 +69,29 @@ func TestListingExpiresAndBadNumbers(t *testing.T) {
 	te.now = te.now.Add(61 * 60 * 1e9)
 	if code, _ := te.run(t, "", "ignore", "1"); code != 1 || !strings.Contains(te.errb.String(), "listing expired") {
 		t.Fatalf("stale listing: %q", te.errb.String())
+	}
+}
+
+// Time labelled on one chatgpt.com page suggests the label for the others;
+// tock tag <n> without a label accepts it.
+func TestInboxGuessAccepted(t *testing.T) {
+	te := newTestEnv(t, testRules)
+	te.seed(t, append(daySpans(), seedSpan{9, "13:00", "13:20", "arc", "Arc", "Settings", "chatgpt.com/settings", false})...)
+	if code, _ := te.run(t, "", "tag", "--span", "9", "Study"); code != 0 {
+		t.Fatalf("tag --span: %s", te.errb)
+	}
+	code, out := te.run(t, "", "inbox")
+	if code != 0 || !strings.Contains(out, `"Proofs"  → Study (same site, 100%)`) {
+		t.Fatalf("inbox: code %d\n%s", code, out)
+	}
+	code, out = te.run(t, "y\n", "tag", "1")
+	if code != 0 || !strings.Contains(out, "learned: Study") {
+		t.Fatalf("tag 1: code %d\n%s%s", code, out, te.errb)
+	}
+	if code, _ := te.run(t, "", "inbox"); code != 0 {
+		t.Fatal(te.errb.String())
+	}
+	if code, _ := te.run(t, "", "tag", "1"); code != 1 || !strings.Contains(te.errb.String(), "no suggestion for Mail · inbox") {
+		t.Fatalf("no suggestion: code %d %q", code, te.errb.String())
 	}
 }

@@ -79,18 +79,40 @@ func (a *App) SuggestSave(b suggest.Batch, model string, raw json.RawMessage) (i
 	return n, a.st.SaveSuggestions(rows)
 }
 
-// Suggestions returns the cached suggestions the current rules can still
-// apply, by inbox key, in their declared spellings.
+// Suggestions returns a label per inbox key: Claude's cached suggestion
+// when the current rules can still apply it, in the declared spellings,
+// else the local guess (see Guesses).
 func (a *App) Suggestions() (map[string]classify.Want, error) {
 	rows, err := a.st.Suggestions()
 	if err != nil {
 		return nil, err
 	}
-	out := map[string]classify.Want{}
+	gs, err := a.Guesses()
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]classify.Want, len(gs))
+	for k, g := range gs {
+		out[k] = g.Want
+	}
 	for k, r := range rows {
 		if w, ok := suggest.Canon(a.rs, r.Category, r.Project); ok {
 			out[k] = w
 		}
 	}
 	return out, nil
+}
+
+// GuessDays is how far back Guesses learns from labelled time.
+const GuessDays = 90
+
+// Guesses infers labels for unlabelled keys from the labelled time of the
+// last GuessDays days, locally (classify.Guesses).
+func (a *App) Guesses() (map[string]classify.Guess, error) {
+	now := a.nowMS()
+	vs, labels, err := a.labelled(now-GuessDays*24*60*60*1000, now, now)
+	if err != nil {
+		return nil, err
+	}
+	return classify.Guesses(vs, labels), nil
 }

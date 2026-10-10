@@ -32,6 +32,10 @@ func cmdInbox(env Env, args []string) error {
 	if err != nil {
 		return err
 	}
+	guesses, err := a.Guesses()
+	if err != nil {
+		return err
+	}
 	if len(items) == 0 {
 		fmt.Fprintf(env.Stdout, "Inbox empty: everything in the last %d days is labelled.\n", *days)
 		return saveListing(env, nil)
@@ -54,13 +58,16 @@ func cmdInbox(env Env, args []string) error {
 		}
 		if w, ok := sugg[it.Key]; ok {
 			line += "  → " + tagText(w)
+			if g, ok := guesses[it.Key]; ok && g.Want == w {
+				line += fmt.Sprintf(" (%s, %d%%)", g.Reason, int(g.Share*100+0.5))
+			}
 		}
 		fmt.Fprintln(env.Stdout, line)
 	}
 	if len(shown) < len(items) {
 		fmt.Fprintf(env.Stdout, "… %d more (tock inbox --all)\n", len(items)-len(shown))
 	}
-	fmt.Fprintln(env.Stdout, "tag: tock tag <n> <Category>[/<Project>]   hide: tock ignore <n>")
+	fmt.Fprintln(env.Stdout, "tag: tock tag <n> <Category>[/<Project>]   accept →: tock tag <n>   hide: tock ignore <n>")
 	return saveListing(env, keys)
 }
 

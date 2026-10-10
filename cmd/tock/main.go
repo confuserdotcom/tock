@@ -27,7 +27,7 @@ const usage = `usage:
   tock init                              write starter ~/.config/tock/rules.toml
   tock today [--date YYYY-MM-DD] [--keys]
   tock inbox [--days N] [--all]          unlabelled activity, numbered
-  tock tag [--once] <n> <Category>[/<Project>]
+  tock tag [--once] <n> [<Category>[/<Project>]]   (no label: accept the → suggestion)
   tock tag --span <id> <Category>[/<Project>]
   tock ignore <n> | tock ignore --undo <key>
   tock away [--date D] [<HH:MM> <Category>[/<Project>] | --skip <HH:MM>]

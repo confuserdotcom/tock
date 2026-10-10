@@ -21,24 +21,39 @@ func cmdTag(env Env, args []string) error {
 	if *spanID != 0 {
 		wantArgs = 1
 	}
-	if fs.NArg() != wantArgs || (*once && *spanID != 0) {
-		return usagef("tag: usage: tock tag [--once] <n> <Category>[/<Project>] | tock tag --span <id> <Category>[/<Project>]")
+	// "tock tag <n>" accepts the inbox suggestion for n.
+	suggested := *spanID == 0 && fs.NArg() == 1
+	if (fs.NArg() != wantArgs && !suggested) || (*once && *spanID != 0) {
+		return usagef("tag: usage: tock tag [--once] <n> [<Category>[/<Project>]] | tock tag --span <id> <Category>[/<Project>]")
 	}
 	a, err := openApp(env)
 	if err != nil {
 		return err
 	}
 	defer a.Close()
-	want, err := parseWant(a.Rules(), fs.Arg(wantArgs-1))
-	if err != nil {
-		return err
-	}
 	if *spanID != 0 {
+		want, err := parseWant(a.Rules(), fs.Arg(0))
+		if err != nil {
+			return err
+		}
 		return tagSpans(env, a, []int64{*spanID}, want, fmt.Sprintf("span %d", *spanID))
 	}
 
 	key, err := resolveListed(env, fs.Arg(0))
 	if err != nil {
+		return err
+	}
+	var want classify.Want
+	if suggested {
+		sugg, err := a.Suggestions()
+		if err != nil {
+			return err
+		}
+		var ok bool
+		if want, ok = sugg[key]; !ok {
+			return fmt.Errorf("no suggestion for %s: give a label, tock tag %s <Category>[/<Project>]", report.Safe(key), fs.Arg(0))
+		}
+	} else if want, err = parseWant(a.Rules(), fs.Arg(1)); err != nil {
 		return err
 	}
 	ids, ms, err := a.KeySpans(key)
