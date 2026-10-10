@@ -307,7 +307,7 @@ func (t todayTab) timelineRow(r report.Row, w int, sel bool, loc *time.Location)
 		line += " " + tail
 	}
 	if sel {
-		return sSel.Render(fit(line, w))
+		return selRow(line, w)
 	}
 	return line
 }

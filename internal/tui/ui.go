@@ -171,3 +171,18 @@ func overlay(base, top []string, w int) []string {
 	}
 	return out
 }
+
+// selRow paints a selected row w cells wide on the surface colour while
+// keeping its own colours: the background is set again after every reset
+// in s.
+func selRow(s string, w int) string {
+	probe := sSel.Render("x")
+	bg, _, _ := strings.Cut(probe, "x")
+	if bg == "" { // no colour (tests strip it anyway)
+		return fit(s, w)
+	}
+	s = fit(s, w)
+	s = strings.ReplaceAll(s, "\x1b[0m", "\x1b[0m"+bg)
+	s = strings.ReplaceAll(s, "\x1b[m", "\x1b[m"+bg)
+	return bg + s + "\x1b[m"
+}

@@ -245,7 +245,7 @@ func (p *picker) view(w, h int) []string {
 		}
 		line := name + " " + note
 		if i == p.cursor {
-			line = sSel.Render(fit(sBrand.Bold(true).Render("▸ ")+line, cw-4))
+			line = selRow(sBrand.Bold(true).Render("▸ ")+line, cw-4)
 		} else {
 			line = "  " + line
 		}

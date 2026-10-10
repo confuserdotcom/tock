@@ -184,7 +184,7 @@ func (t inboxTab) view(w, h int) []string {
 		line := sBright.Render(fitRight(report.Dur(it.TotalMS), 5)) + sDim.Render(fitRight(plural(it.Spans, "span"), 10)) + "  " +
 			sText.Render(fit(report.Safe(it.Key), keyW)) + "  " + tail
 		if i == t.cursor {
-			out = append(out, sSel.Render(fit(sBrand.Bold(true).Render("▸")+line, w)))
+			out = append(out, selRow(sBrand.Bold(true).Render("▸")+line, w))
 		} else {
 			out = append(out, " "+line)
 		}

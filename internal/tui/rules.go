@@ -204,7 +204,7 @@ func (t rulesTab) view(w, h int) []string {
 			l = left + label + pad
 		}
 		if i == t.cursor {
-			l = sSel.Render(fit(l, w-1))
+			l = selRow(l, w-1)
 		}
 		lines = append(lines, " "+l)
 	}

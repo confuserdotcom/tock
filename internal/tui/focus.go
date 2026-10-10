@@ -155,7 +155,7 @@ func (d *startDlg) view(w int) []string {
 			label = fmt.Sprintf("%d min", d.presets[i])
 		}
 		if i == d.cursor {
-			out = append(out, sSel.Render(fit(sBrand.Bold(true).Render("▸ ")+label, cell)))
+			out = append(out, selRow(sBrand.Bold(true).Render("▸ ")+sBright.Render(label), cell))
 		} else {
 			out = append(out, sText.Render(fit("  "+label, cell)))
 		}

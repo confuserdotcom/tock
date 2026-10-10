@@ -251,7 +251,7 @@ func (t weekTab) view(w, h int) []string {
 		}
 		line := day + "  " + durS + "    " + score + "  " + focus + "  " + bar
 		if i == t.cursor {
-			out = append(out, sSel.Render(sBrand.Bold(true).Render("▸")+line))
+			out = append(out, selRow(sBrand.Bold(true).Render("▸")+line, w-1))
 		} else {
 			out = append(out, " "+line)
 		}

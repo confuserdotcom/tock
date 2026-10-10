@@ -73,3 +73,17 @@ func TestThemeSwitch(t *testing.T) {
 		t.Fatal("light theme kept the dark colours")
 	}
 }
+
+func TestSelRowKeepsBackground(t *testing.T) {
+	bg, _, _ := strings.Cut(sSel.Render("x"), "x")
+	if bg == "" {
+		t.Skip("styles render without colour here")
+	}
+	got := selRow(sAccent.Render("a")+"b", 4)
+	if ansi.Strip(got) != "ab  " {
+		t.Fatalf("text = %q", ansi.Strip(got))
+	}
+	if !strings.HasPrefix(got, bg) || strings.Count(got, bg) < 2 {
+		t.Fatalf("background not restored after the reset: %q", got)
+	}
+}

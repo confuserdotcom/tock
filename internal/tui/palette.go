@@ -124,7 +124,7 @@ func (p *palette) view(m *Model, w int) []string {
 		gap := inner - 2 - ansi.StringWidth(left) - ansi.StringWidth(right)
 		line := left + strings.Repeat(" ", max(gap, 1)) + right
 		if i == p.cursor {
-			lines = append(lines, sSel.Render(fit(sBrand.Render("▸ ")+line, inner)))
+			lines = append(lines, selRow(sBrand.Render("▸ ")+sBright.Render(line), inner))
 		} else {
 			lines = append(lines, "  "+line)
 		}
