@@ -30,6 +30,8 @@ const usage = `usage:
   tock session [start [MIN] | stop]      focus session: show, start (default 25), stop
   tock recap [YYYY-MM-DD]                the daily recap
   tock suggest [--dry-run | --force]     Claude label suggestions for the inbox (needs ANTHROPIC_API_KEY)
+  tock export [--from D] [--to D] [--format csv|json]
+                                         labelled spans, default the last 7 days as csv
 Names match on a unique prefix: "tock tag 2 stu/atl". "/Project" sets only the project.
 `
 
@@ -111,6 +113,7 @@ var commands = map[string]func(Env, []string) error{
 	"session": cmdSession,
 	"recap":   cmdRecap,
 	"suggest": cmdSuggest,
+	"export":  cmdExport,
 }
 
 // run executes one command and returns the exit code: 0 ok, 1 error, 2 usage.
