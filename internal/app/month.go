@@ -80,3 +80,15 @@ func clip(vs []classify.SpanView, ls []classify.Label, from, to time.Time) ([]cl
 	}
 	return ov, ol
 }
+
+// Top ranks the tracked time of the days [from, to) by category, project,
+// app and site.
+func (a *App) Top(from, to time.Time) (report.Top, error) {
+	from, to = a.midnight(from), a.midnight(to)
+	now := a.nowMS()
+	vs, labels, err := a.labelled(from.UnixMilli(), to.UnixMilli(), now)
+	if err != nil {
+		return report.Top{}, err
+	}
+	return report.BuildTop(from, to, vs, labels), nil
+}
