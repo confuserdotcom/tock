@@ -1,6 +1,11 @@
 package focus
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+
+	"tock/internal/stats"
+)
 
 // Step runs the engine once. Store events come first and notifications
 // last, so a caller that stops at the first failed write never sends a
@@ -20,6 +25,11 @@ func Step(in Input) []Event {
 			stateChanged = true
 		}
 	} else if n, ok := stepBreak(in, &st); ok {
+		notes = append(notes, n)
+		stateChanged = true
+	}
+	writes = append(writes, autoSessions(in)...)
+	if n, ok := stepRecap(in, &st); ok {
 		notes = append(notes, n)
 		stateChanged = true
 	}
@@ -139,4 +149,70 @@ func breakMin(length int64) int64 {
 		return 10
 	}
 	return 15
+}
+
+// autoSessions records each ended focus block of at least AutoMinMS that no
+// session overlaps (an earlier tick's auto row overlaps its own block, so
+// each block is recorded once).
+func autoSessions(in Input) []Event {
+	var out []Event
+	for _, b := range stats.Compute(in.Views, in.Labels).Blocks {
+		if b.DeepMS < in.Cfg.AutoMinMS || b.End > in.Now-stats.ToleranceMS || overlaps(in.Sessions, b.Start, b.End, in.Now) {
+			continue
+		}
+		ws := WindowStats(in.Views, in.Labels, b.Start, b.End, in.Cfg)
+		out = append(out, Event{Kind: AutoSession, Sess: Session{Kind: KindAuto, StartMS: b.Start, EndMS: b.End,
+			DeepMS: ws.DeepMS, DistractMS: ws.DistractMS, LongestMS: ws.LongestMS}})
+	}
+	return out
+}
+
+// overlaps reports a session overlapping [from, to); a running session ends
+// at now.
+func overlaps(ss []Session, from, to, now int64) bool {
+	for _, s := range ss {
+		end := s.EndMS
+		if end == 0 {
+			end = now
+		}
+		if s.StartMS < to && end > from {
+			return true
+		}
+	}
+	return false
+}
+
+func dayKey(day time.Time) string { return day.Format("2006-01-02") }
+
+// RecapDue reports whether this tick should send the recap: it is on, its
+// time of day has come, today's recap has not gone out and today has at
+// least RecapMinActiveMS of activity.
+func RecapDue(in Input) bool {
+	if in.Cfg.RecapAt < 0 || in.State.RecapDay == dayKey(in.Day) {
+		return false
+	}
+	t := time.UnixMilli(in.Now).In(in.Day.Location())
+	if t.Hour()*60+t.Minute() < in.Cfg.RecapAt {
+		return false
+	}
+	return activeSince(in, in.Day.UnixMilli()) >= RecapMinActiveMS
+}
+
+func stepRecap(in Input, st *State) (Event, bool) {
+	if in.RecapBody == "" || !RecapDue(in) {
+		return Event{}, false
+	}
+	st.RecapDay = dayKey(in.Day)
+	return note(TitleRecap, in.RecapBody, false), true
+}
+
+// activeSince is the non-idle time of the views after from.
+func activeSince(in Input, from int64) int64 {
+	var ms int64
+	for _, v := range in.Views {
+		if !isIdle(v) {
+			ms += max(v.End-max(v.Start, from), 0)
+		}
+	}
+	return ms
 }
