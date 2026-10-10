@@ -58,6 +58,19 @@ func TestLoadStretchWeight(t *testing.T) {
 	}
 }
 
+func TestLoadAway(t *testing.T) {
+	c, err := Load(write(t, "[away]\nmin = 15\nmax = 180\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.Away != (Away{MinMS: 15 * 60_000, MaxMS: 180 * 60_000}) {
+		t.Fatalf("away = %+v", c.Away)
+	}
+	if Default().Away != (Away{MinMS: 10 * 60_000, MaxMS: 240 * 60_000}) {
+		t.Fatalf("default away = %+v", Default().Away)
+	}
+}
+
 func TestLoadEmptyFile(t *testing.T) {
 	if c, err := Load(write(t, "")); err != nil || !reflect.DeepEqual(c, Default()) {
 		t.Fatalf("Load(empty) = %+v, %v", c, err)
@@ -71,6 +84,9 @@ func TestLoadErrors(t *testing.T) {
 		{"[score]\ndepth = 0.6\n", "config.toml: [score] weights sum to 1.10, want 1"},
 		{"[score]\ndepth = 1.5\nblocks = -0.3\ncalm = -0.2\n", "config.toml: [score] depth = 1.5, want 0 to 1"},
 		{"[score\n", "config.toml: "},
+		{"[away]\nmin = 4\n", "config.toml: [away] min = 4, want at least 5"},
+		{"[away]\nmin = 30\nmax = 30\n", "config.toml: [away] max = 30, want more than min (30) and at most 720"},
+		{"[away]\nmax = 721\n", "config.toml: [away] max = 721"},
 		{"[score]\nstretch = 0.1\n", "config.toml: [score] weights sum to 1.10, want 1"},
 	}
 	for _, tt := range tests {

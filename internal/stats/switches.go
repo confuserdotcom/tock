@@ -17,7 +17,7 @@ func stretches(views []classify.SpanView, labels []classify.Label) []stretch {
 	reset := true
 	var lastEnd int64
 	for i, v := range views {
-		if isIdle(v) {
+		if isBreak(v) {
 			reset = true
 			continue
 		}

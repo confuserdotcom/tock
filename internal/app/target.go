@@ -77,7 +77,7 @@ func (a *App) fillPast(from, to time.Time) error {
 	now := a.nowMS()
 	for _, d := range missing {
 		from, to := d.UnixMilli(), d.AddDate(0, 0, 1).UnixMilli()
-		vs, err := a.decorate(views(rows, from, to, now), from, to)
+		vs, err := a.decorate(views(rows, from, to, now), ovs, from, to)
 		if err != nil {
 			return err
 		}

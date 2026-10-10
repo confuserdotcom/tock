@@ -110,7 +110,11 @@ func IsMeeting(v classify.SpanView, cfg config.Focus) bool {
 	return false
 }
 
-func isIdle(v classify.SpanView) bool { return v.BundleID == span.IdleBundleID }
+// isIdle reports time away from the screen: idle, or labelled away (so
+// labelling a break never sets off a break reminder).
+func isIdle(v classify.SpanView) bool {
+	return v.BundleID == span.IdleBundleID || v.BundleID == span.AwayBundleID
+}
 
 // current is the view open at Now, or nil when trackd recorded nothing up to
 // Now.

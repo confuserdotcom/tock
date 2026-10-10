@@ -50,6 +50,10 @@ type Day struct {
 
 func isIdle(v classify.SpanView) bool { return v.BundleID == span.IdleBundleID }
 
+// isBreak reports a view that ends blocks, stretches and runs: idle, or
+// labelled time away (it counts towards the totals but is not screen work).
+func isBreak(v classify.SpanView) bool { return isIdle(v) || classify.IsAway(v) }
+
 // Compute reads one day's views (clipped to the day, in start order; idle
 // spans have span.IdleBundleID) and their labels (labels[i] labels views[i]).
 func Compute(views []classify.SpanView, labels []classify.Label) Day {
@@ -94,7 +98,7 @@ func blocks(views []classify.SpanView, labels []classify.Label) []Block {
 	}
 	for i, v := range views {
 		switch {
-		case isIdle(v):
+		case isBreak(v):
 			closeBlock()
 		case labels[i].Kind == classify.KindDeep:
 			if cur != nil && v.Start-cur.End >= ToleranceMS {

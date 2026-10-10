@@ -42,7 +42,7 @@ func overrides(m map[int64]store.Override) map[int64]classify.Override {
 }
 
 // spans loads the spans overlapping [from, to) and the overrides. A change
-// in the overrides drops the cached stats of past days.
+// in the overrides or the away rows drops the cached stats of past days.
 func (a *App) spans(from, to int64) ([]store.SpanRow, map[int64]classify.Override, error) {
 	rows, err := a.st.Spans(from, to)
 	if err != nil {
@@ -52,7 +52,11 @@ func (a *App) spans(from, to int64) ([]store.SpanRow, map[int64]classify.Overrid
 	if err != nil {
 		return nil, nil, err
 	}
-	if fp := fingerprint(ovs); fp != a.pastKey {
+	n, lastAt, err := a.st.AwayStamp()
+	if err != nil {
+		return nil, nil, err
+	}
+	if fp := fingerprint(ovs) ^ uint64(n)<<48 ^ uint64(lastAt); fp != a.pastKey {
 		a.past, a.pastKey = nil, fp
 	}
 	return rows, overrides(ovs), nil
@@ -66,7 +70,7 @@ func (a *App) labelled(from, to, nowMS int64) ([]classify.SpanView, []classify.L
 	if err != nil {
 		return nil, nil, err
 	}
-	vs, err := a.decorate(views(rows, from, to, nowMS), from, to)
+	vs, err := a.decorate(views(rows, from, to, nowMS), ovs, from, to)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -78,9 +82,30 @@ func (a *App) labelled(from, to, nowMS int64) ([]classify.SpanView, []classify.L
 const CallMinMS = 2 * 60_000
 
 // decorate adds what is not in the span table to views clipped to
-// [from, to): the shell's working directory on terminal views, and the calls
-// (MarkCalls) when the rules name a call category.
-func (a *App) decorate(vs []classify.SpanView, from, to int64) ([]classify.SpanView, error) {
+// [from, to): the shell's working directory on terminal views, the calls
+// (MarkCalls) when the rules name a call category, and the labelled time
+// away (MarkAway), whose labels it adds to ovs under the views' negative ids.
+func (a *App) decorate(vs []classify.SpanView, ovs map[int64]classify.Override, from, to int64) ([]classify.SpanView, error) {
+	vs, err := a.markCalls(vs, from, to)
+	if err != nil {
+		return nil, err
+	}
+	aw, err := a.st.Aways(from, to)
+	if err != nil {
+		return nil, err
+	}
+	var marks []classify.AwayMark
+	for _, r := range aw {
+		if r.Category != "" || r.Project != "" {
+			marks = append(marks, classify.AwayMark{ID: r.ID, Interval: classify.Interval{From: r.StartMS, To: r.EndMS}})
+			ovs[-r.ID] = classify.Override{Category: r.Category, Project: r.Project}
+		}
+	}
+	return classify.MarkAway(vs, marks, from, to), nil
+}
+
+// markCalls attaches shell dirs and marks the calls of at least CallMinMS.
+func (a *App) markCalls(vs []classify.SpanView, from, to int64) ([]classify.SpanView, error) {
 	if a.paths.ShellLog != "" {
 		ev, err := a.shell.Events()
 		a.shellErr = err
@@ -115,7 +140,7 @@ func (a *App) history() ([]classify.SpanView, []classify.Label, map[int64]classi
 		return nil, nil, nil, err
 	}
 	o := overrides(ovs)
-	vs, err := a.decorate(views(rows, math.MinInt64, math.MaxInt64, a.nowMS()), math.MinInt64, math.MaxInt64)
+	vs, err := a.decorate(views(rows, math.MinInt64, math.MaxInt64, a.nowMS()), o, math.MinInt64, math.MaxInt64)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -147,6 +172,9 @@ func (a *App) Day(day time.Time) (report.Day, error) {
 	}
 	d := report.BuildDay(report.DayInput{Date: from, NowMS: now, Views: vs, Labels: labels, Ignored: ignored,
 		Target: target, Weights: a.cfg.Score})
+	if d.Away, err = a.pending(vs, from.UnixMilli(), to.UnixMilli()); err != nil {
+		return report.Day{}, err
+	}
 	if goals := a.rs.Goals; len(goals) > 0 {
 		mon := report.MondayOf(from)
 		wvs, wls, err := a.labelled(mon.UnixMilli(), to.UnixMilli(), now)

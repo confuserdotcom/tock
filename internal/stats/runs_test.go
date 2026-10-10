@@ -1,6 +1,10 @@
 package stats
 
-import "testing"
+import (
+	"testing"
+
+	"tock/internal/span"
+)
 
 func TestLongestRun(t *testing.T) {
 	tests := []struct {
@@ -45,5 +49,21 @@ func TestStretchTerm(t *testing.T) {
 	}
 	if s := ScoreDay(d, target4h, DefaultWeights); s.Value != 20 {
 		t.Fatalf("default weights: Value = %d, want 20 (stretch weight 0)", s.Value)
+	}
+}
+
+func TestAwayActsAsBreak(t *testing.T) {
+	vs, ls := at(deep(20*mn), shallow(30*mn), deep(20*mn))
+	vs[1].BundleID, vs[1].App = span.AwayBundleID, span.AwayApp // a labelled lunch
+	d := Compute(vs, ls)
+	if d.ActiveMS != 70*mn || d.DeepMS != 40*mn {
+		t.Fatalf("totals: active %d deep %d", d.ActiveMS, d.DeepMS)
+	}
+	if d.Switches != 0 || d.LongestRunMS != 20*mn || len(d.Blocks) != 2 {
+		t.Fatalf("away must break: %d switches, run %d, %d blocks", d.Switches, d.LongestRunMS, len(d.Blocks))
+	}
+	vs[1].BundleID = "app"
+	if d := Compute(vs, ls); d.Switches != 2 {
+		t.Fatalf("screen time between: %d switches", d.Switches)
 	}
 }

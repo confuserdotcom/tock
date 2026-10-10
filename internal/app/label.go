@@ -29,11 +29,21 @@ func (a *App) Learn(key string, c classify.Candidate, want classify.Want) error 
 
 // Tag sets a manual label on spans. An empty field of want keeps the span's
 // existing override value.
+// A negative id is an away view (-row id): its away row is relabelled.
 func (a *App) Tag(ids []int64, want classify.Want) error {
 	at := a.nowMS()
-	ovs := make([]store.Override, len(ids))
-	for i, id := range ids {
-		ovs[i] = store.Override{SpanID: id, Category: want.Category, Project: want.Project, At: at}
+	ovs := make([]store.Override, 0, len(ids))
+	for _, id := range ids {
+		if id < 0 {
+			if err := a.st.SetAwayLabel(-id, want.Category, want.Project, at); err != nil {
+				return err
+			}
+			continue
+		}
+		ovs = append(ovs, store.Override{SpanID: id, Category: want.Category, Project: want.Project, At: at})
+	}
+	if len(ovs) == 0 {
+		return nil
 	}
 	if err := a.st.SetOverrides(ovs); err != nil {
 		if len(ids) == 1 {

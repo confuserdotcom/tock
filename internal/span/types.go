@@ -23,6 +23,12 @@ const (
 	CallBundleID = "tock.call"
 	// CallApp is the app name of CallBundleID views.
 	CallApp = "Call"
+	// AwayBundleID is the bundle id of time away that the user labelled
+	// (tock away): idle time and gaps rewritten at read time, never stored
+	// in the span table.
+	AwayBundleID = "tock.away"
+	// AwayApp is the app name of AwayBundleID views.
+	AwayApp = "Away"
 )
 
 // Automation status values carried by Sample.Automation.

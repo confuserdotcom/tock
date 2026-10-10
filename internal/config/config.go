@@ -25,7 +25,16 @@ type Config struct {
 	Focus Focus
 	LLM   LLM
 	Shell Shell
+	Away  Away
 }
+
+// Away is the [away] section: which absences tock asks about.
+type Away struct {
+	MinMS, MaxMS int64
+}
+
+// DefaultAway is the [away] section used when the file does not set it.
+func DefaultAway() Away { return Away{MinMS: 10 * 60_000, MaxMS: 240 * 60_000} }
 
 // Shell is the [shell] section: which apps are terminals, so their views get
 // the working directory the zsh hook records.
@@ -103,7 +112,7 @@ func DefaultLLM() LLM {
 
 // Default is the configuration used when there is no file.
 func Default() Config {
-	return Config{Score: stats.DefaultWeights, Focus: DefaultFocus(), LLM: DefaultLLM(), Shell: DefaultShell()}
+	return Config{Score: stats.DefaultWeights, Focus: DefaultFocus(), LLM: DefaultLLM(), Shell: DefaultShell(), Away: DefaultAway()}
 }
 
 type scoreTOML struct {
@@ -139,11 +148,17 @@ type shellTOML struct {
 	Terminals *[]string `toml:"terminals"`
 }
 
+type awayTOML struct {
+	Min *int `toml:"min"`
+	Max *int `toml:"max"`
+}
+
 type fileTOML struct {
 	Score scoreTOML `toml:"score"`
 	Focus focusTOML `toml:"focus"`
 	LLM   llmTOML   `toml:"llm"`
 	Shell shellTOML `toml:"shell"`
+	Away  awayTOML  `toml:"away"`
 }
 
 // Load reads path. A missing file is Default() and no error. Any other
@@ -192,6 +207,18 @@ func Load(path string) (Config, error) {
 	}
 	if err := decodeLLM(f.LLM, &c.LLM); err != nil {
 		return Default(), fmt.Errorf("%s: %w", name, err)
+	}
+	if f.Away.Min != nil {
+		c.Away.MinMS = int64(*f.Away.Min) * 60_000
+	}
+	if f.Away.Max != nil {
+		c.Away.MaxMS = int64(*f.Away.Max) * 60_000
+	}
+	switch mn, mx := c.Away.MinMS/60_000, c.Away.MaxMS/60_000; {
+	case mn < 5:
+		return Default(), fmt.Errorf("%s: [away] min = %d, want at least 5", name, mn)
+	case mx <= mn || mx > 720:
+		return Default(), fmt.Errorf("%s: [away] max = %d, want more than min (%d) and at most 720", name, mx, mn)
 	}
 	if f.Shell.Terminals != nil {
 		c.Shell.Terminals = append([]string{}, *f.Shell.Terminals...)
