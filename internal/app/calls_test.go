@@ -85,3 +85,30 @@ func TestFocusTickRecordsCall(t *testing.T) {
 		t.Fatalf("call time = %d, want %d", inCall, CallMinMS)
 	}
 }
+
+func TestKeySpansOncePerSplitSpan(t *testing.T) {
+	e := apptest.New(t, callRules)
+	e.Seed(t, apptest.DaySpans()...)
+	e.Call(t, "11:28", "11:31") // splits span 4 (11:26-11:35); 11:28-11:31 is Meeting
+	a := open(t, e)
+	d, err := a.Day(apptest.Now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var key string
+	for _, r := range d.Timeline {
+		if r.IDs[0] == 4 {
+			key = r.Key
+			break
+		}
+	}
+	ids, ms, err := a.KeySpans(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// spans 4 and 7 share the chatgpt.com key; 4 is listed once though a
+	// call splits it in three
+	if len(ids) != 2 || ids[0] != 4 || ids[1] != 7 || ms != 12*60_000 {
+		t.Fatalf("ids = %v, ms = %d", ids, ms)
+	}
+}

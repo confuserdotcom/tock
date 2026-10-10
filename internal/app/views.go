@@ -195,7 +195,9 @@ func (a *App) KeySpans(key string) ([]int64, int64, error) {
 	var ms int64
 	for _, v := range hist {
 		if classify.Key(v) == key {
-			ids = append(ids, v.ID)
+			if n := len(ids); n == 0 || ids[n-1] != v.ID { // a call splits a span into adjacent pieces
+				ids = append(ids, v.ID)
+			}
 			ms += v.DurMS()
 		}
 	}
