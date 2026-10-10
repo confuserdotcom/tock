@@ -21,7 +21,6 @@ type inboxTab struct {
 	cursor  int
 	top     int
 	height  int                      // list rows that fit; set by Model.Update
-	ignored []string                 // keys ignored this session, for u
 	sugg    map[string]classify.Want // valid suggestions by key
 }
 
@@ -106,17 +105,8 @@ func (m Model) inboxKey(k string) (tea.Model, tea.Cmd) {
 	case "x":
 		if it := t.selected(); it != nil {
 			key := it.Key
-			t.ignored = append(t.ignored, key)
 			return m, m.act(func(a *app.App) (string, error) {
 				return "ignored: " + report.Safe(key) + " (u undo)", a.Ignore(key, true)
-			})
-		}
-	case "u":
-		if n := len(t.ignored); n > 0 {
-			key := t.ignored[n-1]
-			t.ignored = t.ignored[:n-1]
-			return m, m.act(func(a *app.App) (string, error) {
-				return "showing again: " + report.Safe(key), a.Ignore(key, false)
 			})
 		}
 	}

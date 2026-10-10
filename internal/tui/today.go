@@ -247,6 +247,29 @@ func (m Model) todayKey(k string) (tea.Model, tea.Cmd) {
 			m.picker = newAwayPicker(m.src, iv, awayWhat(iv, m.now().Location())).withQuick(&m, "")
 		}
 		return m, nil
+	case "d":
+		if r := t.selected(); r != nil && !r.Idle {
+			return m, m.deleteRow(r)
+		}
+	case "s":
+		r := t.selected()
+		if r == nil || r.Idle || r.End-r.Start < 2*60_000 {
+			m.setFlash("pick a row of at least 2 min to split", true)
+			return m, nil
+		}
+		mid := (r.Start + (r.End-r.Start)/2) / 60_000 * 60_000
+		m.edit = newRangeDlg(classify.EditLabel, "Split: label part of it", mid, r.End, t.day.Date)
+		return m, nil
+	case "+":
+		from, to := m.now().UnixMilli()-30*60_000, m.now().UnixMilli()
+		if r := t.selected(); r != nil && r.Idle {
+			from, to = r.Start, r.End
+		} else if !t.isToday(m.now()) {
+			from = t.day.Date.Add(9 * time.Hour).UnixMilli()
+			to = from + 60*60_000
+		}
+		m.edit = newRangeDlg(classify.EditAdd, "Add time", from, to, t.day.Date)
+		return m, nil
 	case "a", "A":
 		n := len(t.day.Away)
 		if n == 0 {

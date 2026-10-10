@@ -102,6 +102,11 @@ func actionTable() []action {
 			when: rowIs(func(m *Model, r *report.Row) bool {
 				return !r.Idle && r.App != span.AwayApp && r.App != span.MeetingApp && !remoteRow(r)
 			})},
+		{key: "s", name: "split: label part of the row", group: grToday, prio: 35,
+			when: rowIs(func(m *Model, r *report.Row) bool { return !r.Idle && r.End-r.Start >= 2*60_000 })},
+		{key: "d", name: "delete the row's time", group: grToday, prio: 36,
+			when: rowIs(func(m *Model, r *report.Row) bool { return !r.Idle })},
+		{key: "+", name: "add time you forgot", group: grToday, prio: 37, when: onTab(tabToday)},
 		{key: "j/k", name: "move", group: grToday},
 		{key: "h", name: "previous day", group: grToday, prio: 50, when: onTab(tabToday)},
 		{key: "l", name: "next day", group: grToday, prio: 51,
@@ -137,8 +142,6 @@ func actionTable() []action {
 			}},
 		{key: "o", name: "tag once, no rule", group: grInbox, prio: 10, when: inbox},
 		{key: "x", name: "ignore", group: grInbox, prio: 20, when: inbox},
-		{key: "u", name: "undo ignore", group: grInbox, prio: 30,
-			when: func(m *Model) bool { return m.tab == tabInbox && len(m.inbox.ignored) > 0 }},
 		{key: "j/k", name: "move", group: grInbox},
 
 		{key: "s", name: "start a session", group: grFocus, prio: 1,
@@ -169,6 +172,7 @@ func actionTable() []action {
 		{key: "?", name: "help", group: grApp, prio: 98, when: always},
 		{key: ":", name: "commands", group: grApp, prio: 99, when: always},
 		{key: "r", name: "refresh", group: grApp, when: always},
+		{key: "u", name: "undo the last change", group: grApp, when: always},
 		{key: "q", name: "quit", group: grApp, when: always},
 	}
 }

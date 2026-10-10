@@ -20,6 +20,7 @@ const (
 	pickOnce                      // tag every span of key, no rule
 	pickLearn                     // propose a rule for key
 	pickAway                      // label the absence away
+	pickEdit                      // a timeline edit over editFrom–editTo
 )
 
 const noProject = "(no project)"
@@ -33,18 +34,20 @@ type option struct {
 
 // picker chooses a category, then a project, by prefix filter.
 type picker struct {
-	action   pickAction
-	ids      []int64
-	key      string
-	what     string
-	cats     []option
-	projects []option
-	quick    []option // whole labels listed first: suggested, then recent
-	stage    int // 0 category, 1 project
-	query    string
-	cursor   int
-	want     classify.Want
-	away     classify.Interval // pickAway
+	action           pickAction
+	ids              []int64
+	key              string
+	what             string
+	cats             []option
+	projects         []option
+	quick            []option // whole labels listed first: suggested, then recent
+	stage            int      // 0 category, 1 project
+	query            string
+	cursor           int
+	want             classify.Want
+	away             classify.Interval // pickAway
+	editKind         string            // pickEdit: classify.EditAdd or EditLabel
+	editFrom, editTo int64             // pickEdit
 }
 
 // newAwayPicker labels the absence iv.
@@ -165,6 +168,8 @@ func (m Model) pickerKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 func (m Model) finishPick(p *picker) tea.Cmd {
 	want, label := p.want, report.LabelText(p.want.Category, p.want.Project)
 	switch p.action {
+	case pickEdit:
+		return m.editDone(p)
 	case pickLearn:
 		return m.propose(p.key, want)
 	case pickAway:

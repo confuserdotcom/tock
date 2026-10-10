@@ -9,12 +9,12 @@ tock   today   week   inbox ³   focus   rules                            Sat 10
  │ unlabelled     │   tag                                               Today  t │─  3 keys       │ 
  │ distract       │   set project                                       Today  p │                │ 
  ╰────────────────│   tag and learn a rule                              Today  T │────────────────╯ 
-                  │   previous day                                      Today  h │                  
-  09:00–10:40   1h│   filter rows                                       Today  / │                  
-  10:40–11:14    3│   why this score                                    Today  i │                  
-  11:14–11:26    1│   start a 25 min session                               Focus │                  
-  11:26–11:35     │   start a 50 min session                               Focus │                  
-  11:35–11:41     │   start a 90 min session                               Focus │                  
+                  │   split: label part of the row                      Today  s │                  
+  09:00–10:40   1h│   delete the row's time                             Today  d │                  
+  10:40–11:14    3│   add time you forgot                               Today  + │                  
+  11:14–11:26    1│   previous day                                      Today  h │                  
+  11:26–11:35     │   filter rows                                       Today  / │                  
+  11:35–11:41     │   why this score                                    Today  i │                  
   11:41–12:22    4╰──────────────────────────────────────────────────────────────╯                  
   12:22–12:25     3m  ○ unlabelled          Arc         Proofs                                     
 ▸ 14:50–15:00    10m  ○ unlabelled          Mail        Inbox                                       

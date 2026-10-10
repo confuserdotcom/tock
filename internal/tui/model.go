@@ -61,6 +61,7 @@ type Model struct {
 	picker  *picker
 	learn   *learnDlg
 	start   *startDlg
+	edit    *rangeDlg
 	help    bool
 	score   bool // the today tab's score breakdown
 	palette *palette
@@ -289,6 +290,8 @@ func (m Model) key(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m.pickerKey(msg)
 	case m.start != nil:
 		return m.startKey(msg)
+	case m.edit != nil:
+		return m.rangeKey(msg)
 	case m.learn != nil:
 		return m.learnKey(k)
 	case m.help:
@@ -327,6 +330,8 @@ func (m Model) key(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 	case "r":
 		return m, m.reload()
+	case "u", "ctrl+z":
+		return m, m.undo()
 	case "1", "2", "3", "4", "5":
 		return m.switchTab(int(k[0] - '1'))
 	case "tab":
@@ -396,6 +401,8 @@ func (m Model) body(bodyH int) []string {
 		top = m.learn.view(m.width)
 	case m.start != nil:
 		top = m.start.view(m.width)
+	case m.edit != nil:
+		top = m.edit.view(m.width)
 	}
 	base := fitBody(m.tabBody(bodyH), bodyH)
 	if top == nil {
@@ -557,6 +564,8 @@ func (m Model) hint() string {
 		hint = m.learn.hint()
 	case m.start != nil:
 		hint = "↑/↓ move · digits custom length · enter start · esc cancel"
+	case m.edit != nil:
+		hint = "type HH:MM-HH:MM · enter pick a label · esc cancel"
 	case m.filtering():
 		hint = m.today.hint()
 	default:

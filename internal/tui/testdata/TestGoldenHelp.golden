@@ -9,22 +9,22 @@ tock   today   week   inbox ³   focus   rules                            Sat 10
  │   t      label away               .      this week                                             │ 
  │   p      set project              m      month trends           Inbox                          │ 
  │   T      tag and learn a rule                                     enter  label, learn a rule   │ 
- │   j/k    move                   Focus                             T      pick a label          │ 
- │   h      previous day             s      start a session          a      accept the suggestion │ 
- │   l      next day                 x      stop the session         o      tag once, no rule     │ 
- │   .      back to today                                            x      ignore                │ 
- │   /      filter rows            Rules                             u      undo ignore           │ 
- │   i      why this score           e      edit rules.toml          j/k    move                  │ 
- │   g/G    first / last row         J/K    move rule down/up                                     │ 
- │                                   j/k    move                   Go                             │ 
-▸│ App                                                               1-5    switch tab            │ 
- │   ?      help                                                     tab    next tab              │ 
- │   :      commands                                                                              │ 
- │   r      refresh                                                                               │ 
- │   q      quit                                                                                  │ 
- │   ctrl+k commands too                                                                          │ 
+ │   s      split: label part o…   Focus                             T      pick a label          │ 
+ │   d      delete the row's ti…     s      start a session          a      accept the suggestion │ 
+ │   +      add time you forgot      x      stop the session         o      tag once, no rule     │ 
+ │   j/k    move                                                     x      ignore                │ 
+ │   h      previous day           Rules                             j/k    move                  │ 
+ │   l      next day                 e      edit rules.toml                                       │ 
+ │   .      back to today            J/K    move rule down/up      Go                             │ 
+ │   /      filter rows              j/k    move                     1-5    switch tab            │ 
+▸│   i      why this score                                           tab    next tab              │ 
+ │   g/G    first / last row       App                                                            │ 
+ │                                   ?      help                                                  │ 
+ │                                   :      commands                                              │ 
+ │                                   r      refresh                                               │ 
+ │                                   u      undo the last change                                  │ 
+ │                                   q      quit                                                  │ 
+ │                                   ctrl+k commands too                                          │ 
  │                                                                                                │ 
  │ ● deep   ● shallow   ● neutral   ● distraction   ○ unlabelled                                  │ 
- ╰────────────────────────────────────────────────────────────────────────────────────────────────╯ 
-
 esc close · : commands                                                                              

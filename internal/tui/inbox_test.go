@@ -75,7 +75,7 @@ func TestInboxIgnoreAndUndo(t *testing.T) {
 	m = press(t, m, "3", "x")
 	mustContain(t, m, "ignored: Arc · chatgpt.com/c (u undo)", "inbox ²")
 	m = press(t, m, "u")
-	mustContain(t, m, "showing again: Arc · chatgpt.com/c", "inbox ³")
+	mustContain(t, m, "undid: ignore Arc · chatgpt.com/c", "inbox ³")
 	m = press(t, m, "u")
 	mustContain(t, m, "inbox ³")
 }
