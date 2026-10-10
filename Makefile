@@ -7,6 +7,7 @@ TOCK_STATE ?= $(HOME)/.local/state/tock
 BUNDLE ?= $(TOCK_DATA)/trackd.app
 BUNDLE_ID := com.tock.trackd
 AGENT_LABEL := com.tock.trackd
+BIN_DIR ?= $(HOME)/.local/bin
 SIGN_ID ?= tock-local-codesign
 # auto | cert | adhoc. Pinned to cert (plan 01-09): a missing identity is a hard
 # error, never a silent switch to ad-hoc that would orphan TCC grants.
@@ -21,14 +22,15 @@ WITH_TIMEOUT = perl -e 'alarm shift; exec @ARGV or exit 127'
 
 build:
 	CGO_ENABLED=1 go build -ldflags "-X main.version=$(VERSION)" -o bin/trackd ./cmd/trackd
+	CGO_ENABLED=0 go build -o bin/tock ./cmd/tock
 
 test-quick:
-	CGO_ENABLED=0 go test ./internal/span/... ./internal/store/... -count=1
+	CGO_ENABLED=0 go test ./internal/span/... ./internal/store/... ./internal/classify/... -count=1
 
 test:
 	go vet ./...
 	go build ./...
-	CGO_ENABLED=0 go test ./internal/span/... ./internal/store/... -count=1
+	CGO_ENABLED=0 go test ./internal/span/... ./internal/store/... ./internal/classify/... -count=1
 	go test ./... -count=1
 
 vet:
@@ -133,11 +135,15 @@ dump-stop:
 		echo "dump-stop: no dump process running (ok)"; \
 	fi
 
-# install: bootout, rebuild and sign the bundle, then bootstrap the agent
-# (Pitfall 12: never replace the binary under a running agent).
+# install: bootout, rebuild and sign the bundle, install the tock CLI, then
+# bootstrap the agent (Pitfall 12: never replace the binary under a running
+# agent). Both binaries come from one build so they agree on the schema.
 install:
 	-launchctl bootout gui/$$(id -u)/$(AGENT_LABEL) 2>/dev/null
 	$(MAKE) bundle
+	CGO_ENABLED=0 go build -o build/tock ./cmd/tock
+	install -d -m 755 "$(BIN_DIR)"
+	install -m 755 build/tock "$(BIN_DIR)/tock"
 	"$(BUNDLE)/Contents/MacOS/trackd" install
 
 # uninstall: unload the agent and remove its plist; tock.db and the log stay.
