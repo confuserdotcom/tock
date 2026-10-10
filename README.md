@@ -74,6 +74,12 @@ forgets the grants on every rebuild.
    `tock tag 1 Code/tock`. This also writes a rule to
    `~/.config/tock/learned.toml`, so the same activity is labelled from now on.
    In the TUI, use the inbox tab's `enter`.
+   When a key looks like time you already labelled (the same site or app,
+   similar titles, or between two spans with one label), the inbox shows a
+   guess such as `→ Code (same app, 82%)`. `tock tag 1` with no label
+   accepts it. Guesses are computed on your machine; nothing is sent.
+   Tagged it wrong? Tag it again (or `t` on the row in today): the new rule
+   replaces the mistaken learned one, so every span it labelled changes.
 3. Edit `~/.config/tock/rules.toml` for anything broader, then run
    `tock rules check`. You can also use the rules tab: `J`/`K` reorder, `e`
    opens the file in `$EDITOR`. A rule changes past days as well as future
@@ -134,15 +140,20 @@ tock status                            one line for a status bar
 tock init                              write starter ~/.config/tock/rules.toml
 tock today [--date YYYY-MM-DD] [--keys]
 tock inbox [--days N] [--all]          unlabelled activity, numbered
-tock tag [--once] <n> <Category>[/<Project>]
+tock tag [--once] <n> [<Category>[/<Project>]]   no label: accept the → suggestion
 tock tag --span <id> <Category>[/<Project>]
 tock ignore <n> | tock ignore --undo <key>
 tock away [--date D] [<HH:MM> <Category>[/<Project>] | --skip <HH:MM>]
                                        label time away (idle or asleep) or leave it idle
 tock rules check | tock rules stats [--days N]   validate | time each rule decided
+tock rules dupes                       look-alike category and project names
+tock rules merge [--project] <from> <into>
+                                       fold one name into another everywhere
 tock session [start [MIN] | stop]      focus session: show, start (default 25), stop
 tock recap [YYYY-MM-DD]                the daily recap
 tock trends [--month YYYY-MM]          a month against the one before
+tock top [--days N | --week | --month] [--by category|app|site|project] [--limit N]
+                                       where the time went: top categories, apps and sites
 tock review [--week YYYY-MM-DD] [--plan TEXT]
                                        weekly recap, then next week's focus
 tock suggest [--dry-run | --force]     Claude label suggestions for the inbox (needs ANTHROPIC_API_KEY)
@@ -264,6 +275,22 @@ with a daily sparkline, switches per hour and each category's change.
 totals, each goal, the top distractions and the best day. It then asks
 for next week's focus, or takes `--plan`. The week tab shows the plan of
 the week on screen. Plans stay in tock.db.
+
+`tock top` ranks the last 7 days (or `--week`, `--month`, `--days N`):
+categories with their kind, apps and sites (URL hosts) with the category
+most of their time went to, each with its share of tracked time. `--by
+project` lists projects.
+
+## Duplicate names
+
+`tock rules dupes` lists categories, and projects, whose names differ only
+by case, punctuation, `&` for "and", a plural ending or a typo, with the
+time each labelled in the last 30 days. `tock doctor` mentions them.
+`tock rules merge Studies Study` (or `--project`) removes the first name's
+table from rules.toml, renames it in rules.toml and learned.toml, and
+renames manual tags, away labels and suggestions in tock.db. The old
+rules.toml is kept as rules.toml.bak. A project with repos or a rate must
+have them moved by hand first.
 
 ## Calls
 
