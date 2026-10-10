@@ -141,6 +141,9 @@ type Ruleset struct {
 	// CallCategory labels call time ([calls] category); "" leaves calls
 	// unlabelled.
 	CallCategory string
+	// CalendarCategory labels meeting views the rules leave without a
+	// category ([calendar] category); "" turns calendar events off.
+	CalendarCategory string
 	// Goals are the [[goal]] tables, in file order.
 	Goals []Goal
 
@@ -176,6 +179,9 @@ type rulesTOML struct {
 	Calls struct {
 		Category string `toml:"category"`
 	} `toml:"calls"`
+	Calendar struct {
+		Category string `toml:"category"`
+	} `toml:"calendar"`
 	Goal []goalTOML `toml:"goal"`
 }
 
@@ -252,6 +258,13 @@ func Parse(rulesData, learnedData []byte) (*Ruleset, error) {
 			return nil, fmt.Errorf("%s: [calls]: unknown category %q", RulesFile, rf.Calls.Category)
 		}
 		rs.CallCategory = cat.Name
+	}
+	if c := strings.TrimSpace(rf.Calendar.Category); c != "" {
+		cat, ok := rs.catByLower[strings.ToLower(c)]
+		if !ok {
+			return nil, fmt.Errorf("%s: [calendar]: unknown category %q", RulesFile, rf.Calendar.Category)
+		}
+		rs.CalendarCategory = cat.Name
 	}
 	repoOwner := map[string]string{}
 	for i, p := range rf.Project {

@@ -231,6 +231,8 @@ func (m Model) todayKey(k string) (tea.Model, tea.Cmd) {
 			m.setFlash("idle time has no label", true)
 		case r.App == span.AwayApp && k == "T":
 			m.setFlash("away time has no rules: t to relabel it", true)
+		case r.App == span.MeetingApp && k == "T":
+			m.setFlash("meetings are learned by hand: a [[rule]] with bundle tock.meeting; t to relabel this one", true)
 		case k == "t":
 			m.picker = newPicker(m.src, pickTag, r.IDs, "", spansWhat(len(r.IDs), r.End-r.Start))
 		case k == "p":

@@ -83,6 +83,7 @@ func Inbox(views []SpanView, labels []Label, ignored map[string]bool) []Item {
 		return labels[i].Category == "" &&
 			views[i].BundleID != span.IdleBundleID &&
 			!IsAway(views[i]) && // answered in tock away; t relabels it
+			!IsMeeting(views[i]) && // event titles never reach the inbox or Claude
 			!ignored[Key(views[i])]
 	})
 }

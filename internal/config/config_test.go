@@ -71,6 +71,23 @@ func TestLoadAway(t *testing.T) {
 	}
 }
 
+func TestLoadCalendar(t *testing.T) {
+	if c := Default().Calendar; c.Enabled || c.Calendars != nil {
+		t.Fatalf("default calendar = %+v", c)
+	}
+	c, err := Load(write(t, "[calendar]\nenabled = true\ncalendars = [\"Work\", \"Uni\"]\n"))
+	if err != nil || !c.Calendar.Enabled || !reflect.DeepEqual(c.Calendar.Calendars, []string{"Work", "Uni"}) {
+		t.Fatalf("calendar = %+v, %v", c.Calendar, err)
+	}
+	if _, err := Load(write(t, "[calendar]\ncalendars = [\" \"]\n")); err == nil ||
+		err.Error() != "config.toml: [calendar] calendars has an empty name" {
+		t.Fatalf("empty name err = %v", err)
+	}
+	if _, err := Load(write(t, "[calendar]\nsync = 5\n")); err == nil {
+		t.Fatal("unknown [calendar] key must fail")
+	}
+}
+
 func TestLoadEmptyFile(t *testing.T) {
 	if c, err := Load(write(t, "")); err != nil || !reflect.DeepEqual(c, Default()) {
 		t.Fatalf("Load(empty) = %+v, %v", c, err)

@@ -21,11 +21,19 @@ const File = "config.toml"
 
 // Config is tock's settings.
 type Config struct {
-	Score stats.Weights
-	Focus Focus
-	LLM   LLM
-	Shell Shell
-	Away  Away
+	Score    stats.Weights
+	Focus    Focus
+	LLM      LLM
+	Shell    Shell
+	Away     Away
+	Calendar Calendar
+}
+
+// Calendar is the [calendar] section: whether trackd reads calendar events
+// through EventKit, and from which calendars.
+type Calendar struct {
+	Enabled   bool
+	Calendars []string // calendar names; empty = all
 }
 
 // Away is the [away] section: which absences tock asks about.
@@ -153,12 +161,18 @@ type awayTOML struct {
 	Max *int `toml:"max"`
 }
 
+type calendarTOML struct {
+	Enabled   *bool     `toml:"enabled"`
+	Calendars *[]string `toml:"calendars"`
+}
+
 type fileTOML struct {
-	Score scoreTOML `toml:"score"`
-	Focus focusTOML `toml:"focus"`
-	LLM   llmTOML   `toml:"llm"`
-	Shell shellTOML `toml:"shell"`
-	Away  awayTOML  `toml:"away"`
+	Score    scoreTOML    `toml:"score"`
+	Focus    focusTOML    `toml:"focus"`
+	LLM      llmTOML      `toml:"llm"`
+	Shell    shellTOML    `toml:"shell"`
+	Away     awayTOML     `toml:"away"`
+	Calendar calendarTOML `toml:"calendar"`
 }
 
 // Load reads path. A missing file is Default() and no error. Any other
@@ -219,6 +233,17 @@ func Load(path string) (Config, error) {
 		return Default(), fmt.Errorf("%s: [away] min = %d, want at least 5", name, mn)
 	case mx <= mn || mx > 720:
 		return Default(), fmt.Errorf("%s: [away] max = %d, want more than min (%d) and at most 720", name, mx, mn)
+	}
+	if f.Calendar.Enabled != nil {
+		c.Calendar.Enabled = *f.Calendar.Enabled
+	}
+	if f.Calendar.Calendars != nil {
+		for _, n := range *f.Calendar.Calendars {
+			if strings.TrimSpace(n) == "" {
+				return Default(), fmt.Errorf("%s: [calendar] calendars has an empty name", name)
+			}
+		}
+		c.Calendar.Calendars = append([]string{}, *f.Calendar.Calendars...)
 	}
 	if f.Shell.Terminals != nil {
 		c.Shell.Terminals = append([]string{}, *f.Shell.Terminals...)

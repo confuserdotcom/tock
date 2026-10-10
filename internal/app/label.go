@@ -29,11 +29,19 @@ func (a *App) Learn(key string, c classify.Candidate, want classify.Want) error 
 
 // Tag sets a manual label on spans. An empty field of want keeps the span's
 // existing override value.
-// A negative id is an away view (-row id): its away row is relabelled.
+// A negative id is an away view (-row id): its away row is relabelled. A
+// meeting view id records an away row over its event, which then wins over
+// the event; an empty category keeps the calendar category.
 func (a *App) Tag(ids []int64, want classify.Want) error {
 	at := a.nowMS()
 	ovs := make([]store.Override, 0, len(ids))
 	for _, id := range ids {
+		if eid, ok := classify.MeetingEventID(id); ok {
+			if err := a.tagMeeting(eid, want, at); err != nil {
+				return err
+			}
+			continue
+		}
 		if id < 0 {
 			if err := a.st.SetAwayLabel(-id, want.Category, want.Project, at); err != nil {
 				return err
@@ -52,6 +60,22 @@ func (a *App) Tag(ids []int64, want classify.Want) error {
 		return err
 	}
 	return nil
+}
+
+func (a *App) tagMeeting(eventID int64, want classify.Want, at int64) error {
+	e, err := a.st.Event(eventID)
+	if err != nil {
+		return err
+	}
+	if want.Category == "" {
+		want.Category = a.rs.CalendarCategory
+	}
+	end := min(e.EndMS, at)
+	if end <= e.StartMS {
+		return fmt.Errorf("the meeting has not started")
+	}
+	_, err = a.st.AddAway(store.Away{StartMS: e.StartMS, EndMS: end, Category: want.Category, Project: want.Project, AtMS: at})
+	return err
 }
 
 // Ignore hides key from the inbox, or shows it again when on is false.

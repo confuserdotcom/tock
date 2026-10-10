@@ -41,6 +41,20 @@ type AwayMark struct {
 // through the overrides. Idle views are split at mark edges; other views are
 // untouched. The result is in start order.
 func MarkAway(views []SpanView, marks []AwayMark, from, to int64) []SpanView {
+	iv := make([]Interval, len(marks))
+	for i, m := range marks {
+		iv[i] = m.Interval
+	}
+	return fill(views, iv, from, to, func(i int, start, end int64) SpanView {
+		return awayView(marks[i].ID, start, end)
+	})
+}
+
+// fill replaces the idle pieces inside each mark with views made by mk, and
+// fills every part of each mark inside [from, to) that no other view covers.
+// Idle views are split at mark edges; other views are untouched. The result
+// is in start order.
+func fill(views []SpanView, marks []Interval, from, to int64, mk func(i int, start, end int64) SpanView) []SpanView {
 	if len(marks) == 0 {
 		return views
 	}
@@ -68,10 +82,9 @@ func MarkAway(views []SpanView, marks []AwayMark, from, to int64) []SpanView {
 			out = append(out, p)
 		}
 	}
-	// Fill every part of each mark that no remaining view covers.
 	covered := append([]SpanView{}, out...)
 	sort.SliceStable(covered, func(i, j int) bool { return covered[i].Start < covered[j].Start })
-	for _, m := range marks {
+	for i, m := range marks {
 		lo, hi := max(m.From, from), min(m.To, to)
 		at := lo
 		for _, v := range covered {
@@ -79,12 +92,12 @@ func MarkAway(views []SpanView, marks []AwayMark, from, to int64) []SpanView {
 				continue
 			}
 			if v.Start > at {
-				out = append(out, awayView(m.ID, at, v.Start))
+				out = append(out, mk(i, at, v.Start))
 			}
 			at = max(at, v.End)
 		}
 		if at < hi {
-			out = append(out, awayView(m.ID, at, hi))
+			out = append(out, mk(i, at, hi))
 		}
 	}
 	sort.SliceStable(out, func(i, j int) bool { return out[i].Start < out[j].Start })

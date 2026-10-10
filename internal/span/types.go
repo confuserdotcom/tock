@@ -29,6 +29,12 @@ const (
 	AwayBundleID = "tock.away"
 	// AwayApp is the app name of AwayBundleID views.
 	AwayApp = "Away"
+	// MeetingBundleID is the bundle id of time away that a calendar event
+	// covers: idle time and gaps rewritten at read time, never stored in
+	// the span table.
+	MeetingBundleID = "tock.meeting"
+	// MeetingApp is the app name of MeetingBundleID views.
+	MeetingApp = "Meeting"
 )
 
 // Automation status values carried by Sample.Automation.
