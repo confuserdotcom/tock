@@ -51,9 +51,9 @@ func TestTabsHelpAndQuit(t *testing.T) {
 	m = press(t, m, "shift+tab")
 	mustContain(t, m, "Inbox ·")
 	m = press(t, m, "?")
-	mustContain(t, m, "tock — keys")
+	mustContain(t, m, "─ Keys ─", "i      why this score")
 	m = press(t, m, "esc")
-	mustNotContain(t, m, "tock — keys")
+	mustNotContain(t, m, "─ Keys ─")
 	if _, cmd := m.Update(key("q")); cmd == nil {
 		t.Fatal("q must quit")
 	} else if _, ok := cmd().(tea.QuitMsg); !ok {

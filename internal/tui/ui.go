@@ -144,3 +144,5 @@ func emptyState(w int, title string, lines ...string) []string {
 	}
 	return out
 }
+
+func ansiWidth(s string) int { return ansi.StringWidth(s) }

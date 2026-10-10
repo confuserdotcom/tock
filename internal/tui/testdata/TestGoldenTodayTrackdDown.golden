@@ -27,4 +27,4 @@ trackd is not running — showing history. Restart: launchctl kickstart -k gui/$
 
 
 
-a away · j/k move · h/l day · t tag · p project · T learn · / filter · ? score                      
+enter label it · a label time away · t tag · p set project · ? help · : commands                    

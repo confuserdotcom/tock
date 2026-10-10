@@ -150,7 +150,7 @@ func TestTooSmall(t *testing.T) {
 
 func TestScorePanel(t *testing.T) {
 	m, _ := seeded(t)
-	m = press(t, m, "?")
+	m = press(t, m, "i")
 	mustContain(t, m,
 		"Score 74 · Sat 10 Oct",
 		"  depth    0.56 × 0.5 = 27.9   focus 2h14 of target 4h00",
@@ -160,10 +160,10 @@ func TestScorePanel(t *testing.T) {
 		"                 77 − 3 = 74   (sum rounded, then penalty, 0–100)",
 		"  target   4h00 default: 0 of 7 workdays so far",
 		"  blocks   09:00–11:14  2h14",
-		"? keys · esc close",
+		"esc close · ? keys",
 	)
 	m = press(t, m, "?")
-	mustContain(t, m, "tock — keys", "today: score breakdown")
+	mustContain(t, m, "─ Keys ─", "why this score")
 	m = press(t, m, "?")
 	mustContain(t, m, "Today  score 74")
 	m = press(t, m, "?", "esc")
@@ -185,12 +185,12 @@ func TestScorePanelEmptyDayAndManyBlocks(t *testing.T) {
 	}
 	e.Seed(t, spans...)
 	m := newModel(t, e)
-	m = press(t, m, "?")
+	m = press(t, m, "i")
 	// 30 rows: header, banner and footer leave 27; the panel uses 12 before
 	// the blocks, so 14 blocks show and one line counts the other 6.
 	mustContain(t, m, "  blocks   09:00–09:06  6m", "           10:44–10:50  6m", "           +6 more")
 	mustNotContain(t, m, "10:52–10:58")
-	m = press(t, m, "esc", "h", "?")
+	m = press(t, m, "esc", "h", "i")
 	mustContain(t, m, "Score · Fri 9 Oct", "no activity on this day")
 }
 

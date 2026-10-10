@@ -64,24 +64,20 @@ func TestMouseHeaderSwitchesTabs(t *testing.T) {
 func TestMouseFooterButtons(t *testing.T) {
 	m, _ := seeded(t)
 	m = press(t, m, "4")
-	m = clickOn(t, m, "s start · x stop")
+	m = clickOn(t, m, "s start a session")
 	mustContain(t, m, "Start a focus session")
 	m = clickOn(t, m, "esc cancel")
 	mustNotContain(t, m, "Start a focus session")
 
 	m = press(t, m, "1")
-	m = clickOn(t, m, "j/k move")
-	m = clickOn(t, m, "move · h/l") // inside a non-button segment
-	if m.today.filtering || m.picker != nil {
-		t.Fatal("j/k move is not a button")
+	m = clickOn(t, m, "t tag")
+	if m.picker == nil {
+		t.Fatal("t tag must open the picker")
 	}
-	m = clickOn(t, m, "/ filter")
-	if !m.today.filtering {
-		t.Fatal("/ filter must start the filter")
-	}
-	m = clickOn(t, m, "esc clear")
-	if m.today.filtering {
-		t.Fatal("esc clear must close the filter")
+	m = clickOn(t, m, "esc cancel")
+	m = clickOn(t, m, "? help")
+	if !m.help {
+		t.Fatal("? help must open the help")
 	}
 }
 

@@ -9,7 +9,7 @@ import (
 
 func TestAwayPromptAndAnswer(t *testing.T) {
 	m, _ := seeded(t)
-	mustContain(t, m, " away 12:25–14:50 (2h25) · a what was it? · A leave idle  (+1 more)", "a away · j/k move")
+	mustContain(t, m, " away 12:25–14:50 (2h25) · a what was it? · A leave idle  (+1 more)", "a label time away")
 	m = press(t, m, "a")
 	mustContain(t, m, "Category  away 12:25–14:50 (2h25)")
 	m = typeText(t, m, "comm")

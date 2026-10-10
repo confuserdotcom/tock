@@ -32,11 +32,11 @@ func TestGoldenTodayTrackdDown(t *testing.T) {
 	golden.RequireEqual(t, screen(m))
 }
 
-// Phase 4 criterion 2: ? on today explains the score.
+// Phase 4 criterion 2: i on today explains the score.
 func TestGoldenScore(t *testing.T) {
 	m, e := seeded(t)
 	e.Heartbeat(t, e.Clock.UnixMilli())
-	m = press(t, m, "r", "?")
+	m = press(t, m, "r", "i")
 	golden.RequireEqual(t, screen(m))
 }
 
@@ -136,5 +136,19 @@ func TestGoldenRules(t *testing.T) {
 	m, e := seeded(t)
 	e.Heartbeat(t, e.Clock.UnixMilli())
 	m = press(t, m, "5")
+	golden.RequireEqual(t, screen(m))
+}
+
+func TestGoldenHelp(t *testing.T) {
+	m, e := seeded(t)
+	e.Heartbeat(t, e.Clock.UnixMilli())
+	m = press(t, m, "r", "?")
+	golden.RequireEqual(t, screen(m))
+}
+
+func TestGoldenPalette(t *testing.T) {
+	m, e := seeded(t)
+	e.Heartbeat(t, e.Clock.UnixMilli())
+	m = press(t, m, "r", ":")
 	golden.RequireEqual(t, screen(m))
 }

@@ -146,15 +146,39 @@ func (t *todayTab) filterKey(msg tea.KeyPressMsg) {
 	t.clampScroll()
 }
 
+// hint is the footer while the filter is typed.
 func (t *todayTab) hint() string {
-	if t.filtering {
-		return "filter: " + t.filter + "▏ · enter keep · esc clear"
+	return "filter: " + t.filter + "▏ · enter keep · esc clear"
+}
+
+// awayOf is the pending absence that holds idle row r, or nil.
+func (t *todayTab) awayOf(r *report.Row) *classify.Interval {
+	if !r.Idle {
+		return nil
 	}
-	h := "j/k move · h/l day · t tag · p project · T learn · / filter · ? score"
-	if len(t.day.Away) > 0 {
-		h = "a away · " + h
+	for i, iv := range t.day.Away {
+		if r.Start >= iv.From && r.End <= iv.To {
+			return &t.day.Away[i]
+		}
 	}
-	return h
+	return nil
+}
+
+// enterAction is what enter does on row r: "accept" its suggestion, "tag"
+// an unlabelled row, label the "away" time of an idle row, or "" nothing.
+func (t *todayTab) enterAction(r *report.Row, sugg map[string]classify.Want) string {
+	switch {
+	case r.Idle:
+		if t.awayOf(r) != nil {
+			return "away"
+		}
+	case r.Label.Category == "" && r.App != span.AwayApp && r.App != span.MeetingApp:
+		if _, ok := sugg[r.Key]; ok {
+			return "accept"
+		}
+		return "tag"
+	}
+	return ""
 }
 
 // awayWhat names an absence: "12:25–14:50 (2h25)".
@@ -200,6 +224,21 @@ func (m Model) todayKey(k string) (tea.Model, tea.Cmd) {
 			t.date, t.loaded = time.Time{}, false
 			return m, m.reload()
 		}
+	case "enter":
+		r := t.selected()
+		if r == nil {
+			return m, nil
+		}
+		switch t.enterAction(r, m.inbox.sugg) {
+		case "accept":
+			return m, m.propose(r.Key, m.inbox.sugg[r.Key])
+		case "tag":
+			m.picker = newPicker(m.src, pickTag, r.IDs, "", spansWhat(len(r.IDs), r.End-r.Start))
+		case "away":
+			iv := *t.awayOf(r)
+			m.picker = newAwayPicker(m.src, iv, awayWhat(iv, m.now().Location()))
+		}
+		return m, nil
 	case "a", "A":
 		n := len(t.day.Away)
 		if n == 0 {
@@ -220,11 +259,9 @@ func (m Model) todayKey(k string) (tea.Model, tea.Cmd) {
 		switch {
 		case r == nil:
 		case r.Idle && k == "t":
-			for _, iv := range t.day.Away {
-				if r.Start >= iv.From && r.End <= iv.To {
-					m.picker = newAwayPicker(m.src, iv, awayWhat(iv, m.now().Location()))
-					return m, nil
-				}
+			if iv := t.awayOf(r); iv != nil {
+				m.picker = newAwayPicker(m.src, *iv, awayWhat(*iv, m.now().Location()))
+				return m, nil
 			}
 			m.setFlash("not an away period: too short, too long or already answered", true)
 		case r.Idle:

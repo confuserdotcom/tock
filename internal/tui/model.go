@@ -58,11 +58,12 @@ type Model struct {
 	focus         focusTab
 	rules         rulesTab
 
-	picker *picker
-	learn  *learnDlg
-	start  *startDlg
-	help   bool
-	score  bool // the today tab's score breakdown
+	picker  *picker
+	learn   *learnDlg
+	start   *startDlg
+	help    bool
+	score   bool // the today tab's score breakdown
+	palette *palette
 
 	flash       string
 	flashErr    bool
@@ -281,6 +282,8 @@ func (m Model) key(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 	}
 	switch {
+	case m.palette != nil:
+		return m.paletteKey(msg)
 	case m.picker != nil:
 		return m.pickerKey(msg)
 	case m.start != nil:
@@ -288,15 +291,18 @@ func (m Model) key(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case m.learn != nil:
 		return m.learnKey(k)
 	case m.help:
-		if k == "?" || k == "esc" || k == "q" {
+		switch k {
+		case "?", "esc", "q":
 			m.help = false
+		case ":", "ctrl+k":
+			m.help, m.palette = false, &palette{}
 		}
 		return m, nil
 	case m.score:
 		switch k {
 		case "?":
 			m.score, m.help = false, true
-		case "esc", "q":
+		case "esc", "q", "i":
 			m.score = false
 		}
 		return m, nil
@@ -308,12 +314,16 @@ func (m Model) key(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "q":
 		return m, tea.Quit
 	case "?":
+		m.help = true
+		return m, nil
+	case ":", "ctrl+k":
+		m.palette = &palette{}
+		return m, nil
+	case "i":
 		if m.tab == tabToday {
 			m.score = true
-		} else {
-			m.help = true
+			return m, nil
 		}
-		return m, nil
 	case "r":
 		return m, m.reload()
 	case "1", "2", "3", "4", "5":
@@ -373,8 +383,10 @@ func (m Model) render() string {
 func (m Model) body(bodyH int) []string {
 	var body []string
 	switch {
+	case m.palette != nil:
+		body = center2(m.palette.view(&m, m.width), m.width)
 	case m.help:
-		body = helpBody(m.width)
+		body = center2(m.helpBody(m.width), m.width)
 	case m.score:
 		body = m.today.scoreView(m.width, bodyH, m.now().Location())
 	case m.picker != nil:
@@ -481,39 +493,56 @@ func (m Model) banner() string {
 func (m Model) footer() string {
 	if m.flash != "" {
 		if m.flashErr {
-			return sAccent.Render(fit(m.flash, m.width))
+			return sAccent.Render(fit("✗ "+m.flash, m.width))
 		}
-		return sText.Render(fit(m.flash, m.width))
+		return sGood.Render("✓ ") + sText.Render(fit(m.flash, m.width-2))
+	}
+	if m.baseView() {
+		return fit(styledHint(m.footerActions(m.width)), m.width)
 	}
 	return sDim.Render(fit(m.hint(), m.width))
+}
+
+// baseView reports a tab with no dialog, page or filter over it: the
+// footer then comes from the action table.
+func (m Model) baseView() bool {
+	return m.palette == nil && !m.overlay() && !m.filtering()
+}
+
+// center2 centres every line of a block in w cells, with one blank line
+// above it.
+func center2(block []string, w int) []string {
+	out := []string{""}
+	if len(block) == 0 {
+		return out
+	}
+	pad := max((w-ansiWidth(block[0]))/2, 0)
+	for _, l := range block {
+		out = append(out, strings.Repeat(" ", pad)+l)
+	}
+	return out
 }
 
 // hint is the footer's key list for the current view.
 func (m Model) hint() string {
 	var hint string
 	switch {
+	case m.palette != nil:
+		hint = "type to search · ↑/↓ move · enter run · esc close"
 	case m.help:
-		hint = "esc close"
+		hint = "esc close · : commands"
 	case m.score:
-		hint = "? keys · esc close"
+		hint = "esc close · ? keys"
 	case m.picker != nil:
 		hint = "type to filter · ↑/↓ move · enter pick · esc cancel"
 	case m.learn != nil:
 		hint = m.learn.hint()
 	case m.start != nil:
 		hint = "↑/↓ move · digits custom length · enter start · esc cancel"
-	case m.tab == tabToday:
+	case m.filtering():
 		hint = m.today.hint()
-	case m.tab == tabWeek && m.week.month:
-		hint = "h/l month · . this month · m week · ? help"
-	case m.tab == tabWeek:
-		hint = "j/k day · h/l week · . this week · enter open day · m month · ? help"
-	case m.tab == tabFocus:
-		hint = "s start · x stop · ? help"
-	case m.tab == tabRules:
-		hint = "j/k move · J/K reorder · e edit in $EDITOR · ? help"
 	default:
-		hint = "enter learn rule · a accept suggestion · o tag once · x ignore · u undo · ? help"
+		hint = hintOf(m.footerActions(m.width))
 	}
 	return hint
 }

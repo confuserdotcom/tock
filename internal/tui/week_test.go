@@ -55,7 +55,7 @@ func TestMonthMode(t *testing.T) {
 	e.Seed(t, apptest.Span{ID: 9, Start: "09:00", End: "11:00", Bundle: "term", App: "WezTerm", Title: "tock │ y", Day: -36}) // Fri 4 Sep
 	m = press(t, m, "2", "m")
 	mustContain(t, m, " October 2026 · 1–10 vs September 1–10", "tracked     2h54    +54m  +45%",
-		"Code               2h14    +14m  +12%", "h/l month · . this month · m week")
+		"Code               2h14    +14m  +12%", "m back to the week")
 	m = press(t, m, "l") // no future months
 	mustContain(t, m, " October 2026 · 1–10")
 	m = press(t, m, "h")

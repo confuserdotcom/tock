@@ -1,0 +1,30 @@
+tock   today   week   inbox ³   focus   rules                            Sat 10 Oct  15:00  ● trackd
+
+ ╭─ Keys ─────────────────────────────────────────────────────────────────────────────────────────╮
+ │ Today                           Week                            Month                          │
+ │   enter  label it                 j/k    move between days        h      previous month        │
+ │   a      label time away          enter  open the day             l      next month            │
+ │   A      leave time away idle     h      previous week            .      this month            │
+ │   t      tag                      l      next week                m      back to the week      │
+ │   t      label away               .      this week                                             │
+ │   p      set project              m      month trends           Inbox                          │
+ │   T      tag and learn a rule                                     enter  label, learn a rule   │
+ │   j/k    move                   Focus                             a      accept the suggestion │
+ │   h      previous day             s      start a session          o      tag once, no rule     │
+ │   l      next day                 x      stop the session         x      ignore                │
+ │   .      back to today                                            u      undo ignore           │
+ │   /      filter rows            Rules                             j/k    move                  │
+ │   i      why this score           e      edit rules.toml                                       │
+ │   g/G    first / last row         J/K    move rule down/up      Go                             │
+ │                                   j/k    move                     1-5    switch tab            │
+ │ App                                                               tab    next tab              │
+ │   ?      help                                                                                  │
+ │   :      commands                                                                              │
+ │   r      refresh                                                                               │
+ │   q      quit                                                                                  │
+ │   ctrl+k commands too                                                                          │
+ │                                                                                                │
+ │ ● deep   ● shallow   ● neutral   ● distraction   ○ unlabelled                                  │
+ ╰────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+esc close · : commands                                                                              
