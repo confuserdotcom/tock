@@ -80,9 +80,11 @@ func parseFlags(fs *flag.FlagSet, args []string) error {
 }
 
 var commands = map[string]func(Env, []string) error{
-	"init":  cmdInit,
-	"rules": cmdRules,
-	"today": cmdToday,
+	"init":   cmdInit,
+	"rules":  cmdRules,
+	"today":  cmdToday,
+	"inbox":  cmdInbox,
+	"ignore": cmdIgnore,
 }
 
 // run executes one command and returns the exit code: 0 ok, 1 error, 2 usage.
