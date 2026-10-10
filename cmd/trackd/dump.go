@@ -17,11 +17,11 @@ const dumpTSLayout = "2006-01-02T15:04:05.000-07:00"
 // runDump prints live inputs to w until interrupted. It opens no database and
 // takes no lock (single writer, D-22): there is no DB handle in dump mode.
 // A nil src means NewDarwin failed; the caller reports the error.
-func runDump(src collect.Source, w io.Writer) int {
+func runDump(src collect.Source, w io.Writer, ppid int) int {
 	if src == nil {
 		return 1
 	}
-	fmt.Fprintf(w, "# trackd dump version=%s pid=%d\n", version, os.Getpid())
+	writeDumpBanner(w, ppid)
 
 	printed := make(chan struct{})
 	go func() {
@@ -45,6 +45,16 @@ func runDump(src collect.Source, w io.Writer) int {
 	return 0
 }
 
+// writeDumpBanner prints the banner and, when not started by launchd or
+// open, a notice that macOS attributes the permissions to the terminal
+// (RESEARCH Pitfall 2).
+func writeDumpBanner(w io.Writer, ppid int) {
+	fmt.Fprintf(w, "# trackd dump version=%s pid=%d ppid=%d\n", version, os.Getpid(), ppid)
+	if ppid != 1 {
+		fmt.Fprintln(w, "# permissions shown are those of the launching terminal, not the com.tock.trackd agent; run 'make dump' for the agent's view")
+	}
+}
+
 func quoteOrDash(s *string) string {
 	if s == nil {
 		return "-"
@@ -66,12 +76,18 @@ func formatInput(in span.Input) string {
 	case in.Sample != nil:
 		s := in.Sample
 		ts := time.UnixMilli(s.TS).Local().Format(dumpTSLayout)
+		title, url := s.Title, s.URL
+		if s.Private {
+			// Defense in depth: never print private data even if an upstream
+			// bug left it on the sample (T-1-private).
+			title, url = nil, nil
+		}
 		auto := s.Automation
 		if auto == "" {
 			auto = "-"
 		}
 		return fmt.Sprintf("%s sample bundle=%s app=%q title=%s url=%s private=%d idle=%.1f locked=%d ax=%d auto=%s act=%d",
-			ts, s.BundleID, s.App, quoteOrDash(s.Title), quoteOrDash(s.URL),
+			ts, s.BundleID, s.App, quoteOrDash(title), quoteOrDash(url),
 			b2i(s.Private), s.IdleS, b2i(s.Locked), b2i(s.AXTrusted), auto, b2i(s.Activation))
 	case in.Event != nil:
 		e := in.Event
