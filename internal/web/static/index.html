@@ -1,1 +1,38 @@
 <!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="referrer" content="no-referrer">
+<title>tock</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="app.css">
+<script src="app.js" defer></script>
+</head>
+<body>
+<header class="bar" id="bar">
+  <div class="bar-in">
+    <div class="brand"><span class="brand-dot" id="live" title="live"></span>tock</div>
+    <nav class="seg" id="tabs" role="tablist" aria-label="Views">
+      <span class="seg-thumb" id="thumb" aria-hidden="true"></span>
+      <button role="tab" data-view="today" id="tab-today">Today</button>
+      <button role="tab" data-view="week" id="tab-week">Week</button>
+      <button role="tab" data-view="top" id="tab-top">Top</button>
+      <button role="tab" data-view="inbox" id="tab-inbox">Inbox<span class="badge" id="inbox-count" hidden></span></button>
+    </nav>
+    <div class="datenav" id="datenav">
+      <button class="icon" id="prev" aria-label="Previous">‹</button>
+      <button class="date-label" id="date-label">Today</button>
+      <button class="icon" id="next" aria-label="Next">›</button>
+    </div>
+  </div>
+</header>
+<div class="banner" id="banner" role="status" hidden></div>
+<main id="main" tabindex="-1"></main>
+<div class="scrim" id="scrim" hidden></div>
+<section class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title" hidden></section>
+<div class="tip" id="tip" role="tooltip" hidden></div>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>

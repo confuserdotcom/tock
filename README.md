@@ -26,6 +26,9 @@ score your focus, run focus sessions and help you label what is left.
   are read, never messages or code.
 - Sync between machines (opt-in) only writes and reads files in a folder you
   choose; moving that folder between machines is up to your own sync tool.
+- `tock web` listens on 127.0.0.1 only, while it runs. Each run makes a new
+  secret token that the page needs for every request. The page loads nothing
+  from the internet.
 
 ## Requirements
 
@@ -154,6 +157,7 @@ tock recap [YYYY-MM-DD]                the daily recap
 tock trends [--month YYYY-MM]          a month against the one before
 tock top [--days N | --week | --month] [--by category|app|site|project] [--limit N]
                                        where the time went: top categories, apps and sites
+tock web [--port N] [--no-open]       the dashboard in your browser, on this machine only
 tock review [--week YYYY-MM-DD] [--plan TEXT]
                                        weekly recap, then next week's focus
 tock suggest [--dry-run | --force]     Claude label suggestions for the inbox (needs ANTHROPIC_API_KEY)
@@ -280,6 +284,40 @@ the week on screen. Plans stay in tock.db.
 categories with their kind, apps and sites (URL hosts) with the category
 most of their time went to, each with its share of tracked time. `--by
 project` lists projects.
+
+## Web dashboard
+
+`tock web` opens a dashboard in your browser and runs until you press
+ctrl-c:
+
+- **Today:** the focus score and its four parts, a timeline ribbon (hover a
+  block for its app and title), time by hour, categories, goals and the
+  day's activity. Click any block or row to label it. Use the arrows or
+  ← → to move between days.
+- **Week:** each day's time by kind and score (click a day to open it),
+  categories, projects, apps and sites, distractions, goals and the plan.
+- **Top:** `tock top` for today, 7 days, this week, this month or 30 days.
+- **Inbox:** unlabelled activity with the local guess or Claude's
+  suggestion. **Accept** learns the suggestion's broadest safe rule, as
+  `tock tag <n>` does. **Label…** picks a category and project, then
+  labels just these spans or previews the rules to learn. **Ignore** has
+  an undo. Keys: `j`/`k` move, `a` accept, `l` label, `i` ignore.
+
+Keys `1`–`4` switch views, and `r` refreshes. Today refreshes itself every
+minute.
+
+The server listens on 127.0.0.1 only, on a free port (`--port N` to choose
+one). The link it prints carries a random token after the `#`. Browsers
+never send that part to a server, and the page keeps it for the tab only.
+Every request needs the token, so other sites open in your browser can
+neither read nor label anything, and requests that name another host are
+refused. The page, its styles and scripts are built into `tock` and load
+nothing from the internet. trackd is not involved. `--no-open` prints the
+link without opening a browser.
+
+For working on the page, `TOCK_DEMO_PORT=7788 go test -tags demo -run
+TestDemo -timeout 0 ./internal/web` serves synthetic data at
+`http://127.0.0.1:7788/#` followed by 64 zeros.
 
 ## Duplicate names
 

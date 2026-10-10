@@ -41,6 +41,7 @@ const usage = `usage:
   tock trends [--month YYYY-MM]          a month against the one before
   tock top [--days N | --week | --month] [--by category|app|site|project] [--limit N]
                                          where the time went: top categories, apps and sites
+  tock web [--port N] [--no-open]       the dashboard in your browser, on this machine only
   tock review [--week YYYY-MM-DD] [--plan TEXT]
                                          weekly recap, then next week's focus
   tock suggest [--dry-run | --force]     Claude label suggestions for the inbox (needs ANTHROPIC_API_KEY)
@@ -156,6 +157,7 @@ var commands = map[string]func(Env, []string) error{
 	"trends":     cmdTrends,
 	"top":        cmdTop,
 	"review":     cmdReview,
+	"web":        cmdWeb,
 }
 
 // run executes one command and returns the exit code: 0 ok, 1 error, 2 usage.
