@@ -19,7 +19,7 @@ import (
 )
 
 const usage = `usage:
-  tock                                   open the TUI (today, week, inbox, focus)
+  tock                                   open the TUI (today, week, inbox, focus, rules)
   tock status                            one line for a status bar
   tock init                              write starter ~/.config/tock/rules.toml
   tock today [--date YYYY-MM-DD] [--keys]
