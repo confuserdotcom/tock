@@ -19,6 +19,10 @@ score your focus, run focus sessions and help you label what is left.
   - Password managers, mail and messaging apps, banks and webmail are never sent. Extend the deny lists in `config.toml [llm]`.
   - `tock suggest --dry-run` prints the exact payload without sending it.
   - The key is read from the environment only and is never written anywhere.
+- Slack status (opt-in) is the only other network use: `tock slack`, run by
+  trackd when a session starts and ends, sets your status and
+  do-not-disturb. Nothing about your activity is sent, only the status text
+  you chose and the session's end time.
 - `tock export` prints titles and URLs to stdout. Where that output goes is up to you.
 - Calendar events (opt-in) are read through macOS Calendar, never fetched, and
   stay in tock.db. They are never sent to Claude.
@@ -165,6 +169,7 @@ tock doctor [--wait] [--open]          check trackd, permissions, rules and conf
 tock export [--from D] [--to D] [--format csv|json] [--by project]
                                        labelled spans, default the last 7 days as csv
 tock backup [--out FILE]               archive tock.db and the rule, config and shell files
+tock slack [login | logout | status]   Slack status during focus sessions (see Focus guard)
 tock shell-init zsh                    shell hook for terminal projects (docs/shell-hook.md)
 ```
 
@@ -182,6 +187,7 @@ Times are RFC 3339 with your local offset. `rate` and `amount` are empty
 | `~/.config/tock/rules.toml` | your categories, projects and rules; first match wins |
 | `~/.config/tock/learned.toml` | rules written by `tock tag`, checked before rules.toml |
 | `~/.config/tock/config.toml` | optional settings, see below |
+| `~/.config/tock/slack.token` | the Slack token, when you use Slack |
 | `~/.local/share/tock/tock.db` | the spans (SQLite) |
 | `~/.local/state/tock/trackd.log` | trackd's log |
 | `~/.local/state/tock/shell.log` | working directories from the shell hook, see [docs/shell-hook.md](docs/shell-hook.md) |
@@ -204,6 +210,18 @@ recap = "21:00"          # daily recap notification, "" to disable
 notify = true
 # meeting_apps / meeting_hosts replace the built-in lists of meeting apps
 # (bundle ids) and hosts during which break and distraction nudges stay quiet
+block = false            # close distracting tabs and hide distracting apps in sessions
+block_apps = []          # bundle ids (Hyprland classes) blocked besides distractions
+block_hosts = []         # sites blocked besides distractions; subdomains too
+block_grace = 10         # seconds a distraction may stay in front
+focus_on = ""            # Shortcuts shortcut run when a session starts
+focus_off = ""           # ... and when it ends
+
+[slack]                  # see Focus guard
+enabled = false
+status = "In a focus session"
+emoji = ":dart:"
+dnd = true               # pause Slack notifications for the session
 
 [llm]
 enabled = true                # still needs ANTHROPIC_API_KEY
@@ -230,6 +248,56 @@ blocks = 0.3
 calm = 0.2
 stretch = 0.0                 # longest run without a context switch, full at 1h30
 ```
+
+## Focus guard
+
+A focus session can do more than nudge you.
+
+**Blocking.** With `block = true` under `[focus]`, a distraction that stays
+in front for 10 seconds (`block_grace`) during a session is taken away:
+
+- in Chrome, Arc, Brave and Safari, the front tab is closed, if it still
+  shows that site;
+- any other app (and Firefox) is hidden. On Hyprland its windows move to
+  the special workspace `tock` (`hyprctl dispatch togglespecialworkspace
+  tock` brings them back).
+
+A distraction is time whose category has `kind = "distract"`, plus the apps
+in `block_apps` and the sites in `block_hosts`. Nothing is blocked during a
+call or a meeting, and Finder and tock never are. A notification names the
+app, never the site. Closing a tab uses the same Automation permission trackd
+already has for reading URLs.
+
+**Focus mode.** macOS has no command for Focus, but Shortcuts does. In the
+Shortcuts app, make a shortcut named `Focus On` with the action *Set Focus*
+(Do Not Disturb, or your Work focus, *On*), and a `Focus Off` shortcut that
+turns it off. Then:
+
+```toml
+[focus]
+focus_on = "Focus On"
+focus_off = "Focus Off"
+```
+
+trackd runs them when a session starts and when it ends, whether you
+started it in the TUI, the menu bar or `tock session`. `tock doctor` checks
+that both shortcuts exist.
+
+**Slack.** tock can set your Slack status and pause Slack notifications
+for the session:
+
+1. Create a Slack app for your workspace at api.slack.com/apps, add the
+   user token scopes `users.profile:read`, `users.profile:write` and
+   `dnd:write`, install it and copy the user token (`xoxp-…`).
+2. `tock slack login` and paste it. It is stored in
+   `~/.config/tock/slack.token` (owner-only); `TOCK_SLACK_TOKEN` overrides
+   it.
+3. `[slack] enabled = true` in config.toml. `tock slack` checks the token.
+
+The status expires on its own at the planned end. When the session ends,
+tock clears it only if it is still tock's status, so a status you set
+yourself in the meantime stays. trackd never talks to the network itself: it
+runs `tock slack start` and `tock slack stop`.
 
 ## Goals
 
