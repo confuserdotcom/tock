@@ -154,3 +154,46 @@ func TestNotifyArgsKeepTextOutOfTheScript(t *testing.T) {
 		t.Fatalf("notifyArgs = %q", got)
 	}
 }
+
+func TestFocusLoopHandsNotesToTheBar(t *testing.T) {
+	e := distractedEnv(t, apptest.Rules)
+	a, err := app.Open(app.Paths{DB: e.DB, Rules: e.Rules, Learned: e.Learned, Config: e.Config}, e.NowFunc())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := a.BarBeat(app.NotifyGranted); err != nil {
+		t.Fatal(err)
+	}
+	n := &recNotifier{}
+	f, logb := testLoop(t, e, n, nil)
+	f.tick()
+	if len(n.got) != 0 {
+		t.Fatalf("the notifier ran while the bar is ready: %q", n.got)
+	}
+	ns, err := a.TakeNotices()
+	a.Close()
+	if err != nil || len(ns) != 1 || ns[0].Topic != "focus" || ns[0].Body != "5 min distracted in your 25 min session, 15 min left." {
+		t.Fatalf("queued = %+v, %v", ns, err)
+	}
+	if !strings.Contains(logb.String(), "focus notification queued") || strings.Contains(logb.String(), "distracted") {
+		t.Fatalf("log must name the title only: %s", logb.String())
+	}
+}
+
+func TestFocusLoopFallsBackWhenBarDenied(t *testing.T) {
+	e := distractedEnv(t, apptest.Rules)
+	a, err := app.Open(app.Paths{DB: e.DB, Rules: e.Rules, Learned: e.Learned, Config: e.Config}, e.NowFunc())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := a.BarBeat(app.NotifyDenied); err != nil {
+		t.Fatal(err)
+	}
+	a.Close()
+	n := &recNotifier{}
+	f, _ := testLoop(t, e, n, nil)
+	f.tick()
+	if len(n.got) != 1 {
+		t.Fatalf("denied bar: notifier got %q", n.got)
+	}
+}

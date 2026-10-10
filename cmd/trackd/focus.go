@@ -63,10 +63,24 @@ func (f *focusLoop) tick() {
 		return
 	}
 	f.lastErr = ""
-	if f.notify == nil || !f.a.Config().Focus.Notify {
+	if !f.a.Config().Focus.Notify {
 		return
 	}
+	// The tock menu bar app shows notifications with buttons when it runs
+	// and may notify; otherwise they go out through the notifier.
+	bar := len(notes) > 0 && f.a.BarReady()
 	for _, n := range notes {
+		if bar {
+			if err := f.a.Enqueue(n); err != nil {
+				f.warn("notification queue failed", err)
+				continue
+			}
+			f.log.Info("focus notification queued", "title", n.Title)
+			continue
+		}
+		if f.notify == nil {
+			continue
+		}
 		if err := f.notify.Notify(n.Title, n.Body); err != nil {
 			f.warn("notification failed", err)
 			continue
