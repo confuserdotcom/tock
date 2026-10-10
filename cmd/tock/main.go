@@ -15,7 +15,7 @@ import (
 )
 
 const usage = `usage:
-  tock                                   open the TUI (today, week, inbox)
+  tock                                   open the TUI (today, week, inbox, focus)
   tock status                            one line for a status bar
   tock init                              write starter ~/.config/tock/rules.toml
   tock today [--date YYYY-MM-DD] [--keys]
@@ -24,6 +24,8 @@ const usage = `usage:
   tock tag --span <id> <Category>[/<Project>]
   tock ignore <n> | tock ignore --undo <key>
   tock rules check
+  tock session [start [MIN] | stop]      focus session: show, start (default 25), stop
+  tock recap [YYYY-MM-DD]                the daily recap
 Names match on a unique prefix: "tock tag 2 stu/atl". "/Project" sets only the project.
 `
 
@@ -88,13 +90,15 @@ func parseFlags(fs *flag.FlagSet, args []string) error {
 }
 
 var commands = map[string]func(Env, []string) error{
-	"init":   cmdInit,
-	"rules":  cmdRules,
-	"today":  cmdToday,
-	"inbox":  cmdInbox,
-	"ignore": cmdIgnore,
-	"tag":    cmdTag,
-	"status": cmdStatus,
+	"init":    cmdInit,
+	"rules":   cmdRules,
+	"today":   cmdToday,
+	"inbox":   cmdInbox,
+	"ignore":  cmdIgnore,
+	"tag":     cmdTag,
+	"status":  cmdStatus,
+	"session": cmdSession,
+	"recap":   cmdRecap,
 }
 
 // run executes one command and returns the exit code: 0 ok, 1 error, 2 usage.
