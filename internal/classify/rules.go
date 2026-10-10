@@ -47,12 +47,12 @@ type Rule struct {
 	File  string // RulesFile or LearnedFile
 	Index int    // 1-based position within File
 
-	Bundle          []string
-	App, Title, URL string // patterns as written
-	Category        string
-	Project         string
+	Bundle               []string
+	App, Title, URL, Dir string // patterns as written
+	Category             string
+	Project              string
 
-	app, title, url *regexp.Regexp
+	app, title, url, dir *regexp.Regexp
 }
 
 // Ref returns "rules.toml#12".
@@ -64,7 +64,7 @@ func (r Rule) Describe() string {
 	if len(r.Bundle) > 0 {
 		parts = append(parts, "bundle=["+strings.Join(r.Bundle, ",")+"]")
 	}
-	for _, f := range []struct{ name, val string }{{"app", r.App}, {"title", r.Title}, {"url", r.URL}} {
+	for _, f := range []struct{ name, val string }{{"app", r.App}, {"title", r.Title}, {"url", r.URL}, {"dir", r.Dir}} {
 		if f.val != "" {
 			parts = append(parts, f.name+"='"+f.val+"'")
 		}
@@ -79,7 +79,7 @@ func (r *Rule) compile() error {
 		name string
 		pat  string
 		dst  **regexp.Regexp
-	}{{"app", r.App, &r.app}, {"title", r.Title, &r.title}, {"url", r.URL, &r.url}} {
+	}{{"app", r.App, &r.app}, {"title", r.Title, &r.title}, {"url", r.URL, &r.url}, {"dir", r.Dir, &r.dir}} {
 		if f.pat == "" {
 			*f.dst = nil
 			continue
@@ -117,6 +117,9 @@ func (r *Rule) matches(v *SpanView, clean string) bool {
 	if r.url != nil && (v.URL == nil || !r.url.MatchString(*v.URL)) {
 		return false
 	}
+	if r.dir != nil && (v.Dir == nil || !r.dir.MatchString(*v.Dir)) {
+		return false
+	}
 	return true
 }
 
@@ -140,6 +143,7 @@ type ruleTOML struct {
 	App      string   `toml:"app"`
 	Title    string   `toml:"title"`
 	URL      string   `toml:"url"`
+	Dir      string   `toml:"dir"`
 	Category string   `toml:"category"`
 	Project  string   `toml:"project"`
 }
@@ -254,13 +258,13 @@ func (rs *Ruleset) buildRules(file string, in []ruleTOML) ([]Rule, error) {
 	for i, t := range in {
 		r := Rule{
 			File: file, Index: i + 1,
-			Bundle: t.Bundle, App: t.App, Title: t.Title, URL: t.URL,
+			Bundle: t.Bundle, App: t.App, Title: t.Title, URL: t.URL, Dir: t.Dir,
 		}
 		fail := func(format string, a ...any) error {
 			return fmt.Errorf("%s: rule #%d (%s): %s", file, r.Index, r.Describe(), fmt.Sprintf(format, a...))
 		}
-		if len(r.Bundle) == 0 && r.App == "" && r.Title == "" && r.URL == "" {
-			return nil, fmt.Errorf("%s: rule #%d: no match field (bundle, app, title or url)", file, r.Index)
+		if len(r.Bundle) == 0 && r.App == "" && r.Title == "" && r.URL == "" && r.Dir == "" {
+			return nil, fmt.Errorf("%s: rule #%d: no match field (bundle, app, title, url or dir)", file, r.Index)
 		}
 		if t.Category == "" && t.Project == "" {
 			return nil, fail("sets neither category nor project")

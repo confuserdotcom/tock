@@ -51,7 +51,7 @@ func renderRule(r Rule, comment string) string {
 		fmt.Fprintf(&b, "bundle = [%s]\n", strings.Join(q, ", "))
 	}
 	for _, f := range []struct{ k, v string }{
-		{"app", r.App}, {"title", r.Title}, {"url", r.URL},
+		{"app", r.App}, {"title", r.Title}, {"url", r.URL}, {"dir", r.Dir},
 		{"category", r.Category}, {"project", r.Project},
 	} {
 		if f.v != "" {

@@ -16,6 +16,7 @@ type SpanView struct {
 	BundleID, App  string
 	Title, URL     *string
 	Private        bool
+	Dir            *string // the shell's working directory, for terminal views; "~/…" under home
 }
 
 // DurMS returns End-Start, or 0 when End is before Start.

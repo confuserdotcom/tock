@@ -26,9 +26,10 @@ type Label struct {
 }
 
 type memoKey struct {
-	bundle, app, title, url string
-	hasTitle, hasURL        bool
-	private                 bool
+	bundle, app, title, url  string
+	dir                      string
+	hasTitle, hasURL, hasDir bool
+	private                  bool
 }
 
 // Label classifies v. Idle spans get an empty label. o may be nil. Each field
@@ -63,6 +64,9 @@ func keyOf(v *SpanView) (memoKey, string) {
 	}
 	if v.URL != nil {
 		k.url, k.hasURL = *v.URL, true
+	}
+	if v.Dir != nil {
+		k.dir, k.hasDir = *v.Dir, true
 	}
 	return k, clean
 }
