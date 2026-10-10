@@ -38,7 +38,7 @@ func TestWeekGoalsBlock(t *testing.T) {
 	e.Seed(t, apptest.DaySpans()...)
 	m := newModel(t, e)
 	m = press(t, m, "2")
-	mustContain(t, m, " Code ≥2h/day                  met 1 of 1 day",
-		" project tock ≥10h/week        1h40/10h00 short 8h20",
-		" Entertainment ≤10m/day        over 1 of 1 day")
+	mustContain(t, m, "✓ Code ≥2h/day                met 1 of 1 day",
+		"○ project tock ≥10h/week      1h40/10h00 short 8h20",
+		"✗ Entertainment ≤10m/day      over 1 of 1 day")
 }

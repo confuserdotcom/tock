@@ -33,7 +33,7 @@ func TestCommitsLines(t *testing.T) {
 		t.Fatalf("today lacks the commits line:\n%s", s)
 	}
 	m = press(t, m, "2")
-	if s := screen(m); !strings.Contains(s, "Commits          tock 2") {
+	if s := screen(m); !strings.Contains(s, "Commits           tock 2") {
 		t.Fatalf("week lacks the commits line:\n%s", s)
 	}
 }

@@ -9,16 +9,16 @@ tock   today   week   inbox ³   focus   rules                            Sat 10
  │   t      label away               .      this week                                             │
  │   p      set project              m      month trends           Inbox                          │
  │   T      tag and learn a rule                                     enter  label, learn a rule   │
- │   j/k    move                   Focus                             a      accept the suggestion │
- │   h      previous day             s      start a session          o      tag once, no rule     │
- │   l      next day                 x      stop the session         x      ignore                │
- │   .      back to today                                            u      undo ignore           │
- │   /      filter rows            Rules                             j/k    move                  │
- │   i      why this score           e      edit rules.toml                                       │
- │   g/G    first / last row         J/K    move rule down/up      Go                             │
- │                                   j/k    move                     1-5    switch tab            │
- │ App                                                               tab    next tab              │
- │   ?      help                                                                                  │
+ │   j/k    move                   Focus                             T      pick a label          │
+ │   h      previous day             s      start a session          a      accept the suggestion │
+ │   l      next day                 x      stop the session         o      tag once, no rule     │
+ │   .      back to today                                            x      ignore                │
+ │   /      filter rows            Rules                             u      undo ignore           │
+ │   i      why this score           e      edit rules.toml          j/k    move                  │
+ │   g/G    first / last row         J/K    move rule down/up                                     │
+ │                                   j/k    move                   Go                             │
+ │ App                                                               1-5    switch tab            │
+ │   ?      help                                                     tab    next tab              │
  │   :      commands                                                                              │
  │   r      refresh                                                                               │
  │   q      quit                                                                                  │

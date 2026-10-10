@@ -7,6 +7,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"tock/internal/classify"
 	"tock/internal/report"
 )
 
@@ -121,10 +122,11 @@ func (m Model) monthKey(k string) (tea.Model, tea.Cmd) {
 }
 
 // monthView renders the trends: report.MonthLines with the title in the
-// heading style and each category name in its kind's colour.
+// heading style, labels muted, each category with its kind's dot and every
+// change coloured by whether it is good news.
 func (t weekTab) monthView(w int) []string {
 	if !t.monthLoaded {
-		return []string{"", " loading…"}
+		return []string{"", center(sDim.Render("loading…"), w)}
 	}
 	lines := report.MonthLines(t.monthData)
 	cats := t.monthData.Categories
@@ -133,15 +135,48 @@ func (t weekTab) monthView(w int) []string {
 	for i, l := range lines {
 		switch c := i - first; {
 		case i == 0:
-			out[i] = " " + sHead.Render(l)
+			out[i] = " " + sHead.Render(l) + sFaint.Render("  ‹ h  l ›")
 		case c >= 0 && len(cats) > 0:
 			name := report.Pad(cats[c].Name, 16)
-			out[i] = fit(" "+kindStyle(cats[c].Kind).Render(name)+strings.TrimPrefix(l, name), w)
+			kind := cats[c].Kind
+			up := kind != classify.KindDistract && kind != ""
+			out[i] = fit(" "+dot(kind)+" "+kindStyle(kind).Render(name)+colorChange(strings.TrimPrefix(l, name), up), w)
+		case l == "":
+			out[i] = ""
 		default:
-			out[i] = fit(" "+l, w)
+			label, rest, _ := strings.Cut(l, " ")
+			out[i] = fit("   "+sDim.Render(label)+" "+colorChange(rest, true), w)
 		}
 	}
 	return out
+}
+
+// colorChange colours the "+x"/"-x" changes in s: good when the change goes
+// the way up says is good, else the accent.
+func colorChange(s string, up bool) string {
+	var b strings.Builder
+	for _, f := range strings.SplitAfter(s, " ") {
+		w := strings.TrimSpace(f)
+		switch {
+		case strings.HasPrefix(w, "+") && w != "+0%":
+			if up {
+				b.WriteString(sGood.Render(f))
+			} else {
+				b.WriteString(sAccent.Render(f))
+			}
+		case strings.HasPrefix(w, "-") || strings.HasPrefix(w, "−"):
+			if up {
+				b.WriteString(sAccent.Render(f))
+			} else {
+				b.WriteString(sGood.Render(f))
+			}
+		case strings.ContainsAny(w, "▁▂▃▄▅▆▇█"):
+			b.WriteString(sBrand.Render(f))
+		default:
+			b.WriteString(sText.Render(f))
+		}
+	}
+	return b.String()
 }
 
 // stacked draws a day's time by kind as one bar of up to cells blocks.
@@ -168,9 +203,9 @@ func stacked(byKind map[string]int64, maxMS int64, cells int) string {
 // the week has one, and a blank line.
 func (t *weekTab) head() int {
 	if t.week.Plan != "" {
-		return 3
+		return 4
 	}
-	return 2
+	return 3
 }
 
 // rowAt is the day (0 = Monday) shown on body line line, if any.
@@ -187,33 +222,34 @@ func (t weekTab) view(w, h int) []string {
 		return []string{"", " loading…"}
 	}
 	wk := t.week
-	parts := []string{"tracked " + report.Dur(wk.TrackedMS), weekScore(wk)}
-	for _, k := range report.Kinds {
-		if ms := wk.ByKind[k]; ms > 0 {
-			parts = append(parts, kindStyle(k).Render(kindName(k)+" "+report.Dur(ms)))
-		}
-	}
-	out := []string{" " + sHead.Render("Week of "+wk.Monday.Format("Mon 2 Jan")) + "  " + strings.Join(parts, sDim.Render(" · "))}
+	parts := []string{sBright.Render(report.Dur(wk.TrackedMS)) + sDim.Render(" tracked"), weekScore(wk)}
+	out := []string{spread(" "+sHead.Render("Week of "+wk.Monday.Format("Mon 2 Jan"))+sFaint.Render("  ‹ h  l ›"),
+		strings.Join(parts, sDim.Render(" · "))+" ", w)}
 	if wk.Plan != "" {
-		out = append(out, fit(" "+sDim.Render("plan: ")+sText.Render(wk.Plan), w))
+		out = append(out, fit(" "+sBrand.Render("◆ plan  ")+sText.Render(wk.Plan), w))
 	}
-	out = append(out, "")
+	out = append(out, "", sFaint.Render("          tracked  score  focus"))
 	var maxMS int64
 	for _, d := range wk.Days {
 		maxMS = max(maxMS, d.TrackedMS)
 	}
 	cells := max(min(w-32, 48), 8)
 	for i, d := range wk.Days {
-		dur, score, focus := report.Dur(d.TrackedMS), "—", "—"
+		dur, score, focus := report.Dur(d.TrackedMS), sFaint.Render("  ·"), sFaint.Render("    ·")
 		if d.Stats.ActiveMS > 0 {
-			score, focus = fmt.Sprint(d.Score.Value), report.Dur(d.Stats.FocusMS)
+			band, _ := scoreBand(d.Score.Value, true)
+			score, focus = band.Bold(true).Render(fitRight(fmt.Sprint(d.Score.Value), 3)), sText.Render(fitRight(report.Dur(d.Stats.FocusMS), 5))
 		}
 		bar := stacked(d.ByKind, maxMS, cells)
-		if d.Future {
-			dur, bar = "—", ""
+		day := sText.Render(fmt.Sprintf("%-3s %2d", d.Date.Format("Mon"), d.Date.Day()))
+		durS := sBright.Render(fitRight(dur, 6))
+		switch {
+		case d.Future:
+			day, durS, bar = sFaint.Render(fmt.Sprintf("%-3s %2d", d.Date.Format("Mon"), d.Date.Day())), sFaint.Render(fitRight("·", 6)), ""
+		case d.TrackedMS == 0:
+			durS, bar = sFaint.Render(fitRight("·", 6)), ""
 		}
-		line := fmt.Sprintf("%-3s %2d  ", d.Date.Format("Mon"), d.Date.Day()) + fitRight(dur, 5) + "  " +
-			fitRight(score, 3) + "  " + fitRight(focus, 5) + "  " + bar
+		line := day + "  " + durS + "    " + score + "  " + focus + "  " + bar
 		if i == t.cursor {
 			out = append(out, sSel.Render(sBrand.Bold(true).Render("▸")+line))
 		} else {
@@ -223,14 +259,14 @@ func (t weekTab) view(w, h int) []string {
 	out = append(out, "")
 	if len(wk.Goals) > 0 {
 		for _, g := range wk.Goals {
-			st := sText
+			st, mark := sText, "○ "
 			switch {
 			case g.State == report.GoalOver || (!g.Goal.Week && g.Goal.AtMost && g.Held < g.Days):
-				st = sAccent
+				st, mark = sAccent, "✗ "
 			case g.State == report.GoalMet || g.State == report.GoalOK || (!g.Goal.Week && g.Days > 0 && g.Held == g.Days):
-				st = sDim
+				st, mark = sGood, "✓ "
 			}
-			out = append(out, " "+fit(g.Goal.Text(), 28)+"  "+st.Render(report.WeekGoalText(g)))
+			out = append(out, " "+st.Render(mark)+fit(g.Goal.Text(), 26)+"  "+st.Render(report.WeekGoalText(g)))
 		}
 		out = append(out, "")
 	}
@@ -240,20 +276,24 @@ func (t weekTab) view(w, h int) []string {
 	}
 	room := max(h-len(out)-2, 0)
 	for _, c := range wk.Categories[:min(len(wk.Categories), room)] {
-		bar := kindStyle(c.Kind).Render(report.Pad(report.Bar(c.MS, catMax, 12), 12))
-		out = append(out, " "+fit(c.Name, 15)+fitRight(report.Dur(c.MS), 6)+"  "+bar+"  "+sDim.Render(projects(c.Projects)))
+		name := c.Name
+		if name == report.Unclassified {
+			name = "unlabelled"
+		}
+		out = append(out, " "+dot(c.Kind)+" "+kindStyle(c.Kind).Render(fit(name, 14))+sBright.Render(fitRight(report.Dur(c.MS), 6))+
+			"  "+meter(c.MS, catMax, 12, kindStyle(c.Kind))+"  "+sDim.Render(projects(c.Projects)))
 	}
 	if len(wk.Projects) > 0 || len(wk.Apps) > 0 {
 		out = append(out, "")
 	}
 	if len(wk.Projects) > 0 {
-		out = append(out, " "+fit("Projects", 15)+"  "+names(wk.Projects))
+		out = append(out, " "+sDim.Render(fit("Projects", 16))+"  "+names(wk.Projects))
 	}
 	if len(wk.Commits) > 0 {
-		out = append(out, " "+fit("Commits", 15)+"  "+report.CommitsLine(wk.Commits))
+		out = append(out, " "+sDim.Render(fit("Commits", 16))+"  "+report.CommitsLine(wk.Commits))
 	}
 	if len(wk.Apps) > 0 {
-		out = append(out, " "+fit("Apps", 15)+"  "+names(wk.Apps))
+		out = append(out, " "+sDim.Render(fit("Apps", 16))+"  "+names(wk.Apps))
 	}
 	return out
 }

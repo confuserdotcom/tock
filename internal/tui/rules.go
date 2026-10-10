@@ -21,6 +21,7 @@ type rulesTab struct {
 	rows    []classify.Rule              // learned rules first
 	learned int                          // how many of rows are learned
 	stats   map[string]classify.RuleStat // by Rule.Ref(); nil when unavailable
+	kinds   map[string]string            // category -> kind
 	cursor  int
 	top     int // first visible line
 	height  int
@@ -31,6 +32,7 @@ type rulesTab struct {
 type rulesSnap struct {
 	learned, rules []classify.Rule
 	stats          map[string]classify.RuleStat
+	kinds          map[string]string // category -> kind
 }
 
 func snapRules(a *app.App) *rulesSnap {
@@ -41,6 +43,10 @@ func snapRules(a *app.App) *rulesSnap {
 	s := &rulesSnap{
 		learned: append([]classify.Rule{}, rs.Learned...),
 		rules:   append([]classify.Rule{}, rs.Rules...),
+		kinds:   map[string]string{},
+	}
+	for _, c := range rs.Categories {
+		s.kinds[c.Name] = c.Kind
 	}
 	if stats, err := a.RuleStats(app.StatsDays); err == nil {
 		s.stats = make(map[string]classify.RuleStat, len(stats))
@@ -54,7 +60,7 @@ func snapRules(a *app.App) *rulesSnap {
 func (t *rulesTab) set(s rulesSnap) {
 	t.rows = append(append([]classify.Rule{}, s.learned...), s.rules...)
 	t.learned = len(s.learned)
-	t.stats = s.stats
+	t.stats, t.kinds = s.stats, s.kinds
 	t.clampScroll()
 }
 
@@ -140,15 +146,22 @@ func (t *rulesTab) rowAt(line int) (int, bool) {
 func (t rulesTab) view(w, h int) []string {
 	var lines []string
 	if len(t.rows) == 0 {
-		return []string{" " + sHead.Render(classify.RulesFile+" · 0 rules"), " " + sDim.Render("no rules · e opens rules.toml")}
+		return emptyState(w, classify.RulesFile,
+			sText.Render("No rules yet: all activity lands in the inbox."),
+			sDim.Render("Label it there and tock learns rules for you,"),
+			sDim.Render("or write them by hand."),
+			"", keycap("e", "open rules.toml")+"   "+keycap("3", "inbox"))
 	}
-	title := func(s string) string { return " " + sHead.Render(s) }
+	title := func(s string) string {
+		name, rest, _ := strings.Cut(s, " · ")
+		return " " + sHead.Render(name) + sDim.Render(" · "+rest)
+	}
 	if t.learned > 0 {
 		lines = append(lines, title(classify.LearnedFile+" · checked first · "+plural(t.learned, "rule")))
 	}
 	setsW := 0 // with stats, sets are left-aligned so the time column lines up
 	for _, r := range t.rows {
-		setsW = max(setsW, ansi.StringWidth(sets(r)))
+		setsW = max(setsW, ansi.StringWidth(sets(r))+2)
 	}
 	for i, r := range t.rows {
 		if i == t.learned {
@@ -163,23 +176,35 @@ func (t rulesTab) view(w, h int) []string {
 		}
 		mark := "  "
 		if i == t.cursor {
-			mark = "▸ "
+			mark = sBrand.Bold(true).Render("▸") + " "
 		}
-		right := sets(r)
+		right := "  " + sets(r)
 		stat := t.statCell(r)
 		if stat != "" {
 			right = stat + "  " + right + strings.Repeat(" ", setsW-ansi.StringWidth(right))
 		}
 		var l string
 		lw := max(w-ansi.StringWidth(right)-3, 10)
-		left := fit(fmt.Sprintf("%s%-4s %s", mark, ref, r.Describe()), lw) + "  "
-		switch {
-		case i == t.cursor:
-			l = sSel.Render(fit(left+right, w-1))
-		case stat != "" && strings.TrimSpace(stat) == t.stats[r.Ref()].Status():
-			l = sText.Render(left) + sDim.Render(stat) + sText.Render(right[len(stat):])
-		default:
-			l = sText.Render(left + right)
+		left := fit(mark+sDim.Render(fmt.Sprintf("%-4s ", ref))+sText.Render(r.Describe()), lw) + "  "
+		statS := sBright.Render(stat)
+		switch strings.TrimSpace(stat) {
+		case classify.StatusUnused:
+			statS = sFaint.Render(stat)
+		case classify.StatusShadowed:
+			statS = sAccent.Render(stat)
+		}
+		label := dot(t.kinds[r.Category]) + " " + kindStyle(t.kinds[r.Category]).Render(sets(r))
+		if r.Category == "" {
+			label = sText.Render("  " + sets(r))
+		}
+		pad := strings.Repeat(" ", max(setsW-2-ansi.StringWidth(sets(r)), 0))
+		if stat != "" {
+			l = left + statS + "  " + label + pad
+		} else {
+			l = left + label + pad
+		}
+		if i == t.cursor {
+			l = sSel.Render(fit(l, w-1))
 		}
 		lines = append(lines, " "+l)
 	}

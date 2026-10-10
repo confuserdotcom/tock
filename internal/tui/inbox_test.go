@@ -11,7 +11,7 @@ import (
 func TestInboxLists(t *testing.T) {
 	m, _ := seeded(t)
 	m = press(t, m, "3")
-	mustContain(t, m, "Inbox · last 7 days · 3 keys · 28m unlabelled")
+	mustContain(t, m, "28m unlabelled · 3 keys · last 7 days")
 	if l := line(t, m, "chatgpt.com/c"); !strings.HasPrefix(l, "▸  12m   2 spans  Arc · chatgpt.com/c") || !strings.Contains(l, `"Proofs"`) {
 		t.Fatalf("first item: %q", l)
 	}
@@ -28,7 +28,7 @@ func TestInboxLearnWritesRuleAndBadgeDrops(t *testing.T) {
 	mustContain(t, m, "Learn a rule", "Arc · chatgpt.com/c", "->  Study",
 		"matches  2 spans (12m): 2 this key, 0 other unlabelled (0s), 0 relabelled", "[y] accept")
 	m = press(t, m, "y")
-	mustContain(t, m, "learned: Study now covers 2 spans (12m)", "inbox ²", "2 keys · 16m unlabelled")
+	mustContain(t, m, "learned: Study now covers 2 spans (12m)", "inbox ²", "16m unlabelled · 2 keys")
 	body, err := os.ReadFile(e.Learned)
 	if err != nil || !strings.Contains(string(body), "category = \"Study\"") {
 		t.Fatalf("learned.toml: %s %v", body, err)

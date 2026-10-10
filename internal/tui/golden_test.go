@@ -166,3 +166,19 @@ func TestGoldenTodaySuggested(t *testing.T) {
 	m = press(t, m, "1", "r")
 	golden.RequireEqual(t, screen(m))
 }
+
+func TestGoldenInboxZero(t *testing.T) {
+	e := apptest.New(t, apptest.Rules)
+	e.Seed(t, apptest.Span{ID: 1, Start: "09:00", End: "10:00", Bundle: "term", App: "WezTerm", Title: "tock │ x"})
+	e.Heartbeat(t, e.Clock.UnixMilli())
+	m := newModel(t, e)
+	m = press(t, m, "3")
+	golden.RequireEqual(t, screen(m))
+}
+
+func TestGoldenFocusIdle(t *testing.T) {
+	m, e := seeded(t)
+	e.Heartbeat(t, e.Clock.UnixMilli())
+	m = press(t, m, "r", "4")
+	golden.RequireEqual(t, screen(m))
+}

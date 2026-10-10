@@ -329,4 +329,3 @@ func shade(ms int64) string {
 	}
 	return "█"
 }
-

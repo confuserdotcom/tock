@@ -125,6 +125,7 @@ func actionTable() []action {
 		{key: "m", name: "back to the week", group: grMonth, prio: 5, when: month},
 
 		{key: "enter", name: "label, learn a rule", group: grInbox, prio: 1, when: inbox},
+		{key: "T", name: "pick a label", group: grInbox, when: inbox},
 		{key: "a", name: "accept the suggestion", group: grInbox, prio: 2,
 			when: func(m *Model) bool {
 				it := m.inbox.selected()

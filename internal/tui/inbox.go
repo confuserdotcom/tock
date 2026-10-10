@@ -85,6 +85,9 @@ func (m Model) inboxKey(k string) (tea.Model, tea.Cmd) {
 		t.cursor = len(t.items) - 1
 	case "enter", "T":
 		if it := t.selected(); it != nil {
+			if w, ok := t.sugg[it.Key]; ok && k == "enter" {
+				return m, m.propose(it.Key, w)
+			}
 			m.picker = newPicker(m.src, pickLearn, nil, it.Key, "")
 		}
 	case "a":
@@ -144,20 +147,22 @@ func (t *inboxTab) rowAt(line int) (int, bool) {
 
 func (t inboxTab) view(w, h int) []string {
 	if !t.loaded {
-		return []string{"", " loading…"}
+		return []string{"", center(sDim.Render("loading…"), w)}
 	}
 	var total int64
 	for _, it := range t.items {
 		total += it.TotalMS
 	}
-	head := fmt.Sprintf(" · last %d days · %d keys · %s unlabelled", InboxDays, len(t.items), report.Dur(total))
-	if n := t.suggested(); n > 0 {
-		head += fmt.Sprintf(" · %d suggested", n)
-	}
-	out := []string{" " + sHead.Render("Inbox") + sDim.Render(head), ""}
 	if len(t.items) == 0 {
-		return append(out, " "+sDim.Render("Inbox empty: everything is labelled."))
+		return emptyState(w, "Inbox",
+			sGood.Render("✓ Inbox zero."),
+			sText.Render(fmt.Sprintf("Everything from the last %d days is labelled.", InboxDays)))
 	}
+	head := sUnl.Render(report.Dur(total)+" unlabelled") + sDim.Render(fmt.Sprintf(" · %s · last %d days", plural(len(t.items), "key"), InboxDays))
+	if n := t.suggested(); n > 0 {
+		head += sDim.Render(" · ") + sBrand.Render(fmt.Sprintf("%d suggested", n))
+	}
+	out := []string{spread(" "+sHead.Render("Inbox"), head+" ", w), ""}
 	end := min(t.top+max(h-inboxHeader, 1), len(t.items))
 	keyW := max(min(w/2-20, 40), 16)
 	for i := t.top; i < end; i++ {
@@ -167,19 +172,19 @@ func (t inboxTab) view(w, h int) []string {
 			ex = fmt.Sprintf("%q", report.Safe(it.Example))
 		}
 		rest := max(w-keyW-21, 0)
-		tail := fit(ex, rest)
+		tail := sDim.Render(fit(ex, rest))
 		if wnt, ok := t.sugg[it.Key]; ok {
-			sug := "→ " + report.Safe(report.LabelText(wnt.Category, wnt.Project))
+			sug := sUnl.Render("→ "+report.Safe(report.LabelText(wnt.Category, wnt.Project))) + " " + sBrand.Render("⏎")
 			if sw := ansi.StringWidth(sug); sw+2 > rest {
 				tail = fit(sug, rest)
 			} else {
-				tail = fit(ex, rest-sw-2) + "  " + sug
+				tail = sDim.Render(fit(ex, rest-sw-2)) + "  " + sug
 			}
 		}
-		line := fitRight(report.Dur(it.TotalMS), 5) + fitRight(plural(it.Spans, "span"), 10) + "  " +
-			fit(report.Safe(it.Key), keyW) + "  " + sDim.Render(tail)
+		line := sBright.Render(fitRight(report.Dur(it.TotalMS), 5)) + sDim.Render(fitRight(plural(it.Spans, "span"), 10)) + "  " +
+			sText.Render(fit(report.Safe(it.Key), keyW)) + "  " + tail
 		if i == t.cursor {
-			out = append(out, sSel.Render(sBrand.Bold(true).Render("▸")+line))
+			out = append(out, sSel.Render(fit(sBrand.Bold(true).Render("▸")+line, w)))
 		} else {
 			out = append(out, " "+line)
 		}

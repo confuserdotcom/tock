@@ -155,9 +155,9 @@ func (d *startDlg) view(w int) []string {
 			label = fmt.Sprintf("%d min", d.presets[i])
 		}
 		if i == d.cursor {
-			out = append(out, "   "+sSel.Render(fit(label, cell)))
+			out = append(out, "  "+sSel.Render(fit(sBrand.Bold(true).Render("▸ ")+label, cell)))
 		} else {
-			out = append(out, "   "+sText.Render(fit(label, cell)))
+			out = append(out, "  "+sText.Render(fit("  "+label, cell)))
 		}
 	}
 	return out
@@ -165,23 +165,39 @@ func (d *startDlg) view(w int) []string {
 
 func (t focusTab) view(w int, now time.Time) []string {
 	if !t.loaded {
-		return []string{" " + sDim.Render("loading…")}
+		return []string{"", center(sDim.Render("loading…"), w)}
 	}
 	f, nowMS, loc := t.data, now.UnixMilli(), now.Location()
-	out := []string{" " + sHead.Render("Session"), ""}
+	cw := min(w-2, 72)
+	pad := strings.Repeat(" ", max((w-cw)/2, 0))
+	var body []string
 	if s := f.Open; s != nil {
 		total, left := s.PlannedMS-s.StartMS, s.PlannedMS-nowMS
-		out = append(out,
-			"   "+sBright.Render(report.Countdown(left))+sDim.Render(" left of "+report.Dur(total)),
-			"   "+progress(total-left, total, min(w-6, 40)),
-			"   "+sText.Render(fit(report.SessionStats(*s, nowMS), w-3)))
+		inner := cw - 4
+		body = append(body, "")
+		for _, r := range bigDigits(report.Countdown(left)) {
+			body = append(body, center(sBrand.Bold(true).Render(r), inner))
+		}
+		body = append(body, center(sDim.Render("left of "+report.Dur(total)), inner), "",
+			center(meter(total-left, total, min(inner-4, 48), sBrand), inner),
+			center(sText.Render(report.SessionStats(*s, nowMS)), inner), "")
+		body = card("Session", body, cw)
 	} else {
-		out = append(out, "   "+sDim.Render("no session · s starts one"))
+		body = card("Session", []string{"",
+			sText.Render("No session running."),
+			sDim.Render("A session silences nothing; it nudges you when you drift."),
+			"",
+			keycap("s", "choose a length") + "    " + keycap(":", "then \"50 min\""),
+			""}, cw)
 	}
-	out = append(out, "", " "+sHead.Render("Today"))
-	out = append(out, sessionLines(f.Today, loc, false, w)...)
-	out = append(out, "", " "+sHead.Render("Earlier this week"))
-	return append(out, sessionLines(f.Week, loc, true, w)...)
+	out := []string{""}
+	for _, l := range body {
+		out = append(out, pad+l)
+	}
+	out = append(out, "", pad+" "+sHead.Render("Today"))
+	out = append(out, prefix(sessionLines(f.Today, loc, false, cw), pad)...)
+	out = append(out, "", pad+" "+sHead.Render("Earlier this week"))
+	return append(out, prefix(sessionLines(f.Week, loc, true, cw), pad)...)
 }
 
 func sessionLines(ss []focus.Session, loc *time.Location, withDay bool, w int) []string {

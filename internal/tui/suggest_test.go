@@ -37,7 +37,7 @@ func TestInboxShowsSuggestions(t *testing.T) {
 	f := &fakeSuggester{answer: studyTock}
 	m, _ := withSuggestions(t, f)
 	m = press(t, m, "3")
-	mustContain(t, m, "3 keys · 28m unlabelled · 1 suggested", "→ Study / tock")
+	mustContain(t, m, "28m unlabelled · 3 keys · last 7 days · 1 suggested", "→ Study / tock")
 	if l := line(t, m, "Mail · inbox"); strings.Contains(l, "→") {
 		t.Fatalf("Mail has no suggestion: %q", l)
 	}
@@ -73,4 +73,16 @@ func TestNoSuggesterNoColumn(t *testing.T) {
 	e.Heartbeat(t, e.Clock.UnixMilli())
 	m = press(t, m, "3")
 	mustNotContain(t, m, "suggested", "→")
+}
+
+func TestInboxEnterAcceptsSuggestion(t *testing.T) {
+	m, _ := withSuggestions(t, &fakeSuggester{answer: studyTock})
+	m = press(t, m, "3")
+	for i := 0; i < 3 && !strings.Contains(line(t, m, "→ Study / tock"), "▸"); i++ {
+		m = press(t, m, "j")
+	}
+	m = press(t, m, "enter")
+	if m.learn == nil {
+		t.Fatalf("enter on a suggested key must open the learn dialog:\n%s", screen(m))
+	}
 }

@@ -1,8 +1,8 @@
 tock   today   week   inbox ³   focus   rules                            Sat 10 Oct  15:00  ● trackd
  rules.toml · 3 rules
- ▸ 1    bundle=[term] title='^tock │'                                            1h40  · / tock     
-   2    bundle=[term]                                                            2h14  Code         
-   3    url='^(www\.)?youtube\.com(/|$)'                                          12m  Entertainment
+ ▸ 1    bundle=[term] title='^tock │'                                          1h40    · / tock     
+   2    bundle=[term]                                                          2h14  ● Code         
+   3    url='^(www\.)?youtube\.com(/|$)'                                        12m  ● Entertainment
 
 
 

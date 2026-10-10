@@ -168,11 +168,11 @@ func TestMouseInboxSelectThenLearn(t *testing.T) {
 func TestMouseWeekOpensDay(t *testing.T) {
 	m, _ := seeded(t)
 	m = press(t, m, "2")
-	m = clickOn(t, m, "Sat 10   2h54")
-	if l := line(t, m, "Sat 10   2h54"); !strings.HasPrefix(l, "▸") {
+	m = clickOn(t, m, "Sat 10    2h54")
+	if l := line(t, m, "Sat 10    2h54"); !strings.HasPrefix(l, "▸") {
 		t.Fatalf("not selected: %q", l)
 	}
-	m = clickOn(t, m, "Sat 10   2h54")
+	m = clickOn(t, m, "Sat 10    2h54")
 	mustContain(t, m, "Today  ‹ h  l ›")
 }
 
