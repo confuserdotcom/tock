@@ -47,6 +47,12 @@ kind = "neutral"
 [calls]
 category = "Meeting"
 
+# Calendar events label the time you are away in a meeting (needs
+# config.toml [calendar] enabled = true):
+#
+# [calendar]
+# category = "Meeting"
+
 # Goals (at_least) and limits (at_most) per day or week, shown in the TUI
 # and tock status:
 #
@@ -58,6 +64,14 @@ category = "Meeting"
 # [[goal]]
 # category = "Entertainment"
 # at_most = "45m"
+
+# A project can list local git repos (commits are counted beside its time)
+# and an hourly rate (tock export bills its time):
+#
+# [[project]]
+# name = "client"
+# repos = ["~/code/client"]
+# rate = 80
 
 [[project]]
 name = "tock"
