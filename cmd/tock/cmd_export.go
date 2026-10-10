@@ -12,6 +12,7 @@ func cmdExport(env Env, args []string) error {
 	fromS := fs.String("from", "", "first day, YYYY-MM-DD")
 	toS := fs.String("to", "", "last day, YYYY-MM-DD")
 	format := fs.String("format", "csv", "csv or json")
+	by := fs.String("by", "", `"project": one row per project with hours, rate and amount`)
 	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
@@ -20,6 +21,9 @@ func cmdExport(env Env, args []string) error {
 	}
 	if *format != "csv" && *format != "json" {
 		return usagef("export: format %q, want csv or json", *format)
+	}
+	if *by != "" && *by != "project" {
+		return usagef("export: --by %q, want project", *by)
 	}
 	now := env.Now()
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
@@ -52,6 +56,13 @@ func cmdExport(env Env, args []string) error {
 	rows, err := a.Export(from, to.AddDate(0, 0, 1))
 	if err != nil {
 		return err
+	}
+	if *by == "project" {
+		bill := report.Bill(rows)
+		if *format == "json" {
+			return report.WriteBillJSON(env.Stdout, bill)
+		}
+		return report.WriteBillCSV(env.Stdout, bill)
 	}
 	if *format == "json" {
 		return report.WriteJSON(env.Stdout, rows)

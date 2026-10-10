@@ -61,3 +61,31 @@ func TestExportUsage(t *testing.T) {
 		t.Errorf("no db: exit %d, want 1", code)
 	}
 }
+
+func TestExportByProject(t *testing.T) {
+	te := newTestEnv(t, strings.Replace(testRules, "name = \"tock\"\n", "name = \"tock\"\nrate = 60\n", 1))
+	te.seed(t, daySpans()[:7]...)
+
+	code, out := te.run(t, "", "export", "--by", "project")
+	if code != 0 {
+		t.Fatalf("exit %d: %s", code, te.errb)
+	}
+	// Only span 1 has a project: 1h40 of tock at 60 an hour.
+	if want := "project,duration_s,hours,rate,amount\ntock,6000,1.67,60,100.00\n"; out != want {
+		t.Fatalf("csv =\n%s\nwant\n%s", out, want)
+	}
+	code, out = te.run(t, "", "export", "--by", "project", "--format", "json")
+	var rows []map[string]any
+	if code != 0 || json.Unmarshal([]byte(out), &rows) != nil || len(rows) != 1 || rows[0]["amount"] != 100.0 {
+		t.Fatalf("json exit %d: %s", code, out)
+	}
+
+	_, out = te.run(t, "", "export")
+	recs, _ := csv.NewReader(strings.NewReader(out)).ReadAll()
+	if recs[1][14] != "60" || recs[1][15] != "100.00" || recs[2][14] != "" {
+		t.Fatalf("span rows = %v / %v", recs[1], recs[2])
+	}
+	if code, _ := te.run(t, "", "export", "--by", "app"); code != 2 {
+		t.Errorf("--by app: exit %d, want 2", code)
+	}
+}

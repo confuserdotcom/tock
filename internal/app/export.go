@@ -28,6 +28,9 @@ func (a *App) Export(from, to time.Time) ([]report.ExportRow, error) {
 			App: v.App, BundleID: v.BundleID, Title: str(v.Title), URL: str(v.URL), Private: v.Private,
 			Category: l.Category, Kind: l.Kind, Project: l.Project,
 			CategorySource: string(l.CategorySource), ProjectSource: string(l.ProjectSource)}
+		if l.Project != "" {
+			rows[i].Rate = a.rs.Rate(l.Project)
+		}
 	}
 	return rows, nil
 }

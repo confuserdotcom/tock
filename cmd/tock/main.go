@@ -39,7 +39,7 @@ const usage = `usage:
                                          weekly recap, then next week's focus
   tock suggest [--dry-run | --force]     Claude label suggestions for the inbox (needs ANTHROPIC_API_KEY)
   tock doctor [--wait] [--open]          check trackd, permissions, rules and config
-  tock export [--from D] [--to D] [--format csv|json]
+  tock export [--from D] [--to D] [--format csv|json] [--by project]
                                          labelled spans, default the last 7 days as csv
   tock backup [--out FILE]               archive tock.db and the rule, config and shell files
                                          (default ~/.local/share/tock/backups/)

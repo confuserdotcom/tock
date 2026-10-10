@@ -42,6 +42,24 @@ category = "code"
 	}
 }
 
+func TestProjectRateAndRepos(t *testing.T) {
+	rs, err := Parse([]byte(baseRules+"[[project]]\nname='ATLAS'\nrate=80.5\nrepos=['~/code/atlas/', '/srv/x']\n"), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r := rs.Rate("atlas"); r == nil || *r != 80.5 || rs.Rate("tock") != nil || rs.Rate("nope") != nil {
+		t.Fatalf("rates: %v %v", rs.Rate("atlas"), rs.Rate("tock"))
+	}
+	if got := rs.Projects[1].Repos; len(got) != 2 || got[0] != "~/code/atlas" || got[1] != "/srv/x" {
+		t.Fatalf("repos = %q", got)
+	}
+	for in, want := range map[string]string{"~": "/h", "~/a/b": "/h/a/b", "/x": "/x", "~x": "~x"} {
+		if got := ExpandHome(in, "/h"); got != want {
+			t.Errorf("ExpandHome(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
 func TestParseErrors(t *testing.T) {
 	cases := []struct {
 		name, rules, learned, want string
@@ -51,6 +69,11 @@ func TestParseErrors(t *testing.T) {
 		{"bad kind", "[[category]]\nname='X'\nkind='deeep'\n", "", `kind "deeep"`},
 		{"dup category", baseRules + "[[category]]\nname='code'\nkind='deep'\n", "", `duplicate category "code"`},
 		{"dup project", baseRules + "[[project]]\nname='TOCK'\n", "", `duplicate project "TOCK"`},
+		{"negative rate", baseRules + "[[project]]\nname='X'\nrate=-1\n", "", `project "X": rate -1, want 0 to 100000`},
+		{"huge rate", baseRules + "[[project]]\nname='X'\nrate=100001\n", "", `project "X": rate 100001`},
+		{"empty repo", baseRules + "[[project]]\nname='X'\nrepos=[' ']\n", "", `project "X": empty repo path`},
+		{"dup repo", baseRules + "[[project]]\nname='X'\nrepos=['~/a']\n[[project]]\nname='Y'\nrepos=['~/a/']\n", "",
+			`project "Y": repo "~/a" is already listed by project "X"`},
 		{"slash in name", "[[category]]\nname='A/B'\nkind='deep'\n", "", "must not contain /"},
 		{"no match field", baseRules + "[[rule]]\ncategory='Code'\n", "", "rule #1: no match field"},
 		{"no label", baseRules + "[[rule]]\napp='x'\n", "", "rule #1 (app='x'): sets neither category nor project"},

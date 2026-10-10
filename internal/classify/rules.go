@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
@@ -39,7 +40,14 @@ type Category struct {
 type Project struct {
 	Name     string
 	Archived bool
+	// Rate is the hourly rate billed in tock export; nil = none.
+	Rate *float64
+	// Repos are local git repositories as written (see ExpandHome).
+	Repos []string
 }
+
+// MaxRate is the largest hourly rate a project may set.
+const MaxRate = 100000
 
 // Rule is one compiled [[rule]] table. Category and Project hold the declared
 // (canonical) names.
@@ -159,8 +167,10 @@ type rulesTOML struct {
 		Kind string `toml:"kind"`
 	} `toml:"category"`
 	Project []struct {
-		Name     string `toml:"name"`
-		Archived bool   `toml:"archived"`
+		Name     string   `toml:"name"`
+		Archived bool     `toml:"archived"`
+		Rate     *float64 `toml:"rate"`
+		Repos    []string `toml:"repos"`
 	} `toml:"project"`
 	Rule  []ruleTOML `toml:"rule"`
 	Calls struct {
@@ -243,6 +253,7 @@ func Parse(rulesData, learnedData []byte) (*Ruleset, error) {
 		}
 		rs.CallCategory = cat.Name
 	}
+	repoOwner := map[string]string{}
 	for i, p := range rf.Project {
 		lower := strings.ToLower(strings.TrimSpace(p.Name))
 		switch {
@@ -255,6 +266,24 @@ func Parse(rulesData, learnedData []byte) (*Ruleset, error) {
 			return nil, fmt.Errorf("%s: duplicate project %q", RulesFile, p.Name)
 		}
 		proj := Project{Name: p.Name, Archived: p.Archived}
+		for _, r := range p.Repos {
+			r = strings.TrimSpace(r)
+			if r == "" {
+				return nil, fmt.Errorf("%s: project %q: empty repo path", RulesFile, p.Name)
+			}
+			r = filepath.Clean(r)
+			if other, dup := repoOwner[r]; dup {
+				return nil, fmt.Errorf("%s: project %q: repo %q is already listed by project %q", RulesFile, p.Name, r, other)
+			}
+			repoOwner[r] = p.Name
+			proj.Repos = append(proj.Repos, r)
+		}
+		if p.Rate != nil {
+			if r := *p.Rate; !(r >= 0 && r <= MaxRate) {
+				return nil, fmt.Errorf("%s: project %q: rate %v, want 0 to %d", RulesFile, p.Name, r, MaxRate)
+			}
+			proj.Rate = p.Rate
+		}
 		rs.projByLower[lower] = proj
 		rs.Projects = append(rs.Projects, proj)
 	}
@@ -325,4 +354,20 @@ func (rs *Ruleset) HasCategory(name string) bool {
 func (rs *Ruleset) HasProject(name string) bool {
 	_, ok := rs.projByLower[strings.ToLower(name)]
 	return ok
+}
+
+// ExpandHome replaces a leading ~ in a repo path with home.
+func ExpandHome(p, home string) string {
+	if p == "~" {
+		return home
+	}
+	if strings.HasPrefix(p, "~/") {
+		return filepath.Join(home, p[2:])
+	}
+	return p
+}
+
+// Rate returns a declared project's hourly rate, nil when it has none.
+func (rs *Ruleset) Rate(project string) *float64 {
+	return rs.projByLower[strings.ToLower(project)].Rate
 }
