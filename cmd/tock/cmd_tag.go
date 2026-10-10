@@ -139,4 +139,3 @@ func tagSpans(env Env, a *app.App, ids []int64, want classify.Want, what string)
 	fmt.Fprintf(env.Stdout, "tagged %s → %s\n", what, report.LabelText(want.Category, want.Project))
 	return nil
 }
-
