@@ -88,10 +88,13 @@ func TestProjectOnly(t *testing.T) {
 
 func TestIdleRowsRefuseLabels(t *testing.T) {
 	m, _ := seeded(t)
-	m = press(t, m, "k", "k", "t")
-	mustContain(t, m, "idle time has no label")
-	if m.picker != nil {
-		t.Fatal("picker opened on an idle row")
+	m = press(t, m, "k", "k")
+	for _, k := range []string{"p", "T"} {
+		m = press(t, m, k)
+		mustContain(t, m, "idle time has no label")
+		if m.picker != nil {
+			t.Fatalf("%s opened a picker on an idle row", k)
+		}
 	}
 }
 

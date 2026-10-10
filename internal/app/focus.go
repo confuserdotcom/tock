@@ -49,6 +49,13 @@ func (a *App) FocusTick(call bool) ([]focus.Event, error) {
 	}
 	in := focus.Input{Now: now, Day: day, Views: vs, Labels: labels, Sessions: focusSessions(ss),
 		Call: call, State: st, Cfg: a.cfg.Focus}
+	abs, err := a.pending(vs, from, now)
+	if err != nil {
+		return nil, err
+	}
+	if n := len(abs); n > 0 {
+		in.Absence = &abs[n-1]
+	}
 	if focus.RecapDue(in) {
 		d, err := a.Day(nowT)
 		if err != nil {
@@ -100,7 +107,8 @@ func (a *App) focusState() (focus.State, error) {
 	}
 	from, _ := strconv.ParseInt(m[store.KeyFocusBreakFrom], 10, 64)
 	at, _ := strconv.ParseInt(m[store.KeyFocusBreakAt], 10, 64)
-	return focus.State{BreakFrom: from, BreakAt: at, RecapDay: m[store.KeyFocusRecapDay]}, nil
+	away, _ := strconv.ParseInt(m[store.KeyFocusAwayAt], 10, 64)
+	return focus.State{BreakFrom: from, BreakAt: at, RecapDay: m[store.KeyFocusRecapDay], AwayAt: away}, nil
 }
 
 func (a *App) setFocusState(s focus.State, nowMS int64) error {
@@ -108,6 +116,7 @@ func (a *App) setFocusState(s focus.State, nowMS int64) error {
 		{store.KeyFocusBreakFrom, strconv.FormatInt(s.BreakFrom, 10)},
 		{store.KeyFocusBreakAt, strconv.FormatInt(s.BreakAt, 10)},
 		{store.KeyFocusRecapDay, s.RecapDay},
+		{store.KeyFocusAwayAt, strconv.FormatInt(s.AwayAt, 10)},
 	} {
 		if err := a.st.SetState(kv[0], kv[1], nowMS); err != nil {
 			return err

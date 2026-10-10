@@ -28,6 +28,8 @@ const usage = `usage:
   tock tag [--once] <n> <Category>[/<Project>]
   tock tag --span <id> <Category>[/<Project>]
   tock ignore <n> | tock ignore --undo <key>
+  tock away [--date D] [<HH:MM> <Category>[/<Project>] | --skip <HH:MM>]
+                                         label time away (idle or asleep) or leave it idle
   tock rules check | tock rules stats [--days N]
                                          validate the rules | time each rule decided (default 30 days)
   tock session [start [MIN] | stop]      focus session: show, start (default 25), stop
@@ -132,6 +134,7 @@ var commands = map[string]func(Env, []string) error{
 	"doctor":     cmdDoctor,
 	"backup":     cmdBackup,
 	"shell-init": cmdShellInit,
+	"away":       cmdAway,
 }
 
 // run executes one command and returns the exit code: 0 ok, 1 error, 2 usage.

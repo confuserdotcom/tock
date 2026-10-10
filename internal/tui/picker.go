@@ -19,6 +19,7 @@ const (
 	pickProject                   // set only the project of ids
 	pickOnce                      // tag every span of key, no rule
 	pickLearn                     // propose a rule for key
+	pickAway                      // label the absence away
 )
 
 const noProject = "(no project)"
@@ -37,6 +38,14 @@ type picker struct {
 	query    string
 	cursor   int
 	want     classify.Want
+	away     classify.Interval // pickAway
+}
+
+// newAwayPicker labels the absence iv.
+func newAwayPicker(src *source, iv classify.Interval, what string) *picker {
+	p := newPicker(src, pickAway, nil, "", "away "+what)
+	p.away = iv
+	return p
 }
 
 func newPicker(src *source, action pickAction, ids []int64, key, what string) *picker {
@@ -124,6 +133,11 @@ func (m Model) finishPick(p *picker) tea.Cmd {
 	switch p.action {
 	case pickLearn:
 		return m.propose(p.key, want)
+	case pickAway:
+		iv, what := p.away, p.what
+		return m.act(func(a *app.App) (string, error) {
+			return "labelled " + what + " → " + label, a.Answer(iv, want)
+		})
 	case pickOnce:
 		key := p.key
 		return m.act(func(a *app.App) (string, error) {

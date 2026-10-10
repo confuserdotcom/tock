@@ -7,7 +7,10 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"tock/internal/app"
+	"tock/internal/classify"
 	"tock/internal/report"
+	"tock/internal/span"
 )
 
 // todayTab shows one day: stats, heatmap, category bars and the timeline.
@@ -147,7 +150,17 @@ func (t *todayTab) hint() string {
 	if t.filtering {
 		return "filter: " + t.filter + "▏ · enter keep · esc clear"
 	}
-	return "j/k move · h/l day · t tag · p project · T learn · / filter · ? score"
+	h := "j/k move · h/l day · t tag · p project · T learn · / filter · ? score"
+	if len(t.day.Away) > 0 {
+		h = "a away · " + h
+	}
+	return h
+}
+
+// awayWhat names an absence: "12:25–14:50 (2h25)".
+func awayWhat(iv classify.Interval, loc *time.Location) string {
+	clock := func(ms int64) string { return time.UnixMilli(ms).In(loc).Format("15:04") }
+	return clock(iv.From) + "–" + clock(iv.To) + " (" + report.Dur(iv.To-iv.From) + ")"
 }
 
 func (m Model) todayKey(k string) (tea.Model, tea.Cmd) {
@@ -187,12 +200,37 @@ func (m Model) todayKey(k string) (tea.Model, tea.Cmd) {
 			t.date, t.loaded = time.Time{}, false
 			return m, m.reload()
 		}
+	case "a", "A":
+		n := len(t.day.Away)
+		if n == 0 {
+			m.setFlash("no time away to label", true)
+			return m, nil
+		}
+		iv := t.day.Away[n-1]
+		if k == "a" {
+			m.picker = newAwayPicker(m.src, iv, awayWhat(iv, m.now().Location()))
+			return m, nil
+		}
+		what := awayWhat(iv, m.now().Location())
+		return m, m.act(func(a *app.App) (string, error) {
+			return "left " + what + " idle", a.Answer(iv, classify.Want{})
+		})
 	case "t", "p", "T":
 		r := t.selected()
 		switch {
 		case r == nil:
+		case r.Idle && k == "t":
+			for _, iv := range t.day.Away {
+				if r.Start >= iv.From && r.End <= iv.To {
+					m.picker = newAwayPicker(m.src, iv, awayWhat(iv, m.now().Location()))
+					return m, nil
+				}
+			}
+			m.setFlash("not an away period: too short, too long or already answered", true)
 		case r.Idle:
 			m.setFlash("idle time has no label", true)
+		case r.App == span.AwayApp && k == "T":
+			m.setFlash("away time has no rules: t to relabel it", true)
 		case k == "t":
 			m.picker = newPicker(m.src, pickTag, r.IDs, "", spansWhat(len(r.IDs), r.End-r.Start))
 		case k == "p":
@@ -301,11 +339,20 @@ func (t todayTab) view(w, h int, now time.Time) []string {
 	return out
 }
 
-// notes are the lines between the stats line and the heatmap: the goals.
+// notes are the lines between the stats line and the heatmap: the goals and
+// the latest unanswered time away.
 func (t *todayTab) notes() []string {
 	var out []string
 	if len(t.day.Goals) > 0 {
 		out = append(out, goalsLine(t.day.Goals))
+	}
+	if n := len(t.day.Away); n > 0 {
+		line := " " + sAccent.Render("away "+awayWhat(t.day.Away[n-1], t.day.Date.Location())) +
+			sDim.Render(" · a what was it? · A leave idle")
+		if n > 1 {
+			line += sDim.Render(fmt.Sprintf("  (+%d more)", n-1))
+		}
+		out = append(out, line)
 	}
 	return out
 }

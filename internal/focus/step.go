@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"tock/internal/classify"
 	"tock/internal/stats"
 )
 
@@ -30,6 +31,10 @@ func Step(in Input) []Event {
 	}
 	writes = append(writes, autoSessions(in)...)
 	if n, ok := stepRecap(in, &st); ok {
+		notes = append(notes, n)
+		stateChanged = true
+	}
+	if n, ok := stepAway(in, &st); ok {
 		notes = append(notes, n)
 		stateChanged = true
 	}
@@ -204,6 +209,19 @@ func stepRecap(in Input, st *State) (Event, bool) {
 	}
 	st.RecapDay = dayKey(in.Day)
 	return note(TitleRecap, in.RecapBody, false), true
+}
+
+// stepAway asks once what an absence was, within AwayNotifyMS of the
+// return.
+func stepAway(in Input, st *State) (Event, bool) {
+	a := in.Absence
+	if a == nil || a.To <= st.AwayAt || in.Now-a.To > AwayNotifyMS {
+		return Event{}, false
+	}
+	st.AwayAt = a.To
+	clock := func(ms int64) string { return time.UnixMilli(ms).In(in.Day.Location()).Format("15:04") }
+	return note(TitleAway, fmt.Sprintf("Away %s (%s–%s). What was it? Run tock away or open tock.",
+		classify.FormatDur(a.To-a.From), clock(a.From), clock(a.To)), false), true
 }
 
 // activeSince is the non-idle time of the views after from.

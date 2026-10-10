@@ -34,7 +34,12 @@ const (
 	TitleDone  = "tock · session done"
 	TitleBreak = "tock · break"
 	TitleRecap = "tock · recap"
+	TitleAway  = "tock · away"
 )
+
+// AwayNotifyMS is how soon after coming back the away question is sent; an
+// absence that ended earlier is left to the TUI and tock away.
+const AwayNotifyMS = 2 * 60_000
 
 // Session is one focus session. It has the same fields in the same order as
 // store.Session, so the two convert directly; keep them in step.
@@ -56,6 +61,7 @@ type State struct {
 	BreakFrom int64  // start of the activity run the last break reminder belongs to
 	BreakAt   int64  // when the last break reminder or session end fired
 	RecapDay  string // YYYY-MM-DD of the last recap
+	AwayAt    int64  // end of the last absence asked about
 }
 
 // EventKind says what an Event asks the caller to do.
@@ -89,6 +95,8 @@ type Input struct {
 	State     State
 	Cfg       config.Focus
 	RecapBody string // the recap text; the caller fills it when RecapDue
+	// Absence is the latest absence today that has no answer yet, or nil.
+	Absence *classify.Interval
 }
 
 // IsMeeting reports a meeting view: a meeting app, or a URL whose host is a

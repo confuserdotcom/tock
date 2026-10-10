@@ -21,6 +21,7 @@ const (
 	KeyFocusBreakAt = "focus_break_at"
 	// KeyFocusRecapDay is the YYYY-MM-DD of the last recap sent.
 	KeyFocusRecapDay = "focus_recap_day"
+	KeyFocusAwayAt   = "focus_away_at"
 )
 
 var (

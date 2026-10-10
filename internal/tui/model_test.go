@@ -63,7 +63,7 @@ func TestTabsHelpAndQuit(t *testing.T) {
 
 func TestFlashExpires(t *testing.T) {
 	m, e := seeded(t)
-	m = press(t, m, "k", "k", "t") // idle row
+	m = press(t, m, "k", "k", "p") // idle row
 	mustContain(t, m, "idle time has no label")
 	e.Clock = e.Clock.Add(flashFor)
 	m = step(t, m, tickMsg{})

@@ -4,9 +4,11 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"tock/internal/apptest"
 	"tock/internal/classify"
+	"tock/internal/focus"
 )
 
 func iv(t *testing.T, from, to string) classify.Interval {
@@ -106,5 +108,22 @@ func TestAwayDropsPastCache(t *testing.T) {
 	}
 	if after := a.past[dateKey(a.midnight(apptest.Now).AddDate(0, 0, -1))].ActiveMS; after != before+30*60_000 {
 		t.Fatalf("past active %d -> %d", before, after)
+	}
+}
+
+func TestFocusTickAsksAboutAwayOnce(t *testing.T) {
+	e := apptest.New(t, apptest.Rules)
+	e.Seed(t, apptest.DaySpans()...)
+	e.Clock = time.UnixMilli(apptest.At(t, "14:51", 0)).In(apptest.Zone) // back at 14:50
+	a := open(t, e)
+	notes, err := a.FocusTick(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(notes) != 1 || notes[0].Title != focus.TitleAway || notes[0].Body != "Away 2h25 (12:25–14:50). What was it? Run tock away or open tock." {
+		t.Fatalf("notes = %+v", notes)
+	}
+	if notes, err := open(t, e).FocusTick(false); err != nil || len(notes) != 0 {
+		t.Fatalf("second tick (restarted) = %+v, %v", notes, err)
 	}
 }
