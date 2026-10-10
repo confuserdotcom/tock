@@ -244,6 +244,12 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.setFlash(msg.text, false)
 		}
 		return m, m.reload()
+	case movedMsg:
+		if msg.done.err == nil {
+			m.rules.cursor = msg.row
+			m.rules.clampScroll()
+		}
+		return m.update(msg.done)
 	case proposedMsg:
 		return m.openLearn(msg)
 	case tea.KeyPressMsg:

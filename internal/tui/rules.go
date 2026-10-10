@@ -171,36 +171,34 @@ func (m Model) rulesKey(k string) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// moveRule moves r one place within its file. The cursor follows at once;
-// the reload after doneMsg shows the new order.
+// movedMsg reports a rule move; on success the cursor goes to row.
+type movedMsg struct {
+	done doneMsg
+	row  int
+}
+
+// moveRule moves r one place within its file. The cursor follows only once
+// the move succeeded; the reload after it shows the new order.
 func (m *Model) moveRule(r classify.Rule, up bool) tea.Cmd {
-	t := &m.rules
-	lo, hi := 0, t.learned-1
-	if r.File == classify.RulesFile {
-		lo, hi = t.learned, len(t.rows)-1
-	}
-	dir, step := "down", 1
+	dir, row := "down", m.rules.cursor+1
 	if up {
-		dir, step = "up", -1
-	}
-	if c := t.cursor + step; c >= lo && c <= hi {
-		t.cursor = c
-		t.clampScroll()
+		dir, row = "up", m.rules.cursor-1
 	}
 	src := m.src
 	return func() tea.Msg {
-		var msg doneMsg
+		var msg movedMsg
 		src.do(func(a *app.App) {
 			err := a.MoveRule(r.File, r.Index, up)
 			switch {
 			case errors.Is(err, classify.ErrRuleEdge) && up:
-				msg.err = errors.New("already first")
+				msg.done.err = errors.New("already first")
 			case errors.Is(err, classify.ErrRuleEdge):
-				msg.err = errors.New("already last")
+				msg.done.err = errors.New("already last")
 			case err != nil:
-				msg.err = err
+				msg.done.err = err
 			default:
-				msg.text = fmt.Sprintf("moved %s %s", r.Ref(), dir)
+				msg.done.text = fmt.Sprintf("moved %s %s", r.Ref(), dir)
+				msg.row = row
 			}
 		})
 		return msg

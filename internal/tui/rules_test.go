@@ -79,3 +79,17 @@ func TestRulesTabEditor(t *testing.T) {
 		t.Fatalf("default editor args = %v", got)
 	}
 }
+
+// A refused reorder leaves the cursor on the rule it was on.
+func TestRulesTabFailedMoveKeepsCursor(t *testing.T) {
+	e := apptest.New(t, apptest.Rules)
+	e.Seed(t, apptest.DaySpans()...)
+	// A blank line inside a rule is a layout SwapRules refuses.
+	e.WriteRules(t, strings.Replace(apptest.Rules, "bundle = [\"term\"]\ncategory = \"Code\"", "bundle = [\"term\"]\n\ncategory = \"Code\"", 1))
+	m := newModel(t, e)
+	m = press(t, m, "5", "j", "K")
+	mustContain(t, m, "can't reorder this layout safely")
+	if m.rules.cursor != 1 {
+		t.Fatalf("cursor = %d after a failed move, want 1", m.rules.cursor)
+	}
+}
