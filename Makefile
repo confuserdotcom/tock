@@ -84,7 +84,7 @@ bundle:
 
 print-dr:
 	@codesign -d -r- "$(BUNDLE)" 2>&1 | grep -E '^designated|# designated' || true
-	@codesign -dv "$(BUNDLE)" 2>&1 | grep -E '^CDHash' || true
+	@codesign -dvvv "$(BUNDLE)" 2>&1 | grep -E "^CDHash=" || true
 
 # cert: create the local code-signing identity (idempotent). Public cert only
 # is kept on disk; key.pem and the p12 are deleted.
