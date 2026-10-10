@@ -27,6 +27,13 @@ func dataDir() string {
 	return filepath.Join(home(), ".local", "share", "tock")
 }
 
+func configDir() string {
+	if d := os.Getenv("TOCK_CONFIG_DIR"); d != "" {
+		return d
+	}
+	return filepath.Join(home(), ".config", "tock")
+}
+
 func stateDir() string {
 	if d := os.Getenv("TOCK_STATE_DIR"); d != "" {
 		return d
@@ -79,7 +86,10 @@ func main() {
 	os.Exit(runDaemon(daemonOpts{
 		DataDir:   dataDir(),
 		StateDir:  stateDir(),
+		ConfigDir: configDir(),
 		NewSource: newSource,
 		Stderr:    os.Stderr,
+		Notifier:  osascriptNotifier{},
+		Camera:    collect.CameraInUse,
 	}))
 }

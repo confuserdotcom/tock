@@ -38,6 +38,15 @@ type daemonOpts struct {
 	HeartbeatEvery time.Duration
 	// Now returns wall-clock unix ms (default time.Now().Round(0).UnixMilli).
 	Now func() int64
+	// ConfigDir holds rules.toml and config.toml. "" turns the focus engine
+	// off (tests of the collector pipeline).
+	ConfigDir string
+	// FocusEvery is the focus engine period (default 5 s).
+	FocusEvery time.Duration
+	// Notifier sends focus notifications; nil drops them.
+	Notifier Notifier
+	// Camera reports a camera in use; nil means never.
+	Camera func() bool
 }
 
 func wallNowMS() int64 { return time.Now().Round(0).UnixMilli() }
@@ -147,6 +156,10 @@ func runWithStore(o daemonOpts, log *slog.Logger, st *store.Store) int {
 		}
 		pipeErr <- err
 	}()
+	if o.ConfigDir != "" {
+		stopFocus := startFocus(o, log)
+		defer stopFocus()
+	}
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGTERM, syscall.SIGINT)
