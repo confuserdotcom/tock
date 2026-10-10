@@ -174,6 +174,22 @@ blocks = 0.3
 calm = 0.2
 ```
 
+## Calls
+
+trackd notices when a camera or microphone is in use, in any app. It only
+reads whether a device is running, so it needs no camera or microphone
+permission and records no audio or video, just start and end times. During
+a call, break and distraction nudges stay quiet. With this table in
+`rules.toml` (the starter rules have it), calls of at least two minutes are
+labelled, including time you only listened and would otherwise be idle:
+
+```toml
+[calls]
+category = "Meeting"   # a declared category
+```
+
+A manual tag still wins. `tock rules check` says whether calls are labelled.
+
 ## Backup
 
 `tock backup` writes `~/.local/share/tock/backups/tock-YYYYMMDD-HHMMSS.tar.gz`
