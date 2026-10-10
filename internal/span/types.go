@@ -35,6 +35,10 @@ const (
 	MeetingBundleID = "tock.meeting"
 	// MeetingApp is the app name of MeetingBundleID views.
 	MeetingApp = "Meeting"
+	// EntryBundleID marks time the user added by hand (tock edit add).
+	EntryBundleID = "tock.entry"
+	// EntryApp is the app name of an added entry.
+	EntryApp = "Entry"
 )
 
 // Automation status values carried by Sample.Automation.

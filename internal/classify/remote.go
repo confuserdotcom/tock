@@ -15,7 +15,7 @@ type RemoteMark struct {
 // RemoteRowID returns the remote row id of a remote view id, and false when
 // id is not one.
 func RemoteRowID(id int64) (int64, bool) {
-	if id > -RemoteIDBase {
+	if id > -RemoteIDBase || id <= -EditIDBase {
 		return 0, false
 	}
 	return -id - RemoteIDBase, true
