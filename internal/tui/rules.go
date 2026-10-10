@@ -12,36 +12,63 @@ import (
 
 	"tock/internal/app"
 	"tock/internal/classify"
+	"tock/internal/report"
 )
 
 // rulesTab lists the learned rules, then the rules.toml rules, in the order
 // they are checked. The cursor indexes rows.
 type rulesTab struct {
-	rows    []classify.Rule // learned rules first
-	learned int             // how many of rows are learned
+	rows    []classify.Rule              // learned rules first
+	learned int                          // how many of rows are learned
+	stats   map[string]classify.RuleStat // by Rule.Ref(); nil when unavailable
 	cursor  int
 	top     int // first visible line
 	height  int
 }
 
-// rulesSnap is the ruleset copied out of the app for one refresh.
-type rulesSnap struct{ learned, rules []classify.Rule }
+// rulesSnap is the ruleset copied out of the app for one refresh, with the
+// rule stats of the last app.StatsDays days.
+type rulesSnap struct {
+	learned, rules []classify.Rule
+	stats          map[string]classify.RuleStat
+}
 
 func snapRules(a *app.App) *rulesSnap {
 	rs := a.Rules()
 	if rs == nil {
 		return &rulesSnap{}
 	}
-	return &rulesSnap{
+	s := &rulesSnap{
 		learned: append([]classify.Rule{}, rs.Learned...),
 		rules:   append([]classify.Rule{}, rs.Rules...),
 	}
+	if stats, err := a.RuleStats(app.StatsDays); err == nil {
+		s.stats = make(map[string]classify.RuleStat, len(stats))
+		for _, st := range stats {
+			s.stats[st.Rule.Ref()] = st
+		}
+	}
+	return s
 }
 
 func (t *rulesTab) set(s rulesSnap) {
 	t.rows = append(append([]classify.Rule{}, s.learned...), s.rules...)
 	t.learned = len(s.learned)
+	t.stats = s.stats
 	t.clampScroll()
+}
+
+// statCell is the time r decided, right-aligned, or its status ("unused",
+// "shadowed"); "" without stats.
+func (t *rulesTab) statCell(r classify.Rule) string {
+	st, ok := t.stats[r.Ref()]
+	if !ok {
+		return ""
+	}
+	if s := st.Status(); s != "" {
+		return fmt.Sprintf("%8s", s)
+	}
+	return fmt.Sprintf("%8s", report.Dur(st.DecidedMS))
 }
 
 func (t *rulesTab) selected() *classify.Rule {
@@ -119,6 +146,10 @@ func (t rulesTab) view(w, h int) []string {
 	if t.learned > 0 {
 		lines = append(lines, title(classify.LearnedFile+" · checked first · "+plural(t.learned, "rule")))
 	}
+	setsW := 0 // with stats, sets are left-aligned so the time column lines up
+	for _, r := range t.rows {
+		setsW = max(setsW, ansi.StringWidth(sets(r)))
+	}
 	for i, r := range t.rows {
 		if i == t.learned {
 			if t.learned > 0 {
@@ -135,12 +166,20 @@ func (t rulesTab) view(w, h int) []string {
 			mark = "▸ "
 		}
 		right := sets(r)
+		stat := t.statCell(r)
+		if stat != "" {
+			right = stat + "  " + right + strings.Repeat(" ", setsW-ansi.StringWidth(right))
+		}
+		var l string
 		lw := max(w-ansi.StringWidth(right)-3, 10)
-		l := fit(fmt.Sprintf("%s%-4s %s", mark, ref, r.Describe()), lw) + "  " + right
-		if i == t.cursor {
-			l = sSel.Render(fit(l, w-1))
-		} else {
-			l = sText.Render(l)
+		left := fit(fmt.Sprintf("%s%-4s %s", mark, ref, r.Describe()), lw) + "  "
+		switch {
+		case i == t.cursor:
+			l = sSel.Render(fit(left+right, w-1))
+		case stat != "" && strings.TrimSpace(stat) == t.stats[r.Ref()].Status():
+			l = sText.Render(left) + sDim.Render(stat) + sText.Render(right[len(stat):])
+		default:
+			l = sText.Render(left + right)
 		}
 		lines = append(lines, " "+l)
 	}
