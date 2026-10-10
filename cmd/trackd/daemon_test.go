@@ -85,7 +85,7 @@ func TestSchemaTooNewExitsZero(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.Exec(`INSERT INTO schema_version(version, applied_at) VALUES(2, 0)`); err != nil {
+	if _, err := db.Exec(`INSERT INTO schema_version(version, applied_at) VALUES(99, 0)`); err != nil {
 		t.Fatal(err)
 	}
 	db.Close()
