@@ -25,12 +25,12 @@ build:
 	CGO_ENABLED=0 go build -o bin/tock ./cmd/tock
 
 test-quick:
-	CGO_ENABLED=0 go test ./internal/span/... ./internal/store/... ./internal/classify/... ./internal/stats/... ./internal/focus/... ./internal/config/... ./internal/report/... ./internal/app/... ./internal/tui/... -count=1
+	CGO_ENABLED=0 go test ./internal/span/... ./internal/store/... ./internal/classify/... ./internal/stats/... ./internal/focus/... ./internal/config/... ./internal/report/... ./internal/suggest/... ./internal/app/... ./internal/tui/... -count=1
 
 test:
 	go vet ./...
 	go build ./...
-	CGO_ENABLED=0 go test ./internal/span/... ./internal/store/... ./internal/classify/... ./internal/stats/... ./internal/focus/... ./internal/config/... ./internal/report/... ./internal/app/... ./internal/tui/... -count=1
+	CGO_ENABLED=0 go test ./internal/span/... ./internal/store/... ./internal/classify/... ./internal/stats/... ./internal/focus/... ./internal/config/... ./internal/report/... ./internal/suggest/... ./internal/app/... ./internal/tui/... -count=1
 	go test ./... -count=1
 
 vet:
