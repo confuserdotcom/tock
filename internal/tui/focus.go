@@ -134,6 +134,18 @@ func (m Model) startKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// startHead is the dialog's lines above the length rows.
+const startHead = 2
+
+// rowAt is the length row (len(presets) is custom) on body line line, if any.
+func (d *startDlg) rowAt(line int) (int, bool) {
+	i := line - startHead
+	if i < 0 || i > len(d.presets) {
+		return 0, false
+	}
+	return i, true
+}
+
 func (d *startDlg) view(w int) []string {
 	out := []string{" " + sHead.Render("Start a focus session"), ""}
 	cell := min(w-4, 30)

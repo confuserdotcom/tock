@@ -90,6 +90,15 @@ rules            j/k move · g/G first/last · J/K move rule down/up · e edit f
 pickers          type a prefix · ↑/↓ · enter · esc
 ```
 
+The mouse works too. Click a tab name to switch tabs, click a row to select
+it, and click the selected row again for `enter` (open a day, label an inbox
+key, pick an option, start a session). Click a key in the footer, such as
+`s start`, to press it. The wheel moves the cursor.
+
+While tock has the mouse, dragging no longer selects text. Hold Shift (WezTerm,
+kitty, most terminals) or Option (Terminal.app, iTerm2) while you drag to
+select text anyway.
+
 ## Commands
 
 ```

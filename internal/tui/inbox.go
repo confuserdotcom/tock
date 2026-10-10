@@ -133,6 +133,15 @@ func (m Model) act(fn func(a *app.App) (string, error)) tea.Cmd {
 	}
 }
 
+// rowAt is the item shown on body line line, if any.
+func (t *inboxTab) rowAt(line int) (int, bool) {
+	i := t.top + line - inboxHeader
+	if !t.loaded || line < inboxHeader || line-inboxHeader >= max(t.height, 1) || i >= len(t.items) {
+		return 0, false
+	}
+	return i, true
+}
+
 func (t inboxTab) view(w, h int) []string {
 	if !t.loaded {
 		return []string{"", " loading…"}

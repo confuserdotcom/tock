@@ -16,6 +16,7 @@ var helpText = []string{
 	"  focus            s start a session (presets or custom) · x stop",
 	"  rules            j/k move · g/G first/last · J/K move rule down/up · e edit file",
 	"  pickers          type a prefix · ↑/↓ · enter · esc",
+	"  mouse            click a tab, a row or a footer key · click the selected row for enter · wheel scrolls",
 	"",
 	"  colours: bright deep · gray shallow · dark neutral · red distraction and unlabelled",
 }

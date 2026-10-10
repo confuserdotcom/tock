@@ -90,6 +90,18 @@ func stacked(byKind map[string]int64, maxMS int64, cells int) string {
 	return b.String() + strings.Repeat(" ", cells-used)
 }
 
+// weekHead is the lines above the day rows: title and a blank line.
+const weekHead = 2
+
+// rowAt is the day (0 = Monday) shown on body line line, if any.
+func (t *weekTab) rowAt(line int) (int, bool) {
+	i := line - weekHead
+	if !t.loaded || i < 0 || i >= len(t.week.Days) {
+		return 0, false
+	}
+	return i, true
+}
+
 func (t weekTab) view(w, h int) []string {
 	if !t.loaded {
 		return []string{"", " loading…"}

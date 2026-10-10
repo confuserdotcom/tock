@@ -97,6 +97,19 @@ func sets(r classify.Rule) string {
 	return r.Category + " / " + r.Project
 }
 
+// rowAt is the rule shown on body line line, if any.
+func (t *rulesTab) rowAt(line int) (int, bool) {
+	if line < 0 || line >= max(t.height, 1) {
+		return 0, false
+	}
+	for i := range t.rows {
+		if t.lineOf(i) == t.top+line {
+			return i, true
+		}
+	}
+	return 0, false
+}
+
 func (t rulesTab) view(w, h int) []string {
 	var lines []string
 	if len(t.rows) == 0 {

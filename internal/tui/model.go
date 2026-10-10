@@ -254,6 +254,10 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.openLearn(msg)
 	case tea.KeyPressMsg:
 		return m.key(msg)
+	case tea.MouseClickMsg:
+		return m.click(msg.Mouse())
+	case tea.MouseWheelMsg:
+		return m.wheel(msg.Mouse())
 	}
 	return m, nil
 }
@@ -331,6 +335,7 @@ func (m Model) switchTab(tab int) (tea.Model, tea.Cmd) {
 func (m Model) View() tea.View {
 	v := tea.NewView(m.render())
 	v.AltScreen = true
+	v.MouseMode = tea.MouseModeCellMotion
 	return v
 }
 
@@ -345,7 +350,14 @@ func (m Model) render() string {
 	if b := m.banner(); b != "" {
 		lines = append(lines, sAccent.Render(fit(b, m.width)))
 	}
-	bodyH := m.bodyH()
+	lines = append(lines, m.body(m.bodyH())...)
+	lines = append(lines, m.footer())
+	return strings.Join(lines, "\n")
+}
+
+// body is the screen between the header (and banner) and the footer,
+// exactly h lines.
+func (m Model) body(bodyH int) []string {
 	var body []string
 	switch {
 	case m.help:
@@ -375,16 +387,23 @@ func (m Model) render() string {
 	for len(body) < bodyH {
 		body = append(body, "")
 	}
-	lines = append(lines, body...)
-	lines = append(lines, m.footer())
-	return strings.Join(lines, "\n")
+	return body
 }
 
-func (m Model) header() string {
+// headerGap separates the header's names.
+const headerGap = "   "
+
+// tabNames are the header's tab names, in tab order.
+func (m Model) tabNames() []string {
 	names := []string{"1 today", "2 week", "3 inbox", "4 focus", "5 rules"}
 	if n := m.inbox.count(); n > 0 {
 		names[tabInbox] = fmt.Sprintf("3 inbox %d", n)
 	}
+	return names
+}
+
+func (m Model) header() string {
+	names := m.tabNames()
 	parts := []string{sHead.Render("tock")}
 	for i, n := range names {
 		if i == m.tab {
@@ -393,7 +412,7 @@ func (m Model) header() string {
 			parts = append(parts, sDim.Render(n))
 		}
 	}
-	left := strings.Join(parts, "   ")
+	left := strings.Join(parts, headerGap)
 	right := sDim.Render(m.now().Format("Mon 2 Jan 15:04")+" · ") + m.trackdText()
 	if s := m.focus.data.Open; s != nil {
 		right = sBright.Render("◷ "+report.Countdown(s.PlannedMS-m.now().UnixMilli())) + sDim.Render(" · ") + right
@@ -435,6 +454,11 @@ func (m Model) footer() string {
 		}
 		return sText.Render(fit(m.flash, m.width))
 	}
+	return sDim.Render(fit(m.hint(), m.width))
+}
+
+// hint is the footer's key list for the current view.
+func (m Model) hint() string {
 	var hint string
 	switch {
 	case m.help:
@@ -458,5 +482,5 @@ func (m Model) footer() string {
 	default:
 		hint = "enter learn rule · a accept suggestion · o tag once · x ignore · u undo · ? help"
 	}
-	return sDim.Render(fit(hint, m.width))
+	return hint
 }

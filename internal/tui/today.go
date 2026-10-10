@@ -236,6 +236,21 @@ func (t *todayTab) layout(h int) (catRows, timelineH int) {
 	return catRows, max(h-top-catRows-1, 1)
 }
 
+// rowAt is the timeline row shown on body line line of a body h lines
+// tall, if any.
+func (t *todayTab) rowAt(line, h int) (int, bool) {
+	if !t.loaded {
+		return 0, false
+	}
+	catRows, timelineH := t.layout(h)
+	start := 3 + 1 + len(t.day.Hours.MS) + 1 + catRows + 1
+	i := t.top + line - start
+	if line < start || line >= start+timelineH || i >= len(t.rows()) {
+		return 0, false
+	}
+	return i, true
+}
+
 // view renders the tab body in w×h cells.
 func (t todayTab) view(w, h int, now time.Time) []string {
 	if !t.loaded {

@@ -140,6 +140,35 @@ func (m Model) finishPick(p *picker) tea.Cmd {
 	})
 }
 
+// window is the range of options shown in a body of h lines.
+func (p *picker) window(h, n int) (first, end int) {
+	room := max(h-8, 3)
+	first = max(min(p.cursor-room+1, n-room), 0)
+	return first, min(first+room, n)
+}
+
+// pickerHead is the box's lines above the options: border, title, query,
+// blank.
+const pickerHead = 4
+
+// rowAt is the option shown on body line line, if any.
+func (p *picker) rowAt(line, w, h int) (int, bool) {
+	body := p.view(w, h)
+	top := -1
+	for i, l := range body {
+		if strings.Contains(l, "╭") {
+			top = i
+			break
+		}
+	}
+	first, end := p.window(h, len(p.options()))
+	i := first + line - top - pickerHead
+	if top < 0 || line < top+pickerHead || i >= end {
+		return 0, false
+	}
+	return i, true
+}
+
 func (p *picker) view(w, h int) []string {
 	title := "Category"
 	if p.stage == 1 {
@@ -154,9 +183,8 @@ func (p *picker) view(w, h int) []string {
 	}
 	lines := []string{sHead.Render(title) + sDim.Render("  "+subject), sDim.Render("> ") + p.query + "▏", ""}
 	opts := p.options()
-	room := max(h-8, 3)
-	first := max(min(p.cursor-room+1, len(opts)-room), 0)
-	for i := first; i < min(first+room, len(opts)); i++ {
+	first, end := p.window(h, len(opts))
+	for i := first; i < end; i++ {
 		line := fit(opts[i].name, 20) + " " + sDim.Render(fit(opts[i].note, 10))
 		if i == p.cursor {
 			line = sSel.Render("▶" + line)
