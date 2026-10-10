@@ -9,11 +9,19 @@ func Step(in Input) []Event {
 	var writes, notes []Event
 	st := in.State
 	stateChanged := false
-	if openSession(in) == nil {
-		if n, ok := stepBreak(in, &st); ok {
-			notes = append(notes, n)
+	if s := openSession(in); s != nil {
+		w, n, ended := stepSession(in, *s)
+		writes, notes = append(writes, w...), append(notes, n...)
+		if ended {
+			// The session's end prompts a break, so this run's next reminder
+			// waits one repeat interval.
+			st.BreakFrom, _ = runStart(in)
+			st.BreakAt = in.Now
 			stateChanged = true
 		}
+	} else if n, ok := stepBreak(in, &st); ok {
+		notes = append(notes, n)
+		stateChanged = true
 	}
 	if stateChanged {
 		writes = append(writes, Event{Kind: StateUpdate, State: st})
@@ -76,4 +84,59 @@ func stepBreak(in Input, st *State) (Event, bool) {
 	}
 	st.BreakFrom, st.BreakAt = from, in.Now
 	return note(TitleBreak, fmt.Sprintf("%d min without a break. Stand up for 5 min.", minutes(in.Now-from)), false), true
+}
+
+// stepSession measures the running session, alerts on distraction and ends
+// it at its planned end.
+func stepSession(in Input, s Session) (writes, notes []Event, ended bool) {
+	ws := WindowStats(in.Views, in.Labels, s.StartMS, min(in.Now, s.PlannedMS), in.Cfg)
+	next := s
+	next.DeepMS, next.DistractMS, next.LongestMS = ws.DeepMS, ws.DistractMS, ws.LongestMS
+	if in.Now >= s.PlannedMS {
+		next.EndMS = s.PlannedMS
+		return []Event{{Kind: SessionEnd, Sess: next}}, []Event{note(TitleDone, doneBody(next), true)}, true
+	}
+	step := in.Cfg.DistractGraceMS
+	if s.Interruptions > 0 {
+		step = in.Cfg.DistractRepeatMS
+	}
+	if !inMeeting(in) && ws.DistractMS >= s.AlertedMS+step {
+		next.Interruptions++
+		next.AlertedMS = ws.DistractMS
+		notes = append(notes, note(TitleFocus, distractBody(next, in.Now), true))
+	}
+	if next != s {
+		writes = append(writes, Event{Kind: SessionUpdate, Sess: next})
+	}
+	return writes, notes, false
+}
+
+func distractBody(s Session, now int64) string {
+	return fmt.Sprintf("%d min distracted in your %d min session, %d min left.",
+		minutes(s.DistractMS), minutes(s.PlannedMS-s.StartMS), minutes(s.PlannedMS-now))
+}
+
+func doneBody(s Session) string {
+	length := s.EndMS - s.StartMS
+	pct := int64(0)
+	if length > 0 {
+		pct = (s.DeepMS*100 + length/2) / length
+	}
+	word := "interruptions"
+	if s.Interruptions == 1 {
+		word = "interruption"
+	}
+	return fmt.Sprintf("%d min: %d%% deep, %d %s, longest %d min. Take a %d min break.",
+		minutes(length), pct, s.Interruptions, word, minutes(s.LongestMS), breakMin(length))
+}
+
+// breakMin is the break suggested after a session of length ms.
+func breakMin(length int64) int64 {
+	switch {
+	case length <= 30*60_000:
+		return 5
+	case length <= 60*60_000:
+		return 10
+	}
+	return 15
 }
