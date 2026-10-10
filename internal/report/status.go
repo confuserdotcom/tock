@@ -12,6 +12,8 @@ type StatusInput struct {
 	Active             bool // the day has active time, so Score means something
 	Open               *Row // the row holding the open span; nil when none is open
 	TrackdUp           bool
+	InSession          bool  // a manual focus session is running
+	SessionLeftMS      int64 // its time left
 }
 
 // Status renders the line `tock status` prints, for example
@@ -36,6 +38,9 @@ func Status(in StatusInput) string {
 		default:
 			parts = append(parts, "now "+LabelText(r.Label.Category, r.Label.Project))
 		}
+	}
+	if in.InSession {
+		parts = append(parts, "◷ "+Dur(max(in.SessionLeftMS, 0)))
 	}
 	return strings.Join(parts, " · ")
 }

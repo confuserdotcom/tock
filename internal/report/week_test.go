@@ -135,6 +135,8 @@ func TestStatus(t *testing.T) {
 		{StatusInput{TrackedMS: 60_000, Active: true, Open: &Row{Idle: true}, TrackdUp: true}, "1m · score 0 · now idle"},
 		{StatusInput{TrackedMS: 60_000, Active: true, Open: &Row{}, TrackdUp: true}, "1m · score 0 · now unlabelled"},
 		{StatusInput{TrackdUp: true}, "0s"},
+		{StatusInput{TrackedMS: 60_000, Active: true, Open: &Row{}, TrackdUp: true, InSession: true, SessionLeftMS: 12*60_000 + 4_000},
+			"1m · score 0 · now unlabelled · ◷ 12m"},
 		{StatusInput{TrackedMS: 312 * 60_000, FocusMS: 5, Score: 50, Active: true, Open: code}, "trackd down · 5h12"},
 	}
 	for _, c := range cases {
