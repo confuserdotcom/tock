@@ -101,6 +101,7 @@ type blockJSON struct {
 	Start      int64    `json:"start"`
 	End        int64    `json:"end"`
 	Name       string   `json:"name"`
+	Project    string   `json:"project"`
 	Category   string   `json:"category"`
 	Kind       string   `json:"kind"`
 	ActiveMS   int64    `json:"activeMS"`
@@ -245,7 +246,7 @@ func (s *Server) day(r *http.Request) (any, error) {
 			Week: g.Goal.Week, MS: g.Goal.MS, DoneMS: g.DoneMS, State: g.State})
 	}
 	for i, b := range d.Blocks {
-		bj := blockJSON{Start: b.Start, End: b.End, Name: report.Safe(b.Name), Category: report.Safe(b.Category), Kind: b.Kind,
+		bj := blockJSON{Start: b.Start, End: b.End, Name: report.Safe(b.Name), Project: report.Safe(b.Project), Category: report.Safe(b.Category), Kind: b.Kind,
 			ActiveMS: b.ActiveMS, DeepMS: b.DeepMS, DistractMS: b.DistractMS, Top: []nameMS{}, Summary: report.Safe(b.Summary)}
 		for _, t := range b.Top {
 			bj.Top = append(bj.Top, nameMS{report.Safe(t.Name), t.MS})

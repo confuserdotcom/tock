@@ -85,7 +85,8 @@ func plural2(n int, one, many string) string {
 	return fmt.Sprintf("%d %s", n, many)
 }
 
-// notes are the goal chips, the commits and one attention line.
+// notes are the goal chips, the commits, the saved summary and one
+// attention line.
 func (t *todayTab) notes(w int) []string {
 	d := t.day
 	var out []string
@@ -94,6 +95,9 @@ func (t *todayTab) notes(w int) []string {
 	}
 	if len(d.Commits) > 0 {
 		out = append(out, fit(" "+sDim.Render("commits  ")+sText.Render(report.CommitsLine(d.Commits)), w))
+	}
+	if d.Summary != "" {
+		out = append(out, fit(" "+sDim.Render("summary  ")+sText.Render(report.Safe(d.Summary)), w))
 	}
 	if a := t.attention(); a != "" {
 		out = append(out, fit(a, w))

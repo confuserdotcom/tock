@@ -145,6 +145,9 @@ func TestDayWeekTop(t *testing.T) {
 	if last := d.Timeline[len(d.Timeline)-1]; !last.Open || last.App != "Mail" {
 		t.Fatalf("last row %+v", last)
 	}
+	if len(d.Blocks) == 0 || d.Blocks[0].Project != "tock" || d.Blocks[0].Category != "Code" || len(d.Blocks[0].Top) == 0 {
+		t.Fatalf("blocks %+v", d.Blocks)
+	}
 	var past dayJSON
 	f.get("/api/day?date=2026-10-09", &past)
 	if past.Today || past.TrackedMS != 0 {

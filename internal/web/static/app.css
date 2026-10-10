@@ -236,6 +236,8 @@ h2 { font-size: 1.0625rem; line-height: 1.3; letter-spacing: -0.012em; font-weig
 .act .w span { color: var(--text-2); }
 .act.idle { cursor: default; color: var(--text-3); }
 .act.idle .d, .act.idle b { color: var(--text-3); font-weight: 500; }
+.act.block { cursor: default; }
+.summary { margin: 0.75rem 1.25rem 0.25rem; font-size: 0.9375rem; line-height: 1.5; }
 @media (max-width: 640px) { .act { grid-template-columns: 3.2rem minmax(0, 1fr) auto; } .act .t { display: none; } }
 .chip {
   display: inline-flex; align-items: center; gap: 0.35rem; max-width: 14rem; padding: 0.15rem 0.55rem; border-radius: 999px;

@@ -470,6 +470,8 @@
     }), { cls: 'c5' }));
     const goals = goalsCard(d.goals, 'c12');
     if (goals) grid.append(goals);
+    const blocks = blocksCard(d);
+    if (blocks) grid.append(blocks);
     grid.append(activityCard(d));
     nodes.push(grid);
     return nodes;
@@ -557,6 +559,30 @@
       labels.append(h('span', null, hr % 2 === 0 || d.hourLast - d.hourFirst < 10 ? String(hr).padStart(2, '0') : ''));
     }
     return h('div', null, cols, labels);
+  }
+
+  // Work blocks (tock blocks) with Claude's lines when tock summary saved them.
+  function blocksCard(d) {
+    const blocks = d.blocks || [];
+    if (!blocks.length && !d.summary) return null;
+    const list = h('ul', { class: 'acts' }, blocks.map((b) => {
+      const name = b.project ? `${b.name} (${b.category})` : b.name;
+      const facts = [];
+      if (b.activeMS && b.deepMS) facts.push(`deep ${pct(b.deepMS, b.activeMS)}`);
+      if (b.distractMS >= 60e3) facts.push(`distracted ${dur(b.distractMS)}`);
+      const top = b.top.map((t) => t.name).join(', ');
+      if (top) facts.push(top);
+      return h('li', { class: 'act block' },
+        h('span', { class: 't' }, `${clock(b.start)}–${clock(b.end)}`),
+        h('span', { class: 'd' }, dur(b.activeMS)),
+        h('span', { class: 'w', title: b.summary || facts.join(' · ') }, h('b', null, nice(name)), b.summary ? h('span', null, b.summary) : h('span', null, facts.join(' · '))),
+        h('span', { class: `chip ${kindClass(b.kind)}` }, b.category || 'Unlabelled'));
+    }));
+    return h('section', { class: 'card flat c12' },
+      h('div', { class: 'card-head', style: { padding: '1.25rem 1.25rem 0' } }, h('h2', null, 'Work blocks'),
+        d.summary ? null : h('span', { class: 'cap' }, 'tock summary writes what each was about')),
+      d.summary ? h('p', { class: 'summary' }, d.summary) : null,
+      blocks.length ? list : h('div', { class: 'muted', style: { padding: '0 1.25rem 1rem' } }, 'No block of 15 min or more yet'));
   }
 
   function activityCard(d) {
