@@ -163,3 +163,41 @@ func TestFoldOpsApplyToStore(t *testing.T) {
 		}
 	}
 }
+
+func event(ts int64, k span.EventKind) span.Input {
+	return span.Input{Event: &span.Event{TS: ts, Kind: k}}
+}
+
+// TestFoldOpsApplyToStoreExtendReopen covers the fold paths that rewrite an
+// existing row: Extend (fold into previous, then a different span), Reopen
+// (next key equals the previous span's key) and the hard-boundary fold
+// (Delete + Extend). Hand-traced ids: A=1, C=2 (deleted), D=3, A'=4 (deleted),
+// E=5 (deleted), F=6 (deleted), G=7.
+func TestFoldOpsApplyToStoreExtendReopen(t *testing.T) {
+	got, want := runThroughStore(t, []span.Input{
+		sample(base, "com.a", ""),
+		sample(base+6000, "com.c", ""),  // A long; C opens
+		sample(base+7000, "com.d", ""),  // C lived 1 s: Delete C, Extend A to 7000, open D
+		sample(base+13000, "com.a", ""), // D long; A' opens
+		sample(base+14000, "com.d", ""), // A' lived 1 s, key equals D: Delete A', Reopen D
+		sample(base+20000, "com.d", ""),
+		sample(base+21000, "com.e", ""),    // D long; E opens
+		sample(base+22000, "com.d", ""),    // E lived 1 s, key equals D: Delete E, Reopen D
+		sample(base+28000, "com.f", ""),    // D long; F opens
+		event(base+29000, span.EventSleep), // F lived 1 s before a hard boundary: Delete F, Extend D
+		event(base+40000, span.EventWake),
+		sample(base+41000, "com.g", ""),
+		sample(base+50000, "com.g", ""),
+	})
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("store rows differ from replay oracle\n got:  %+v\n want: %+v", got, want)
+	}
+	exp := []row{
+		{ID: 1, Start: base, End: ni(base + 7000), Bundle: "com.a"},
+		{ID: 3, Start: base + 7000, End: ni(base + 29000), Bundle: "com.d"},
+		{ID: 7, Start: base + 41000, End: ni(base + 50000), Bundle: "com.g"},
+	}
+	if !reflect.DeepEqual(got, exp) {
+		t.Fatalf("store rows\n got:  %+v\n want: %+v", got, exp)
+	}
+}
