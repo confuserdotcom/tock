@@ -12,8 +12,10 @@ export rows or rule files into issues or commits.
    - With rules.toml present, `make install` leaves it untouched.
 3. **Rules tab: reorder.** Back up rules.toml with
    `cp ~/.config/tock/rules.toml /tmp/rules.bak`.
-   - Run `tock`, press `5`, then `j` to a rule and `K`. The flash says
-     `moved rules.toml#N up`.
+   - Run `tock` and press `5`. Learned rules (`L1`, `L2`, …) are listed
+     first and live in learned.toml, so press `G` to jump to the last rule,
+     which is in rules.toml. Press `K` (Shift+k; plain `k` only moves the
+     cursor). The flash says `moved rules.toml#N up`.
    - `diff /tmp/rules.bak ~/.config/tock/rules.toml` shows only two rule blocks
      trading places, each with its own comment lines. Section banners stay put.
    - `K` on the first rule says `already first`.
