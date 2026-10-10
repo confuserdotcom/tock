@@ -51,7 +51,7 @@ func TestStatus(t *testing.T) {
 		t.Fatalf("down: %q %v", s, err)
 	}
 	e.Heartbeat(t, e.Clock.UnixMilli()-5_000)
-	if s, _ := a.Status(); s != "2h54 · deep 2h14 · now unlabelled" {
+	if s, _ := a.Status(); s != "2h54 · score 74 · focus 2h14 · now unlabelled" {
 		t.Fatalf("up: %q", s)
 	}
 }

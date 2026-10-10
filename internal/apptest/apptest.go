@@ -22,8 +22,8 @@ var Now = time.Date(2026, 10, 10, 15, 0, 0, 0, Zone)
 // Env is one temporary data directory with its file paths and a settable
 // clock.
 type Env struct {
-	DB, Rules, Learned string
-	Clock              time.Time
+	DB, Rules, Learned, Config string
+	Clock                      time.Time
 }
 
 // New returns an Env in t.TempDir with the clock at Now. rules is written
@@ -35,6 +35,7 @@ func New(t testing.TB, rules string) *Env {
 		DB:      filepath.Join(root, "data", "tock.db"),
 		Rules:   filepath.Join(root, "config", "rules.toml"),
 		Learned: filepath.Join(root, "config", "learned.toml"),
+		Config:  filepath.Join(root, "config", "config.toml"),
 		Clock:   Now,
 	}
 	if rules != "" {
@@ -49,10 +50,21 @@ func (e *Env) NowFunc() func() time.Time { return func() time.Time { return e.Cl
 // WriteRules replaces rules.toml.
 func (e *Env) WriteRules(t testing.TB, rules string) {
 	t.Helper()
-	if err := os.MkdirAll(filepath.Dir(e.Rules), 0o700); err != nil {
+	write(t, e.Rules, rules)
+}
+
+// WriteConfig replaces config.toml.
+func (e *Env) WriteConfig(t testing.TB, body string) {
+	t.Helper()
+	write(t, e.Config, body)
+}
+
+func write(t testing.TB, path, body string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(e.Rules, []byte(rules), 0o600); err != nil {
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
 		t.Fatal(err)
 	}
 }

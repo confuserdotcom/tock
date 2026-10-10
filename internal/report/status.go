@@ -1,23 +1,31 @@
 package report
 
-import "strings"
+import (
+	"strconv"
+	"strings"
+)
 
 // StatusInput is what the one-line status needs.
 type StatusInput struct {
-	TrackedMS, DeepMS int64
-	Open              *Row // the row holding the open span; nil when none is open
-	TrackdUp          bool
+	TrackedMS, FocusMS int64
+	Score              int
+	Active             bool // the day has active time, so Score means something
+	Open               *Row // the row holding the open span; nil when none is open
+	TrackdUp           bool
 }
 
 // Status renders the line `tock status` prints, for example
-// "5h12 · deep 2h40 · now Code / tock".
+// "5h12 · score 64 · focus 2h40 · now Code / tock".
 func Status(in StatusInput) string {
 	if !in.TrackdUp {
 		return "trackd down · " + Dur(in.TrackedMS)
 	}
 	parts := []string{Dur(in.TrackedMS)}
-	if in.DeepMS > 0 {
-		parts = append(parts, "deep "+Dur(in.DeepMS))
+	if in.Active {
+		parts = append(parts, "score "+strconv.Itoa(in.Score))
+	}
+	if in.FocusMS > 0 {
+		parts = append(parts, "focus "+Dur(in.FocusMS))
 	}
 	if r := in.Open; r != nil {
 		switch {

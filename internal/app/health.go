@@ -4,7 +4,6 @@ import (
 	"sort"
 	"strings"
 
-	"tock/internal/classify"
 	"tock/internal/report"
 	"tock/internal/store"
 )
@@ -29,11 +28,12 @@ type Health struct {
 	AutomationOff []string // browsers whose Automation permission is denied, sorted
 	Version       string
 	RulesErr      error
+	ConfigErr     error
 }
 
 // Health reads trackd's liveness and permission state.
 func (a *App) Health() (Health, error) {
-	h := Health{RulesErr: a.rulesErr}
+	h := Health{RulesErr: a.rulesErr, ConfigErr: a.configErr}
 	last, err := a.st.LastSeen()
 	if err != nil {
 		return h, err
@@ -74,7 +74,8 @@ func (a *App) Status() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	in := report.StatusInput{TrackedMS: d.TrackedMS, DeepMS: d.ByKind[classify.KindDeep], TrackdUp: h.TrackdUp}
+	in := report.StatusInput{TrackedMS: d.TrackedMS, FocusMS: d.Stats.FocusMS, Score: d.Score.Value,
+		Active: d.Stats.ActiveMS > 0, TrackdUp: h.TrackdUp}
 	if n := len(d.Timeline); n > 0 && d.Timeline[n-1].Open {
 		in.Open = &d.Timeline[n-1]
 	}

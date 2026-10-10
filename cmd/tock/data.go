@@ -3,15 +3,18 @@ package main
 import (
 	"errors"
 	"os"
+	"path/filepath"
 
 	"tock/internal/app"
+	"tock/internal/config"
 	"tock/internal/store"
 )
 
 var errNoDB = app.ErrNoDB
 
 func (e Env) paths() app.Paths {
-	return app.Paths{DB: e.dbPath(), Rules: e.rulesPath(), Learned: e.learnedPath()}
+	return app.Paths{DB: e.dbPath(), Rules: e.rulesPath(), Learned: e.learnedPath(),
+		Config: filepath.Join(e.ConfigDir, config.File)}
 }
 
 // openApp loads the rules and opens the database.

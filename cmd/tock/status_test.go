@@ -22,7 +22,7 @@ func TestStatus(t *testing.T) {
 		t.Fatal(err)
 	}
 	st.Close()
-	if code, out := te.run(t, "", "status"); code != 0 || out != "2h54 · deep 2h14 · now unlabelled\n" {
+	if code, out := te.run(t, "", "status"); code != 0 || out != "2h54 · score 74 · focus 2h14 · now unlabelled\n" {
 		t.Fatalf("up: code %d out %q", code, out)
 	}
 	if code, _ := te.run(t, "", "status", "x"); code != 2 {

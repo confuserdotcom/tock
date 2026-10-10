@@ -129,11 +129,13 @@ func TestStatus(t *testing.T) {
 		in   StatusInput
 		want string
 	}{
-		{StatusInput{TrackedMS: 312 * 60_000, DeepMS: 160 * 60_000, Open: code, TrackdUp: true}, "5h12 · deep 2h40 · now Code / tock"},
-		{StatusInput{TrackedMS: 60_000, TrackdUp: true}, "1m"},
-		{StatusInput{TrackedMS: 60_000, Open: &Row{Idle: true}, TrackdUp: true}, "1m · now idle"},
-		{StatusInput{TrackedMS: 60_000, Open: &Row{}, TrackdUp: true}, "1m · now unlabelled"},
-		{StatusInput{TrackedMS: 312 * 60_000, DeepMS: 5, Open: code}, "trackd down · 5h12"},
+		{StatusInput{TrackedMS: 312 * 60_000, FocusMS: 160 * 60_000, Score: 64, Active: true, Open: code, TrackdUp: true},
+			"5h12 · score 64 · focus 2h40 · now Code / tock"},
+		{StatusInput{TrackedMS: 60_000, Active: true, TrackdUp: true}, "1m · score 0"},
+		{StatusInput{TrackedMS: 60_000, Active: true, Open: &Row{Idle: true}, TrackdUp: true}, "1m · score 0 · now idle"},
+		{StatusInput{TrackedMS: 60_000, Active: true, Open: &Row{}, TrackdUp: true}, "1m · score 0 · now unlabelled"},
+		{StatusInput{TrackdUp: true}, "0s"},
+		{StatusInput{TrackedMS: 312 * 60_000, FocusMS: 5, Score: 50, Active: true, Open: code}, "trackd down · 5h12"},
 	}
 	for _, c := range cases {
 		if got := Status(c.in); got != c.want {

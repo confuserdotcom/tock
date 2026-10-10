@@ -13,7 +13,7 @@ import (
 
 func open(t *testing.T, e *apptest.Env) *App {
 	t.Helper()
-	a, err := Open(Paths{DB: e.DB, Rules: e.Rules, Learned: e.Learned}, e.NowFunc())
+	a, err := Open(Paths{DB: e.DB, Rules: e.Rules, Learned: e.Learned, Config: e.Config}, e.NowFunc())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -134,7 +134,7 @@ func TestOpenRowWithMovingClock(t *testing.T) {
 	if last := d.Timeline[len(d.Timeline)-1]; !last.Open {
 		t.Fatalf("last row must be open: %+v", last)
 	}
-	if s, _ := a.Status(); s != "2h54 · deep 2h14 · now unlabelled" {
+	if s, _ := a.Status(); s != "2h54 · score 74 · focus 2h14 · now unlabelled" {
 		t.Fatalf("status = %q", s)
 	}
 }

@@ -40,10 +40,9 @@ func overrides(m map[int64]store.Override) map[int64]classify.Override {
 	return out
 }
 
-// labelled loads the spans overlapping [from, to), clipped, with their
-// labels. The open span ends at nowMS; callers pass the same nowMS to the
-// report so it can tell which row is open.
-func (a *App) labelled(from, to, nowMS int64) ([]classify.SpanView, []classify.Label, error) {
+// spans loads the spans overlapping [from, to) and the overrides. A change
+// in the overrides drops the cached stats of past days.
+func (a *App) spans(from, to int64) ([]store.SpanRow, map[int64]classify.Override, error) {
 	rows, err := a.st.Spans(from, to)
 	if err != nil {
 		return nil, nil, err
@@ -52,8 +51,22 @@ func (a *App) labelled(from, to, nowMS int64) ([]classify.SpanView, []classify.L
 	if err != nil {
 		return nil, nil, err
 	}
+	if fp := fingerprint(ovs); fp != a.pastKey {
+		a.past, a.pastKey = nil, fp
+	}
+	return rows, overrides(ovs), nil
+}
+
+// labelled loads the spans overlapping [from, to), clipped, with their
+// labels. The open span ends at nowMS; callers pass the same nowMS to the
+// report so it can tell which row is open.
+func (a *App) labelled(from, to, nowMS int64) ([]classify.SpanView, []classify.Label, error) {
+	rows, ovs, err := a.spans(from, to)
+	if err != nil {
+		return nil, nil, err
+	}
 	vs := views(rows, from, to, nowMS)
-	return vs, a.rs.LabelAll(vs, overrides(ovs)), nil
+	return vs, a.rs.LabelAll(vs, ovs), nil
 }
 
 // history is every span, labelled, with the overrides.
@@ -90,7 +103,12 @@ func (a *App) Day(day time.Time) (report.Day, error) {
 	if err != nil {
 		return report.Day{}, err
 	}
-	return report.BuildDay(report.DayInput{Date: from, NowMS: now, Views: vs, Labels: labels, Ignored: ignored}), nil
+	target, err := a.targetFor(from)
+	if err != nil {
+		return report.Day{}, err
+	}
+	return report.BuildDay(report.DayInput{Date: from, NowMS: now, Views: vs, Labels: labels, Ignored: ignored,
+		Target: target, Weights: a.cfg.Score}), nil
 }
 
 // Week reports the Monday-start week containing anyDay.
@@ -101,7 +119,18 @@ func (a *App) Week(anyDay time.Time) (report.Week, error) {
 	if err != nil {
 		return report.Week{}, err
 	}
-	return report.BuildWeek(report.WeekInput{Monday: mon, NowMS: now, Views: vs, Labels: labels}), nil
+	in := report.WeekInput{Monday: mon, NowMS: now, Views: vs, Labels: labels, Weights: a.cfg.Score}
+	today := a.midnight(a.now())
+	for i := range in.Targets {
+		day := mon.AddDate(0, 0, i)
+		if day.After(today) {
+			break
+		}
+		if in.Targets[i], err = a.targetFor(day); err != nil {
+			return report.Week{}, err
+		}
+	}
+	return report.BuildWeek(in), nil
 }
 
 // Inbox returns the unlabelled keys of the last days days, largest first.
