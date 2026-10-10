@@ -1,0 +1,65 @@
+# bundle	app	title	url	category	project
+com.github.wez.wezterm	WezTerm	tock │ ✳ fix tests	<nil>	Code	tock
+com.github.wez.wezterm	WezTerm	ATLAS │ nvim scan.go	<nil>	Code	ATLAS
+com.github.wez.wezterm	WezTerm	mandarin-anki │ make deck	<nil>	Code	mandarin-anki
+com.github.wez.wezterm	WezTerm	[1/3] ✳ workflow phase 1 init	<nil>	Code	-
+com.github.wez.wezterm	WezTerm	<nil>	<nil>	Code	-
+com.mitchellh.ghostty	Ghostty	nvim	<nil>	Code	-
+com.apple.Terminal	Terminal	bash	<nil>	Code	-
+com.googlecode.iterm2	iTerm2	zsh	<nil>	Code	-
+com.microsoft.VSCode	Code	main.go - tock - Visual Studio Code	<nil>	Code	-
+com.todesktop.230313mzl4w4u92	Cursor	main.go - tock	<nil>	Code	-
+dev.zed.Zed	Zed	tock	<nil>	Code	-
+com.apple.dt.Xcode	Xcode	AppDelegate.swift	<nil>	Code	-
+company.thebrowser.Browser	Arc	someone/tock: tracker	github.com/someone/tock	Code	-
+com.apple.Safari	Safari	GitHub	github.com	Code	-
+com.google.Chrome	Google Chrome	sqlite package	pkg.go.dev/modernc.org/sqlite	Code	-
+company.thebrowser.Browser	Arc	go - How to x	stackoverflow.com/questions/123/how-to-x	Code	-
+md.obsidian	Obsidian	Exercises 1–9 - Licence - Obsidian 1.14.4	<nil>	Study	Licence
+md.obsidian	Obsidian	Chapter 2 — Notes - Analyse 1 - Obsidian 1.14.4	<nil>	Study	Analyse 1
+md.obsidian	Obsidian	Daily 2026-10-10 - Journal - Obsidian 1.14.4	<nil>	Writing	-
+md.obsidian	Obsidian	<nil>	<nil>	Writing	-
+net.ankiweb.dtop	Anki	Mandarin HSK3 - Anki	<nil>	Study	mandarin-anki
+net.ankiweb.dtop	Anki	中文 deck - Anki	<nil>	Study	mandarin-anki
+net.ankiweb.dtop	Anki	Biology - Anki	<nil>	Study	-
+company.thebrowser.Browser	Arc	MIT 18.06 Linear Algebra Lecture 1	www.youtube.com/watch	Study	-
+com.apple.Safari	Safari	Cours d'analyse - chapitre 2	www.youtube.com/watch	Study	-
+company.thebrowser.Browser	Arc	3Blue1Brown: Essence of calculus	youtube.com/watch	Study	-
+company.thebrowser.Browser	Arc	How to commit faster	www.youtube.com/watch	Entertainment	-
+company.thebrowser.Browser	Arc	dinky is my window manager	www.youtube.com/watch	Entertainment	-
+company.thebrowser.Browser	Arc	YouTube	www.youtube.com	Entertainment	-
+com.google.Chrome	Google Chrome	Learning How to Learn	www.coursera.org/learn/learning-how-to-learn	Study	-
+com.apple.Safari	Safari	Khan Academy	www.khanacademy.org/math	Study	-
+com.apple.iWork.Pages	Pages	Essay draft	<nil>	Writing	-
+company.thebrowser.Browser	Arc	Essay - Google Docs	docs.google.com/document/d/abc/edit	Writing	-
+com.apple.mail	Mail	Inbox	<nil>	Communication	-
+com.tinyspeck.slackmacgap	Slack	general | Acme - Slack	<nil>	Communication	-
+com.hnc.Discord	Discord	#general	<nil>	Communication	-
+com.apple.MobileSMS	Messages	Messages	<nil>	Communication	-
+net.whatsapp.WhatsApp	WhatsApp	WhatsApp	<nil>	Communication	-
+ru.keepcoder.Telegram	Telegram	Telegram	<nil>	Communication	-
+com.google.Chrome	Google Chrome	Inbox (3) - Gmail	mail.google.com/mail/u/0	Communication	-
+company.thebrowser.Browser	Arc	Slack	app.slack.com/client/T1/C1	Communication	-
+com.apple.iCal	Calendar	Calendar	<nil>	Admin & Planning	-
+com.apple.reminders	Reminders	Reminders	<nil>	Admin & Planning	-
+com.linear	Linear	My issues	<nil>	Admin & Planning	-
+notion.id	Notion	Roadmap	<nil>	Admin & Planning	-
+com.culturedcode.ThingsMac	Things	Today	<nil>	Admin & Planning	-
+company.thebrowser.Browser	Arc	Week	calendar.google.com/calendar/r/week	Admin & Planning	-
+company.thebrowser.Browser	Arc	Roadmap	www.notion.so/roadmap-abc	Admin & Planning	-
+com.apple.Safari	Safari	Netflix	www.netflix.com/browse	Entertainment	-
+company.thebrowser.Browser	Arc	r/golang	www.reddit.com/r/golang	Entertainment	-
+company.thebrowser.Browser	Arc	Home / X	x.com/home	Entertainment	-
+company.thebrowser.Browser	Arc	Twitch	www.twitch.tv	Entertainment	-
+company.thebrowser.Browser	Arc	Instagram	www.instagram.com	Entertainment	-
+company.thebrowser.Browser	Arc	Spotify - Web Player	open.spotify.com/playlist/1	Entertainment	-
+com.spotify.client	Spotify	Spotify Premium	<nil>	Entertainment	-
+com.apple.finder	Finder	Downloads	<nil>	Utilities	-
+com.apple.systempreferences	System Settings	<nil>	<nil>	Utilities	-
+com.1password.1password	1Password	1Password	<nil>	Utilities	-
+com.apple.ActivityMonitor	Activity Monitor	Activity Monitor	<nil>	Utilities	-
+com.apple.loginwindow	loginwindow	<nil>	<nil>	Utilities	-
+company.thebrowser.Browser	Arc	XOR Equivalence Check	chatgpt.com/c/6ac98015	-	-
+company.thebrowser.Browser	Arc	Claude	claude.ai/chat/abc	-	-
+com.google.Chrome	Google Chrome	<nil>	<nil>	-	-
+tock.idle	Idle	<nil>	<nil>	-	-

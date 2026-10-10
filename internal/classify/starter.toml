@@ -1,0 +1,197 @@
+# tock rules. Written by `tock init`; edit freely, changes apply on the next
+# tock command and to all past spans (except ones you tagged by hand).
+#
+# A rule matches when every field it sets matches:
+#   bundle = ["com.example.App"]   exact bundle ids
+#   app    = 'regex'               app name
+#   title  = 'regex'               window title, after spinners/counters are removed
+#   url    = 'regex'               browser host+path, e.g. github.com/owner/repo
+# Regexes are case-insensitive searches; start one with (?-i) to opt out.
+# A rule sets category, project, or both. Each is decided separately: the
+# first matching rule that sets it wins. learned.toml (written by `tock tag`)
+# is checked before this file.
+
+[[category]]
+name = "Code"
+kind = "deep"
+
+[[category]]
+name = "Study"
+kind = "deep"
+
+[[category]]
+name = "Writing"
+kind = "deep"
+
+[[category]]
+name = "Communication"
+kind = "shallow"
+
+[[category]]
+name = "Admin & Planning"
+kind = "shallow"
+
+[[category]]
+name = "Entertainment"
+kind = "distract"
+
+[[category]]
+name = "Utilities"
+kind = "neutral"
+
+[[project]]
+name = "tock"
+
+[[project]]
+name = "ATLAS"
+
+[[project]]
+name = "mandarin-anki"
+
+[[project]]
+name = "Licence"
+
+[[project]]
+name = "Analyse 1"
+
+# --- Projects from terminal titles ------------------------------------------
+# Needs the WezTerm title hook in docs/wezterm-title.md: "<dir> │ <title>".
+
+[[rule]]
+bundle = ["com.github.wez.wezterm"]
+title = '^tock │'
+project = "tock"
+
+[[rule]]
+bundle = ["com.github.wez.wezterm"]
+title = '^ATLAS │'
+project = "ATLAS"
+
+[[rule]]
+bundle = ["com.github.wez.wezterm"]
+title = '^mandarin-anki │'
+project = "mandarin-anki"
+
+# --- Code -------------------------------------------------------------------
+
+[[rule]]
+bundle = [
+  "com.github.wez.wezterm",
+  "com.mitchellh.ghostty",
+  "com.apple.Terminal",
+  "com.googlecode.iterm2",
+  "com.microsoft.VSCode",
+  "com.todesktop.230313mzl4w4u92",
+  "dev.zed.Zed",
+  "com.apple.dt.Xcode",
+]
+category = "Code"
+
+[[rule]]
+url = '^(www\.)?(github\.com|gitlab\.com|pkg\.go\.dev|stackoverflow\.com)(/|$)'
+category = "Code"
+
+# --- Study ------------------------------------------------------------------
+
+[[rule]]
+bundle = ["md.obsidian"]
+title = ' - Licence - Obsidian'
+category = "Study"
+project = "Licence"
+
+[[rule]]
+bundle = ["md.obsidian"]
+title = ' - Analyse 1 - Obsidian'
+category = "Study"
+project = "Analyse 1"
+
+[[rule]]
+bundle = ["net.ankiweb.dtop"]
+title = 'mandarin|中文|汉语'
+project = "mandarin-anki"
+
+[[rule]]
+bundle = ["net.ankiweb.dtop"]
+category = "Study"
+
+[[rule]]
+url = '^(www\.|m\.)?youtube\.com(/|$)'
+title = 'lecture|course|tutorial|\bcours\b|leçon|\bMIT\b|3blue1brown'
+category = "Study"
+
+[[rule]]
+url = '^(www\.)?(coursera\.org|khanacademy\.org|edx\.org)(/|$)'
+category = "Study"
+
+# --- Writing ----------------------------------------------------------------
+
+[[rule]]
+bundle = ["md.obsidian", "com.apple.iWork.Pages"]
+category = "Writing"
+
+[[rule]]
+url = '^docs\.google\.com/document(/|$)'
+category = "Writing"
+
+# --- Communication ----------------------------------------------------------
+
+[[rule]]
+bundle = [
+  "com.apple.mail",
+  "com.tinyspeck.slackmacgap",
+  "com.hnc.Discord",
+  "com.apple.MobileSMS",
+  "net.whatsapp.WhatsApp",
+  "ru.keepcoder.Telegram",
+]
+category = "Communication"
+
+[[rule]]
+url = '^(mail\.google\.com|app\.slack\.com|(www\.)?discord\.com)(/|$)'
+category = "Communication"
+
+# --- Admin & Planning -------------------------------------------------------
+
+[[rule]]
+bundle = [
+  "com.apple.iCal",
+  "com.apple.reminders",
+  "com.linear",
+  "notion.id",
+  "com.culturedcode.ThingsMac",
+]
+category = "Admin & Planning"
+
+[[rule]]
+url = '^(calendar\.google\.com|linear\.app|(www\.)?notion\.so)(/|$)'
+category = "Admin & Planning"
+
+# --- Entertainment ----------------------------------------------------------
+
+[[rule]]
+url = '^(www\.|m\.)?youtube\.com(/|$)'
+category = "Entertainment"
+
+[[rule]]
+url = '^(www\.)?(netflix\.com|reddit\.com|x\.com|twitter\.com|twitch\.tv|instagram\.com)(/|$)'
+category = "Entertainment"
+
+[[rule]]
+url = '^open\.spotify\.com(/|$)'
+category = "Entertainment"
+
+[[rule]]
+bundle = ["com.spotify.client"]
+category = "Entertainment"
+
+# --- Utilities --------------------------------------------------------------
+
+[[rule]]
+bundle = [
+  "com.apple.finder",
+  "com.apple.systempreferences",
+  "com.1password.1password",
+  "com.apple.ActivityMonitor",
+  "com.apple.loginwindow",
+]
+category = "Utilities"
