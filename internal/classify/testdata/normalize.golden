@@ -1,0 +1,41 @@
+# app	title	url	private	clean	key
+WezTerm	[1/3] ✳ workflow phase 1 init	<nil>	0	workflow phase 1 init	WezTerm · workflow phase # init
+WezTerm	[1/3] ◐ workflow phase 1 init	<nil>	0	workflow phase 1 init	WezTerm · workflow phase # init
+WezTerm	⠋ cargo build	<nil>	0	cargo build	WezTerm · cargo build
+WezTerm	tock │ ✳ fix tests	<nil>	0	tock │ fix tests	WezTerm · tock │ fix tests
+WezTerm	ATLAS │ nvim ~/dev/atlas/internal/scan/scan.go	<nil>	0	ATLAS │ nvim ~/dev/atlas/internal/scan/scan.go	WezTerm · atlas │ nvim scan.go
+WezTerm	✻ Claude Code	<nil>	0	Claude Code	WezTerm · claude code
+Mail	(3) Inbox - Gmail	<nil>	0	Inbox - Gmail	Mail · inbox - gmail
+Mail	Inbox (12) — Mail	<nil>	0	Inbox — Mail	Mail · inbox
+Slack	(99+) general | Acme - Slack	<nil>	0	general | Acme - Slack	Slack · general | acme
+Slack	* general | Acme - Slack	<nil>	0	general | Acme - Slack	Slack · general | acme
+Code	● main.go - tock - Visual Studio Code	<nil>	0	main.go - tock - Visual Studio Code	Code · main.go - tock - visual studio code
+Code	main.go — Edited	<nil>	0	main.go	Code · main.go
+Xcode	AppDelegate.swift — Edited	<nil>	0	AppDelegate.swift	Xcode · appdelegate.swift
+TextEdit	Untitled 2 — Edited	<nil>	0	Untitled 2	TextEdit · untitled #
+Pages	Essay draft [Modified]	<nil>	0	Essay draft	Pages · essay draft
+Obsidian	Exercises 1–9 - Licence - Obsidian 1.14.4	<nil>	0	Exercises 1–9 - Licence - Obsidian 1.14.4	Obsidian · exercises #–# - licence
+Obsidian	Chapter 2 — Notes - Analyse 1 - Obsidian 1.14.4	<nil>	0	Chapter 2 — Notes - Analyse 1 - Obsidian 1.14.4	Obsidian · chapter # — notes - analyse #
+Obsidian	Chapter 3 — Notes - Analyse 1 - Obsidian 1.14.4	<nil>	0	Chapter 3 — Notes - Analyse 1 - Obsidian 1.14.4	Obsidian · chapter # — notes - analyse #
+Obsidian	Daily 2026-10-10 - Journal - Obsidian v1.15.0	<nil>	0	Daily 2026-10-10 - Journal - Obsidian v1.15.0	Obsidian · daily #-#-# - journal
+Finder	Downloads	<nil>	0	Downloads	Finder · downloads
+Finder	Finder	<nil>	0	Finder	Finder · finder
+Anki	Mandarin HSK3 - Anki	<nil>	0	Mandarin HSK3 - Anki	Anki · mandarin hsk#
+Notion	🚀 Roadmap Q4	<nil>	0	Roadmap Q4	Notion · roadmap q#
+Preview	~/Documents/papers/attention.pdf	<nil>	0	~/Documents/papers/attention.pdf	Preview · attention.pdf
+nvim	/Users/x/dev/tock/cmd/tock/main.go	<nil>	0	/Users/x/dev/tock/cmd/tock/main.go	nvim · main.go
+Spotify	Spotify Premium	<nil>	0	Spotify Premium	Spotify · spotify premium
+System Settings	<nil>	<nil>	0	<nil>	System Settings
+Arc	XOR Equivalence Check	chatgpt.com/c/6ac98015-85e8	0	XOR Equivalence Check	Arc · chatgpt.com/c
+Arc	Low Level Labs	labs.lowlevel.tv/lab/asm-registers-101	0	Low Level Labs	Arc · labs.lowlevel.tv/lab
+Arc	dinky is my window manager	www.youtube.com/watch	0	dinky is my window manager	Arc · youtube.com/watch
+Arc	(4) YouTube	www.youtube.com	0	YouTube	Arc · youtube.com
+Safari	GitHub - tock	github.com/someone/tock/pulls	0	GitHub - tock	Safari · github.com/someone
+Google Chrome	Inbox (3) - someone@example.com - Gmail	mail.google.com/mail/u/0	0	Inbox - someone@example.com - Gmail	Google Chrome · mail.google.com/mail
+Google Chrome	<nil>	<nil>	1	<nil>	Google Chrome (private)
+Safari	<nil>	<nil>	1	<nil>	Safari (private)
+Firefox	Some page — Mozilla Firefox	<nil>	0	Some page — Mozilla Firefox	Firefox · some page — mozilla firefox
+Arc	Docs	docs.google.com	0	Docs	Arc · docs.google.com
+WezTerm	✳	<nil>	0		WezTerm
+WezTerm	   spaced    out   title   	<nil>	0	spaced out title	WezTerm · spaced out title
+Messages	*	<nil>	0		Messages
