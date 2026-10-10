@@ -9,38 +9,6 @@ import (
 	"tock/internal/store"
 )
 
-func TestFmtDur(t *testing.T) {
-	for ms, want := range map[int64]string{0: "0s", 45_000: "45s", 60_000: "1m", 41*60_000 + 59_000: "41m", 3_600_000: "1h00", 2*3_600_000 + 14*60_000: "2h14"} {
-		if got := fmtDur(ms); got != want {
-			t.Errorf("fmtDur(%d) = %q, want %q", ms, got, want)
-		}
-	}
-}
-
-func TestBar(t *testing.T) {
-	cases := []struct {
-		ms, max int64
-		want    string
-	}{
-		{100, 100, strings.Repeat("█", 12)},
-		{50, 100, strings.Repeat("█", 6)},
-		{1, 100, "▌"},
-		{0, 100, ""},
-		{13, 24, strings.Repeat("█", 6) + "▌"},
-	}
-	for _, c := range cases {
-		if got := bar(c.ms, c.max); got != c.want {
-			t.Errorf("bar(%d,%d) = %q, want %q", c.ms, c.max, got, c.want)
-		}
-	}
-}
-
-func TestSafeStripsControls(t *testing.T) {
-	if got := safe("a\x1b[31mb\x07"); got != "a?[31mb?" {
-		t.Fatalf("safe = %q", got)
-	}
-}
-
 func TestUsageAndUnknownCommand(t *testing.T) {
 	te := newTestEnv(t, "")
 	if code, out := te.run(t, ""); code != 0 || !strings.Contains(out, "usage:") {

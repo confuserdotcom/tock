@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"tock/internal/classify"
+	"tock/internal/report"
 )
 
 const inboxTop = 20
@@ -18,21 +18,15 @@ func cmdInbox(env Env, args []string) error {
 	if fs.NArg() > 0 || *days < 1 {
 		return usagef("inbox: usage: tock inbox [--days N] [--all]")
 	}
-	w, err := openWorld(env)
+	a, err := openApp(env)
 	if err != nil {
 		return err
 	}
-	defer w.close()
-	from := w.nowMS - int64(*days)*24*60*60*1000
-	vs, labels, err := w.labelled(from, w.nowMS)
+	defer a.Close()
+	items, err := a.Inbox(*days)
 	if err != nil {
 		return err
 	}
-	ignored, err := w.st.Ignored()
-	if err != nil {
-		return err
-	}
-	items := classify.Inbox(vs, labels, ignored)
 	if len(items) == 0 {
 		fmt.Fprintf(env.Stdout, "Inbox empty: everything in the last %d days is labelled.\n", *days)
 		return saveListing(env, nil)
@@ -41,7 +35,7 @@ func cmdInbox(env Env, args []string) error {
 	for _, it := range items {
 		total += it.TotalMS
 	}
-	fmt.Fprintf(env.Stdout, "Inbox  last %d days · %d keys · %s unlabelled\n", *days, len(items), fmtDur(total))
+	fmt.Fprintf(env.Stdout, "Inbox  last %d days · %d keys · %s unlabelled\n", *days, len(items), report.Dur(total))
 	shown := items
 	if !*all && len(shown) > inboxTop {
 		shown = shown[:inboxTop]
@@ -49,7 +43,7 @@ func cmdInbox(env Env, args []string) error {
 	keys := make([]string, len(shown))
 	for i, it := range shown {
 		keys[i] = it.Key
-		line := fmt.Sprintf("%3d  %5s  %s", i+1, fmtDur(it.TotalMS), safe(it.Key))
+		line := fmt.Sprintf("%3d  %5s  %s", i+1, report.Dur(it.TotalMS), report.Safe(it.Key))
 		if it.Example != "" {
 			line += fmt.Sprintf("  %q", it.Example)
 		}
@@ -87,9 +81,9 @@ func cmdIgnore(env Env, args []string) error {
 		return err
 	}
 	if *undo {
-		fmt.Fprintf(env.Stdout, "showing again: %s\n", safe(key))
+		fmt.Fprintf(env.Stdout, "showing again: %s\n", report.Safe(key))
 	} else {
-		fmt.Fprintf(env.Stdout, "ignored: %s (undo: tock ignore --undo %q)\n", safe(key), key)
+		fmt.Fprintf(env.Stdout, "ignored: %s (undo: tock ignore --undo %q)\n", report.Safe(key), key)
 	}
 	return nil
 }
