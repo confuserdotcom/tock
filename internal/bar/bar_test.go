@@ -131,7 +131,8 @@ func TestButtons(t *testing.T) {
 	if got := Buttons(away, d); !reflect.DeepEqual(got, want) {
 		t.Fatalf("away buttons = %+v", got)
 	}
-	if Category(away) != "away-7" || Category(store.Notice{Topic: focus.TopicBreak}) != "break" {
+	if Category(away, d) != "away-7" || Category(store.Notice{ID: 8, Topic: focus.TopicBreak}, d) != "break-8" ||
+		Category(store.Notice{ID: 9, Topic: focus.TopicRecap}, d) != "" {
 		t.Fatal("categories")
 	}
 	for topic, want := range map[string]string{

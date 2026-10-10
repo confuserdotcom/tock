@@ -50,13 +50,13 @@ func Buttons(n store.Notice, d app.NoticeData) []Button {
 	return nil
 }
 
-// Category is the notification category id of a notice: its topic, or a
-// per-notice id for away notices, whose buttons are that notice's labels.
-func Category(n store.Notice) string {
-	if n.Topic == focus.TopicAway {
-		return "away-" + strconv.FormatInt(n.ID, 10)
+// Category is the notification category id of a notice with buttons: one
+// per notice, since the buttons depend on its data. "" for none.
+func Category(n store.Notice, d app.NoticeData) string {
+	if len(Buttons(n, d)) == 0 {
+		return ""
 	}
-	return n.Topic
+	return n.Topic + "-" + strconv.FormatInt(n.ID, 10)
 }
 
 // WantText is a label as the TUI writes it: "Category" or "Category /
