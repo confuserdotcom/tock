@@ -13,11 +13,14 @@ score your focus, run focus sessions and help you label what is left.
   links an HTTP or TLS client.
 - Private-browsing windows are recorded as "<app> (private)", with no title or
   URL.
-- Claude suggestions are the only feature that talks to the internet, and they
-  are off unless `ANTHROPIC_API_KEY` is set in the shell that runs `tock`.
-  - When on, at most once an hour, tock sends the grouped inbox keys: app name, URL host, cleaned title and minutes. It also sends your category and project names.
+- Claude (suggestions, `tock summary` and `tock ask`) is the only feature
+  that talks to the internet, and it is off unless `ANTHROPIC_API_KEY` is
+  set in the shell that runs `tock`.
+  - Suggestions: at most once an hour, tock sends the grouped inbox keys: app name, URL host, cleaned title and minutes. It also sends your category and project names.
+  - `tock summary` sends one day's work blocks, only when you run it: clock times, labels and per block at most 8 apps with their host or cleaned title and minutes. Never the date, never another machine's time.
+  - `tock ask` sends only your question, today's date and your category and project names. Claude turns it into a query and tock runs that query on this machine; your activity is never sent.
   - Password managers, mail and messaging apps, banks and webmail are never sent. Extend the deny lists in `config.toml [llm]`.
-  - `tock suggest --dry-run` prints the exact payload without sending it.
+  - `--dry-run` on `tock suggest`, `tock summary` and `tock ask` prints the exact payload without sending it.
   - The key is read from the environment only and is never written anywhere.
 - Slack status (opt-in) is the only other network use: `tock slack`, run by
   trackd when a session starts and ends, sets your status and
@@ -174,6 +177,9 @@ tock web [--port N] [--no-open]       the dashboard in your browser, on this mac
 tock review [--week YYYY-MM-DD] [--plan TEXT]
                                        weekly recap, then next week's focus
 tock suggest [--dry-run | --force]     Claude label suggestions for the inbox (needs ANTHROPIC_API_KEY)
+tock blocks [--date D]                 the day's work blocks: stretches of work on one thing
+tock summary [--date D] [--dry-run]    Claude writes what you worked on (needs ANTHROPIC_API_KEY)
+tock ask [--dry-run] "<question>"      ask about your time in plain words; answered on this machine
 tock doctor [--wait] [--open]          check trackd, permissions, rules and config
 tock export [--from D] [--to D] [--format csv|json] [--by project]
                                        labelled spans, default the last 7 days as csv
@@ -393,14 +399,50 @@ categories with their kind, apps and sites (URL hosts) with the category
 most of their time went to, each with its share of tracked time. `--by
 project` lists projects.
 
+## Work blocks, summaries and questions
+
+`tock blocks` splits the day into work blocks: stretches spent on one
+project (else one category). A block ends at a break of 10 minutes or
+when other work lasts 10 minutes; shorter detours stay inside it. Blocks
+under 15 minutes of activity are left out. Each line shows the time, the
+length, the label, the deep share, any distraction and the top apps and
+sites:
+
+```
+09:00–10:40   1h40  tock (Code) · deep 92% · WezTerm, github.com
+```
+
+`tock summary` asks Claude what the day was about and saves the answer
+in tock.db: a few sentences for the day and one line per block.
+`tock blocks`, the today tab (under the commits line) and the **Work
+blocks** card in `tock web` then show it. Run it again to replace it;
+`--date YYYY-MM-DD` summarizes another day.
+
+`tock ask` answers a question about your time:
+
+```
+$ tock ask "how much youtube last week?"
+youtube.com, last week: 3h12 (8% of 38h40 tracked)
+  Mon 28 Sep – Sun 4 Oct
+```
+
+Claude only picks the range (today, a week, a month, the last N days or
+dates), the grouping (total, category, project, app, site, kind or day)
+and the filters; tock computes the answer from your data here. A question
+that is not about tracked time gets `tock cannot answer that`.
+
+`tock summary` and `tock ask` need `[llm] enabled = true` (the default)
+and `ANTHROPIC_API_KEY`, and use `[llm] model`. `tock blocks` works
+without them.
+
 ## Web dashboard
 
 `tock web` opens a dashboard in your browser and runs until you press
 ctrl-c:
 
 - **Today:** the focus score and its four parts, a timeline ribbon (hover a
-  block for its app and title), time by hour, categories, goals and the
-  day's activity. Click any block or row to label it. Use the arrows or
+  block for its app and title), time by hour, categories, goals, the work
+  blocks with their summary and the day's activity. Click any block or row to label it. Use the arrows or
   ← → to move between days.
 - **Week:** each day's time by kind and score (click a day to open it),
   categories, projects, apps and sites, distractions, goals and the plan.
