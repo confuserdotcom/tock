@@ -16,7 +16,7 @@ func TestMeetingRow(t *testing.T) {
 	if !strings.Contains(l, "Meeting") || !strings.Contains(l, "Standup") || !strings.Contains(l, "Meetings") {
 		t.Fatalf("meeting row: %q", l)
 	}
-	for i := 0; i < 8 && !strings.Contains(line(t, m, "12:30–13:30"), "▶"); i++ {
+	for i := 0; i < 8 && !strings.Contains(line(t, m, "12:30–13:30"), "▸"); i++ {
 		m = press(t, m, "k")
 	}
 	m = press(t, m, "T")

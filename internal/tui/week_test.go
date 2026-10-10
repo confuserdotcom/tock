@@ -16,13 +16,13 @@ func TestWeekTab(t *testing.T) {
 		"Sun 11      —    —      —",
 		"Code             4h14", "Projects         tock 3h40",
 		"Apps             WezTerm 4h14 · chatgpt.com 12m · youtube.com 12m · Mail 10m · labs.x.tv 6m")
-	if l := line(t, m, "Mon  5"); !strings.HasPrefix(l, "▶") {
+	if l := line(t, m, "Mon  5"); !strings.HasPrefix(l, "▸") {
 		t.Fatalf("cursor starts on Monday: %q", l)
 	}
 	m = press(t, m, "enter")
-	mustContain(t, m, "Mon 5 Oct  score", " tracked 2h00")
+	mustContain(t, m, "Mon 5 Oct  ‹", "tracked 2h00")
 	m = press(t, m, "2", "j", "j", "j", "j", "j", "enter")
-	mustContain(t, m, "Today  score 74", " tracked 2h54")
+	mustContain(t, m, "Today  ‹ h  l ›", "tracked 2h54")
 	m = press(t, m, "2", "j", "enter") // Sunday is in the future
 	mustContain(t, m, "Week of Mon 5 Oct")
 }
@@ -73,7 +73,7 @@ func TestWeekPlanLine(t *testing.T) {
 	m = press(t, m, "2")
 	mustContain(t, m, " plan: ship tier 2")
 	m = clickOn(t, m, "Wed  7")
-	if l := line(t, m, "Wed  7"); !strings.HasPrefix(l, "▶") {
+	if l := line(t, m, "Wed  7"); !strings.HasPrefix(l, "▸") {
 		t.Fatalf("click below the plan line: %q", l)
 	}
 }

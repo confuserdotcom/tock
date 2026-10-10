@@ -215,7 +215,7 @@ func (t weekTab) view(w, h int) []string {
 		line := fmt.Sprintf("%-3s %2d  ", d.Date.Format("Mon"), d.Date.Day()) + fitRight(dur, 5) + "  " +
 			fitRight(score, 3) + "  " + fitRight(focus, 5) + "  " + bar
 		if i == t.cursor {
-			out = append(out, sSel.Render("▶"+line))
+			out = append(out, sSel.Render(sBrand.Bold(true).Render("▸")+line))
 		} else {
 			out = append(out, " "+line)
 		}

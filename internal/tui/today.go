@@ -24,6 +24,10 @@ type todayTab struct {
 	filter    string
 	filtering bool
 	timelineH int // timeline rows that fit; set by Model.Update
+	// sugg are the inbox suggestions by key and trackdUp trackd's state,
+	// both copied from the model on each load.
+	sugg     map[string]classify.Want
+	trackdUp bool
 }
 
 func (t *todayTab) dateOr(now time.Time) time.Time {
@@ -303,135 +307,6 @@ func rowLabel(r report.Row) string {
 	return report.LabelText(r.Label.Category, r.Label.Project)
 }
 
-// layout splits a body of h rows: how many category rows fit and how tall
-// the timeline is. view and the key handlers must agree on it.
-func (t *todayTab) layout(h int) (catRows, timelineH int) {
-	const minTimeline = 4
-	top := 3 + len(t.notes()) + 1 + len(t.day.Hours.MS) + 1 // title, totals, notes, blank, axis, kinds, blank
-	catRows = max(len(t.day.Categories), 1)
-	catRows = min(catRows, max(h-top-1-minTimeline, 1))
-	return catRows, max(h-top-catRows-1, 1)
-}
-
-// rowAt is the timeline row shown on body line line of a body h lines
-// tall, if any.
-func (t *todayTab) rowAt(line, h int) (int, bool) {
-	if !t.loaded {
-		return 0, false
-	}
-	catRows, timelineH := t.layout(h)
-	start := 3 + len(t.notes()) + 1 + len(t.day.Hours.MS) + 1 + catRows + 1
-	i := t.top + line - start
-	if line < start || line >= start+timelineH || i >= len(t.rows()) {
-		return 0, false
-	}
-	return i, true
-}
-
-// view renders the tab body in w×h cells.
-func (t todayTab) view(w, h int, now time.Time) []string {
-	if !t.loaded {
-		return []string{"", " loading…"}
-	}
-	d := t.day
-	title := "Today"
-	if !t.isToday(now) {
-		title = d.Date.Format("Mon 2 Jan")
-	}
-	var out []string
-	out = append(out, " "+sHead.Render(title)+"  "+scoreText(d))
-	out = append(out, " "+statsLine(d))
-	for _, n := range t.notes() {
-		out = append(out, fit(n, w))
-	}
-	out = append(out, "")
-	out = append(out, heatmap(d, w)...)
-	out = append(out, "")
-
-	catRows, timelineH := t.layout(h)
-	var maxMS int64
-	for _, c := range d.Categories {
-		maxMS = max(maxMS, c.MS)
-	}
-	for _, c := range d.Categories[:min(len(d.Categories), catRows)] {
-		extra := projects(c.Projects)
-		if c.Name == report.Unclassified && len(c.Items) > 0 {
-			extra = plural(len(c.Items), "key") + " → 3 inbox"
-		}
-		bar := kindStyle(c.Kind).Render(report.Pad(report.Bar(c.MS, maxMS, 12), 12))
-		line := " " + fit(c.Name, 15) + fitRight(report.Dur(c.MS), 5) + "  " + bar + "  " + sDim.Render(extra)
-		out = append(out, line)
-	}
-	if len(d.Categories) == 0 {
-		out = append(out, sDim.Render(" no activity"))
-	}
-	out = append(out, "")
-
-	rs := t.rows()
-	end := min(t.top+timelineH, len(rs))
-	for i := t.top; i < end; i++ {
-		out = append(out, timelineRow(rs[i], w, i == t.cursor, now.Location()))
-	}
-	if len(rs) == 0 && t.filter != "" {
-		out = append(out, sDim.Render(fmt.Sprintf(" no rows match %q", t.filter)))
-	}
-	return out
-}
-
-// notes are the lines between the stats line and the heatmap: the goals,
-// the commits and the latest unanswered time away.
-func (t *todayTab) notes() []string {
-	var out []string
-	if len(t.day.Goals) > 0 {
-		out = append(out, goalsLine(t.day.Goals))
-	}
-	if len(t.day.Commits) > 0 {
-		out = append(out, " "+sHead.Render("commits")+"  "+sText.Render(report.CommitsLine(t.day.Commits)))
-	}
-	if n := len(t.day.Away); n > 0 {
-		line := " " + sAccent.Render("away "+awayWhat(t.day.Away[n-1], t.day.Date.Location())) +
-			sDim.Render(" · a what was it? · A leave idle")
-		if n > 1 {
-			line += sDim.Render(fmt.Sprintf("  (+%d more)", n-1))
-		}
-		out = append(out, line)
-	}
-	return out
-}
-
-// goalsLine is report.GoalsLine with each goal styled by its state.
-func goalsLine(rows []report.GoalRow) string {
-	parts := make([]string, len(rows))
-	for i, r := range rows {
-		st := sText
-		switch r.State {
-		case report.GoalMet, report.GoalOK:
-			st = sDim
-		case report.GoalOver:
-			st = sAccent
-		}
-		parts[i] = st.Render(report.GoalText(r))
-	}
-	return " " + sHead.Render("goals") + "  " + strings.Join(parts, sDim.Render(" · "))
-}
-
-// scoreText is report.ScoreLine with the score in the accent colour.
-func scoreText(d report.Day) string {
-	first, rest, _ := strings.Cut(report.ScoreLine(d), " · ")
-	return sAccent.Render(first) + sDim.Render(" · ") + sText.Render(rest)
-}
-
-func statsLine(d report.Day) string {
-	parts := []string{"tracked " + report.Dur(d.TrackedMS)}
-	for _, k := range report.Kinds {
-		if ms := d.ByKind[k]; ms > 0 {
-			parts = append(parts, kindStyle(k).Render(kindName(k)+" "+report.Dur(ms)))
-		}
-	}
-	parts = append(parts, sFaint.Render("idle "+report.Dur(d.IdleMS)))
-	return strings.Join(parts, sDim.Render(" · "))
-}
-
 func projects(p []report.NameMS) string {
 	var parts []string
 	for _, n := range p[:min(len(p), 3)] {
@@ -455,62 +330,3 @@ func shade(ms int64) string {
 	return "█"
 }
 
-// heatmap draws hour labels and one row per kind with time, two cells per
-// hour.
-func heatmap(d report.Day, w int) []string {
-	const label = 11
-	hrs := d.Hours
-	n := hrs.Last - hrs.First + 1
-	cell := 2
-	if label+n*cell > w-1 {
-		cell = 1
-	}
-	step := 1
-	for step*cell < 3 {
-		step++
-	}
-	axis := []byte(strings.Repeat(" ", n*cell+2))
-	for h := hrs.First; h <= hrs.Last; h += step {
-		pos := (h - hrs.First) * cell
-		copy(axis[pos:], fmt.Sprintf("%02d", h))
-	}
-	out := []string{" " + strings.Repeat(" ", label) + sFaint.Render(strings.TrimRight(string(axis), " "))}
-	for _, k := range report.Kinds {
-		hours, ok := hrs.MS[k]
-		if !ok {
-			continue
-		}
-		var b strings.Builder
-		for h := hrs.First; h <= hrs.Last; h++ {
-			b.WriteString(strings.Repeat(shade(hours[h]), cell))
-		}
-		out = append(out, " "+fit(kindName(k), label)+kindStyle(k).Render(b.String()))
-	}
-	return out
-}
-
-func timelineRow(r report.Row, w int, sel bool, loc *time.Location) string {
-	start := time.UnixMilli(r.Start).In(loc).Format("15:04")
-	end := time.UnixMilli(r.End).In(loc).Format("15:04")
-	mark := " "
-	if sel {
-		mark = "▶"
-	}
-	label := fit(rowLabel(r), 18)
-	switch {
-	case r.Idle:
-		label = sFaint.Render(label)
-	case r.Label.Category == "" && r.Label.Project == "":
-		label = sAccent.Render(label)
-	default:
-		label = kindStyle(r.Label.Kind).Render(label)
-	}
-	fixed := 1 + 11 + 2 + 5 + 2 + 18 + 2 + 10 + 2
-	text := fit(r.Text, max(w-fixed, 0))
-	line := mark + start + "–" + end + "  " + fitRight(report.Dur(r.End-r.Start), 5) + "  " + label + "  " +
-		fit(r.App, 10) + "  " + sDim.Render(text)
-	if sel {
-		return sSel.Render(line)
-	}
-	return line
-}

@@ -201,7 +201,7 @@ func (p *picker) view(w, h int) []string {
 	for i := first; i < end; i++ {
 		line := fit(opts[i].name, 20) + " " + sDim.Render(fit(opts[i].note, 10))
 		if i == p.cursor {
-			line = sSel.Render("▶" + line)
+			line = sSel.Render(sBrand.Bold(true).Render("▸") + line)
 		} else {
 			line = " " + line
 		}

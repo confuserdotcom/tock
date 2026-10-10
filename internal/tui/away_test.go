@@ -9,14 +9,14 @@ import (
 
 func TestAwayPromptAndAnswer(t *testing.T) {
 	m, _ := seeded(t)
-	mustContain(t, m, " away 12:25–14:50 (2h25) · a what was it? · A leave idle  (+1 more)", "a label time away")
+	mustContain(t, m, "⚑ Away 12:25–14:50 (2h25) — what was it?   a label   A leave idle   +1 more", "a label time away")
 	m = press(t, m, "a")
 	mustContain(t, m, "Category  away 12:25–14:50 (2h25)")
 	m = typeText(t, m, "comm")
 	m = press(t, m, "enter", "enter")
 	mustContain(t, m, "labelled away 12:25–14:50 (2h25) → Communication")
-	mustContain(t, m, " away 11:41–12:22 (41m) · a what was it? · A leave idle")
-	mustNotContain(t, m, "(+1 more)")
+	mustContain(t, m, "⚑ Away 11:41–12:22 (41m) — what was it?")
+	mustNotContain(t, m, "+1 more")
 	m = press(t, m, "A")
 	mustContain(t, m, "left 11:41–12:22 (41m) idle")
 	mustNotContain(t, m, "a what was it?")
@@ -41,7 +41,7 @@ func TestAwayFromIdleRowAndRelabel(t *testing.T) {
 		t.Fatalf("row: %q", l)
 	}
 	// The away row: no rules, but t relabels it.
-	for i := 0; i < 5 && !strings.Contains(line(t, m, "11:41–12:22"), "▶"); i++ {
+	for i := 0; i < 5 && !strings.Contains(line(t, m, "11:41–12:22"), "▸"); i++ {
 		m = press(t, m, "k")
 	}
 	m = press(t, m, "T")

@@ -128,7 +128,7 @@ func TestMouseWheelMovesCursor(t *testing.T) {
 func TestMouseTodaySelectsRow(t *testing.T) {
 	m, _ := seeded(t)
 	m = clickOn(t, m, "11:26–11:35")
-	if l := line(t, m, "11:26–11:35"); !strings.Contains(l, "▶") {
+	if l := line(t, m, "11:26–11:35"); !strings.Contains(l, "▸") {
 		t.Fatalf("row not selected: %q", l)
 	}
 	if m.picker != nil {
@@ -145,13 +145,13 @@ func TestMouseInboxSelectThenLearn(t *testing.T) {
 	m, e := seeded(t)
 	m = press(t, m, "3")
 	m = clickOn(t, m, "Mail · inbox")
-	if l := line(t, m, "Mail · inbox"); !strings.HasPrefix(l, "▶") {
+	if l := line(t, m, "Mail · inbox"); !strings.HasPrefix(l, "▸") {
 		t.Fatalf("not selected: %q", l)
 	}
 	m = clickOn(t, m, "Mail · inbox")
 	mustContain(t, m, "Category")
 	m = clickOn(t, m, "Communication")
-	if !strings.Contains(line(t, m, "Communication"), "▶") {
+	if !strings.Contains(line(t, m, "Communication"), "▸") {
 		t.Fatal("option not selected")
 	}
 	m = clickOn(t, m, "Communication")
@@ -169,11 +169,11 @@ func TestMouseWeekOpensDay(t *testing.T) {
 	m, _ := seeded(t)
 	m = press(t, m, "2")
 	m = clickOn(t, m, "Sat 10   2h54")
-	if l := line(t, m, "Sat 10   2h54"); !strings.HasPrefix(l, "▶") {
+	if l := line(t, m, "Sat 10   2h54"); !strings.HasPrefix(l, "▸") {
 		t.Fatalf("not selected: %q", l)
 	}
 	m = clickOn(t, m, "Sat 10   2h54")
-	mustContain(t, m, "Today  score 74")
+	mustContain(t, m, "Today  ‹ h  l ›")
 }
 
 func TestMouseRulesSelects(t *testing.T) {
@@ -219,7 +219,7 @@ func TestMouseScrolledTimeline(t *testing.T) {
 	want := m.today.top // the first visible row
 	body := m.body(m.bodyH())
 	for line := range body {
-		if i, ok := m.today.rowAt(line, m.bodyH()); ok {
+		if i, ok := m.today.rowAt(line, m.width, m.bodyH()); ok {
 			if i != want {
 				t.Fatalf("first mapped row = %d, want %d", i, want)
 			}
@@ -227,7 +227,7 @@ func TestMouseScrolledTimeline(t *testing.T) {
 			if m.today.cursor != want {
 				t.Fatalf("cursor = %d, want %d", m.today.cursor, want)
 			}
-			if !strings.Contains(ansi.Strip(m.body(m.bodyH())[line]), "▶") {
+			if !strings.Contains(ansi.Strip(m.body(m.bodyH())[line]), "▸") {
 				t.Fatalf("clicked line not selected: %q", ansi.Strip(m.body(m.bodyH())[line]))
 			}
 			return

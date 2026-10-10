@@ -182,7 +182,7 @@ func (m *Model) setFlash(text string, isErr bool) {
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	next, cmd := m.update(msg)
 	mm := next.(Model)
-	_, mm.today.timelineH = mm.today.layout(mm.bodyH())
+	mm.today.timelineH = mm.today.layout(mm.width, mm.bodyH())
 	mm.today.clampScroll()
 	mm.inbox.height = mm.bodyH() - inboxHeader
 	mm.inbox.clampScroll()
@@ -223,6 +223,7 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.inbox.set(msg.items)
 			m.inbox.sugg = msg.sugg
+			m.today.sugg, m.today.trackdUp = msg.sugg, msg.health.TrackdUp
 			if msg.day != nil {
 				m.today.set(*msg.day, m.now())
 			}

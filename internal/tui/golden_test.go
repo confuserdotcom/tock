@@ -152,3 +152,17 @@ func TestGoldenPalette(t *testing.T) {
 	m = press(t, m, "r", ":")
 	golden.RequireEqual(t, screen(m))
 }
+
+func TestGoldenTodayEmpty(t *testing.T) {
+	e := apptest.New(t, apptest.Rules)
+	e.Seed(t, apptest.Span{ID: 1, Start: "09:00", End: "10:00", Bundle: "term", App: "WezTerm", Title: "x", Day: -1})
+	e.Heartbeat(t, e.Clock.UnixMilli())
+	m := newModel(t, e)
+	golden.RequireEqual(t, screen(m))
+}
+
+func TestGoldenTodaySuggested(t *testing.T) {
+	m, _ := withSuggestions(t, &fakeSuggester{answer: studyTock})
+	m = press(t, m, "1", "r")
+	golden.RequireEqual(t, screen(m))
+}

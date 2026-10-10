@@ -148,7 +148,7 @@ func (m Model) clickBody(line, x int) (tea.Model, tea.Cmd) {
 		}
 	case m.overlay():
 	case m.tab == tabToday:
-		if i, ok := m.today.rowAt(line, h); ok {
+		if i, ok := m.today.rowAt(line, m.width, h); ok {
 			m.today.move(i - m.today.cursor)
 		}
 	case m.tab == tabWeek:

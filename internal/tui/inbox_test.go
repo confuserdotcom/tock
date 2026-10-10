@@ -12,7 +12,7 @@ func TestInboxLists(t *testing.T) {
 	m, _ := seeded(t)
 	m = press(t, m, "3")
 	mustContain(t, m, "Inbox · last 7 days · 3 keys · 28m unlabelled")
-	if l := line(t, m, "chatgpt.com/c"); !strings.HasPrefix(l, "▶  12m   2 spans  Arc · chatgpt.com/c") || !strings.Contains(l, `"Proofs"`) {
+	if l := line(t, m, "chatgpt.com/c"); !strings.HasPrefix(l, "▸  12m   2 spans  Arc · chatgpt.com/c") || !strings.Contains(l, `"Proofs"`) {
 		t.Fatalf("first item: %q", l)
 	}
 	mustContain(t, m, "10m    1 span  Mail · inbox")

@@ -179,7 +179,7 @@ func (t inboxTab) view(w, h int) []string {
 		line := fitRight(report.Dur(it.TotalMS), 5) + fitRight(plural(it.Spans, "span"), 10) + "  " +
 			fit(report.Safe(it.Key), keyW) + "  " + sDim.Render(tail)
 		if i == t.cursor {
-			out = append(out, sSel.Render("▶"+line))
+			out = append(out, sSel.Render(sBrand.Bold(true).Render("▸")+line))
 		} else {
 			out = append(out, " "+line)
 		}

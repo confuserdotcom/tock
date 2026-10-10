@@ -46,6 +46,9 @@ func onTab(tab int) func(m *Model) bool {
 
 func always(*Model) bool { return true }
 
+// todayRows reports the today tab showing a day with activity.
+func todayRows(m *Model) bool { return m.tab == tabToday && len(m.today.day.Timeline) > 0 }
+
 // todayRow is the selected today row when the today tab is open.
 func todayRow(m *Model) *report.Row {
 	if m.tab != tabToday {
@@ -105,8 +108,8 @@ func actionTable() []action {
 			when: func(m *Model) bool { return m.tab == tabToday && !m.today.isToday(m.now()) }},
 		{key: ".", name: "back to today", group: grToday, prio: 52,
 			when: func(m *Model) bool { return m.tab == tabToday && !m.today.isToday(m.now()) }},
-		{key: "/", name: "filter rows", group: grToday, prio: 60, when: onTab(tabToday)},
-		{key: "i", name: "why this score", group: grToday, prio: 40, when: onTab(tabToday)},
+		{key: "/", name: "filter rows", group: grToday, prio: 60, when: todayRows},
+		{key: "i", name: "why this score", group: grToday, prio: 40, when: todayRows},
 		{key: "g/G", name: "first / last row", group: grToday},
 
 		{key: "j/k", name: "move between days", group: grWeek},
