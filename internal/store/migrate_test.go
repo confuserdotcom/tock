@@ -40,10 +40,10 @@ func objectExists(t *testing.T, db *sql.DB, typ, name string) bool {
 func TestMigrateFreshCreatesLatest(t *testing.T) {
 	s := openAt(t, dbPath(t))
 	defer s.Close()
-	if got := versionRows(t, s.db); len(got) != 2 || got[0] != 1 || got[1] != 2 {
-		t.Fatalf("schema_version rows = %v, want [1 2]", got)
+	if got := versionRows(t, s.db); len(got) != 3 || got[0] != 1 || got[1] != 2 || got[2] != 3 {
+		t.Fatalf("schema_version rows = %v, want [1 2 3]", got)
 	}
-	for _, tbl := range []string{"span", "daemon_state", "override", "inbox_ignore"} {
+	for _, tbl := range []string{"span", "daemon_state", "override", "inbox_ignore", "session"} {
 		if !objectExists(t, s.db, "table", tbl) {
 			t.Errorf("table %s missing", tbl)
 		}
@@ -63,7 +63,7 @@ func TestMigrateIdempotent(t *testing.T) {
 	}
 	s = openAt(t, path)
 	defer s.Close()
-	if got := versionRows(t, s.db); len(got) != 2 {
+	if got := versionRows(t, s.db); len(got) != 3 {
 		t.Fatalf("schema_version rows after reopen = %v, want exactly one per migration", got)
 	}
 }
@@ -111,16 +111,16 @@ func TestOpenTooNewSchema(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer raw.Close()
-	if got := versionRows(t, raw); len(got) != 3 || got[2] != 99 {
-		t.Fatalf("schema_version rows = %v, want [1 2 99] untouched", got)
+	if got := versionRows(t, raw); len(got) != 4 || got[3] != 99 {
+		t.Fatalf("schema_version rows = %v, want [1 2 3 99] untouched", got)
 	}
 }
 
 func TestSchemaVersion(t *testing.T) {
 	s := openAt(t, dbPath(t))
 	defer s.Close()
-	if v, err := s.SchemaVersion(); err != nil || v != 2 {
-		t.Fatalf("SchemaVersion = %d (err %v), want 2", v, err)
+	if v, err := s.SchemaVersion(); err != nil || v != 3 {
+		t.Fatalf("SchemaVersion = %d (err %v), want 3", v, err)
 	}
 }
 

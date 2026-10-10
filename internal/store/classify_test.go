@@ -30,8 +30,8 @@ func TestMigrateV1ToV2(t *testing.T) {
 
 	s := openAt(t, path)
 	defer s.Close()
-	if got := versionRows(t, s.db); len(got) != 2 || got[0] != 1 || got[1] != 2 {
-		t.Fatalf("schema_version rows = %v, want [1 2]", got)
+	if got := versionRows(t, s.db); len(got) != 3 || got[0] != 1 || got[1] != 2 || got[2] != 3 {
+		t.Fatalf("schema_version rows = %v, want [1 2 3]", got)
 	}
 	for _, tbl := range []string{"override", "inbox_ignore"} {
 		if !objectExists(t, s.db, "table", tbl) {
