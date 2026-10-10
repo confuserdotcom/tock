@@ -1,6 +1,7 @@
 # tock
 
-tock tracks where your time goes on a Mac. A small daemon, `trackd`, records
+tock tracks where your time goes on a Mac, and on Linux under Hyprland. A
+small daemon, `trackd`, records
 which app and window is in front, all day, into a local SQLite database.
 The `tock` command and its terminal UI label that time with your own rules,
 score your focus, run focus sessions and help you label what is left.
@@ -23,10 +24,13 @@ score your focus, run focus sessions and help you label what is left.
   stay in tock.db. They are never sent to Claude.
 - Commit counts come from `git log` on your local repos: only author times
   are read, never messages or code.
+- Sync between machines (opt-in) only writes and reads files in a folder you
+  choose; moving that folder between machines is up to your own sync tool.
 
 ## Requirements
 
-- macOS (developed and tested on macOS 26)
+- macOS (developed and tested on macOS 26), or Linux with Hyprland (see
+  [Linux](#linux-hyprland))
 - Go 1.26 and the Xcode command line tools (`xcode-select --install`), since
   `trackd` uses cgo
 
@@ -377,6 +381,79 @@ notifications as before. `tock doctor` says which is in use. **Quit tock
 menu bar** keeps it closed until the next login; `make install` starts it
 again. Its log is `~/.local/state/tock/tockbar.log`, and it never logs
 notification text.
+
+## Linux (Hyprland)
+
+On Linux, trackd reads the focused window from Hyprland's sockets. It needs
+no cgo, no bundle and no permissions.
+
+```sh
+make install-linux   # trackd and tock in ~/.local/bin, trackd.service enabled
+```
+
+trackd runs as the systemd user unit `trackd.service` and starts with your
+graphical session. Its log is `~/.local/state/tock/trackd.log`, and
+`systemctl --user status trackd` shows the unit.
+
+Wayland gives no app the idle time, so hypridle tells trackd. Add this to
+`~/.config/hypr/hypridle.conf`, keeping your other listeners:
+
+```
+general {
+    before_sleep_cmd = trackd idle
+    after_sleep_cmd = trackd active
+}
+
+listener {
+    timeout = 300
+    on-timeout = trackd idle --after 300
+    on-resume = trackd active
+}
+```
+
+Keep `--after` equal to the timeout. While `hyprlock` (or `swaylock`) runs,
+the session counts as locked.
+
+- **Rules.** On Linux, a window's bundle id and app name are its Hyprland
+  class, such as `kitty` or `firefox`. `hyprctl clients` lists the classes.
+  Write rules with `app = "firefox"`, or with titles, as on the Mac.
+- **Terminals.** The zsh hook works the same. kitty, WezTerm, Alacritty,
+  foot and ghostty are known terminals.
+- **Notifications** go through `notify-send`.
+- **Not on Linux:** browser URLs, the calendar, call detection and the menu
+  bar app.
+
+## Sync between machines
+
+tock can merge the time you spend on two machines, for example the Mac and
+a Linux desktop, into one view on each. tock does not move any data itself.
+Pick a folder that your own tool keeps in sync, such as Syncthing or a
+network share, and name it on both machines in `config.toml`:
+
+```toml
+[sync]
+dir = "~/Sync/tock"
+machine = "mac"        # optional; default: the host name
+```
+
+Every minute, trackd writes this machine's last two days to
+`<dir>/<machine>/<YYYY-MM-DD>.jsonl`, and reads the other machines' files.
+
+- **Labels.** Each machine labels its own time with its own rules. The other
+  machine uses those labels when it has a category and project of the same
+  name; otherwise its own rules apply.
+- **Merging.** Another machine's time shows in the timeline as
+  `ryuk · kitty`. It only fills time when this machine was idle or off, so
+  local activity always wins. Totals, the score, goals and the week include
+  it.
+- **Relabelling.** To relabel another machine's time, do it on that machine.
+  Its time never enters this machine's inbox or Claude suggestions.
+- **Commands.** `tock sync` syncs now and lists the machines. Use
+  `tock sync --days 30` once to send older days. `tock doctor` shows a
+  `sync` line.
+
+The day files hold titles and URLs (never those of private windows). Keep
+the folder private.
 
 ## Backup
 
