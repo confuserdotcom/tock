@@ -1,0 +1,30 @@
+tock   1 today   2 week   3 inbox 3   4 focus   5 rules                 Sat 10 Oct 15:00 · trackd ok
+ rules.toml · 3 rules
+ ▸ 1    bundle=[term] title='^tock │'                                                       · / tock
+   2    bundle=[term]                                                                           Code
+   3    url='^(www\.)?youtube\.com(/|$)'                                               Entertainment
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+j/k move · J/K reorder · e edit in $EDITOR · ? help                                                 

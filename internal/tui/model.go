@@ -1,9 +1,10 @@
-// Package tui is tock's terminal interface: today, week, inbox and focus tabs over
+// Package tui is tock's terminal interface: today, week, inbox, focus and rules tabs over
 // an app session. It never touches the database directly.
 package tui
 
 import (
 	"fmt"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -20,6 +21,7 @@ const (
 	tabWeek
 	tabInbox
 	tabFocus
+	tabRules
 	numTabs
 )
 
@@ -42,6 +44,9 @@ type Model struct {
 	tick      func() tea.Cmd // nil disables the refresh timer (tests)
 	clockTick func() tea.Cmd // nil disables the countdown redraw (tests)
 	clockOn   bool
+	// exec runs an external program (the editor) with the terminal; tests
+	// substitute it.
+	exec func(*exec.Cmd, tea.ExecCallback) tea.Cmd
 
 	width, height int
 	tab           int
@@ -51,6 +56,7 @@ type Model struct {
 	today         todayTab
 	week          weekTab
 	focus         focusTab
+	rules         rulesTab
 
 	picker *picker
 	learn  *learnDlg
@@ -77,6 +83,7 @@ func New(a *app.App, now func() time.Time) Model {
 		now:       now,
 		tick:      func() tea.Cmd { return tea.Tick(Refresh, func(time.Time) tea.Msg { return tickMsg{} }) },
 		clockTick: func() tea.Cmd { return tea.Tick(clockEvery, func(time.Time) tea.Msg { return clockMsg{} }) },
+		exec:      tea.ExecProcess,
 	}
 }
 
@@ -90,6 +97,7 @@ type loadedMsg struct {
 	day       *report.Day
 	week      *report.Week
 	focus     *report.Focus
+	rules     *rulesSnap
 	sugg      map[string]classify.Want
 	err       error
 }
@@ -141,6 +149,8 @@ func (m *Model) load() tea.Cmd {
 			case tabWeek:
 				w, err := a.Week(weekDate)
 				msg.week, msg.err = &w, err
+			case tabRules:
+				msg.rules = snapRules(a)
 			}
 		})
 		return msg
@@ -169,6 +179,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	mm.inbox.height = mm.bodyH() - inboxHeader
 	mm.inbox.clampScroll()
 	mm.week.clamp()
+	mm.rules.height = mm.bodyH()
+	mm.rules.clampScroll()
 	return mm, cmd
 }
 
@@ -208,6 +220,9 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			if msg.focus != nil {
 				m.focus.set(*msg.focus)
+			}
+			if msg.rules != nil {
+				m.rules.set(*msg.rules)
 			}
 		}
 		clock := m.maybeClock()
@@ -278,7 +293,7 @@ func (m Model) key(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "r":
 		return m, m.reload()
-	case "1", "2", "3", "4":
+	case "1", "2", "3", "4", "5":
 		return m.switchTab(int(k[0] - '1'))
 	case "tab":
 		return m.switchTab((m.tab + 1) % numTabs)
@@ -292,6 +307,8 @@ func (m Model) key(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m.weekKey(k)
 	case tabFocus:
 		return m.focusKey(k)
+	case tabRules:
+		return m.rulesKey(k)
 	}
 	return m.inboxKey(k)
 }
@@ -341,6 +358,8 @@ func (m Model) render() string {
 		body = m.week.view(m.width, bodyH)
 	case m.tab == tabFocus:
 		body = m.focus.view(m.width, m.now())
+	case m.tab == tabRules:
+		body = m.rules.view(m.width, bodyH)
 	default:
 		body = m.inbox.view(m.width, bodyH)
 	}
@@ -356,7 +375,7 @@ func (m Model) render() string {
 }
 
 func (m Model) header() string {
-	names := []string{"1 today", "2 week", "3 inbox", "4 focus"}
+	names := []string{"1 today", "2 week", "3 inbox", "4 focus", "5 rules"}
 	if n := m.inbox.count(); n > 0 {
 		names[tabInbox] = fmt.Sprintf("3 inbox %d", n)
 	}
@@ -428,6 +447,8 @@ func (m Model) footer() string {
 		hint = "j/k day · h/l week · . this week · enter open day · ? help"
 	case m.tab == tabFocus:
 		hint = "s start · x stop · ? help"
+	case m.tab == tabRules:
+		hint = "j/k move · J/K reorder · e edit in $EDITOR · ? help"
 	default:
 		hint = "enter learn rule · a accept suggestion · o tag once · x ignore · u undo · ? help"
 	}

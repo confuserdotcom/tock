@@ -130,3 +130,11 @@ func TestGoldenFocusStart(t *testing.T) {
 	m = press(t, m, "4", "s")
 	golden.RequireEqual(t, screen(m))
 }
+
+// Phase 7: the rules tab.
+func TestGoldenRules(t *testing.T) {
+	m, e := seeded(t)
+	e.Heartbeat(t, e.Clock.UnixMilli())
+	m = press(t, m, "5")
+	golden.RequireEqual(t, screen(m))
+}
