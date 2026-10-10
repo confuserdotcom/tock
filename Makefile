@@ -138,6 +138,10 @@ dump-stop:
 # install: bootout, rebuild and sign the bundle, install the tock CLI, then
 # bootstrap the agent (Pitfall 12: never replace the binary under a running
 # agent). Both binaries come from one build so they agree on the schema.
+# Then write starter rules if there are none, and run tock doctor: it waits
+# for trackd's first heartbeat and opens System Settings for missing grants
+# (trackd itself shows the Accessibility prompt). A doctor problem does not
+# fail the install.
 install:
 	-launchctl bootout gui/$$(id -u)/$(AGENT_LABEL) 2>/dev/null
 	$(MAKE) bundle
@@ -145,6 +149,8 @@ install:
 	install -d -m 755 "$(BIN_DIR)"
 	install -m 755 build/tock "$(BIN_DIR)/tock"
 	"$(BUNDLE)/Contents/MacOS/trackd" install
+	@[ -f "$${TOCK_CONFIG_DIR:-$(HOME)/.config/tock}/rules.toml" ] || "$(BIN_DIR)/tock" init
+	-"$(BIN_DIR)/tock" doctor --wait --open
 
 # uninstall: unload the agent and remove its plist; tock.db and the log stay.
 uninstall:

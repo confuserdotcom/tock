@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"time"
 
@@ -30,6 +31,7 @@ const usage = `usage:
   tock session [start [MIN] | stop]      focus session: show, start (default 25), stop
   tock recap [YYYY-MM-DD]                the daily recap
   tock suggest [--dry-run | --force]     Claude label suggestions for the inbox (needs ANTHROPIC_API_KEY)
+  tock doctor [--wait] [--open]          check trackd, permissions, rules and config
   tock export [--from D] [--to D] [--format csv|json]
                                          labelled spans, default the last 7 days as csv
 Names match on a unique prefix: "tock tag 2 stu/atl". "/Project" sets only the project.
@@ -50,6 +52,10 @@ type Env struct {
 	APIKey string
 	// NewClient builds the Claude client; tests substitute a fake.
 	NewClient func(key string) suggest.Client
+	// Open opens a URL with macOS open(1); Sleep waits. Tests substitute
+	// both.
+	Open  func(url string) error
+	Sleep func(time.Duration)
 }
 
 func (e Env) dbPath() string      { return filepath.Join(e.DataDir, "tock.db") }
@@ -78,6 +84,8 @@ func defaultEnv() Env {
 		ConfigDir:   envDir("TOCK_CONFIG_DIR", ".config", "tock"),
 		APIKey:      os.Getenv("ANTHROPIC_API_KEY"),
 		NewClient:   func(key string) suggest.Client { return claude.New(key) },
+		Open:        func(url string) error { return exec.Command("open", url).Run() },
+		Sleep:       time.Sleep,
 	}
 }
 
@@ -114,6 +122,7 @@ var commands = map[string]func(Env, []string) error{
 	"recap":   cmdRecap,
 	"suggest": cmdSuggest,
 	"export":  cmdExport,
+	"doctor":  cmdDoctor,
 }
 
 // run executes one command and returns the exit code: 0 ok, 1 error, 2 usage.

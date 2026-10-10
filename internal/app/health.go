@@ -33,14 +33,22 @@ type Health struct {
 
 // Health reads trackd's liveness and permission state.
 func (a *App) Health() (Health, error) {
-	h := Health{RulesErr: a.rulesErr, ConfigErr: a.configErr}
-	last, err := a.st.LastSeen()
+	h, err := ReadHealth(a.st, a.nowMS())
+	h.RulesErr, h.ConfigErr = a.rulesErr, a.configErr
+	return h, err
+}
+
+// ReadHealth reads trackd's liveness and permission state from the store,
+// for callers without rules (tock doctor). RulesErr and ConfigErr stay nil.
+func ReadHealth(st *store.Store, nowMS int64) (Health, error) {
+	var h Health
+	last, err := st.LastSeen()
 	if err != nil {
 		return h, err
 	}
 	h.LastSeenMS = last
-	h.TrackdUp = last > 0 && a.nowMS()-last <= DownAfterMS
-	states, err := a.st.States()
+	h.TrackdUp = last > 0 && nowMS-last <= DownAfterMS
+	states, err := st.States()
 	if err != nil {
 		return h, err
 	}
