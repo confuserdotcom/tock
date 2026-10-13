@@ -463,6 +463,8 @@
       h('div', { style: { 'margin-top': '1.4rem' } }, kindStack(d.byKind, d.trackedMS))), { cls: 'c12' }));
 
     grid.append(card('Timeline', ribbon(d), { cls: 'c12', aside: h('span', { class: 'cap' }, 'click a block to label it') }));
+    const work = blocksCard(d);
+    if (work) grid.append(work);
     grid.append(card('By hour', hoursChart(d), { cls: 'c7' }));
     grid.append(card('Categories', barList(d.categories.map((c) => ({ name: c.name, ms: c.ms, kind: c.kind, projects: c.projects })), {
       total: d.trackedMS,
@@ -473,6 +475,30 @@
     grid.append(activityCard(d));
     nodes.push(grid);
     return nodes;
+  }
+
+  // Work blocks: stretches of work on one thing, with Claude's lines when
+  // tock summary has run.
+  function blocksCard(d) {
+    const blocks = d.blocks || [];
+    if (!blocks.length && !d.summary) return null;
+    const body = h('div', null,
+      d.summary ? h('p', { class: 'summary' }, d.summary) : null,
+      blocks.length ? h('ul', { class: 'list' }, blocks.map((b) => {
+        const facts = [dur(b.activeMS)];
+        if (b.deepMS) facts.push(`deep ${pct(b.deepMS, b.activeMS)}`);
+        if (b.distractMS >= 60e3) facts.push(`distracted ${dur(b.distractMS)}`);
+        return h('li', { class: 'block' },
+          h('div', null,
+            h('i', { class: `dot ${kindClass(b.kind)}` }), ' ',
+            h('b', null, nice(b.name)),
+            b.name !== b.category && b.category ? h('span', { class: 'muted' }, ` ${b.category}`) : null),
+          h('span', { class: 'num muted' }, `${clock(b.start)}–${clock(b.end)}`),
+          h('div', { class: 'facts muted' }, [...facts, ...b.top.map((t) => t.name)].join(' · ')),
+          b.summary ? h('div', { class: 'blurb' }, b.summary) : null);
+      })) : null);
+    const aside = d.summary ? null : h('span', { class: 'cap' }, 'tock summary writes what you worked on');
+    return card('Work blocks', body, { cls: 'c12', aside });
   }
 
   function dayBounds(d) {

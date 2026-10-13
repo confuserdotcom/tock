@@ -29,6 +29,8 @@ category = "Entertainment"
 at_most = "1h"
 `)
 	e.Seed(t, apptest.DaySpans()...)
+	e.Summary(t, e.Clock.Format("2006-01-02"), 0, "Morning on the tock TUI, then a stretch of code review and an unlabelled detour before lunch.")
+	e.Summary(t, e.Clock.Format("2006-01-02"), apptest.At(t, "09:00", 0), "Built the work blocks line for the today tab.")
 	id := int64(100)
 	add := func(day int, from, to, bundle, appName, title, url string) {
 		id++
