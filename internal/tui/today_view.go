@@ -52,11 +52,24 @@ func (t *todayTab) hero(w int, now time.Time) []string {
 	st, sc := d.Stats, d.Score
 	active := st.ActiveMS > 0
 	band, word := scoreBand(sc.Value, active)
+	switch {
+	case d.Off:
+		word = "day off"
+	case !active && d.Work.Set && d.TrackedMS > 0:
+		word = "outside hours"
+	}
 	num := "–"
 	if active {
 		num = fmt.Sprint(sc.Value)
 	}
 	left := " " + band.Bold(true).Render(num) + "  " + sDim.Render("score") + "  " + band.Render(word)
+	if d.Work.Set && !d.Off {
+		hours := "hours " + report.HoursText(d)
+		if d.OutsideMS >= 60_000 {
+			hours += " +" + report.Dur(d.OutsideMS) + " outside"
+		}
+		left += sFaint.Render("  · ") + sDim.Render(hours)
+	}
 	mw := min(24, max(w/5, 8))
 	right := sBright.Render(report.Dur(st.FocusMS)) + sDim.Render(" focus of "+report.Dur(sc.Target.MS)) +
 		"  " + meter(st.FocusMS, sc.Target.MS, mw, sBrand) + " "
