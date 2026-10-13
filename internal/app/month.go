@@ -67,18 +67,7 @@ func (a *App) monthDays(vs []classify.SpanView, ls []classify.Label, first time.
 
 // clip keeps the views overlapping [from, to), clipped to it.
 func clip(vs []classify.SpanView, ls []classify.Label, from, to time.Time) ([]classify.SpanView, []classify.Label) {
-	f, t := from.UnixMilli(), to.UnixMilli()
-	var ov []classify.SpanView
-	var ol []classify.Label
-	for i, v := range vs {
-		if v.End <= f || v.Start >= t {
-			continue
-		}
-		v.Start, v.End = max(v.Start, f), min(v.End, t)
-		ov = append(ov, v)
-		ol = append(ol, ls[i])
-	}
-	return ov, ol
+	return stats.Clip(vs, ls, from.UnixMilli(), to.UnixMilli())
 }
 
 // Top ranks the tracked time of the days [from, to) by category, project,
