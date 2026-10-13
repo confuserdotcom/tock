@@ -20,9 +20,10 @@ const (
 // GoalRow is a goal's progress on one day: the day for a day goal, the
 // week up to the end of the day for a week goal.
 type GoalRow struct {
-	Goal   classify.Goal
-	DoneMS int64
-	State  string
+	Goal         classify.Goal
+	DoneMS       int64
+	State        string
+	Streak, Best int // filled by the caller; see Streak
 }
 
 // goalMS is the non-idle time in [from, to) that counts towards g.
@@ -75,7 +76,7 @@ func GoalText(r GoalRow) string {
 	if r.State == GoalOver {
 		s += " over"
 	}
-	return s
+	return s + streakText(r.Goal, r.Streak)
 }
 
 // GoalsLine joins every goal's GoalText.
@@ -107,10 +108,11 @@ func GoalsHeld(rows []GoalRow) (held int, over string) {
 // counts the active days (past days and today with active time) and those
 // it held on (met, or not over).
 type WeekGoalRow struct {
-	Goal       classify.Goal
-	DoneMS     int64 // week goals
-	State      string
-	Days, Held int // day goals
+	Goal         classify.Goal
+	DoneMS       int64 // week goals
+	State        string
+	Days, Held   int // day goals
+	Streak, Best int // filled by the caller; see Streak
 }
 
 // WeekGoals is each goal over the Monday-start week of monday, up to nowMS.
@@ -153,6 +155,14 @@ func active(vs []classify.SpanView) bool {
 // "12h00/10h00 met", "3h00/5h00 ok", "6h00/5h00 over 1h00" for week goals;
 // "met 3 of 5 days" or "over 2 of 5 days" for day goals.
 func WeekGoalText(r WeekGoalRow) string {
+	s := weekGoalText(r)
+	if r.Best >= 2 {
+		s += ", streak " + streakUnit(r.Goal, r.Streak) + " (best " + streakUnit(r.Goal, r.Best) + ")"
+	}
+	return s
+}
+
+func weekGoalText(r WeekGoalRow) string {
 	g := r.Goal
 	if g.Week {
 		s := Dur(r.DoneMS) + "/" + Dur(g.MS)
