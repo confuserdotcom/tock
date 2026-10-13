@@ -67,8 +67,15 @@ func (s *syncLoop) close() {
 	}
 }
 
-// startSync runs the loop on its own ticker until stop is called.
-func startSync(s *syncLoop, every time.Duration) (stop func()) {
+// loop is a periodic trackd job with its own app session.
+type loop interface {
+	tick()
+	close()
+}
+
+// startLoop runs s on its own ticker, first right away, until stop is
+// called.
+func startLoop(s loop, every time.Duration) (stop func()) {
 	t := time.NewTicker(every)
 	done, finished := make(chan struct{}), make(chan struct{})
 	go func() {

@@ -179,8 +179,10 @@ func runWithStore(o daemonOpts, log *slog.Logger, st *store.Store) int {
 			every = syncEvery
 		}
 		f := newFocusLoop(o, log) // only for its app opener
-		stopSync := startSync(&syncLoop{open: f.open, log: log}, every)
+		stopSync := startLoop(&syncLoop{open: f.open, log: log}, every)
 		defer stopSync()
+		stopPrune := startLoop(&pruneLoop{open: f.open, log: log}, pruneEvery)
+		defer stopPrune()
 		if o.Calendar != nil {
 			every := o.CalendarEvery
 			if every <= 0 {
