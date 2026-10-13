@@ -590,6 +590,14 @@ no cgo, no bundle and no permissions.
 make install-linux   # trackd and tock in ~/.local/bin, trackd.service enabled
 ```
 
+No Go on the Linux machine? Build and install it from the Mac over ssh
+instead; this also updates it later:
+
+```sh
+make deploy-linux                      # LINUX_HOST=ryuk, LINUX_ARCH=amd64
+make deploy-linux LINUX_HOST=box LINUX_ARCH=arm64
+```
+
 trackd runs as the systemd user unit `trackd.service` and starts with your
 graphical session. Its log is `~/.local/state/tock/trackd.log`, and
 `systemctl --user status trackd` shows the unit.

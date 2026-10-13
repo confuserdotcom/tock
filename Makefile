@@ -12,6 +12,9 @@ AGENT_LABEL := com.tock.trackd
 BAR_BUNDLE ?= $(TOCK_DATA)/tock.app
 BAR_ID := com.tock.bar
 BIN_DIR ?= $(HOME)/.local/bin
+# deploy-linux: the Linux machine to build for and copy to over ssh.
+LINUX_HOST ?= ryuk
+LINUX_ARCH ?= amd64
 SIGN_ID ?= tock-local-codesign
 # auto | cert | adhoc. Pinned to cert (plan 01-09): a missing identity is a hard
 # error, never a silent switch to ad-hoc that would orphan TCC grants.
@@ -22,7 +25,7 @@ CODESIGN_TIMEOUT ?= 60
 # receives SIGALRM and exits 142 when it overruns.
 WITH_TIMEOUT = perl -e 'alarm shift; exec @ARGV or exit 127'
 
-.PHONY: install-linux uninstall-linux build test test-quick vet clean bundle bundle-bar print-dr cert cert-trust dump dump-bg dump-stop install uninstall
+.PHONY: install-linux uninstall-linux deploy-linux build test test-quick vet clean bundle bundle-bar print-dr cert cert-trust dump dump-bg dump-stop install uninstall
 
 build:
 	CGO_ENABLED=1 go build -ldflags "-X main.version=$(VERSION)" -o bin/trackd ./cmd/trackd
@@ -213,6 +216,20 @@ install-linux:
 	"$(BIN_DIR)/trackd" install
 	@[ -f "$${TOCK_CONFIG_DIR:-$(HOME)/.config/tock}/rules.toml" ] || "$(BIN_DIR)/tock" init
 	-"$(BIN_DIR)/tock" doctor --wait
+
+# deploy-linux: install-linux from this machine, for a Linux box without Go.
+# Builds for LINUX_ARCH, copies over ssh under .new names and renames them
+# (a running trackd can't be overwritten in place), then reinstalls the unit,
+# which restarts trackd. Remote commands run under bash: the login shell may
+# be fish.
+deploy-linux:
+	GOOS=linux GOARCH=$(LINUX_ARCH) CGO_ENABLED=0 go build -ldflags "-X main.version=$(VERSION)" -o build/linux/trackd ./cmd/trackd
+	GOOS=linux GOARCH=$(LINUX_ARCH) CGO_ENABLED=0 go build -o build/linux/tock ./cmd/tock
+	ssh $(LINUX_HOST) 'bash -c "mkdir -p ~/.local/bin"'
+	scp -q build/linux/trackd $(LINUX_HOST):.local/bin/trackd.new
+	scp -q build/linux/tock $(LINUX_HOST):.local/bin/tock.new
+	ssh $(LINUX_HOST) 'bash -c "cd ~/.local/bin && chmod 755 trackd.new tock.new && mv -f trackd.new trackd && mv -f tock.new tock && ./trackd install && { [ -f ~/.config/tock/rules.toml ] || ./tock init; }"'
+	-ssh $(LINUX_HOST) 'bash -c "~/.local/bin/tock doctor --wait"'
 
 # uninstall-linux: stop and remove the unit; data stays.
 uninstall-linux:
