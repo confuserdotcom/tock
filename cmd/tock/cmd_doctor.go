@@ -77,6 +77,9 @@ func cmdDoctor(env Env, args []string) error {
 		} else {
 			ok("config", config.File)
 		}
+		if k := cfg.Privacy.KeepTitles; k > 0 {
+			ok("privacy", fmt.Sprintf("window titles kept %s, then deleted hourly by trackd", plural(k, "day")))
+		}
 	}
 
 	h, err := doctorHealth(env, *wait)

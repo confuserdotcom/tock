@@ -61,6 +61,8 @@ const usage = `usage:
   tock doctor [--wait] [--open]          check trackd, permissions, rules and config
   tock export [--from D] [--to D] [--format csv|json] [--by project]
                                          labelled spans, default the last 7 days as csv
+  tock prune [--days N] [--dry-run]      delete window titles (and URL paths) older than N days
+                                         (default [privacy] keep_titles); labels stay
   tock backup [--out FILE]               archive tock.db and the rule, config and shell files
                                          (default ~/.local/share/tock/backups/)
   tock sync [--days N]                   write this machine's last N days (default 2) to the
@@ -195,6 +197,7 @@ var commands = map[string]func(Env, []string) error{
 	"review":     cmdReview,
 	"report":     cmdReport,
 	"invoice":    cmdInvoice,
+	"prune":      cmdPrune,
 	"web":        cmdWeb,
 	"slack":      cmdSlack,
 	"edit":       cmdEdit,
