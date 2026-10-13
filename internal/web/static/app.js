@@ -690,7 +690,7 @@
   }
 
   // ---------- Inbox ----------
-  const AVATAR = ['#ff9f0a', '#ff375f', '#bf5af2', '#5e5ce6', '#0a84ff', '#64d2ff', '#30d158', '#ac8e68'];
+  const AVATAR = ['#5fc4ad', '#e0bf72', '#ef8a76', '#9aa5ff', '#b69cf0', '#8a94a6', '#7fb8d8', '#c9a27e'];
   function avatarColor(name) {
     let x = 0;
     for (const ch of name) x = (x * 31 + ch.codePointAt(0)) >>> 0;
