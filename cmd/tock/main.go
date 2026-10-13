@@ -50,6 +50,10 @@ const usage = `usage:
   tock web [--port N] [--no-open]       the dashboard in your browser, on this machine only
   tock review [--week YYYY-MM-DD] [--plan TEXT]
                                          weekly recap, then next week's focus
+  tock report [--week YYYY-MM-DD] [-o FILE] [--open]
+                                         the week as one HTML page to keep or mail
+  tock invoice --project P [--from D] [--to D] [--client NAME] [--number N] [-o FILE]
+                                         a PDF invoice from the project's rate (default last month)
   tock suggest [--dry-run | --force]     Claude label suggestions for the inbox (needs ANTHROPIC_API_KEY)
   tock blocks [--date D]                 the day's work blocks: stretches of work on one thing
   tock summary [--date D] [--dry-run]    Claude writes what you worked on (needs ANTHROPIC_API_KEY)
@@ -137,7 +141,12 @@ func defaultEnv() Env {
 			return strings.Split(strings.TrimSpace(string(out)), "\n"), nil
 		},
 		NewClient: func(key string) suggest.Client { return claude.New(key) },
-		Open:      func(url string) error { return exec.Command("open", url).Run() },
+		Open: func(url string) error {
+			if runtime.GOOS == "linux" {
+				return exec.Command("xdg-open", url).Run()
+			}
+			return exec.Command("open", url).Run()
+		},
 		Sleep:     time.Sleep,
 		Linux:     runtime.GOOS == "linux",
 	}
@@ -184,6 +193,7 @@ var commands = map[string]func(Env, []string) error{
 	"trends":     cmdTrends,
 	"top":        cmdTop,
 	"review":     cmdReview,
+	"report":     cmdReport,
 	"web":        cmdWeb,
 	"slack":      cmdSlack,
 	"edit":       cmdEdit,
