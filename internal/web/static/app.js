@@ -384,6 +384,14 @@
       sub ? sub(r) : null)));
   }
 
+  // workText is the day's work hours for the subtitle: " · day off, not
+  // scored" or " · scored 09:00–18:00 · 1h20 outside".
+  function workText(w) {
+    if (!w) return '';
+    if (w.off) return ' · day off, not scored';
+    return ` · scored ${clock(w.from)}–${clock(w.to)}${w.outsideMS >= 60000 ? ` · ${dur(w.outsideMS)} outside` : ''}`;
+  }
+
   function goalsCard(goals, cls = 'c6') {
     if (!goals || !goals.length) return null;
     return card('Goals', h('ul', { class: 'list' }, goals.map((g) => {
@@ -391,7 +399,8 @@
       const kind = g.atMost ? (g.state === 'over' ? 'distract' : 'neutral') : (g.state === 'met' ? 'deep' : 'shallow');
       const stateText = g.days ? `${g.held}/${g.days} days` : { met: 'Met', short: 'In progress', over: 'Over', ok: 'Under limit' }[g.state] || g.state;
       return h('li', { class: 'goal' },
-        h('div', null, h('b', null, g.name), ' ', h('span', { class: 'muted' }, `${g.atMost ? 'at most' : 'at least'} ${dur(g.ms)} a ${g.week ? 'week' : 'day'}`)),
+        h('div', null, h('b', null, g.name), ' ', h('span', { class: 'muted' }, `${g.atMost ? 'at most' : 'at least'} ${dur(g.ms)} a ${g.week ? 'week' : 'day'}`),
+          g.streak >= 2 ? h('span', { class: 'streak', title: `best ${g.best}${g.week ? 'w' : 'd'}` }, `${g.streak}${g.week ? 'w' : 'd'} streak`) : null),
         h('span', { class: `state ${g.state}` }, g.days ? stateText : `${dur(g.doneMS)} · ${stateText}`),
         g.days ? null : h('div', { class: `track ${kindClass(kind)}` }, h('i', { style: { width: `${Math.max(1, frac * 100)}%` } })));
     })), { cls });
@@ -436,7 +445,7 @@
     const title = d.today ? 'Today' : longDate(d.date);
     nodes.push(h('div', { class: 'toolrow' },
       h('div', null, h('h1', null, title),
-        h('p', { class: 'sub', style: { margin: 0 } }, d.trackedMS ? `${dur(d.trackedMS)} tracked${d.idleMS ? ` · ${dur(d.idleMS)} away` : ''}` : 'Nothing tracked'))));
+        h('p', { class: 'sub', style: { margin: 0 } }, (d.trackedMS ? `${dur(d.trackedMS)} tracked${d.idleMS ? ` · ${dur(d.idleMS)} away` : ''}` : 'Nothing tracked') + workText(d.work)))));
     if (!d.trackedMS && !d.timeline.length) {
       nodes.push(emptyState(d.today ? 'Nothing yet today' : 'Nothing tracked this day', d.today ? 'trackd records as you work. Check back in a few minutes.' : 'Pick another day with the arrows.'));
       return nodes;

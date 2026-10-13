@@ -76,6 +76,17 @@ type goalJSON struct {
 	State  string `json:"state"`
 	Days   int    `json:"days,omitempty"`
 	Held   int    `json:"held,omitempty"`
+	Streak int    `json:"streak"`
+	Best   int    `json:"best"`
+}
+
+// workJSON is the day's work hours; nil without a schedule.
+type workJSON struct {
+	From      int64 `json:"from"`
+	To        int64 `json:"to"`
+	Off       bool  `json:"off"`
+	OutsideMS int64 `json:"outsideMS"`
+	Closed    bool  `json:"closed"`
 }
 
 type dayJSON struct {
@@ -95,6 +106,7 @@ type dayJSON struct {
 	Commits    []report.NameN       `json:"commits"`
 	Blocks     []blockJSON          `json:"blocks"`
 	Summary    string               `json:"summary"`
+	Work       *workJSON            `json:"work"`
 }
 
 type blockJSON struct {
@@ -242,7 +254,10 @@ func (s *Server) day(r *http.Request) (any, error) {
 	}
 	for _, g := range d.Goals {
 		out.Goals = append(out.Goals, goalJSON{Name: g.Goal.Name(), Text: g.Goal.Text(), AtMost: g.Goal.AtMost,
-			Week: g.Goal.Week, MS: g.Goal.MS, DoneMS: g.DoneMS, State: g.State})
+			Week: g.Goal.Week, MS: g.Goal.MS, DoneMS: g.DoneMS, State: g.State, Streak: g.Streak, Best: g.Best})
+	}
+	if d.Work.Set {
+		out.Work = &workJSON{From: d.From, To: d.To, Off: d.Off, OutsideMS: d.OutsideMS, Closed: d.Closed}
 	}
 	for i, b := range d.Blocks {
 		bj := blockJSON{Start: b.Start, End: b.End, Name: report.Safe(b.Name), Category: report.Safe(b.Category), Kind: b.Kind,
@@ -273,7 +288,8 @@ func (s *Server) week(r *http.Request) (any, error) {
 	}
 	for _, g := range w.Goals {
 		out.Goals = append(out.Goals, goalJSON{Name: g.Goal.Name(), Text: g.Goal.Text(), AtMost: g.Goal.AtMost,
-			Week: g.Goal.Week, MS: g.Goal.MS, DoneMS: g.DoneMS, State: g.State, Days: g.Days, Held: g.Held})
+			Week: g.Goal.Week, MS: g.Goal.MS, DoneMS: g.DoneMS, State: g.State, Days: g.Days, Held: g.Held,
+			Streak: g.Streak, Best: g.Best})
 	}
 	return out, nil
 }

@@ -292,6 +292,7 @@ h2 {
 .goal .state.met, .goal .state.ok { color: var(--good); }
 .goal .state.over { color: var(--bad); }
 .goal .state.short { color: var(--text-2); }
+.goal .streak { margin-left: 0.5rem; font: 600 0.75rem var(--mono); color: var(--good); }
 .goal .track { grid-column: span 2; margin-top: 0.15rem; }
 
 /* Work blocks: a summary paragraph, then one row per block. */
