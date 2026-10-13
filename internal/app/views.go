@@ -24,11 +24,15 @@ func views(rows []store.SpanRow, from, to, nowMS int64) []classify.SpanView {
 		if end <= start {
 			continue
 		}
-		out = append(out, classify.SpanView{
+		v := classify.SpanView{
 			ID: r.ID, Start: start, End: end,
 			BundleID: r.BundleID, App: r.App,
 			Title: r.Title, URL: r.URL, Private: r.Private,
-		})
+		}
+		if r.Kept != nil {
+			v.Kept = &classify.Kept{Category: r.Kept.Category, Project: r.Kept.Project}
+		}
+		out = append(out, v)
 	}
 	return out
 }

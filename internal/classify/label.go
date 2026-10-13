@@ -12,7 +12,14 @@ const (
 	SourceManual   Source = "manual"
 	SourceCall     Source = "call"
 	SourceCalendar Source = "calendar"
+	SourceKept     Source = "kept" // the rule label kept when the title was deleted
 )
+
+// Kept is the rule label a span kept when [privacy] keep_titles deleted its
+// title. It stands in for the rules, which can no longer see the title.
+type Kept struct {
+	Category, Project string
+}
 
 // Override is a manual label for one span. Empty fields fall through to rules.
 type Override struct {
@@ -41,9 +48,12 @@ type memoKey struct {
 // CalendarCategory for a meeting view, else empty.
 func (rs *Ruleset) Label(v SpanView, o *Override) Label {
 	var l Label
-	if v.BundleID != span.IdleBundleID {
+	switch {
+	case v.BundleID != span.IdleBundleID && v.Kept != nil:
+		l = rs.keptLabel(*v.Kept)
+	case v.BundleID != span.IdleBundleID:
 		l = rs.ruleLabel(&v)
-	} else {
+	default:
 		l = Label{CategorySource: SourceNone, ProjectSource: SourceNone}
 		o = nil
 	}
@@ -82,6 +92,19 @@ func keyOf(v *SpanView) (memoKey, string) {
 		k.dir, k.hasDir = *v.Dir, true
 	}
 	return k, clean
+}
+
+// keptLabel is a kept label, dropping a category or project that no
+// longer exists.
+func (rs *Ruleset) keptLabel(k Kept) Label {
+	l := Label{CategorySource: SourceNone, ProjectSource: SourceNone}
+	if k.Category != "" && rs.HasCategory(k.Category) {
+		l.Category, l.Kind, l.CategorySource = k.Category, rs.Kind(k.Category), SourceKept
+	}
+	if k.Project != "" && rs.HasProject(k.Project) {
+		l.Project, l.ProjectSource = k.Project, SourceKept
+	}
+	return l
 }
 
 func (rs *Ruleset) ruleLabel(v *SpanView) Label {
