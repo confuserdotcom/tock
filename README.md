@@ -27,6 +27,8 @@ score your focus, run focus sessions and help you label what is left.
   do-not-disturb. Nothing about your activity is sent, only the status text
   you chose and the session's end time.
 - `tock export` prints titles and URLs to stdout. Where that output goes is up to you.
+- `[privacy] keep_titles = 30` deletes window titles, and cuts URLs to their
+  host, once they are 30 days old (see Deleting old titles).
 - Calendar events (opt-in) are read through macOS Calendar, never fetched, and
   stay in tock.db. They are never sent to Claude.
 - Commit counts come from `git log` on your local repos: only author times
@@ -237,6 +239,15 @@ focus_off = ""           # ... and when it ends
 days = ["mon", "tue", "wed", "thu", "fri"]
 start = "09:00"          # start and end are both required
 end = "18:00"
+
+[privacy]
+keep_titles = 30         # off unless set: days window titles are kept
+
+[invoice]                # for tock invoice; all optional
+name = "Your Name"
+address = ["1 Main Street", "City"]
+currency = "EUR"         # printed after amounts; "" by default
+note = "Payment within 30 days."
 
 [slack]                  # see Focus guard
 enabled = false
@@ -547,7 +558,43 @@ Each span row gets `rate` and `amount` (rate × hours, to the cent).
 `tock export --by project --from 2026-10-01 --to 2026-10-31` writes one row
 per project instead: `project,duration_s,hours,rate,amount`, with the
 amount computed from the total time. Time without a project is left out.
-There is no currency setting: amounts are in the rate's unit.
+`tock export` has no currency: amounts are in the rate's unit.
+
+`tock invoice --project ATLAS` writes `invoice-202609-atlas.pdf` for last
+month: one line per day with hours (two decimals), rate and amount, then the
+totals. `--from` and `--to` pick other days, `--client` adds who it is to,
+`--number` sets the number (default `YYYYMM-project`) and `-o` the file.
+Your name, address, currency and a closing note come from `[invoice]` in
+`config.toml`. The PDF is plain A4 in Helvetica; characters outside Western
+European alphabets print as `?`.
+
+## Week report
+
+`tock report` writes a week as one HTML page to stdout: tracked time,
+average score, each day with its score, focus and a bar by kind,
+categories, projects, apps and sites, distractions, goals with streaks, the
+plan and commits. It defaults to the week `tock review` shows; `--week D`
+picks another. `-o week.html` writes a file and `--open` opens it in the
+browser. The page has no scripts and loads nothing, so it can be mailed or
+archived as it is; window titles never appear in it.
+
+## Deleting old titles
+
+```toml
+[privacy]
+keep_titles = 30
+```
+
+Once an hour trackd deletes the window titles of activity older than 30
+days and cuts its URLs to the host (`mail.google.com/mail/u/0/#inbox`
+becomes `mail.google.com`). Each span keeps the category and project its
+rules gave it, so no report changes; a later rule on the app or the URL
+host still fills a label it had left empty. Other machines' activity and
+this machine's own files in the sync folder older than that are cleaned
+too. `tock prune --dry-run` counts what would go, `tock prune` does it now
+and `tock prune --days 7` uses another age once. Saved Claude summaries
+(`tock summary`) are kept. Deleted titles cannot be brought back, except
+from a backup made before.
 
 ## Calendar
 
