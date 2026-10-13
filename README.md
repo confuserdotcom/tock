@@ -97,7 +97,8 @@ forgets the grants on every rebuild.
 4. Start a focus session with `tock session start 50` or the focus tab's `s`.
    trackd notifies you when you drift to a distraction and when a break is due.
 5. `tock status` prints one line for a status bar, and `tock recap` prints the
-   day's recap. trackd also shows the recap at 21:00.
+   day's recap. trackd also shows the recap at 21:00 (or when your work
+   hours end, see Work hours).
 
 ## TUI keys
 
@@ -232,6 +233,11 @@ block_grace = 10         # seconds a distraction may stay in front
 focus_on = ""            # Shortcuts shortcut run when a session starts
 focus_off = ""           # ... and when it ends
 
+[hours]                  # off unless set; see Work hours
+days = ["mon", "tue", "wed", "thu", "fri"]
+start = "09:00"          # start and end are both required
+end = "18:00"
+
 [slack]                  # see Focus guard
 enabled = false
 status = "In a focus session"
@@ -339,6 +345,36 @@ The today tab and `tock today` show a goals line, the week tab shows each
 goal over the week (`met 3 of 5 days` for a day goal), and `tock status`
 adds `goals 2/3` plus `over Entertainment` when a limit is passed.
 `tock rules check` lists the goals.
+
+Each goal keeps a streak: days in a row it held (met, or under a limit),
+or weeks for a week goal. Days with no activity and days off (see Work
+hours) neither count nor break it. Today counts once a goal is met; a limit
+counts once the day's hours are over, and breaks the streak as soon as it
+is passed. The goals line shows `· 5d` from two days on, the week tab and
+`tock review` add `streak 5d (best 12d)`, and the dashboard shows
+`5d streak`.
+
+## Work hours
+
+With `[hours]` in `config.toml`, the focus score only looks at your work
+hours:
+
+```toml
+[hours]
+days = ["mon", "tue", "wed", "thu", "fri"]   # the default
+start = "09:00"
+end = "18:00"
+```
+
+trackd still records everything, and totals, categories and goals still
+cover the whole day; only the score, the focus numbers and the adaptive
+target are limited to the hours. A day not in `days` is a day off: it is
+not scored and the target skips it. `tock today` adds `09:00–18:00` and
+`1h20 outside hours` to the score line (or says `day off · not scored`),
+and the today tab and dashboard show the same.
+
+The recap closes the day: it goes out when the hours end, unless
+`[focus] recap` sets its own time, and is skipped on days off.
 
 ## Time away
 
