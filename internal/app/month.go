@@ -54,7 +54,8 @@ func (a *App) monthDays(vs []classify.SpanView, ls []classify.Label, first time.
 	out := make([]report.MonthDay, n)
 	for i := range n {
 		day := first.AddDate(0, 0, i)
-		dv, dl := clip(vs, ls, day, day.AddDate(0, 0, 1))
+		wFrom, wTo := a.cfg.Hours.Window(day)
+		dv, dl := stats.Clip(vs, ls, wFrom, wTo)
 		target, err := a.targetFor(day)
 		if err != nil {
 			return nil, err

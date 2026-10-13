@@ -11,7 +11,6 @@ import (
 	"tock/internal/config"
 	"tock/internal/gitlog"
 	"tock/internal/shell"
-	"tock/internal/stats"
 	"tock/internal/store"
 )
 
@@ -42,8 +41,8 @@ type App struct {
 	git      gitlog.Runner // nil = gitlog.Exec
 	gitCache map[gitKey]gitEntry
 
-	past    map[string]stats.Day // stats of days before today, by date
-	pastKey uint64               // overrides fingerprint the cache was built with
+	past    map[string]pastDay // days before today, by date
+	pastKey uint64             // overrides fingerprint the cache was built with
 }
 
 // stamp identifies the versions of the rule files and the config file.

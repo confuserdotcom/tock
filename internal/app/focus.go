@@ -64,7 +64,7 @@ func (a *App) GuardTick(call bool) ([]focus.Event, focus.Guard, error) {
 	if n := len(abs); n > 0 {
 		in.Absence = &abs[n-1]
 	}
-	if focus.RecapDue(in) {
+	if !a.cfg.Hours.Off(day) && focus.RecapDue(in) {
 		d, err := a.Day(nowT)
 		if err != nil {
 			return nil, focus.Guard{}, err

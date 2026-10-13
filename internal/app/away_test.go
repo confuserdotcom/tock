@@ -98,7 +98,7 @@ func TestAwayDropsPastCache(t *testing.T) {
 	if _, err := a.Day(apptest.Now); err != nil { // fills the past cache
 		t.Fatal(err)
 	}
-	before := a.past[dateKey(a.midnight(apptest.Now).AddDate(0, 0, -1))].ActiveMS
+	before := a.past[dateKey(a.midnight(apptest.Now).AddDate(0, 0, -1))].Stats.ActiveMS
 	from, to := apptest.At(t, "10:00", -1), apptest.At(t, "10:30", -1)
 	if err := a.Answer(classify.Interval{From: from, To: to}, classify.Want{Category: "Study"}); err != nil {
 		t.Fatal(err)
@@ -106,7 +106,7 @@ func TestAwayDropsPastCache(t *testing.T) {
 	if _, err := a.Day(apptest.Now); err != nil {
 		t.Fatal(err)
 	}
-	if after := a.past[dateKey(a.midnight(apptest.Now).AddDate(0, 0, -1))].ActiveMS; after != before+30*60_000 {
+	if after := a.past[dateKey(a.midnight(apptest.Now).AddDate(0, 0, -1))].Stats.ActiveMS; after != before+30*60_000 {
 		t.Fatalf("past active %d -> %d", before, after)
 	}
 }

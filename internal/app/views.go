@@ -228,7 +228,7 @@ func (a *App) Day(day time.Time) (report.Day, error) {
 		return report.Day{}, err
 	}
 	d := report.BuildDay(report.DayInput{Date: from, NowMS: now, Views: vs, Labels: labels, Ignored: ignored,
-		Target: target, Weights: a.cfg.Score})
+		Target: target, Weights: a.cfg.Score, Hours: a.cfg.Hours})
 	if d.Away, err = a.pending(vs, from.UnixMilli(), to.UnixMilli()); err != nil {
 		return report.Day{}, err
 	}
@@ -249,6 +249,13 @@ func (a *App) Day(day time.Time) (report.Day, error) {
 			return report.Day{}, err
 		}
 		d.Goals = report.Goals(goals, wvs, wls, from, mon)
+		st, err := a.goalStreaks(from, wvs, wls)
+		if err != nil {
+			return report.Day{}, err
+		}
+		for i := range d.Goals {
+			d.Goals[i].Streak, d.Goals[i].Best = st[i][0], st[i][1]
+		}
 	}
 	return d, nil
 }
@@ -261,7 +268,8 @@ func (a *App) Week(anyDay time.Time) (report.Week, error) {
 	if err != nil {
 		return report.Week{}, err
 	}
-	in := report.WeekInput{Monday: mon, NowMS: now, Views: vs, Labels: labels, Weights: a.cfg.Score, Goals: a.rs.Goals}
+	in := report.WeekInput{Monday: mon, NowMS: now, Views: vs, Labels: labels, Weights: a.cfg.Score, Goals: a.rs.Goals,
+		Hours: a.cfg.Hours}
 	today := a.midnight(a.now())
 	for i := range in.Targets {
 		day := mon.AddDate(0, 0, i)
@@ -273,6 +281,20 @@ func (a *App) Week(anyDay time.Time) (report.Week, error) {
 		}
 	}
 	w := report.BuildWeek(in)
+	if len(w.Goals) > 0 {
+		// Streaks as of today, or the week's Sunday for a past week.
+		anchor := mon.AddDate(0, 0, 6)
+		if today.Before(anchor) {
+			anchor = today
+		}
+		st, err := a.goalStreaks(anchor, vs, labels)
+		if err != nil {
+			return report.Week{}, err
+		}
+		for i := range w.Goals {
+			w.Goals[i].Streak, w.Goals[i].Best = st[i][0], st[i][1]
+		}
+	}
 	w.Commits = a.commits(mon.UnixMilli(), mon.AddDate(0, 0, 7).UnixMilli())
 	if w.Plan, err = a.st.Plan(dateKey(mon)); err != nil {
 		return report.Week{}, err

@@ -2,6 +2,7 @@ package report
 
 import (
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
@@ -141,6 +142,18 @@ func WeekGoals(goals []classify.Goal, views []classify.SpanView, labels []classi
 	}
 	return out
 }
+
+// GoalTimes is the non-idle time of each goal over all of views.
+func GoalTimes(goals []classify.Goal, views []classify.SpanView, labels []classify.Label) []int64 {
+	out := make([]int64, len(goals))
+	for i, g := range goals {
+		out[i] = goalMS(g, views, labels, math.MinInt64, math.MaxInt64)
+	}
+	return out
+}
+
+// Active reports whether views hold any non-idle time.
+func Active(vs []classify.SpanView) bool { return active(vs) }
 
 func active(vs []classify.SpanView) bool {
 	for _, v := range vs {

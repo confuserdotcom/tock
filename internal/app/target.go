@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"time"
 
+	"tock/internal/classify"
+	"tock/internal/report"
 	"tock/internal/stats"
 	"tock/internal/store"
 )
@@ -40,9 +42,9 @@ func (a *App) targetFor(day time.Time) (stats.Target, error) {
 		prev := make([]stats.Day, 0, stats.LookbackDays)
 		complete := true
 		for d := day.AddDate(0, 0, -1); !d.Before(from); d = d.AddDate(0, 0, -1) {
-			s, ok := a.past[dateKey(d)]
+			p, ok := a.past[dateKey(d)]
 			complete = complete && ok
-			prev = append(prev, s)
+			prev = append(prev, p.Stats)
 		}
 		if complete {
 			return stats.TargetFrom(prev), nil
@@ -51,7 +53,14 @@ func (a *App) targetFor(day time.Time) (stats.Target, error) {
 	return stats.Target{}, nil
 }
 
-// fillPast computes and caches the stats of every day in [from, to) that is
+// pastDay is a day before today as the cache keeps it.
+type pastDay struct {
+	Stats  stats.Day // the scored window only
+	Active bool      // the whole day has active time
+	GoalMS []int64   // whole-day time per goal of a.rs.Goals
+}
+
+// fillPast computes and caches every day in [from, to) that is
 // before today and not cached yet, from one span query.
 func (a *App) fillPast(from, to time.Time) error {
 	if today := a.midnight(a.now()); to.After(today) {
@@ -72,7 +81,7 @@ func (a *App) fillPast(from, to time.Time) error {
 		return err
 	}
 	if a.past == nil {
-		a.past = map[string]stats.Day{}
+		a.past = map[string]pastDay{}
 	}
 	now := a.nowMS()
 	for _, d := range missing {
@@ -81,7 +90,55 @@ func (a *App) fillPast(from, to time.Time) error {
 		if err != nil {
 			return err
 		}
-		a.past[dateKey(d)] = stats.Compute(vs, a.rs.LabelAll(vs, ovs))
+		ls := a.rs.LabelAll(vs, ovs)
+		wFrom, wTo := a.cfg.Hours.Window(d)
+		p := pastDay{Stats: stats.Compute(stats.Clip(vs, ls, wFrom, wTo)), Active: report.Active(vs)}
+		if len(a.rs.Goals) > 0 {
+			p.GoalMS = report.GoalTimes(a.rs.Goals, vs, ls)
+		}
+		a.past[dateKey(d)] = p
 	}
 	return nil
+}
+
+// goalStreaks is each goal's current and best streak as of the day starting
+// at local midnight day, whose views (at least) are vs.
+func (a *App) goalStreaks(day time.Time, vs []classify.SpanView, ls []classify.Label) ([][2]int, error) {
+	goals := a.rs.Goals
+	from := day.AddDate(0, 0, -report.StreakDays)
+	var past []report.GoalDay
+	// A second pass covers overrides changing between two reads, as in
+	// targetFor.
+	for range 2 {
+		if err := a.fillPast(from, day); err != nil {
+			return nil, err
+		}
+		past = past[:0]
+		complete := true
+		for d := day.AddDate(0, 0, -1); !d.Before(from); d = d.AddDate(0, 0, -1) {
+			p, ok := a.past[dateKey(d)]
+			complete = complete && ok
+			past = append(past, report.GoalDay{Date: d, Active: p.Active, Off: a.cfg.Hours.Off(d), MS: p.GoalMS})
+		}
+		if complete {
+			break
+		}
+	}
+	dv, dl := clip(vs, ls, day, day.AddDate(0, 0, 1))
+	today := report.GoalDay{Date: day, Active: report.Active(dv), Off: a.cfg.Hours.Off(day), MS: report.GoalTimes(goals, dv, dl)}
+	_, end := a.cfg.Hours.Window(day)
+	if a.cfg.Hours.Off(day) {
+		end = day.AddDate(0, 0, 1).UnixMilli()
+	}
+	closed := a.nowMS() >= end
+	for j := range past {
+		if len(past[j].MS) != len(goals) { // not cached: a day after today
+			past[j].MS = make([]int64, len(goals))
+		}
+	}
+	out := make([][2]int, len(goals))
+	for i, g := range goals {
+		out[i][0], out[i][1] = report.Streak(i, g, past, today, closed)
+	}
+	return out, nil
 }
