@@ -50,7 +50,7 @@ func (rs *Ruleset) Label(v SpanView, o *Override) Label {
 	var l Label
 	switch {
 	case v.BundleID != span.IdleBundleID && v.Kept != nil:
-		l = rs.keptLabel(*v.Kept)
+		l = rs.keptLabel(&v)
 	case v.BundleID != span.IdleBundleID:
 		l = rs.ruleLabel(&v)
 	default:
@@ -94,15 +94,19 @@ func keyOf(v *SpanView) (memoKey, string) {
 	return k, clean
 }
 
-// keptLabel is a kept label, dropping a category or project that no
-// longer exists.
-func (rs *Ruleset) keptLabel(k Kept) Label {
-	l := Label{CategorySource: SourceNone, ProjectSource: SourceNone}
+// keptLabel is v's kept label over its rule label: a kept field wins, and
+// an empty one, or one naming a category or project that no longer exists,
+// falls through to the rules, which still see the app and the URL host.
+func (rs *Ruleset) keptLabel(v *SpanView) Label {
+	k := *v.Kept
+	l := rs.ruleLabel(v)
 	if k.Category != "" && rs.HasCategory(k.Category) {
-		l.Category, l.Kind, l.CategorySource = k.Category, rs.Kind(k.Category), SourceKept
+		l.Category, l.Kind = k.Category, rs.Kind(k.Category)
+		l.CategorySource, l.CategoryRule = SourceKept, ""
 	}
 	if k.Project != "" && rs.HasProject(k.Project) {
-		l.Project, l.ProjectSource = k.Project, SourceKept
+		l.Project = k.Project
+		l.ProjectSource, l.ProjectRule = SourceKept, ""
 	}
 	return l
 }

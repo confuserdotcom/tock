@@ -13,9 +13,13 @@ func TestKeptLabel(t *testing.T) {
 	if l := rs.Label(v, &Override{Project: "ATLAS"}); l.Project != "ATLAS" || l.Category != "Code" {
 		t.Errorf("override over kept = %+v", l)
 	}
-	// Names that no longer exist are dropped.
+	// Empty or stale fields fall through to the rules: term is Code by app.
 	v.Kept = &Kept{Category: "Gone", Project: "gone"}
-	if l := rs.Label(v, nil); l.Category != "" || l.Project != "" || l.CategorySource != SourceNone {
+	if l := rs.Label(v, nil); l.Category != "Code" || l.CategorySource != SourceRule || l.Project != "" {
 		t.Errorf("stale kept = %+v", l)
+	}
+	v.Kept = &Kept{Project: "ATLAS"}
+	if l := rs.Label(v, nil); l.Category != "Code" || l.Project != "ATLAS" || l.ProjectSource != SourceKept {
+		t.Errorf("project-only kept = %+v", l)
 	}
 }
