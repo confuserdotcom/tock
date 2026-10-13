@@ -250,3 +250,12 @@ func TestRemoteRowsRefuseLabels(t *testing.T) {
 	}
 	mustContain(t, m, "recorded on another machine")
 }
+
+func TestWorkBlocksAndSummary(t *testing.T) {
+	m, e := seeded(t)
+	mustContain(t, m, " work  09:00 tock 1h40")
+	mustNotContain(t, m, "✎")
+	e.Summary(t, "2026-10-10", 0, "Built the tock TUI, then reviewed a PR.")
+	m = step(t, m, tickMsg{})
+	mustContain(t, m, " ✎ Built the tock TUI, then reviewed a PR.")
+}

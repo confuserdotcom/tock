@@ -195,6 +195,18 @@ func (e *Env) Plan(t testing.TB, monday, text string) {
 	}
 }
 
+// Summary saves a Claude summary for day (YYYY-MM-DD): the day's text at
+// start 0, else the work block's that starts at start.
+func (e *Env) Summary(t testing.TB, day string, start int64, text string) {
+	t.Helper()
+	db := e.raw(t)
+	defer db.Close()
+	if _, err := db.Exec(`INSERT INTO summary(day, start_ms, text, model, created_ms) VALUES(?, ?, ?, 'test', 1)`,
+		day, start, text); err != nil {
+		t.Fatal(err)
+	}
+}
+
 // Heartbeat records a trackd heartbeat at ms.
 func (e *Env) Heartbeat(t testing.TB, ms int64) {
 	t.Helper()

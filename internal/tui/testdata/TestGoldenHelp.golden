@@ -17,8 +17,8 @@ tock   today   week   inbox ³   focus   rules                            Sat 10
  │   l      next day                 e      edit rules.toml                                       │ 
  │   .      back to today            J/K    move rule down/up      Go                             │ 
  │   /      filter rows              j/k    move                     1-5    switch tab            │ 
-▸│   i      why this score                                           tab    next tab              │ 
- │   g/G    first / last row       App                                                            │ 
+ │   i      why this score                                           tab    next tab              │ 
+▸│   g/G    first / last row       App                                                            │ 
  │                                   ?      help                                                  │ 
  │                                   :      commands                                              │ 
  │                                   r      refresh                                               │ 

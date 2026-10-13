@@ -1,24 +1,24 @@
 tock   today   week   inbox ³   focus   rules                            Sat 10 Oct  15:00  ● trackd
  74  score  good day                                       2h14 focus of 4h00  ━━━━━━━━━━━───────── 
  Today  ‹ h  l ›  ╭─ Commands ───────────────────────────────────────────────────╮d 2h54 · idle 41m 
- ⚑ Away 12:25–14:5│ › ▏                                                          │                  
-                  │                                                              │                  
- ╭─ Day ──────────│ ▸ label it                                      Today  enter │────────────────╮ 
- │            09  │   label time away                                   Today  a │━  tock 1h40    │ 
- │ deep       ████│   leave time away idle                              Today  A │─               │ 
- │ unlabelled     │   tag                                               Today  t │─  3 keys       │ 
- │ distract       │   set project                                       Today  p │                │ 
- ╰────────────────│   tag and learn a rule                              Today  T │────────────────╯ 
-                  │   split: label part of the row                      Today  s │                  
-  09:00–10:40   1h│   delete the row's time                             Today  d │                  
-  10:40–11:14    3│   add time you forgot                               Today  + │                  
-  11:14–11:26    1│   previous day                                      Today  h │                  
-  11:26–11:35     │   filter rows                                       Today  / │                  
-  11:35–11:41     │   why this score                                    Today  i │                  
-  11:41–12:22    4╰──────────────────────────────────────────────────────────────╯                  
+ work  09:00 tock │ › ▏                                                          │                  
+ ⚑ Away 12:25–14:5│                                                              │                  
+                  │ ▸ label it                                      Today  enter │                  
+ ╭─ Day ──────────│   label time away                                   Today  a │────────────────╮ 
+ │            09  │   leave time away idle                              Today  A │━  tock 1h40    │ 
+ │ deep       ████│   tag                                               Today  t │─               │ 
+ │ unlabelled     │   set project                                       Today  p │─  3 keys       │ 
+ │ distract       │   tag and learn a rule                              Today  T │                │ 
+ ╰────────────────│   split: label part of the row                      Today  s │────────────────╯ 
+                  │   delete the row's time                             Today  d │                  
+  09:00–10:40   1h│   add time you forgot                               Today  + │                  
+  10:40–11:14    3│   previous day                                      Today  h │                  
+  11:14–11:26    1│   filter rows                                       Today  / │                  
+  11:26–11:35     │   why this score                                    Today  i │                  
+  11:35–11:41     ╰──────────────────────────────────────────────────────────────╯                  
+  11:41–12:22    41m    idle                Idle                                                   
   12:22–12:25     3m  ○ unlabelled          Arc         Proofs                                     
 ▸ 14:50–15:00    10m  ○ unlabelled          Mail        Inbox                                       
-
 
 
 

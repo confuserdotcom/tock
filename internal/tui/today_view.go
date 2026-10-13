@@ -95,10 +95,26 @@ func (t *todayTab) notes(w int) []string {
 	if len(d.Commits) > 0 {
 		out = append(out, fit(" "+sDim.Render("commits  ")+sText.Render(report.CommitsLine(d.Commits)), w))
 	}
+	if len(d.Blocks) > 0 {
+		out = append(out, fit(" "+sDim.Render("work  ")+workLine(d.Blocks, d.Date.Location()), w))
+	}
+	if d.Summary != "" {
+		out = append(out, fit(" "+sBrand.Render("✎ ")+sText.Render(report.Safe(d.Summary)), w))
+	}
 	if a := t.attention(); a != "" {
 		out = append(out, fit(a, w))
 	}
 	return out
+}
+
+// workLine lists the work blocks as "09:00 tock 1h40 · 11:05 Study 50m".
+func workLine(blocks []report.Block, loc *time.Location) string {
+	parts := make([]string, len(blocks))
+	for i, b := range blocks {
+		parts[i] = sDim.Render(time.UnixMilli(b.Start).In(loc).Format("15:04")+" ") +
+			kindStyle(b.Kind).Render(report.Safe(b.Name)) + " " + sBright.Render(report.Dur(b.ActiveMS))
+	}
+	return strings.Join(parts, sFaint.Render(" · "))
 }
 
 // attention is the one thing that wants an answer: pending time away, else
