@@ -382,3 +382,14 @@ func TestInvoice(t *testing.T) {
 		t.Errorf("long currency: %v", err)
 	}
 }
+
+func TestPrivacy(t *testing.T) {
+	if c, err := Load(write(t, "[privacy]\nkeep_titles = 30\n")); err != nil || c.Privacy.KeepTitles != 30 {
+		t.Fatalf("keep_titles: %+v %v", c.Privacy, err)
+	}
+	for _, v := range []string{"0", "-1", "3651"} {
+		if _, err := Load(write(t, "[privacy]\nkeep_titles = "+v+"\n")); err == nil || !strings.Contains(err.Error(), "keep_titles") {
+			t.Errorf("keep_titles = %s: %v", v, err)
+		}
+	}
+}

@@ -14,12 +14,21 @@ type SpanRow struct {
 	App        string
 	Title, URL *string
 	Private    bool
+	Kept       *Kept // the label kept when the title was deleted; nil = none
+}
+
+// Kept is the rule label a span had when its title was deleted.
+type Kept struct {
+	SpanID            int64
+	Category, Project string
 }
 
 // Spans returns the spans overlapping [from, to), ordered by start.
 func (s *Store) Spans(from, to int64) ([]SpanRow, error) {
-	rows, err := s.db.Query(`SELECT id, start, "end", bundle_id, app, title, url, private
-		FROM span WHERE start < ? AND ("end" IS NULL OR "end" > ?) ORDER BY start, id`, to, from)
+	rows, err := s.db.Query(`SELECT id, start, "end", bundle_id, app, title, url, private,
+		kept.span_id IS NOT NULL, coalesce(kept.category, ''), coalesce(kept.project, '')
+		FROM span LEFT JOIN kept ON kept.span_id = span.id
+		WHERE start < ? AND ("end" IS NULL OR "end" > ?) ORDER BY start, id`, to, from)
 	if err != nil {
 		return nil, err
 	}
@@ -30,8 +39,15 @@ func (s *Store) Spans(from, to int64) ([]SpanRow, error) {
 		var end sql.NullInt64
 		var title, url sql.NullString
 		var private int
-		if err := rows.Scan(&r.ID, &r.Start, &end, &r.BundleID, &r.App, &title, &url, &private); err != nil {
+		var kept bool
+		var k Kept
+		if err := rows.Scan(&r.ID, &r.Start, &end, &r.BundleID, &r.App, &title, &url, &private,
+			&kept, &k.Category, &k.Project); err != nil {
 			return nil, err
+		}
+		if kept {
+			k.SpanID = r.ID
+			r.Kept = &k
 		}
 		if end.Valid {
 			r.End = &end.Int64

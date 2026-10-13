@@ -32,7 +32,18 @@ type Config struct {
 	Slack    Slack
 	Hours    stats.Hours // the work schedule the score is limited to
 	Invoice  Invoice
+	Privacy  Privacy
 }
+
+// Privacy is the [privacy] section.
+type Privacy struct {
+	// KeepTitles is how many days window titles are kept; older spans
+	// lose their title and the path of their URL. 0 = forever.
+	KeepTitles int
+}
+
+// MaxKeepTitles is the longest keep_titles, in days.
+const MaxKeepTitles = 3650
 
 // Invoice is the [invoice] section: who the invoices tock invoice writes
 // are from.
@@ -274,6 +285,10 @@ type invoiceTOML struct {
 	Note     *string   `toml:"note"`
 }
 
+type privacyTOML struct {
+	KeepTitles *int `toml:"keep_titles"`
+}
+
 type fileTOML struct {
 	Score    scoreTOML    `toml:"score"`
 	Focus    focusTOML    `toml:"focus"`
@@ -285,6 +300,7 @@ type fileTOML struct {
 	Slack    slackTOML    `toml:"slack"`
 	Hours    hoursTOML    `toml:"hours"`
 	Invoice  invoiceTOML  `toml:"invoice"`
+	Privacy  privacyTOML  `toml:"privacy"`
 }
 
 // Load reads path. A missing file is Default() and no error. Any other
@@ -351,6 +367,12 @@ func Load(path string) (Config, error) {
 	}
 	if c.Hours.Set && f.Focus.Recap == nil {
 		c.Focus.RecapAt = c.Hours.EndMin // the recap closes the work day
+	}
+	if k := f.Privacy.KeepTitles; k != nil {
+		if *k < 1 || *k > MaxKeepTitles {
+			return Default(), fmt.Errorf("%s: [privacy] keep_titles = %d, want 1 to %d days", name, *k, MaxKeepTitles)
+		}
+		c.Privacy.KeepTitles = *k
 	}
 	if err := decodeInvoice(f.Invoice, &c.Invoice); err != nil {
 		return Default(), fmt.Errorf("%s: %w", name, err)
