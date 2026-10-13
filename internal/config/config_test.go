@@ -368,3 +368,17 @@ func TestHoursErrors(t *testing.T) {
 		}
 	}
 }
+
+func TestInvoice(t *testing.T) {
+	c, err := Load(write(t, "[invoice]\nname = \" Ada Lovelace \"\naddress = [\"1 Analytical Way\", \"London\"]\ncurrency = \"GBP\"\nnote = \"Due in 30 days.\"\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := Invoice{Name: "Ada Lovelace", Address: []string{"1 Analytical Way", "London"}, Currency: "GBP", Note: "Due in 30 days."}
+	if !reflect.DeepEqual(c.Invoice, want) {
+		t.Fatalf("invoice %+v", c.Invoice)
+	}
+	if _, err := Load(write(t, "[invoice]\ncurrency = \"EUROS-AND-CENTS\"\n")); err == nil || !strings.Contains(err.Error(), "currency") {
+		t.Errorf("long currency: %v", err)
+	}
+}

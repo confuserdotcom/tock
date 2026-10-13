@@ -194,6 +194,7 @@ var commands = map[string]func(Env, []string) error{
 	"top":        cmdTop,
 	"review":     cmdReview,
 	"report":     cmdReport,
+	"invoice":    cmdInvoice,
 	"web":        cmdWeb,
 	"slack":      cmdSlack,
 	"edit":       cmdEdit,

@@ -31,6 +31,16 @@ type Config struct {
 	Sync     Sync
 	Slack    Slack
 	Hours    stats.Hours // the work schedule the score is limited to
+	Invoice  Invoice
+}
+
+// Invoice is the [invoice] section: who the invoices tock invoice writes
+// are from.
+type Invoice struct {
+	Name     string
+	Address  []string // lines
+	Currency string   // printed after amounts; "" = none
+	Note     string   // printed at the bottom, e.g. payment terms
 }
 
 // Slack is the [slack] section: the status and do-not-disturb tock sets in
@@ -257,6 +267,13 @@ type hoursTOML struct {
 	End   *string   `toml:"end"`
 }
 
+type invoiceTOML struct {
+	Name     *string   `toml:"name"`
+	Address  *[]string `toml:"address"`
+	Currency *string   `toml:"currency"`
+	Note     *string   `toml:"note"`
+}
+
 type fileTOML struct {
 	Score    scoreTOML    `toml:"score"`
 	Focus    focusTOML    `toml:"focus"`
@@ -267,6 +284,7 @@ type fileTOML struct {
 	Sync     syncTOML     `toml:"sync"`
 	Slack    slackTOML    `toml:"slack"`
 	Hours    hoursTOML    `toml:"hours"`
+	Invoice  invoiceTOML  `toml:"invoice"`
 }
 
 // Load reads path. A missing file is Default() and no error. Any other
@@ -333,6 +351,9 @@ func Load(path string) (Config, error) {
 	}
 	if c.Hours.Set && f.Focus.Recap == nil {
 		c.Focus.RecapAt = c.Hours.EndMin // the recap closes the work day
+	}
+	if err := decodeInvoice(f.Invoice, &c.Invoice); err != nil {
+		return Default(), fmt.Errorf("%s: %w", name, err)
 	}
 	if err := decodeSlack(f.Slack, &c.Slack); err != nil {
 		return Default(), fmt.Errorf("%s: %w", name, err)
@@ -446,6 +467,38 @@ func decodeFocus(f focusTOML, c *Focus) error {
 	}
 	if f.FocusOff != nil {
 		c.FocusOff = strings.TrimSpace(*f.FocusOff)
+	}
+	return nil
+}
+
+// decodeInvoice reads the [invoice] section.
+func decodeInvoice(f invoiceTOML, c *Invoice) error {
+	for _, t := range []struct {
+		key string
+		v   *string
+		dst *string
+		max int
+	}{{"name", f.Name, &c.Name, 100}, {"currency", f.Currency, &c.Currency, 8}, {"note", f.Note, &c.Note, 300}} {
+		if t.v == nil {
+			continue
+		}
+		v := strings.TrimSpace(*t.v)
+		if len([]rune(v)) > t.max {
+			return fmt.Errorf("[invoice] %s is longer than %d characters", t.key, t.max)
+		}
+		*t.dst = v
+	}
+	if f.Address != nil {
+		if len(*f.Address) > 6 {
+			return errors.New("[invoice] address has more than 6 lines")
+		}
+		c.Address = nil
+		for _, l := range *f.Address {
+			if len([]rune(l)) > 100 {
+				return errors.New("[invoice] address has a line longer than 100 characters")
+			}
+			c.Address = append(c.Address, strings.TrimSpace(l))
+		}
 	}
 	return nil
 }

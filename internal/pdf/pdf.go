@@ -31,6 +31,9 @@ func (d *Doc) AddPage() *Page {
 	return p
 }
 
+// Page returns page i, counting from 0.
+func (d *Doc) Page(i int) *Page { return d.pages[i] }
+
 // Pages is the number of pages.
 func (d *Doc) Pages() int { return len(d.pages) }
 
