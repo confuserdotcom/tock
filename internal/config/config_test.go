@@ -326,3 +326,45 @@ func TestLoadSlack(t *testing.T) {
 		}
 	}
 }
+
+func TestHours(t *testing.T) {
+	c, err := Load(write(t, "[hours]\nstart = \"09:00\"\nend = \"17:30\"\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := stats.Hours{Set: true, StartMin: 9 * 60, EndMin: 17*60 + 30,
+		Days: [7]bool{false, true, true, true, true, true, false}}
+	if c.Hours != want {
+		t.Fatalf("hours = %+v, want %+v", c.Hours, want)
+	}
+	if c.Focus.RecapAt != 17*60+30 {
+		t.Errorf("recap at %d, want the end of hours", c.Focus.RecapAt)
+	}
+	c, err = Load(write(t, "[hours]\ndays = [\"Sat\", \"sun\"]\nstart = \"10:00\"\nend = \"14:00\"\n[focus]\nrecap = \"20:00\"\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.Hours.Days != [7]bool{true, false, false, false, false, false, true} || c.Focus.RecapAt != 20*60 {
+		t.Errorf("days %v recap %d", c.Hours.Days, c.Focus.RecapAt)
+	}
+	if c, _ := Load(write(t, "")); c.Hours.Set {
+		t.Error("hours set without [hours]")
+	}
+}
+
+func TestHoursErrors(t *testing.T) {
+	for body, want := range map[string]string{
+		"[hours]\nstart = \"09:00\"\n":                                             "needs both start and end",
+		"[hours]\nstart = \"9am\"\nend = \"17:00\"\n":                              `start = "9am"`,
+		"[hours]\nstart = \"\"\nend = \"17:00\"\n":                                 `start = ""`,
+		"[hours]\nstart = \"18:00\"\nend = \"09:00\"\n":                            "is not before end",
+		"[hours]\ndays = []\nstart = \"09:00\"\nend = \"17:00\"\n":                 "days is empty",
+		"[hours]\ndays = [\"mo\"]\nstart = \"09:00\"\nend = \"17:00\"\n":           `days has "mo"`,
+		"[hours]\ndays = [\"mon\", \"MON\"]\nstart = \"09:00\"\nend = \"17:00\"\n": "twice",
+	} {
+		c, err := Load(write(t, body))
+		if err == nil || !strings.Contains(err.Error(), want) || c.Hours.Set {
+			t.Errorf("%q: err %v, want %q", body, err, want)
+		}
+	}
+}

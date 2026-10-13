@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -29,6 +30,7 @@ type Config struct {
 	Calendar Calendar
 	Sync     Sync
 	Slack    Slack
+	Hours    stats.Hours // the work schedule the score is limited to
 }
 
 // Slack is the [slack] section: the status and do-not-disturb tock sets in
@@ -249,6 +251,12 @@ type syncTOML struct {
 	Machine *string `toml:"machine"`
 }
 
+type hoursTOML struct {
+	Days  *[]string `toml:"days"`
+	Start *string   `toml:"start"`
+	End   *string   `toml:"end"`
+}
+
 type fileTOML struct {
 	Score    scoreTOML    `toml:"score"`
 	Focus    focusTOML    `toml:"focus"`
@@ -258,6 +266,7 @@ type fileTOML struct {
 	Calendar calendarTOML `toml:"calendar"`
 	Sync     syncTOML     `toml:"sync"`
 	Slack    slackTOML    `toml:"slack"`
+	Hours    hoursTOML    `toml:"hours"`
 }
 
 // Load reads path. A missing file is Default() and no error. Any other
@@ -318,6 +327,12 @@ func Load(path string) (Config, error) {
 		return Default(), fmt.Errorf("%s: [away] min = %d, want at least 5", name, mn)
 	case mx <= mn || mx > 720:
 		return Default(), fmt.Errorf("%s: [away] max = %d, want more than min (%d) and at most 720", name, mx, mn)
+	}
+	if err := decodeHours(f.Hours, &c.Hours); err != nil {
+		return Default(), fmt.Errorf("%s: %w", name, err)
+	}
+	if c.Hours.Set && f.Focus.Recap == nil {
+		c.Focus.RecapAt = c.Hours.EndMin // the recap closes the work day
 	}
 	if err := decodeSlack(f.Slack, &c.Slack); err != nil {
 		return Default(), fmt.Errorf("%s: %w", name, err)
@@ -431,6 +446,53 @@ func decodeFocus(f focusTOML, c *Focus) error {
 	}
 	if f.FocusOff != nil {
 		c.FocusOff = strings.TrimSpace(*f.FocusOff)
+	}
+	return nil
+}
+
+// dayNames are the [hours] days names, indexed by time.Weekday.
+var dayNames = [7]string{"sun", "mon", "tue", "wed", "thu", "fri", "sat"}
+
+// decodeHours reads the [hours] section. Any key turns the schedule on;
+// start and end are then required, and days default to mon to fri.
+func decodeHours(f hoursTOML, h *stats.Hours) error {
+	if f.Days == nil && f.Start == nil && f.End == nil {
+		return nil
+	}
+	if f.Start == nil || f.End == nil {
+		return errors.New(`[hours] needs both start and end, like "09:00"`)
+	}
+	h.Set = true
+	for _, k := range []struct {
+		key string
+		v   string
+		dst *int
+	}{{"start", *f.Start, &h.StartMin}, {"end", *f.End, &h.EndMin}} {
+		at, ok := parseClock(k.v)
+		if !ok || at < 0 {
+			return fmt.Errorf(`[hours] %s = %q, want "HH:MM"`, k.key, k.v)
+		}
+		*k.dst = at
+	}
+	if h.StartMin >= h.EndMin {
+		return fmt.Errorf("[hours] start %s is not before end %s", *f.Start, *f.End)
+	}
+	days := []string{"mon", "tue", "wed", "thu", "fri"}
+	if f.Days != nil {
+		days = *f.Days
+		if len(days) == 0 {
+			return errors.New("[hours] days is empty, want at least one of mon … sun")
+		}
+	}
+	for _, d := range days {
+		i := slices.Index(dayNames[:], strings.ToLower(strings.TrimSpace(d)))
+		switch {
+		case i < 0:
+			return fmt.Errorf("[hours] days has %q, want mon, tue, wed, thu, fri, sat or sun", d)
+		case h.Days[i]:
+			return fmt.Errorf("[hours] days has %q twice", d)
+		}
+		h.Days[i] = true
 	}
 	return nil
 }
