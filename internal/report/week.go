@@ -22,6 +22,7 @@ type WeekInput struct {
 	Targets [7]stats.Target // each day's focus target; future days are not scored
 	Weights stats.Weights
 	Goals   []classify.Goal
+	Hours   stats.Hours // the work schedule; scores only see its window
 }
 
 // Week is what the week view shows.
@@ -121,7 +122,8 @@ func BuildWeek(in WeekInput) Week {
 		if w.Days[i].Future {
 			continue
 		}
-		w.Days[i].Stats = stats.Compute(day.views, day.labels)
+		from, to := in.Hours.Window(w.Days[i].Date)
+		w.Days[i].Stats = stats.Compute(stats.Clip(day.views, day.labels, from, to))
 		w.Days[i].Score = stats.ScoreDay(w.Days[i].Stats, in.Targets[i], in.Weights)
 	}
 	return w

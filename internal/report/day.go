@@ -25,6 +25,7 @@ type DayInput struct {
 	Ignored map[string]bool     // inbox keys hidden by tock ignore
 	Target  stats.Target        // the day's focus target
 	Weights stats.Weights       // score weights
+	Hours   stats.Hours         // the work schedule; the score only sees its window
 }
 
 // Day is everything the today views show.
@@ -44,6 +45,11 @@ type Day struct {
 	Commits    []NameN             // commits per project, filled by the caller
 	Blocks     []Block             // work blocks, in order
 	Summary    string              // the day's AI summary, filled by the caller when one is saved
+	Work       stats.Hours         // the work schedule
+	From, To   int64               // the scored window (Hours.Window)
+	Off        bool                // a day off: nothing is scored
+	OutsideMS  int64               // active time outside the window
+	Closed     bool                // the window has ended
 }
 
 // CatRow is one category's time.
@@ -130,7 +136,12 @@ func BuildDay(in DayInput) Day {
 	sortCats(d.Categories)
 	d.Hours.First, d.Hours.Last = hourRange(d.Hours.MS, in.Date, in.NowMS)
 	d.Timeline = timeline(in.Views, in.Labels, in.NowMS)
-	d.Stats = stats.Compute(in.Views, in.Labels)
+	d.Work, d.Off = in.Hours, in.Hours.Off(in.Date)
+	d.From, d.To = in.Hours.Window(in.Date)
+	d.Closed = in.NowMS >= d.To
+	sv, sl := stats.Clip(in.Views, in.Labels, d.From, d.To)
+	d.Stats = stats.Compute(sv, sl)
+	d.OutsideMS = d.TrackedMS - d.Stats.ActiveMS
 	d.Score = stats.ScoreDay(d.Stats, in.Target, in.Weights)
 	d.Blocks = Blocks(in.Views, in.Labels)
 	return d

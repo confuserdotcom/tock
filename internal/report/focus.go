@@ -79,7 +79,12 @@ func SessionLine(s focus.Session, loc *time.Location, withDay bool) string {
 // Recap is the daily recap shared by the notification and tock recap:
 // "2h14 focus, score 74 (target 4h00). Top project: tock."
 func Recap(d Day) string {
-	if d.Stats.ActiveMS <= 0 {
+	switch {
+	case d.Off && d.TrackedMS > 0:
+		return "Day off: " + Dur(d.TrackedMS) + " tracked, not scored."
+	case d.Stats.ActiveMS <= 0 && d.Work.Set && d.TrackedMS > 0:
+		return "No activity in work hours."
+	case d.Stats.ActiveMS <= 0:
 		return "No activity."
 	}
 	focusText := "No focus time"
