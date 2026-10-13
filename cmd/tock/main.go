@@ -147,8 +147,8 @@ func defaultEnv() Env {
 			}
 			return exec.Command("open", url).Run()
 		},
-		Sleep:     time.Sleep,
-		Linux:     runtime.GOOS == "linux",
+		Sleep: time.Sleep,
+		Linux: runtime.GOOS == "linux",
 	}
 }
 
