@@ -13,11 +13,14 @@ score your focus, run focus sessions and help you label what is left.
   links an HTTP or TLS client.
 - Private-browsing windows are recorded as "<app> (private)", with no title or
   URL.
-- Claude suggestions are the only feature that talks to the internet, and they
-  are off unless `ANTHROPIC_API_KEY` is set in the shell that runs `tock`.
+- Claude suggestions, summaries and `tock ask` are the only features that talk
+  to the internet, and they are off unless `ANTHROPIC_API_KEY` is set in the
+  shell that runs `tock`.
   - When on, at most once an hour, tock sends the grouped inbox keys: app name, URL host, cleaned title and minutes. It also sends your category and project names.
   - Password managers, mail and messaging apps, banks and webmail are never sent. Extend the deny lists in `config.toml [llm]`.
-  - `tock suggest --dry-run` prints the exact payload without sending it.
+  - `tock summary` runs only when you type it. It sends the day's work blocks: the weekday (never the date), clock times, minutes, labels and, per block, at most 8 apps with their URL host or cleaned title, through the same deny lists. The answer is saved in tock.db.
+  - `tock ask` sends only your question, today's date and your category and project names. Claude answers with a query, and tock runs it on this machine: no activity is sent.
+  - `--dry-run` on `tock suggest`, `tock summary` and `tock ask` prints the exact payload without sending it.
   - The key is read from the environment only and is never written anywhere.
 - Slack status (opt-in) is the only other network use: `tock slack`, run by
   trackd when a session starts and ends, sets your status and
@@ -174,6 +177,9 @@ tock web [--port N] [--no-open]       the dashboard in your browser, on this mac
 tock review [--week YYYY-MM-DD] [--plan TEXT]
                                        weekly recap, then next week's focus
 tock suggest [--dry-run | --force]     Claude label suggestions for the inbox (needs ANTHROPIC_API_KEY)
+tock blocks [--date D]                 the day's work blocks: stretches of work on one thing
+tock summary [--date D] [--dry-run]    Claude writes what you worked on (needs ANTHROPIC_API_KEY)
+tock ask [--dry-run] "<question>"      ask about your time in plain words; answered on this machine
 tock doctor [--wait] [--open]          check trackd, permissions, rules and config
 tock export [--from D] [--to D] [--format csv|json] [--by project]
                                        labelled spans, default the last 7 days as csv
@@ -375,6 +381,26 @@ a label for time away, or a timeline edit. Run it again to go further back;
 `tock undo --list` shows the last 20 changes. `u` does the same in the TUI
 and in `tock web`. tock keeps the last 200 changes. `tock rules merge`
 is not in the list: it keeps `rules.toml.bak` instead.
+
+## Work blocks, summaries and questions
+
+A work block is a stretch of work on one thing: a project, else a category.
+A break of 10 min ends a block, and so does other work that lasts 10 min;
+shorter detours stay inside the block around them. Blocks under 15 min are
+not listed. `tock blocks` lists the day's blocks with their focus share and
+top apps; the TUI's today tab shows them on the `work` line and `tock web`
+in the **Work blocks** card.
+
+`tock summary` asks Claude what the day was about and saves one line for the
+day and one per block. Every view shows them from then on (the `✎` line in
+the TUI). Run it again to replace them; `--date` summarizes another day.
+
+`tock ask "how much video last week?"` answers questions about your time:
+totals by category, project, app, site, kind or day, over a range. Claude
+only turns the question into a query; tock runs it on your data.
+
+Both need `ANTHROPIC_API_KEY`, and `[llm] enabled = false` turns them off; see
+Privacy for what they send.
 
 ## Trends and review
 
