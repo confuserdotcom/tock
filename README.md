@@ -867,6 +867,35 @@ listener {
 Keep `--after` equal to the timeout. While `hyprlock` (or `swaylock`) runs,
 the session counts as locked.
 
+When your desktop writes hypridle's config itself (some Hyprland shells
+render it from their own settings and restart hypridle), an edit there does
+not last. Run a second hypridle just for trackd instead, under another name
+so the desktop leaves it alone:
+
+```sh
+ln -s /usr/bin/hypridle ~/.local/bin/tock-hypridle
+# ~/.config/tock/hypridle.conf: the general and listener blocks above
+cat > ~/.config/systemd/user/tock-idle.service <<'EOF'
+[Unit]
+Description=tock: tell trackd when you are idle (a hypridle of its own)
+PartOf=graphical-session.target
+After=graphical-session.target
+ConditionEnvironment=WAYLAND_DISPLAY
+
+[Service]
+ExecStart=%h/.local/bin/tock-hypridle -c %h/.config/tock/hypridle.conf
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=graphical-session.target
+EOF
+systemctl --user daemon-reload && systemctl --user enable --now tock-idle
+```
+
+`tock doctor` finds the hook in the config of any running hypridle,
+renamed or not.
+
 - **Rules.** On Linux, a window's bundle id and app name are its Hyprland
   class, such as `kitty` or `firefox`. `hyprctl clients` lists the classes.
   Write rules with `app = "firefox"`, or with titles, as on the Mac.

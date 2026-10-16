@@ -104,6 +104,8 @@ type Env struct {
 	Sleep func(time.Duration)
 	// Git runs git for the commit counts; nil runs the git on PATH.
 	Git gitlog.Runner
+	// DirExists reports whether a directory is there; nil checks the disk.
+	DirExists func(string) bool
 	// NewLLM builds the client for summaries and questions; nil: Claude.
 	NewLLM func(key string) LLM
 	// SlackToken is TOCK_SLACK_TOKEN; NewSlack builds the Slack client

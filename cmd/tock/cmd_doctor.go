@@ -298,23 +298,39 @@ func doctorRepos(env Env, rs *classify.Ruleset, ok func(name, detail string), ba
 	if run == nil {
 		run = gitlog.Exec
 	}
+	exists := env.DirExists
+	if exists == nil {
+		exists = func(dir string) bool {
+			_, err := os.Stat(dir)
+			return !errors.Is(err, os.ErrNotExist)
+		}
+	}
 	home, _ := os.UserHomeDir()
-	n, failed := 0, false
+	n, absent, failed := 0, 0, false
 	for _, p := range rs.Projects {
 		for _, r := range p.Repos {
+			dir := classify.ExpandHome(r, home)
+			if !exists(dir) {
+				absent++ // rules.toml synced from a machine that has it
+				continue
+			}
 			n++
-			if err := gitlog.Check(context.Background(), run, classify.ExpandHome(r, home)); err != nil {
+			if err := gitlog.Check(context.Background(), run, dir); err != nil {
 				failed = true
 				bad("git", fmt.Sprintf("project %s: %s is not a readable git repo (%v)", p.Name, r, err),
 					"fix repos in rules.toml")
 			}
 		}
 	}
+	elsewhere := ""
+	if absent > 0 {
+		elsewhere = fmt.Sprintf(", %d not on this machine", absent)
+	}
 	switch {
-	case n == 0:
+	case n == 0 && absent == 0:
 		ok("git", "no repos (rules.toml [[project]] repos)")
 	case !failed:
-		ok("git", fmt.Sprintf("%d %s", n, map[bool]string{true: "repo", false: "repos"}[n == 1]))
+		ok("git", fmt.Sprintf("%d %s%s", n, map[bool]string{true: "repo", false: "repos"}[n == 1], elsewhere))
 	}
 }
 

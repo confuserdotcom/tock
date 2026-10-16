@@ -48,19 +48,31 @@ func TestTodayCommits(t *testing.T) {
 }
 
 func TestDoctorRepos(t *testing.T) {
-	te, _ := doctorEnv(t, strings.Replace(repoRules, "name = \"ATLAS\"\n", "name = \"ATLAS\"\nrepos = [\"/r/gone\"]\n", 1))
+	te, _ := doctorEnv(t, strings.Replace(repoRules, "name = \"ATLAS\"\n", "name = \"ATLAS\"\nrepos = [\"/r/broken\", \"/r/gone\"]\n", 1))
 	te.seed(t, daySpans()...)
 	setStates(t, te, map[string]string{store.KeyHeartbeat: nowMS(), store.KeyAXTrusted: "1"})
 	te.Git = fakeGit()
+	te.DirExists = func(dir string) bool { return dir != "/r/gone" }
 	code, out := te.run(t, "", "doctor")
-	if code != 1 || !strings.Contains(out, "!!  git: project ATLAS: /r/gone is not a readable git repo") ||
-		strings.Contains(out, "/r/tock") {
+	if code != 1 || !strings.Contains(out, "!!  git: project ATLAS: /r/broken is not a readable git repo") ||
+		strings.Contains(out, "/r/tock") || strings.Contains(out, "/r/gone") {
+		t.Fatalf("exit %d:\n%s", code, out)
+	}
+	// A repo that is not on this machine (rules.toml synced from another)
+	// is no problem.
+	te3, _ := doctorEnv(t, strings.Replace(repoRules, "name = \"ATLAS\"\n", "name = \"ATLAS\"\nrepos = [\"/r/gone\"]\n", 1))
+	te3.seed(t, daySpans()...)
+	setStates(t, te3, map[string]string{store.KeyHeartbeat: nowMS(), store.KeyAXTrusted: "1"})
+	te3.Git = fakeGit()
+	te3.DirExists = func(dir string) bool { return dir != "/r/gone" }
+	if code, out := te3.run(t, "", "doctor"); code != 0 || !strings.Contains(out, "ok  git: 1 repo, 1 not on this machine\n") {
 		t.Fatalf("exit %d:\n%s", code, out)
 	}
 	te2, _ := doctorEnv(t, repoRules)
 	te2.seed(t, daySpans()...)
 	setStates(t, te2, map[string]string{store.KeyHeartbeat: nowMS(), store.KeyAXTrusted: "1"})
 	te2.Git = fakeGit()
+	te2.DirExists = func(string) bool { return true }
 	if code, out := te2.run(t, "", "doctor"); code != 0 || !strings.Contains(out, "ok  git: 1 repo\n") {
 		t.Fatalf("exit %d:\n%s", code, out)
 	}
