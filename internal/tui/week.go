@@ -274,7 +274,8 @@ func (t weekTab) view(w, h int) []string {
 	for _, c := range wk.Categories {
 		catMax = max(catMax, c.MS)
 	}
-	room := max(h-len(out)-2, 0)
+	mods := moduleLines(wk.Modules, w)
+	room := max(h-len(out)-2-len(mods), 0)
 	for _, c := range wk.Categories[:min(len(wk.Categories), room)] {
 		name := c.Name
 		if name == report.Unclassified {
@@ -283,6 +284,7 @@ func (t weekTab) view(w, h int) []string {
 		out = append(out, " "+dot(c.Kind)+" "+kindStyle(c.Kind).Render(fit(name, 14))+sBright.Render(fitRight(report.Dur(c.MS), 6))+
 			"  "+meter(c.MS, catMax, 12, kindStyle(c.Kind))+"  "+sDim.Render(projects(c.Projects)))
 	}
+	out = append(out, mods...)
 	if len(wk.Projects) > 0 || len(wk.Apps) > 0 {
 		out = append(out, "")
 	}
@@ -294,6 +296,43 @@ func (t weekTab) view(w, h int) []string {
 	}
 	if len(wk.Apps) > 0 {
 		out = append(out, " "+sDim.Render(fit("Apps", 16))+"  "+names(wk.Apps))
+	}
+	return out
+}
+
+// moduleLines is the week's modules under their categories, each bar out
+// of its weekly goal when it has one: "Study  Analyse 1  4h12 ━━━━── 6h ✓".
+func moduleLines(mods []report.ModuleRow, w int) []string {
+	if len(mods) == 0 {
+		return nil
+	}
+	var scale int64
+	for _, m := range mods {
+		scale = max(scale, m.MS, m.GoalMS)
+	}
+	barW := max(min(w-52, 24), 8)
+	out := []string{"", " " + sHead.Render("Modules")}
+	last := ""
+	for _, m := range mods {
+		st := kindStyle(m.Kind)
+		cat := ""
+		if m.Category != last {
+			cat, last = m.Category, m.Category
+		}
+		goal := ""
+		total := scale
+		if m.GoalMS > 0 {
+			total = m.GoalMS
+			switch {
+			case m.MS >= m.GoalMS:
+				goal = sGood.Render("✓ " + report.Dur(m.GoalMS))
+			default:
+				goal = sDim.Render("of " + report.Dur(m.GoalMS) + " · " + report.Dur(m.GoalMS-m.MS) + " to go")
+			}
+		}
+		line := " " + st.Render(fit(report.Safe(cat), 14)) + sText.Render(fit(report.Safe(m.Name), 18)) +
+			sBright.Render(fitRight(dashDur(m.MS), 6)) + "  " + meter(m.MS, total, barW, st) + "  " + goal
+		out = append(out, z("mod:"+m.Name, fit(line, w)))
 	}
 	return out
 }

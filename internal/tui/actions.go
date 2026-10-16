@@ -204,6 +204,10 @@ func actionTable() []action {
 		{key: "e", name: "rename", group: grLabels, prio: 3, when: labelAny},
 		{key: "K", name: "kind", group: grLabels, prio: 4, when: labelCatOnly},
 		{key: "w", name: "afk window", group: grLabels, prio: 5, when: labelCatOnly},
+		{key: "o", name: "goal", group: grLabels, prio: 6, when: func(m *Model) bool {
+			c, p, ok := m.labels.selected()
+			return m.tab == tabLabels && ok && (p != nil || c.Name != "")
+		}},
 		{key: "f", name: "file under a category", group: grLabels, prio: 4, when: labelProj},
 		{key: "l", name: "other names", group: grLabels, prio: 5, when: labelProj},
 		{key: "x", name: "archive / unarchive", group: grLabels, prio: 20, when: labelProj},

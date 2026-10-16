@@ -51,3 +51,31 @@ func TestStatusGoals(t *testing.T) {
 		t.Fatalf("code %d out %q", code, out)
 	}
 }
+
+func TestGoalSetListRemove(t *testing.T) {
+	te := newTestEnv(t, goalRules)
+	te.seed(t, daySpans()...)
+	if code, out := te.run(t, "", "goal", "set", "tock", "12h/week"); code != 0 || out != "goal project tock ≥12h/week\n" {
+		t.Fatalf("set: code %d %q %q", code, out, te.errb.String())
+	}
+	if code, out := te.run(t, "", "goal", "set", "comm", "30m", "--max"); code != 0 || out != "goal Communication ≤30m/day\n" {
+		t.Fatalf("limit: code %d %q %q", code, out, te.errb.String())
+	}
+	code, out := te.run(t, "", "goal")
+	if code != 0 || !strings.Contains(out, "project tock ≥12h/week") || strings.Contains(out, "10h/week") ||
+		!strings.Contains(out, "Communication ≤30m/day") {
+		t.Fatalf("list: code %d\n%s", code, out)
+	}
+	if code, out := te.run(t, "", "goal", "rm", "tock", "week"); code != 0 || out != "removed the goal on project tock\n" {
+		t.Fatalf("rm: code %d %q %q", code, out, te.errb.String())
+	}
+	if code, _ := te.run(t, "", "goal", "rm", "tock", "week"); code != 1 || !strings.Contains(te.errb.String(), "no goal project tock ≥ per week") {
+		t.Fatalf("rm twice: code %d %q", code, te.errb.String())
+	}
+	if code, _ := te.run(t, "", "goal", "set", "tock", "200h/week"); code != 1 || !strings.Contains(te.errb.String(), "not between 1m and 168h") {
+		t.Fatalf("too long: code %d %q", code, te.errb.String())
+	}
+	if code, _ := te.run(t, "", "goal", "set", "nope", "1h"); code != 1 {
+		t.Fatalf("unknown label: code %d", code)
+	}
+}

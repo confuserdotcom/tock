@@ -50,6 +50,8 @@ const usage = `usage:
   tock project [add <name> [--category C] [--alias a,b] | set <name> ... |
                rename <name> <new> | rm <name> | scan <dir> --category C]
                                          projects; filed under a category they are modules
+  tock goal [set <label> <time>[/week] [--max] | rm <label> [week] [--max]]
+                                         goals per day or week, on a category or module
   tock session [start [MIN] | stop]      focus session: show, start (default 25), stop
   tock recap [YYYY-MM-DD]                the daily recap
   tock trends [--month YYYY-MM]          a month against the one before
@@ -193,6 +195,7 @@ var commands = map[string]func(Env, []string) error{
 	"init":       cmdInit,
 	"rules":      cmdRules,
 	"category":   cmdCategory,
+	"goal":       cmdGoal,
 	"project":    cmdProject,
 	"today":      cmdToday,
 	"inbox":      cmdInbox,

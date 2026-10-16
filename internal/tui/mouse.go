@@ -169,6 +169,12 @@ func (m Model) clickZone(id string) (tea.Model, tea.Cmd, bool) {
 			return m, nil, false
 		}
 		return m.labelsChip(arg)
+	case "mod":
+		if m.tab != tabWeek || m.overlay() {
+			return m, nil, false
+		}
+		next, cmd := m.askGoal("", arg)
+		return next, cmd, true
 	}
 	return m, nil, false
 }

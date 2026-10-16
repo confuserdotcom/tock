@@ -123,3 +123,44 @@ func TestCompactRows(t *testing.T) {
 		t.Fatalf("full rows = %d", n)
 	}
 }
+
+func TestModuleGoals(t *testing.T) {
+	m, e := seeded(t)
+	m = press(t, m, "7")
+	for {
+		_, p, _ := m.labels.selected()
+		if p != nil && p.Name == "tock" {
+			break
+		}
+		m = press(t, m, "j")
+	}
+	m = press(t, m, "f", "j", "enter") // under Code: a module
+	mustContain(t, m, "tock is a module of Code")
+	for {
+		_, p, _ := m.labels.selected()
+		if p != nil && p.Name == "tock" {
+			break
+		}
+		m = press(t, m, "k")
+	}
+	m = press(t, m, "o")
+	mustContain(t, m, "Goal for tock", "like 6h/week")
+	m = typeText(t, m, "5h")
+	m = press(t, m, "enter")
+	mustContain(t, m, "goal project tock ≥5h/week", "≥5h/wk")
+	b, _ := os.ReadFile(e.Rules)
+	if !strings.Contains(string(b), "[[goal]]\nproject = \"tock\"\nat_least = \"5h\"\nper = \"week\"\n") {
+		t.Fatalf("rules.toml:\n%s", b)
+	}
+
+	// The week tab bars each module out of its goal; a click changes it.
+	m = press(t, m, "2")
+	mustContain(t, m, "Modules", "of 5h00 · 3h20 to go")
+	m = clickOn(t, m, "3h20 to go")
+	mustContain(t, m, "Goal for tock")
+	m = press(t, m, "ctrl+u", "enter")
+	mustContain(t, m, "removed the goal on tock")
+	if b, _ := os.ReadFile(e.Rules); strings.Contains(string(b), "[[goal]]") {
+		t.Fatalf("goal left:\n%s", b)
+	}
+}

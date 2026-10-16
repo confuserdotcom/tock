@@ -135,7 +135,7 @@ func (t labelsTab) line(i int, r labelRow, w int, maxMS int64) string {
 		}
 		line = mark + sFaint.Render(fold) + dot(c.Kind) + " " + st.Bold(true).Render(fit(report.Safe(c.Name), nameW-2)) + "  " +
 			kind + "  " + sBright.Render(fitRight(dashDur(c.MS), 6)) + "  " + meter(c.MS, maxMS, barW, st) + "  " +
-			z("lab:afk:"+id, afk) + extra
+			z("lab:afk:"+id, afk) + "  " + goalChip(id, c.Goals) + extra
 	default:
 		p := c.Projects[r.proj]
 		st := kindStyle(c.Kind)
@@ -158,13 +158,37 @@ func (t labelsTab) line(i int, r labelRow, w int, maxMS int64) string {
 		}
 		line = mark + "      " + sText.Render(fit(name, nameW-4)) + "  " + strings.Repeat(" ", 8) + "  " +
 			sBright.Render(fitRight(dashDur(p.MS), 6)) + "  " + meter(p.MS, maxMS, barW, st) + "  " +
-			z("lab:alias:"+id, sDim.Render(strings.Join(notes, " · ")))
+			goalChip(id, p.Goals) + "  " + z("lab:alias:"+id, sDim.Render(strings.Join(notes, " · ")))
 	}
 	line = z("row:"+id, fit(line, w))
 	if sel {
 		return selRow(line, w)
 	}
 	return line
+}
+
+// goalChip is a row's goals, "≥6h/wk", or a faint "goal" to click.
+func goalChip(id string, goals []classify.Goal) string {
+	var parts []string
+	for _, g := range goals {
+		parts = append(parts, goalShort(g))
+	}
+	if len(parts) == 0 {
+		return tip("lab:goal:"+id, "set a goal", sFaint.Render(fit("goal", 9)))
+	}
+	return tip("lab:goal:"+id, "change the goal", sGood.Render(fit(strings.Join(parts, " "), 9)))
+}
+
+// goalShort is "≥6h/wk" or "≤45m/d".
+func goalShort(g classify.Goal) string {
+	op, per := "≥", "/d"
+	if g.AtMost {
+		op = "≤"
+	}
+	if g.Week {
+		per = "/wk"
+	}
+	return op + classify.FormatDur(g.MS) + per
 }
 
 func dashDur(ms int64) string {
@@ -225,6 +249,15 @@ func (m Model) labelsKey(k string) (tea.Model, tea.Cmd) {
 		return m.confirmDelete()
 	case "M":
 		return m.chooseMerge()
+	case "o":
+		c, p, ok := t.selected()
+		switch {
+		case !ok:
+		case p != nil:
+			return m.askGoal("", p.Name)
+		case c.Name != "":
+			return m.askGoal(c.Name, "")
+		}
 	}
 	t.clampScroll()
 	return m, nil
@@ -248,6 +281,8 @@ func (m Model) labelsChip(arg string) (tea.Model, tea.Cmd, bool) {
 		next, cmd = m.chooseAFK()
 	case "alias":
 		next, cmd = m.askAliases()
+	case "goal":
+		next, cmd = m.labelsKey("o")
 	default:
 		return m, nil, false
 	}
@@ -497,5 +532,80 @@ func (m Model) chooseMerge() (tea.Model, tea.Cmd) {
 			return "merged " + name + " into " + ch.value, err
 		})
 	}}
+	return m, nil
+}
+
+// askGoal sets the at-least goal on a category (project "") or a module:
+// per week by default for a module, per day for a category. An empty
+// answer removes it.
+func (m Model) askGoal(category, project string) (tea.Model, tea.Cmd) {
+	name, week := category, project != ""
+	if project != "" {
+		name = project
+	}
+	var have []classify.Goal
+	m.src.do(func(a *app.App) { have = a.GoalsOf(category, project) })
+	var old *classify.Goal
+	for i := range have {
+		if !have[i].AtMost {
+			old = &have[i]
+		}
+	}
+	text := ""
+	if old != nil {
+		per := "day"
+		if old.Week {
+			per = "week"
+		}
+		text = classify.FormatDur(old.MS) + "/" + per
+	}
+	example := "2h/day"
+	if week {
+		example = "6h/week"
+	}
+	m.ask = &askDlg{title: "Goal for " + name, prompt: "at least, like " + example + "; empty removes it", text: text,
+		done: func(m Model, text string) (tea.Model, tea.Cmd) {
+			if text == "" {
+				if old == nil {
+					return m, nil
+				}
+				g := *old
+				g.MS = 0
+				return m.labelAct(func(a *app.App) (string, error) {
+					return "removed the goal on " + name, a.SetGoal(g)
+				})
+			}
+			dur, per, _ := strings.Cut(text, "/")
+			g := classify.Goal{Category: category, Project: project, Week: week}
+			switch strings.ToLower(strings.TrimSpace(per)) {
+			case "":
+			case "day", "d":
+				g.Week = false
+			case "week", "wk", "w":
+				g.Week = true
+			default:
+				m.setFlash("per "+per+": want day or week", true)
+				return m, nil
+			}
+			ms, err := classify.ParseDur(dur)
+			if err != nil {
+				m.setFlash(err.Error(), true)
+				return m, nil
+			}
+			g.MS = ms
+			return m.labelAct(func(a *app.App) (string, error) {
+				if err := a.SetGoal(g); err != nil {
+					return "", err
+				}
+				if old != nil && old.Week != g.Week {
+					drop := *old
+					drop.MS = 0
+					if err := a.SetGoal(drop); err != nil {
+						return "", err
+					}
+				}
+				return "goal " + g.Text(), nil
+			})
+		}}
 	return m, nil
 }

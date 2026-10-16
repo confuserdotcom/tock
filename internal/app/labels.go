@@ -167,12 +167,14 @@ type TreeCategory struct {
 	classify.Category
 	MS       int64
 	Projects []TreeProject
+	Goals    []classify.Goal // the goals on the category alone
 }
 
 // TreeProject is a project with its time.
 type TreeProject struct {
 	classify.Project
-	MS int64
+	MS    int64
+	Goals []classify.Goal // the goals on the project alone
 }
 
 // LabelTree returns the declared categories in rules.toml order, each with
@@ -193,11 +195,11 @@ func (a *App) LabelTree(days int) ([]TreeCategory, error) {
 	at := map[string]int{}
 	for _, c := range a.rs.Categories {
 		at[strings.ToLower(c.Name)] = len(out)
-		out = append(out, TreeCategory{Category: c, MS: cat[strings.ToLower(c.Name)]})
+		out = append(out, TreeCategory{Category: c, MS: cat[strings.ToLower(c.Name)], Goals: a.GoalsOf(c.Name, "")})
 	}
 	var loose []TreeProject
 	for _, p := range a.rs.Projects {
-		tp := TreeProject{Project: p, MS: proj[strings.ToLower(p.Name)]}
+		tp := TreeProject{Project: p, MS: proj[strings.ToLower(p.Name)], Goals: a.GoalsOf("", p.Name)}
 		if i, ok := at[strings.ToLower(p.Category)]; ok {
 			out[i].Projects = append(out[i].Projects, tp)
 		} else {

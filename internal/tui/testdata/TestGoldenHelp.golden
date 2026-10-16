@@ -24,7 +24,7 @@ tock    today    week   inbox ³   focus   rules   plan   labels          Sat 10
  │                                   e      rename                   j/k    move                  │ 
  │ Go                                K      kind                     g/G    first / last task     │ 
  │   1-7    switch tab               w      afk window                                            │ 
- │   tab    next tab                 f      file under a catego…   App                            │ 
- │                                   l      other names              ?      help                  │ 
- │                                   x      archive / unarchive      :      commands              │ 
+ │   tab    next tab                 o      goal                   App                            │ 
+ │                                   f      file under a catego…     ?      help                  │ 
+ │                                   l      other names              :      commands              │ 
 esc close · : commands                                                                              

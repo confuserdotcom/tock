@@ -38,8 +38,16 @@ type Week struct {
 	// Distractions are the top TopProjects apps and sites in distract-kind
 	// categories.
 	Distractions []NameMS
-	Plan         string  // the week's plan from tock review; filled by the caller
-	Commits      []NameN // commits per project, filled by the caller
+	Plan         string      // the week's plan from tock review; filled by the caller
+	Modules      []ModuleRow // filled by the caller
+	Commits      []NameN     // commits per project, filled by the caller
+}
+
+// ModuleRow is a module's week: a project filed under a category, its time
+// and its weekly goal (at least GoalMS; 0 when it has none).
+type ModuleRow struct {
+	Category, Kind, Name string
+	MS, GoalMS           int64
 }
 
 // DayTotal is one day of a week.

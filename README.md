@@ -403,6 +403,14 @@ goal over the week (`met 3 of 5 days` for a day goal), and `tock status`
 adds `goals 2/3` plus `over Entertainment` when a limit is passed.
 `tock rules check` lists the goals.
 
+You don't have to edit the file. `tock goal set ana1 6h/week` sets a goal on
+a module (by name or other name), `tock goal set Entertainment 45m --max`
+sets a limit, `tock goal rm ana1 week` removes one, and `tock goal` lists
+them with this week's progress. On the labels tab, `o` (or a click on a row's
+goal) sets a module's weekly goal or a category's daily one. The week tab
+has a **Modules** bar per module, filled out of its weekly goal
+("1h40 of 6h00 · 4h20 to go"); click one to change its goal.
+
 Each goal keeps a streak: days in a row it held (met, or under a limit),
 or weeks for a week goal. Days with no activity and days off (see Work
 hours) neither count nor break it. Today counts once a goal is met; a limit

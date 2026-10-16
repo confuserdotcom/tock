@@ -318,6 +318,7 @@ func (a *App) Week(anyDay time.Time) (report.Week, error) {
 			w.Goals[i].Streak, w.Goals[i].Best = st[i][0], st[i][1]
 		}
 	}
+	w.Modules = a.modules(vs, labels)
 	w.Commits = a.commits(mon.UnixMilli(), mon.AddDate(0, 0, 7).UnixMilli())
 	if w.Plan, err = a.st.Plan(dateKey(mon)); err != nil {
 		return report.Week{}, err
