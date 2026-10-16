@@ -75,7 +75,7 @@ func (m *Model) helpBody(w int) []string {
 		body = sideBySide(body, col, (colW+3)*(i+1)-3, 3)
 	}
 	legend := strings.Join([]string{dot("deep") + " deep", dot("shallow") + " shallow", dot("neutral") + " neutral",
-		dot("distract") + " distraction", dot("") + " unlabelled"}, "   ")
+		dot("browse") + " browsing", dot("distract") + " distraction", dot("") + " unlabelled"}, "   ")
 	body = append(body, legend)
 	return card("Keys", body, cw)
 }

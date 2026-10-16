@@ -13,6 +13,9 @@ func TestRenameLabel(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if _, err := s.AddEdit(Edit{Kind: "add", StartMS: 20, EndMS: 30, Category: "MEETING", AtMS: 5}); err != nil {
+		t.Fatal(err)
+	}
 	if err := s.RenameLabel("category", "Meeting", "Meetings", 99); err != nil {
 		t.Fatal(err)
 	}
@@ -23,6 +26,9 @@ func TestRenameLabel(t *testing.T) {
 	aw, _ := s.Aways(0, 100)
 	if len(aw) != 1 || aw[0].ID != id || aw[0].Category != "Meetings" || aw[0].AtMS != 99 {
 		t.Fatalf("away = %+v", aw)
+	}
+	if ed, _ := s.Edits(0, 100); len(ed) != 1 || ed[0].Category != "Meetings" || ed[0].AtMS != 5 {
+		t.Fatalf("edits = %+v", ed)
 	}
 	if err := s.RenameLabel("title", "a", "b", 1); err == nil {
 		t.Fatal("renamed a non-label column")

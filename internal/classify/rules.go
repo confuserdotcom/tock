@@ -25,7 +25,23 @@ const (
 	KindShallow  = "shallow"
 	KindDistract = "distract"
 	KindNeutral  = "neutral"
+	// KindBrowse is aimless browsing: not a distraction to nudge or block,
+	// but a third of it weighs on the score like one.
+	KindBrowse = "browse"
 )
+
+// Kinds lists the category kinds, most focused first.
+var Kinds = []string{KindDeep, KindShallow, KindNeutral, KindBrowse, KindDistract}
+
+// ValidKind reports whether k is a category kind.
+func ValidKind(k string) bool {
+	for _, x := range Kinds {
+		if k == x {
+			return true
+		}
+	}
+	return false
+}
 
 // ErrNoRules is returned by Load when rules.toml does not exist.
 var ErrNoRules = errors.New("no rules: run tock init")
@@ -51,6 +67,9 @@ const (
 type Project struct {
 	Name     string
 	Archived bool
+	// Category files the project under a declared category: time with the
+	// project and no category of its own takes it. "" = none.
+	Category string
 	// Rate is the hourly rate billed in tock export; nil = none.
 	Rate *float64
 	// Repos are local git repositories as written (see ExpandHome).
@@ -183,6 +202,7 @@ type rulesTOML struct {
 	} `toml:"category"`
 	Project []struct {
 		Name     string   `toml:"name"`
+		Category string   `toml:"category"`
 		Archived bool     `toml:"archived"`
 		Rate     *float64 `toml:"rate"`
 		Repos    []string `toml:"repos"`
@@ -254,8 +274,8 @@ func Parse(rulesData, learnedData []byte) (*Ruleset, error) {
 			return nil, fmt.Errorf("%s: category #%d: empty name", RulesFile, i+1)
 		case strings.Contains(c.Name, "/"):
 			return nil, fmt.Errorf("%s: category %q: name must not contain /", RulesFile, c.Name)
-		case c.Kind != KindDeep && c.Kind != KindShallow && c.Kind != KindDistract && c.Kind != KindNeutral:
-			return nil, fmt.Errorf("%s: category %q: kind %q is not deep, shallow, distract or neutral", RulesFile, c.Name, c.Kind)
+		case !ValidKind(c.Kind):
+			return nil, fmt.Errorf("%s: category %q: kind %q is not deep, shallow, neutral, browse or distract", RulesFile, c.Name, c.Kind)
 		}
 		if _, dup := rs.catByLower[lower]; dup {
 			return nil, fmt.Errorf("%s: duplicate category %q", RulesFile, c.Name)
@@ -298,6 +318,13 @@ func Parse(rulesData, learnedData []byte) (*Ruleset, error) {
 			return nil, fmt.Errorf("%s: duplicate project %q", RulesFile, p.Name)
 		}
 		proj := Project{Name: p.Name, Archived: p.Archived}
+		if c := strings.TrimSpace(p.Category); c != "" {
+			cat, ok := rs.catByLower[strings.ToLower(c)]
+			if !ok {
+				return nil, fmt.Errorf("%s: project %q: unknown category %q", RulesFile, p.Name, p.Category)
+			}
+			proj.Category = cat.Name
+		}
 		for _, r := range p.Repos {
 			r = strings.TrimSpace(r)
 			if r == "" {

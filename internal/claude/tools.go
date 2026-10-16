@@ -41,7 +41,7 @@ var askTool = json.RawMessage(`{
       "project": {"type": ["string", "null"]},
       "app": {"type": ["string", "null"]},
       "site": {"type": ["string", "null"]},
-      "kind": {"type": ["string", "null"], "enum": ["deep", "shallow", "distract", "neutral", null]},
+      "kind": {"type": ["string", "null"], "enum": ["deep", "shallow", "distract", "neutral", "browse", null]},
       "limit": {"type": "integer"},
       "unsupported": {"type": ["string", "null"]}
     },

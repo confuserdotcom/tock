@@ -7,10 +7,10 @@
 <title>tock · week of {{.Title}}</title>
 <style>
 :root { --bg: #f7f6f2; --card: #ffffff; --text: #2b2a27; --dim: #77746c; --line: #e6e3da;
-  --deep: #3f8f6b; --shallow: #c69a35; --neutral: #8a8f98; --none: #c9c5ba; --distract: #c4553e; }
+  --deep: #3f8f6b; --shallow: #c69a35; --neutral: #8a8f98; --none: #c9c5ba; --browse: #b8692a; --distract: #c4553e; }
 @media (prefers-color-scheme: dark) {
   :root { --bg: #16171a; --card: #1f2125; --text: #e8e6e1; --dim: #9a978f; --line: #2e3036;
-    --deep: #5cb98f; --shallow: #e0b553; --neutral: #9aa0aa; --none: #4a4c52; --distract: #e07158; }
+    --deep: #5cb98f; --shallow: #e0b553; --neutral: #9aa0aa; --none: #4a4c52; --browse: #eba06a; --distract: #e07158; }
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--text);
@@ -32,7 +32,7 @@ tr + tr td { border-top: 1px solid var(--line); }
 .bar { display: flex; height: 10px; border-radius: 5px; overflow: hidden; background: var(--line); min-width: 60px; }
 .bar i { display: block; height: 100%; }
 .k-deep { background: var(--deep); } .k-shallow { background: var(--shallow); }
-.k-neutral { background: var(--neutral); } .k-none { background: var(--none); } .k-distract { background: var(--distract); }
+.k-neutral { background: var(--neutral); } .k-none { background: var(--none); } .k-distract { background: var(--distract); } .k-browse { background: var(--browse); }
 .dim { color: var(--dim); }
 .met, .ok { color: var(--deep); } .over { color: var(--distract); }
 .plan { font-style: italic; }

@@ -59,6 +59,19 @@ com.apple.systempreferences	System Settings	<nil>	<nil>	Utilities	-
 com.1password.1password	1Password	1Password	<nil>	Utilities	-
 com.apple.ActivityMonitor	Activity Monitor	Activity Monitor	<nil>	Utilities	-
 com.apple.loginwindow	loginwindow	<nil>	<nil>	Utilities	-
+com.apple.iBooksX	Books	L'Étranger	<nil>	Reading	-
+org.pwmt.zathura	zathura	camus.pdf [3 (5/196)]	<nil>	Reading	-
+company.thebrowser.Browser	Arc	Book	z-library.sk/book/1	Reading	-
+company.thebrowser.Browser	Arc	Post	astralcodexten.substack.com/p/x	Reading	-
+com.apple.Dictionary	Dictionary	deuil	<nil>	Research	-
+company.thebrowser.Browser	Arc	Robert C. Merton	en.wikipedia.org/wiki	Research	-
+company.thebrowser.Browser	Arc	paper	arxiv.org/abs/1	Research	-
+company.thebrowser.Browser	Arc	Synonyme de Deuil	synonymes.com/synonyme.php	Research	-
+company.thebrowser.Browser	Arc	tui todo app at DuckDuckGo	duckduckgo.com	Browsing	-
+company.thebrowser.Browser	Arc	q - Google Search	www.google.com/search	Browsing	-
+company.thebrowser.Browser	Arc	Hacker News	news.ycombinator.com	Browsing	-
+company.thebrowser.Browser	Arc	Privacy Screen - Apple	apple.com/shop	Browsing	-
+company.thebrowser.Browser	Arc	Google	www.google.com	-	-
 company.thebrowser.Browser	Arc	XOR Equivalence Check	chatgpt.com/c/6ac98015	-	-
 company.thebrowser.Browser	Arc	Claude	claude.ai/chat/abc	-	-
 com.google.Chrome	Google Chrome	<nil>	<nil>	-	-

@@ -77,8 +77,8 @@
   const longDate = (str) => parseDate(str).toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' });
   const shortDate = (str) => parseDate(str).toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' });
   const mondayOf = (str) => { const d = parseDate(str); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return fmtDate(d); };
-  const KINDS = ['deep', 'shallow', 'neutral', 'distract'];
-  const KIND_NAMES = { deep: 'Deep', shallow: 'Shallow', neutral: 'Neutral', distract: 'Distracting', '': 'Unlabelled' };
+  const KINDS = ['deep', 'shallow', 'neutral', 'browse', 'distract'];
+  const KIND_NAMES = { deep: 'Deep', shallow: 'Shallow', neutral: 'Neutral', browse: 'Browsing', distract: 'Distracting', '': 'Unlabelled' };
   const kindClass = (k) => `k-${k || 'none'}`;
   // The reports name unlabelled time "Unclassified" or "(unlabelled)".
   const nice = (name) => (!name || name === 'Unclassified' || name === '(unlabelled)' ? 'Unlabelled' : name);

@@ -24,6 +24,7 @@ const (
 	CalmZeroPerHour = 20 // switches per active hour that make calm 0
 	PenaltyCap      = 15
 	PenaltyPerMin   = 4           // distraction minutes per penalty point
+	BrowseWeight    = 3           // browse minutes that weigh like one distraction minute
 	StretchFullMS   = 90 * 60_000 // a run this long makes the stretch term 1
 )
 
@@ -46,6 +47,7 @@ type Day struct {
 	// switch, idle or long gap in it.
 	LongestRunMS int64
 	DistractMS   int64
+	BrowseMS     int64 // time of kind browse
 }
 
 func isIdle(v classify.SpanView) bool { return v.BundleID == span.IdleBundleID }
@@ -69,6 +71,8 @@ func Compute(views []classify.SpanView, labels []classify.Label) Day {
 			d.DeepMS += ms
 		case classify.KindDistract:
 			d.DistractMS += ms
+		case classify.KindBrowse:
+			d.BrowseMS += ms
 		}
 	}
 	d.Blocks = blocks(views, labels)

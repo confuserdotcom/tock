@@ -43,7 +43,7 @@ func ScoreDay(d Day, t Target, w Weights) Score {
 	s.SwitchesPerHour = float64(d.Switches) / max(float64(d.ActiveMS)/3_600_000, 1)
 	s.Calm = 1 - min(s.SwitchesPerHour/CalmZeroPerHour, 1)
 	s.Stretch = min(float64(d.LongestRunMS)/StretchFullMS, 1)
-	s.Penalty = int(min(PenaltyCap, d.DistractMS/60_000/PenaltyPerMin))
+	s.Penalty = int(min(PenaltyCap, (d.DistractMS+d.BrowseMS/BrowseWeight)/60_000/PenaltyPerMin))
 	s.Value = min(max(int(math.Round(s.Sum()))-s.Penalty, 0), 100)
 	return s
 }

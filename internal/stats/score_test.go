@@ -82,3 +82,14 @@ func TestScoreZeroTarget(t *testing.T) {
 		t.Fatalf("zero target: Depth = %v, want 0", s.Depth)
 	}
 }
+
+func TestBrowseWeighsAThird(t *testing.T) {
+	d := Day{ActiveMS: 3_600_000, BrowseMS: 36 * 60_000}
+	if s := ScoreDay(d, target4h, DefaultWeights); s.Penalty != 3 {
+		t.Fatalf("36m browsing: penalty %d, want 3 (12 distraction minutes)", s.Penalty)
+	}
+	d.DistractMS = 8 * 60_000
+	if s := ScoreDay(d, target4h, DefaultWeights); s.Penalty != 5 {
+		t.Fatalf("plus 8m distraction: penalty %d, want 5", s.Penalty)
+	}
+}

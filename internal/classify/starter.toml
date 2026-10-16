@@ -43,6 +43,25 @@ kind = "distract"
 name = "Utilities"
 kind = "neutral"
 
+# Books, essays and long articles you read for their own sake. afk: a page
+# may take ten minutes without a key or a click.
+[[category]]
+name = "Reading"
+kind = "neutral"
+afk = "10m"
+
+# Looking things up: encyclopedias, papers, dictionaries.
+[[category]]
+name = "Research"
+kind = "shallow"
+afk = "10m"
+
+# Aimless browsing: search, news feeds, shopping. Not a distraction to nudge
+# or block, but a third of it weighs on the score like one.
+[[category]]
+name = "Browsing"
+kind = "browse"
+
 # Time with a camera or microphone in use (calls) gets this category.
 [calls]
 category = "Meeting"
@@ -163,6 +182,37 @@ category = "Study"
 [[rule]]
 url = '^(www\.)?(coursera\.org|khanacademy\.org|edx\.org)(/|$)'
 category = "Study"
+
+# --- Reading ----------------------------------------------------------------
+
+[[rule]]
+bundle = [
+  "com.apple.iBooksX",
+  "com.amazon.Lassen",
+  "net.kovidgoyal.calibre",
+  "org.pwmt.zathura",
+]
+category = "Reading"
+
+[[rule]]
+url = '^(www\.)?(z-library\.[a-z]+|[a-z0-9-]+\.substack\.com|medium\.com|gutenberg\.org|longreads\.com|aeon\.co)(/|$)'
+category = "Reading"
+
+# --- Research ---------------------------------------------------------------
+
+[[rule]]
+bundle = ["com.apple.Dictionary"]
+category = "Research"
+
+[[rule]]
+url = '^([a-z]+\.)?(wikipedia\.org|wiktionary\.org|arxiv\.org|scholar\.google\.[a-z]+|wolframalpha\.com|wordreference\.com|larousse\.fr|cnrtl\.fr|synonymes\.com|synonymo\.fr)(/|$)'
+category = "Research"
+
+# --- Browsing ---------------------------------------------------------------
+
+[[rule]]
+url = '^(www\.)?(google\.[a-z.]+/search|duckduckgo\.com|bing\.com/search|news\.ycombinator\.com|producthunt\.com|amazon\.[a-z.]+|ebay\.[a-z.]+|aliexpress\.com|apple\.com/shop)(/|$)'
+category = "Browsing"
 
 # --- Writing ----------------------------------------------------------------
 

@@ -134,7 +134,7 @@ pickers          ★ suggested and ↺ recent labels come first · type to filte
 ```
 
 Colours follow the kind of time: teal deep, sand shallow, slate neutral,
-coral distraction, violet unlabelled. The palette has light and dark
+apricot browsing, coral distraction, violet unlabelled. The palette has light and dark
 variants and follows your terminal's background.
 
 The first time you run `tock` without rules, it offers to write the starter
@@ -426,6 +426,37 @@ row, or `tock away 12:10 Meeting`; `A` or `tock away --skip 12:10` leaves it
 idle. A labelled absence counts towards totals and goals, but not towards
 focus blocks, context switches or break reminders. Absences that cross
 midnight are never asked about.
+
+## Categories
+
+Categories are yours: `rules.toml` declares them, and `tock category`
+changes them without opening the file.
+
+```
+tock category                              each category, its projects and 30 days of time
+tock category add Podcasts neutral --afk 30m
+tock category set Reading --kind deep      or --afk 15m, --afk none
+tock category rename Communication Messages
+tock category rm Podcasts                  only when nothing names it
+```
+
+A rename reaches everything: both rule files, goals, `[calls]`, projects
+filed under the category, and in tock.db the time you tagged by hand, away
+labels and timeline edits. To fold one category into another, use `tock
+rules merge`. Every change keeps the previous file as `rules.toml.bak`.
+
+Each category has a kind:
+
+| kind | what it is | counts as |
+|------|------------|-----------|
+| `deep` | focused work | focus blocks and the score's depth |
+| `shallow` | email, planning, looking things up | work, not focus |
+| `neutral` | utilities, reading for pleasure | neither |
+| `browse` | search, feeds, shopping | a third of it weighs on the score like a distraction; never nudged or blocked |
+| `distract` | entertainment | the score's penalty, nudges and blocking in sessions |
+
+The starter rules have Reading (neutral, for books and long reads), Research
+(shallow: encyclopedias, papers, dictionaries) and Browsing.
 
 ## AFK
 

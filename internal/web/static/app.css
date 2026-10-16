@@ -23,6 +23,7 @@
   --k-shallow: #a07818;
   --k-distract: #c4503a;
   --k-neutral: #6b7487;
+  --k-browse: #b8692a;
   --k-none: #7652c9;
   --k-idle: rgba(43, 45, 51, 0.07);
   --good: #3c8a36;
@@ -56,6 +57,7 @@
     --k-shallow: #e0bf72;
     --k-distract: #ef8a76;
     --k-neutral: #8a94a6;
+    --k-browse: #eba06a;
     --k-none: #b69cf0;
     --k-idle: rgba(216, 218, 224, 0.06);
     --good: #8fd18a;
@@ -187,7 +189,7 @@ h2 {
 
 /* Kind colours. */
 .k-deep { --k: var(--k-deep); } .k-shallow { --k: var(--k-shallow); } .k-distract { --k: var(--k-distract); }
-.k-neutral { --k: var(--k-neutral); } .k-none { --k: var(--k-none); } .k-idle { --k: var(--k-idle); }
+.k-neutral { --k: var(--k-neutral); } .k-browse { --k: var(--k-browse); } .k-none { --k: var(--k-none); } .k-idle { --k: var(--k-idle); }
 .dot { display: inline-block; width: 8px; height: 8px; border-radius: 2px; background: var(--k); flex: none; vertical-align: 0.05em; }
 
 .stack { display: flex; height: 8px; overflow: hidden; background: var(--card-2); gap: 2px; border-radius: 2px; }

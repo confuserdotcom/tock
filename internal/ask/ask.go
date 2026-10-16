@@ -140,7 +140,7 @@ func Parse(raw json.RawMessage, rs *classify.Ruleset) (Query, error) {
 	}
 	if q.Kind != nil {
 		switch *q.Kind {
-		case classify.KindDeep, classify.KindShallow, classify.KindDistract, classify.KindNeutral:
+		case classify.KindDeep, classify.KindShallow, classify.KindDistract, classify.KindNeutral, classify.KindBrowse:
 		default:
 			return q, fmt.Errorf("ask: unknown kind %q", *q.Kind)
 		}

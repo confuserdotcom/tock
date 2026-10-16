@@ -32,6 +32,19 @@ func (rs *Ruleset) ResolveProject(s string) (string, error) {
 	return resolveName("project", s, names)
 }
 
+// ResolveName resolves a category or project (NameCategory or NameProject)
+// to manage it: archived projects included.
+func (rs *Ruleset) ResolveName(kind, s string) (string, error) {
+	if kind == NameCategory {
+		return rs.ResolveCategory(s)
+	}
+	names := make([]string, len(rs.Projects))
+	for i, p := range rs.Projects {
+		names[i] = p.Name
+	}
+	return resolveName("project", s, names)
+}
+
 func resolveName(what, s string, names []string) (string, error) {
 	low := strings.ToLower(strings.TrimSpace(s))
 	var hits []string

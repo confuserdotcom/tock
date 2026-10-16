@@ -44,6 +44,9 @@ const usage = `usage:
                                          validate the rules | time each rule decided (default 30 days)
   tock rules dupes | tock rules merge [--project] <from> <into>
                                          look-alike names | fold one name into another everywhere
+  tock category [add <name> <kind> [--afk D] | set <name> [--kind K] [--afk D] |
+                rename <name> <new> | rm <name>]
+                                         list or change your categories (rules.toml)
   tock session [start [MIN] | stop]      focus session: show, start (default 25), stop
   tock recap [YYYY-MM-DD]                the daily recap
   tock trends [--month YYYY-MM]          a month against the one before
@@ -186,6 +189,7 @@ func parseFlags(fs *flag.FlagSet, args []string) error {
 var commands = map[string]func(Env, []string) error{
 	"init":       cmdInit,
 	"rules":      cmdRules,
+	"category":   cmdCategory,
 	"today":      cmdToday,
 	"inbox":      cmdInbox,
 	"ignore":     cmdIgnore,

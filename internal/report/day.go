@@ -14,7 +14,7 @@ const Unclassified = "Unclassified"
 
 // Kinds is the display order of category kinds. "" (unlabelled) is drawn
 // after neutral and before distract.
-var Kinds = []string{classify.KindDeep, classify.KindShallow, classify.KindNeutral, "", classify.KindDistract}
+var Kinds = []string{classify.KindDeep, classify.KindShallow, classify.KindNeutral, "", classify.KindBrowse, classify.KindDistract}
 
 // DayInput is one local calendar day of labelled spans.
 type DayInput struct {

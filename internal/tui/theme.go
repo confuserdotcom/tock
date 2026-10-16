@@ -17,10 +17,11 @@ var (
 	colText, colBright, colDim, colFaint, colSurface color.Color
 	colBrand, colGood, colAccent                     color.Color
 	colDeep, colShallow, colNeutral, colUnlabelled   color.Color
+	colBrowse                                        color.Color
 
 	sText, sBright, sHead, sDim, sFaint, sAccent, sSel lipgloss.Style
 	sBrand, sGood, sUnl                                lipgloss.Style
-	sDeep, sShallow, sNeutral                          lipgloss.Style
+	sDeep, sShallow, sNeutral, sBrowse                 lipgloss.Style
 
 	themeDark = true
 )
@@ -42,6 +43,7 @@ func setTheme(dark bool) {
 	colShallow = hex("#a07818", "#e0bf72")
 	colNeutral = hex("#6b7487", "#8a94a6")
 	colAccent = hex("#c4503a", "#ef8a76")
+	colBrowse = hex("#b8692a", "#eba06a")
 	colUnlabelled = hex("#7652c9", "#b69cf0")
 	colGood = hex("#3c8a36", "#8fd18a")
 
@@ -49,7 +51,7 @@ func setTheme(dark bool) {
 	sText, sBright, sDim, sFaint = fg(colText), fg(colBright), fg(colDim), fg(colFaint)
 	sHead = fg(colBright).Bold(true)
 	sAccent, sBrand, sGood, sUnl = fg(colAccent), fg(colBrand), fg(colGood), fg(colUnlabelled)
-	sDeep, sShallow, sNeutral = fg(colDeep), fg(colShallow), fg(colNeutral)
+	sDeep, sShallow, sNeutral, sBrowse = fg(colDeep), fg(colShallow), fg(colNeutral), fg(colBrowse)
 	sSel = lipgloss.NewStyle().Background(colSurface).Foreground(colBright)
 }
 
@@ -62,6 +64,8 @@ func kindStyle(kind string) lipgloss.Style {
 		return sShallow
 	case classify.KindNeutral:
 		return sNeutral
+	case classify.KindBrowse:
+		return sBrowse
 	case classify.KindDistract:
 		return sAccent
 	case "":
