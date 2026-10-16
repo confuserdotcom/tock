@@ -874,7 +874,10 @@ so the desktop leaves it alone:
 
 ```sh
 ln -s /usr/bin/hypridle ~/.local/bin/tock-hypridle
-# ~/.config/tock/hypridle.conf: the general and listener blocks above
+# ~/.config/tock/hypridle.conf: the general and listener blocks above, and in
+# general: ignore_systemd_inhibit = true and ignore_dbus_inhibit = true, so a
+# caffeine mode cannot hide that you left (a video's Wayland inhibitor still
+# counts as watching)
 cat > ~/.config/systemd/user/tock-idle.service <<'EOF'
 [Unit]
 Description=tock: tell trackd when you are idle (a hypridle of its own)
@@ -895,6 +898,10 @@ systemctl --user daemon-reload && systemctl --user enable --now tock-idle
 
 `tock doctor` finds the hook in the config of any running hypridle,
 renamed or not.
+
+An always-on idle inhibitor (a "caffeine" or keep-awake mode) also stops a
+shared hypridle from ever reporting you idle; a separate one for trackd with
+those two lines does not have that problem.
 
 - **Rules.** On Linux, a window's bundle id and app name are its Hyprland
   class, such as `kitty` or `firefox`. `hyprctl clients` lists the classes.
