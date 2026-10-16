@@ -24,7 +24,7 @@ type todayTab struct {
 	filter    string
 	filtering bool
 	full      bool // every row; off, labelled rows in a row with one label merge (c)
-	timelineH int // timeline rows that fit; set by Model.Update
+	timelineH int  // timeline rows that fit; set by Model.Update
 	// sugg are the inbox suggestions by key and trackdUp trackd's state,
 	// both copied from the model on each load.
 	sugg     map[string]classify.Want

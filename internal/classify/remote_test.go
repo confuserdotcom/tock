@@ -28,7 +28,7 @@ func TestMarkRemote(t *testing.T) {
 	marks := []RemoteMark{
 		{ID: 5, Machine: "ryuk", View: SpanView{Start: 5, End: 30, BundleID: "kitty", App: "kitty", Title: &title}},
 		{ID: 6, Machine: "ryuk", View: SpanView{Start: 20, End: 45, BundleID: "firefox", App: "firefox"}}, // overlaps 5
-		{ID: 7, Machine: "ryuk", View: SpanView{Start: 60, End: 80, BundleID: "kitty", App: "kitty"}},   // in a gap, past to
+		{ID: 7, Machine: "ryuk", View: SpanView{Start: 60, End: 80, BundleID: "kitty", App: "kitty"}},     // in a gap, past to
 	}
 	got := remotePieces(MarkRemote(views, marks, 0, 70))
 	want := "1:0-10 A, r5:10-30 ryuk · kitty, r6:30-40 ryuk · firefox, 3:40-50 A, r7:60-70 ryuk · kitty"

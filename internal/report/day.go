@@ -45,14 +45,14 @@ type Day struct {
 	// AwayBefore[i] is the label of what Away[i] follows, zero when
 	// unlabelled: "still on it" answers with it.
 	AwayBefore []classify.Want
-	Commits    []NameN             // commits per project, filled by the caller
-	Blocks     []Block             // work blocks, in order
-	Summary    string              // the day's AI summary, filled by the caller when one is saved
-	Work       stats.Hours         // the work schedule
-	From, To   int64               // the scored window (Hours.Window)
-	Off        bool                // a day off: nothing is scored
-	OutsideMS  int64               // active time outside the window
-	Closed     bool                // the window has ended
+	Commits    []NameN     // commits per project, filled by the caller
+	Blocks     []Block     // work blocks, in order
+	Summary    string      // the day's AI summary, filled by the caller when one is saved
+	Work       stats.Hours // the work schedule
+	From, To   int64       // the scored window (Hours.Window)
+	Off        bool        // a day off: nothing is scored
+	OutsideMS  int64       // active time outside the window
+	Closed     bool        // the window has ended
 }
 
 // CatRow is one category's time.

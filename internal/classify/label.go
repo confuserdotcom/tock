@@ -16,7 +16,7 @@ const (
 	SourceManual   Source = "manual"
 	SourceCall     Source = "call"
 	SourceCalendar Source = "calendar"
-	SourceKept     Source = "kept" // the rule label kept when the title was deleted
+	SourceKept     Source = "kept"    // the rule label kept when the title was deleted
 	SourceModule   Source = "module"  // a module's name or alias in the title
 	SourceProject  Source = "project" // the category the project is filed under
 	SourcePlan     Source = "plan"    // the module of the plan's task at that time

@@ -14,7 +14,9 @@ import (
 func TestPrepareSummary(t *testing.T) {
 	loc := time.FixedZone("T", 2*3600)
 	day := time.Date(2026, 10, 10, 0, 0, 0, 0, loc)
-	at := func(h, m int) int64 { return day.Add(time.Duration(h)*time.Hour + time.Duration(m)*time.Minute).UnixMilli() }
+	at := func(h, m int) int64 {
+		return day.Add(time.Duration(h)*time.Hour + time.Duration(m)*time.Minute).UnixMilli()
+	}
 	s := func(x string) *string { return &x }
 	views := []classify.SpanView{
 		{Start: at(9, 0), End: at(9, 50), BundleID: "term", App: "WezTerm", Title: s("tock │ go test ./... 3")},
