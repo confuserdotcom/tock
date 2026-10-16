@@ -55,7 +55,9 @@ func HypridleHooked(home string) bool {
 }
 
 // hypridleConfigs is the config file of each hypridle running under proc
-// that names one with -c or --config.
+// that names one with -c or --config, including one started under another
+// name (a tock-hypridle link, so a desktop that manages hypridle leaves it
+// alone).
 func hypridleConfigs(proc string) []string {
 	ents, err := os.ReadDir(proc)
 	if err != nil {
@@ -71,7 +73,7 @@ func hypridleConfigs(proc string) []string {
 			continue
 		}
 		args := strings.Split(strings.TrimRight(string(b), "\x00"), "\x00")
-		if filepath.Base(args[0]) != "hypridle" {
+		if !strings.Contains(filepath.Base(args[0]), "hypridle") { // also a renamed one, like tock-hypridle
 			continue
 		}
 		for i, a := range args {

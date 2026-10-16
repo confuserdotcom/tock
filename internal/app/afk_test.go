@@ -114,6 +114,7 @@ func TestHypridleConfigs(t *testing.T) {
 		"12":   "hypridle\x00-c\x00/home/x/.config/ryoku/hypridle.conf\x00",
 		"13":   "/usr/bin/hypridle\x00--config=/etc/hi.conf\x00",
 		"14":   "bash\x00-c\x00hypridle\x00",
+		"15":   "/home/x/.local/bin/tock-hypridle\x00-c\x00/home/x/.config/tock/hypridle.conf\x00",
 		"self": "hypridle\x00-c\x00/nope\x00",
 	} {
 		os.MkdirAll(filepath.Join(proc, pid), 0o700)
@@ -121,7 +122,7 @@ func TestHypridleConfigs(t *testing.T) {
 	}
 	got := hypridleConfigs(proc)
 	slices.Sort(got)
-	if want := []string{"/etc/hi.conf", "/home/x/.config/ryoku/hypridle.conf"}; !slices.Equal(got, want) {
+	if want := []string{"/etc/hi.conf", "/home/x/.config/ryoku/hypridle.conf", "/home/x/.config/tock/hypridle.conf"}; !slices.Equal(got, want) {
 		t.Fatalf("configs = %v", got)
 	}
 }
