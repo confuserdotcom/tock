@@ -27,6 +27,7 @@ type Config struct {
 	LLM      LLM
 	Shell    Shell
 	Away     Away
+	AFK      AFK
 	Calendar Calendar
 	Sync     Sync
 	Slack    Slack
@@ -131,6 +132,21 @@ type Away struct {
 // DefaultAway is the [away] section used when the file does not set it.
 func DefaultAway() Away { return Away{MinMS: 10 * 60_000, MaxMS: 240 * 60_000} }
 
+// AFK is the [afk] section: when time in front of an app stops counting.
+// The window per category is `afk` in rules.toml.
+type AFK struct {
+	// VideoMS is how long trackd waits without input while the front app
+	// plays a video before it goes idle. trackd reads it at start.
+	VideoMS int64
+	// StaleMS: on a machine that reports no input (Hyprland without the
+	// hypridle hook), one unchanged window longer than this keeps its
+	// category's window and the rest is idle.
+	StaleMS int64
+}
+
+// DefaultAFK is the [afk] section used when the file does not set it.
+func DefaultAFK() AFK { return AFK{VideoMS: 180 * 60_000, StaleMS: 20 * 60_000} }
+
 // Shell is the [shell] section: which apps are terminals, so their views get
 // the working directory the zsh hook records.
 type Shell struct {
@@ -219,7 +235,7 @@ func DefaultLLM() LLM {
 
 // Default is the configuration used when there is no file.
 func Default() Config {
-	return Config{Score: stats.DefaultWeights, Focus: DefaultFocus(), LLM: DefaultLLM(), Shell: DefaultShell(), Away: DefaultAway(), Slack: DefaultSlack()}
+	return Config{Score: stats.DefaultWeights, Focus: DefaultFocus(), LLM: DefaultLLM(), Shell: DefaultShell(), Away: DefaultAway(), AFK: DefaultAFK(), Slack: DefaultSlack()}
 }
 
 type scoreTOML struct {
@@ -273,6 +289,11 @@ type awayTOML struct {
 	Max *int `toml:"max"`
 }
 
+type afkTOML struct {
+	Video *int `toml:"video"`
+	Stale *int `toml:"stale"`
+}
+
 type calendarTOML struct {
 	Enabled   *bool     `toml:"enabled"`
 	Calendars *[]string `toml:"calendars"`
@@ -311,6 +332,7 @@ type fileTOML struct {
 	LLM      llmTOML      `toml:"llm"`
 	Shell    shellTOML    `toml:"shell"`
 	Away     awayTOML     `toml:"away"`
+	AFK      afkTOML      `toml:"afk"`
 	Calendar calendarTOML `toml:"calendar"`
 	Sync     syncTOML     `toml:"sync"`
 	Slack    slackTOML    `toml:"slack"`
@@ -378,6 +400,18 @@ func Load(path string) (Config, error) {
 		return Default(), fmt.Errorf("%s: [away] min = %d, want at least 5", name, mn)
 	case mx <= mn || mx > 720:
 		return Default(), fmt.Errorf("%s: [away] max = %d, want more than min (%d) and at most 720", name, mx, mn)
+	}
+	if f.AFK.Video != nil {
+		if v := *f.AFK.Video; v < 5 || v > 720 {
+			return Default(), fmt.Errorf("%s: [afk] video = %d, want 5 to 720 minutes", name, v)
+		}
+		c.AFK.VideoMS = int64(*f.AFK.Video) * 60_000
+	}
+	if f.AFK.Stale != nil {
+		if v := *f.AFK.Stale; v < 10 || v > 240 {
+			return Default(), fmt.Errorf("%s: [afk] stale = %d, want 10 to 240 minutes", name, v)
+		}
+		c.AFK.StaleMS = int64(*f.AFK.Stale) * 60_000
 	}
 	if err := decodeHours(f.Hours, &c.Hours); err != nil {
 		return Default(), fmt.Errorf("%s: %w", name, err)

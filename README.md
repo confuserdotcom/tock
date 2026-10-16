@@ -272,6 +272,10 @@ terminals = [...]             # bundle ids that get shell dirs; replaces the bui
 min = 10                      # minutes; at least 5
 max = 240                     # minutes; at most 720
 
+[afk]                         # when time in front of an app stops counting, see AFK
+video = 180                   # minutes without input while a video plays; trackd reads it at start
+stale = 20                    # minutes; see "Machines that report no input"
+
 [calendar]                    # meetings from macOS Calendar, see Calendar
 enabled = false               # true: trackd asks for calendar access once
 calendars = []                # calendar names to read; empty = all
@@ -422,6 +426,37 @@ row, or `tock away 12:10 Meeting`; `A` or `tock away --skip 12:10` leaves it
 idle. A labelled absence counts towards totals and goals, but not towards
 focus blocks, context switches or break reminders. Absences that cross
 midnight are never asked about.
+
+## AFK
+
+Time counts while you are at the machine. trackd notices when there has
+been no key or mouse input for 5 minutes, and the time since your last
+input becomes idle. Some things need longer: give a category its own
+window in `rules.toml`:
+
+```toml
+[[category]]
+name = "Reading"
+kind = "deep"
+afk = "10m"          # 5m to 2h; the default is 5m
+```
+
+A pause shorter than the window of what was in front stays with it: eight
+minutes on one page of a book is still Reading. A longer one is AFK, and all
+of it, back to your last input, is idle. This is decided when tock reads the
+day, so changing `afk` changes past days too.
+
+While a video plays in the front app (it keeps the display awake), trackd
+waits `[afk] video` minutes (3 hours by default) before it goes idle. Music
+does not count. During a call you are never AFK (see Calls).
+
+**Machines that report no input.** On Hyprland trackd only learns about
+input through the hypridle hook (see Linux). Without it, and for another
+machine whose sync folder doesn't say it reports input (an older tock),
+tock guesses: one window left unchanged for longer than `[afk] stale`
+minutes (20) keeps its category's window and the rest is idle. A page turn
+in a PDF reader changes the title, so reading still counts. `tock doctor`
+names those machines.
 
 ## Editing the timeline
 

@@ -46,11 +46,11 @@ func TestDoctorAllGood(t *testing.T) {
 		store.KeyHeartbeat: nowMS(), store.KeyAXTrusted: "1", store.KeyVersion: "v1",
 	})
 	code, out := te.run(t, "", "doctor", "--open")
-	if code != 0 || strings.Count(out, "ok  ") != 13 || strings.Contains(out, "!!") {
+	if code != 0 || strings.Count(out, "ok  ") != 14 || strings.Contains(out, "!!") {
 		t.Fatalf("exit %d:\n%s%s", code, out, te.errb)
 	}
 	for _, want := range []string{"rules: 3 rules, 0 learned", "config: defaults", "trackd: running (version v1)",
-		"accessibility: granted", "suggestions: on"} {
+		"accessibility: granted", "suggestions: on", "afk: idle after 5m without input, 3h while a video plays"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("output lacks %q:\n%s", want, out)
 		}
@@ -191,6 +191,7 @@ func TestDoctorNotifications(t *testing.T) {
 func TestDoctorLinux(t *testing.T) {
 	te, opened := doctorEnv(t, testRules)
 	te.Linux = true
+	te.Hypridle = func() bool { return true }
 	te.seed(t, daySpans()...)
 	setStates(t, te, map[string]string{store.KeyHeartbeat: nowMS(), store.KeyAXTrusted: "1"})
 	code, out := te.run(t, "", "doctor", "--open")
@@ -201,7 +202,8 @@ func TestDoctorLinux(t *testing.T) {
 	te, _ = doctorEnv(t, testRules)
 	te.Linux = true
 	te.seed(t, daySpans()...)
-	if _, out := te.run(t, "", "doctor"); !strings.Contains(out, "!!  trackd: not running — systemctl --user restart trackd") {
+	if _, out := te.run(t, "", "doctor"); !strings.Contains(out, "!!  trackd: not running — systemctl --user restart trackd") ||
+		!strings.Contains(out, "!!  idle: hypridle does not run trackd idle") {
 		t.Fatalf("down:\n%s", out)
 	}
 }

@@ -10,6 +10,7 @@ import (
 	_ "modernc.org/sqlite"
 
 	"tock/internal/collect"
+	"tock/internal/config"
 	"tock/internal/span"
 	"tock/internal/store"
 )
@@ -206,7 +207,7 @@ func TestPipelineTickAdvancesHeartbeat(t *testing.T) {
 func TestMergerConfigCleansTitles(t *testing.T) {
 	const t0 = int64(1_700_000_000_000)
 	titles := []string{"[1/3] ✳ workflow", "[1/3] ◐ workflow", "[2/3] ✳ workflow", "(3) workflow"}
-	m := span.New(mergerConfig(1))
+	m := span.New(mergerConfig(1, config.DefaultAFK()))
 	opens := 0
 	for i, title := range titles {
 		ops := m.Feed(span.Input{Sample: &span.Sample{TS: t0 + int64(i)*2000, BundleID: "w", App: "W", Title: &title}})

@@ -44,7 +44,7 @@ var (
 	// Title index = byte % 4. Index 0 is a nil title.
 	fzTitles = [4]string{"", "t1", "t2", "t3"}
 	// IdleS options, selected by byte % 16 (mostly 0).
-	fzIdle = [16]float64{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.5, 299.999, 300, 400}
+	fzIdle = [16]float64{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.5, 299.999, 300, 400, 11000}
 	// Time deltas in ms, selected by byte % 32 (mostly small, some jumps).
 	fzDelta = [32]int64{
 		150, 150, 150, 500, 500, 1000, 1000, 1999, 1999, 1999, 2000, 2000, 2000, 0, 0, 3000,
@@ -79,7 +79,7 @@ func fzDecode(data []byte) []fzStep {
 			bundle := fzBundles[int(b[1])%len(fzBundles)]
 			s := &Sample{
 				TS: clock, BundleID: bundle, App: bundle, IdleS: fzIdle[int(b[3])%len(fzIdle)],
-				Activation: b[1]&8 != 0, AXTrusted: true, Locked: b[2]>>5 == 0,
+				Activation: b[1]&8 != 0, AXTrusted: true, Locked: b[2]>>5 == 0, Video: b[1]&16 != 0,
 			}
 			ti := int(b[2]) % 4
 			if t := fzTitles[ti]; t != "" {

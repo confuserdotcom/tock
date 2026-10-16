@@ -130,6 +130,9 @@ func (e *Env) raw(t testing.TB) *sql.DB {
 	return db
 }
 
+// RawDB opens tock.db (created if needed) for direct SQL.
+func (e *Env) RawDB(t testing.TB) *sql.DB { return e.raw(t) }
+
 // Seed creates tock.db if needed and inserts spans.
 func (e *Env) Seed(t testing.TB, spans ...Span) {
 	t.Helper()

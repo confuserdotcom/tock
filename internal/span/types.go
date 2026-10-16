@@ -92,6 +92,10 @@ type Sample struct {
 	Activation bool
 	AXTrusted  bool
 	Automation string
+	// Video: the front app (or a helper of it) keeps the display awake, as
+	// players do while a video plays. The merger then waits VideoIdleMax
+	// without input before it goes idle.
+	Video bool
 }
 
 // Event is a sleep/wake/lock/unlock marker.
@@ -168,7 +172,8 @@ type Op struct {
 // Config tunes the merger. Rule semantics (implemented across plans 01-01..03):
 //
 //   - idle backdating (D-11): idle at or above IdleThreshold ends the current
-//     span at the last activity time and opens an idle span.
+//     span at the last activity time and opens an idle span. While a video
+//     plays (Sample.Video) the threshold is VideoIdleMax.
 //   - hard boundaries (D-12, refined): sleep, wake, lock and unlock close the
 //     open span at the last known-good time.
 //   - fold (D-13): non-idle spans shorter than FoldMin are folded into a
@@ -183,6 +188,7 @@ type Op struct {
 //   - a private sample's title and URL are never stored (D-07).
 type Config struct {
 	IdleThreshold time.Duration
+	VideoIdleMax  time.Duration // idle threshold while Sample.Video; 0 = IdleThreshold
 	FoldMin       time.Duration
 	JumpMax       time.Duration
 	Heartbeat     time.Duration
@@ -195,6 +201,7 @@ type Config struct {
 func DefaultConfig() Config {
 	return Config{
 		IdleThreshold: 5 * time.Minute,
+		VideoIdleMax:  3 * time.Hour,
 		FoldMin:       2 * time.Second,
 		JumpMax:       2 * time.Minute,
 		Heartbeat:     10 * time.Second,

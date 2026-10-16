@@ -16,6 +16,7 @@ import (
 
 	"github.com/charmbracelet/x/term"
 
+	"tock/internal/app"
 	"tock/internal/claude"
 	"tock/internal/gitlog"
 	"tock/internal/shell"
@@ -107,6 +108,8 @@ type Env struct {
 	// Linux is true on Linux (Hyprland): doctor then checks the systemd
 	// service and skips the macOS permissions.
 	Linux bool
+	// Hypridle reports whether hypridle runs trackd idle (Linux); nil: no.
+	Hypridle func() bool
 }
 
 func (e Env) dbPath() string       { return filepath.Join(e.DataDir, "tock.db") }
@@ -152,6 +155,10 @@ func defaultEnv() Env {
 		},
 		Sleep: time.Sleep,
 		Linux: runtime.GOOS == "linux",
+		Hypridle: func() bool {
+			home, _ := os.UserHomeDir()
+			return app.HypridleHooked(home)
+		},
 	}
 }
 

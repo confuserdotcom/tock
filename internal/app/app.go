@@ -5,6 +5,7 @@ package app
 import (
 	"errors"
 	"os"
+	"runtime"
 	"time"
 
 	"tock/internal/classify"
@@ -37,6 +38,7 @@ type App struct {
 	shell    shell.Log
 	shellErr error
 	home     string // the user's home, for "~/…" dirs
+	input    bool   // this machine reports input (see inputKnown)
 
 	git      gitlog.Runner // nil = gitlog.Exec
 	gitCache map[gitKey]gitEntry
@@ -82,6 +84,7 @@ func Open(p Paths, now func() time.Time) (*App, error) {
 	a := &App{paths: p, now: now, st: st, rs: rs, stamp: st0, cfg: config.Default(),
 		shell: shell.Log{Path: p.ShellLog}}
 	a.home, _ = os.UserHomeDir()
+	a.input = inputKnown(runtime.GOOS, a.home)
 	a.loadConfig()
 	return a, nil
 }

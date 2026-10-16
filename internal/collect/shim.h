@@ -10,6 +10,7 @@ typedef struct {
     int ax_err;
     double idle_s;
     int locked;
+    int video; // the front app or a helper of it keeps the display awake
 } tock_poll_t;
 
 void tock_ax_init(int prompt);

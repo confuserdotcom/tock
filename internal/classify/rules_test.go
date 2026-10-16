@@ -60,6 +60,18 @@ func TestProjectRateAndRepos(t *testing.T) {
 	}
 }
 
+func TestAFKWindow(t *testing.T) {
+	rs, err := Parse([]byte(baseRules+"[[category]]\nname='Reading'\nkind='deep'\nafk='12m'\n"), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for cat, want := range map[string]int64{"reading": 12 * 60_000, "Code": DefaultAFKMS, "": DefaultAFKMS, "Nope": DefaultAFKMS} {
+		if got := rs.AFKWindow(cat); got != want {
+			t.Errorf("AFKWindow(%q) = %d, want %d", cat, got, want)
+		}
+	}
+}
+
 func TestParseErrors(t *testing.T) {
 	cases := []struct {
 		name, rules, learned, want string
@@ -75,6 +87,9 @@ func TestParseErrors(t *testing.T) {
 		{"dup repo", baseRules + "[[project]]\nname='X'\nrepos=['~/a']\n[[project]]\nname='Y'\nrepos=['~/a/']\n", "",
 			`project "Y": repo "~/a" is already listed by project "X"`},
 		{"slash in name", "[[category]]\nname='A/B'\nkind='deep'\n", "", "must not contain /"},
+		{"afk short", "[[category]]\nname='R'\nkind='deep'\nafk='4m'\n", "", `category "R": afk "4m", want 5m to 2h`},
+		{"afk long", "[[category]]\nname='R'\nkind='deep'\nafk='3h'\n", "", `afk "3h"`},
+		{"afk bad", "[[category]]\nname='R'\nkind='deep'\nafk='soon'\n", "", `afk "soon"`},
 		{"no match field", baseRules + "[[rule]]\ncategory='Code'\n", "", "rule #1: no match field"},
 		{"no label", baseRules + "[[rule]]\napp='x'\n", "", "rule #1 (app='x'): sets neither category nor project"},
 		{"unknown category", baseRules + "[[rule]]\nurl='^yt'\ncategory='Studdy'\n", "", `rules.toml: rule #1 (url='^yt'): unknown category "Studdy"`},

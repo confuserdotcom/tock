@@ -86,9 +86,9 @@ func formatInput(in span.Input) string {
 		if auto == "" {
 			auto = "-"
 		}
-		return fmt.Sprintf("%s sample bundle=%s app=%q title=%s url=%s private=%d idle=%.1f locked=%d ax=%d auto=%s act=%d",
+		return fmt.Sprintf("%s sample bundle=%s app=%q title=%s url=%s private=%d idle=%.1f locked=%d ax=%d auto=%s act=%d video=%d",
 			ts, s.BundleID, s.App, quoteOrDash(title), quoteOrDash(url),
-			b2i(s.Private), s.IdleS, b2i(s.Locked), b2i(s.AXTrusted), auto, b2i(s.Activation))
+			b2i(s.Private), s.IdleS, b2i(s.Locked), b2i(s.AXTrusted), auto, b2i(s.Activation), b2i(s.Video))
 	case in.Event != nil:
 		e := in.Event
 		return fmt.Sprintf("%s event %s", time.UnixMilli(e.TS).Local().Format(dumpTSLayout), e.Kind)

@@ -34,7 +34,18 @@ var ErrNoRules = errors.New("no rules: run tock init")
 type Category struct {
 	Name string
 	Kind string
+	// AFKMS is how long time in this category may go without input before
+	// it is AFK (all of it idle); 0 = DefaultAFKMS.
+	AFKMS int64
 }
+
+// DefaultAFKMS is a category's AFK window when it sets none: trackd's idle
+// threshold. MinAFKMS and MaxAFKMS bound the windows rules.toml may set.
+const (
+	DefaultAFKMS = 5 * 60_000
+	MinAFKMS     = DefaultAFKMS
+	MaxAFKMS     = 2 * 3_600_000
+)
 
 // Project is a declared project.
 type Project struct {
@@ -168,6 +179,7 @@ type rulesTOML struct {
 	Category []struct {
 		Name string `toml:"name"`
 		Kind string `toml:"kind"`
+		AFK  string `toml:"afk"`
 	} `toml:"category"`
 	Project []struct {
 		Name     string   `toml:"name"`
@@ -249,6 +261,13 @@ func Parse(rulesData, learnedData []byte) (*Ruleset, error) {
 			return nil, fmt.Errorf("%s: duplicate category %q", RulesFile, c.Name)
 		}
 		cat := Category{Name: c.Name, Kind: c.Kind}
+		if c.AFK != "" {
+			ms, err := ParseDur(c.AFK)
+			if err != nil || ms < MinAFKMS || ms > MaxAFKMS {
+				return nil, fmt.Errorf("%s: category %q: afk %q, want 5m to 2h", RulesFile, c.Name, c.AFK)
+			}
+			cat.AFKMS = ms
+		}
 		rs.catByLower[lower] = cat
 		rs.Categories = append(rs.Categories, cat)
 	}
@@ -355,6 +374,15 @@ func (rs *Ruleset) buildRules(file string, in []ruleTOML) ([]Rule, error) {
 // Kind returns the kind of a declared category, or "" when undeclared.
 func (rs *Ruleset) Kind(category string) string {
 	return rs.catByLower[strings.ToLower(category)].Kind
+}
+
+// AFKWindow returns a category's AFK window: its afk, else DefaultAFKMS
+// (also for "" and undeclared names).
+func (rs *Ruleset) AFKWindow(category string) int64 {
+	if ms := rs.catByLower[strings.ToLower(category)].AFKMS; ms > 0 {
+		return ms
+	}
+	return DefaultAFKMS
 }
 
 // HasCategory and HasProject report whether a name is declared

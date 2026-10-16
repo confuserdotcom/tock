@@ -4,7 +4,7 @@ package collect
 
 /*
 #cgo CFLAGS: -fobjc-arc
-#cgo LDFLAGS: -framework Cocoa -framework ApplicationServices -framework CoreServices
+#cgo LDFLAGS: -framework Cocoa -framework ApplicationServices -framework CoreServices -framework IOKit
 #include <stdlib.h>
 #include "shim.h"
 */
@@ -162,6 +162,7 @@ func sampleFromPoll(p *C.tock_poll_t) *span.Sample {
 		IdleS:     float64(p.idle_s),
 		Locked:    p.locked != 0,
 		AXTrusted: p.ax_trusted != 0,
+		Video:     p.video != 0,
 	}
 	if p.has_title != 0 {
 		t := strings.ToValidUTF8(C.GoString(&p.title[0]), "�")

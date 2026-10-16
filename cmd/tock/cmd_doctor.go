@@ -131,6 +131,7 @@ func cmdDoctor(env Env, args []string) error {
 	}
 
 	if cfgErr == nil {
+		doctorAFK(env, cfg, ok, bad)
 		doctorSync(env, cfg.Sync, ok, bad)
 		doctorGuard(env, cfg, ok, bad)
 	}
@@ -194,6 +195,55 @@ func doctorNotify(on bool, h app.Health, ok func(name, detail string)) {
 		ok("notifications", "plain, without buttons (turned off in System Settings › Notifications › tock)")
 	default:
 		ok("notifications", "plain until the menu bar app is allowed to notify")
+	}
+}
+
+// doctorAFK names the AFK windows, and what makes them guesses: a Linux
+// machine whose hypridle does not run trackd idle, other machines that do
+// not say they report input.
+func doctorAFK(env Env, cfg config.Config, ok func(name, detail string), bad func(name, detail, fix string)) {
+	stale := classify.FormatDur(cfg.AFK.StaleMS)
+	if env.Linux && (env.Hypridle == nil || !env.Hypridle()) {
+		bad("idle", "hypridle does not run trackd idle, so trackd never sees you leave; windows over "+stale+" are cut",
+			"add the listener in README › Linux to ~/.config/hypr/hypridle.conf")
+	}
+	detail := "idle after 5m without input"
+	if rs, err := classify.Load(env.rulesPath(), env.learnedPath()); err == nil {
+		var longer []string
+		for _, c := range rs.Categories {
+			if c.AFKMS > 0 && c.AFKMS != classify.DefaultAFKMS {
+				longer = append(longer, c.Name+" "+classify.FormatDur(c.AFKMS))
+			}
+		}
+		if len(longer) > 0 {
+			detail += " (" + strings.Join(longer, ", ") + ")"
+		}
+	}
+	if !env.Linux {
+		detail += ", " + classify.FormatDur(cfg.AFK.VideoMS) + " while a video plays"
+	}
+	ok("afk", detail)
+	if cfg.Sync.Dir == "" {
+		return
+	}
+	st, err := openStore(env)
+	if err != nil {
+		return
+	}
+	defer st.Close()
+	ms, err := st.RemoteMachines()
+	if err != nil {
+		return
+	}
+	var blind []string
+	for _, m := range ms {
+		if v, _, _ := st.State(app.RemoteInputKey(m.Name)); v != "1" {
+			blind = append(blind, m.Name)
+		}
+	}
+	if len(blind) > 0 {
+		bad("afk", strings.Join(blind, ", ")+" does not report input; its windows over "+stale+" are cut",
+			"update tock there and add the hypridle listener (README › Linux)")
 	}
 }
 

@@ -2,6 +2,7 @@
 // process main thread (locked by runtime.LockOSThread in collect_darwin.go).
 // Do not create an NSApplication: activation notifications arrive without it.
 #import <Cocoa/Cocoa.h>
+#import <IOKit/pwr_mgt/IOPMLib.h>
 #include <string.h>
 
 #include "_cgo_export.h"
@@ -166,6 +167,55 @@ static void tock_focused_title(pid_t pid, tock_poll_t *out) {
     CFRelease(appEl);
 }
 
+// tock_front_video reports whether the app pid (bundle id bundle) or one of
+// its helpers holds a display-sleep assertion, as video players do while a
+// video plays. Helpers are matched by bundle id prefix, case-insensitively:
+// company.thebrowser.browser.helper belongs to company.thebrowser.Browser.
+static int tock_front_video(pid_t pid, NSString *bundle) {
+    CFDictionaryRef byPid = NULL;
+    if (IOPMCopyAssertionsByProcess(&byPid) != kIOReturnSuccess || byPid == NULL) {
+        return 0;
+    }
+    __block int found = 0;
+    NSDictionary *d = (__bridge NSDictionary *)byPid;
+    [d enumerateKeysAndObjectsUsingBlock:^(id key, id list, BOOL *stop) {
+        if (![key isKindOfClass:[NSNumber class]] || ![list isKindOfClass:[NSArray class]]) {
+            return;
+        }
+        int display = 0;
+        for (id a in (NSArray *)list) {
+            if (![a isKindOfClass:[NSDictionary class]]) {
+                continue;
+            }
+            NSString *type = ((NSDictionary *)a)[(__bridge NSString *)kIOPMAssertionTypeKey];
+            if ([type isEqualToString:(__bridge NSString *)kIOPMAssertionTypePreventUserIdleDisplaySleep] ||
+                [type isEqualToString:(__bridge NSString *)kIOPMAssertionTypeNoDisplaySleep]) {
+                display = 1;
+                break;
+            }
+        }
+        if (!display) {
+            return;
+        }
+        pid_t owner = (pid_t)[(NSNumber *)key intValue];
+        if (owner == pid) {
+            found = 1;
+            *stop = YES;
+            return;
+        }
+        if (bundle == nil) {
+            return;
+        }
+        NSString *ob = [NSRunningApplication runningApplicationWithProcessIdentifier:owner].bundleIdentifier;
+        if (ob != nil && [[ob lowercaseString] hasPrefix:[bundle lowercaseString]]) {
+            found = 1;
+            *stop = YES;
+        }
+    }];
+    CFRelease(byPid);
+    return found;
+}
+
 void tock_poll(tock_poll_t *out) {
     memset(out, 0, sizeof *out);
     out->ax_trusted = AXIsProcessTrusted() ? 1 : 0;
@@ -180,6 +230,9 @@ void tock_poll(tock_poll_t *out) {
     tock_copy(out->app, sizeof out->app, app.localizedName);
     if (out->ax_trusted && app.processIdentifier > 0) {
         tock_focused_title(app.processIdentifier, out);
+    }
+    if (app.processIdentifier > 0) {
+        out->video = tock_front_video(app.processIdentifier, app.bundleIdentifier);
     }
 }
 

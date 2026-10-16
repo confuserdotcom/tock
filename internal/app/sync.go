@@ -69,6 +69,9 @@ func (a *App) Sync(days int) (SyncReport, error) {
 			r.Written++
 		}
 	}
+	if err := a.writeMachineFile(filepath.Join(dir, r.Machine)); err != nil {
+		return r, err
+	}
 	n, err := a.importRemote(dir, r.Machine)
 	r.Read = n
 	if err != nil {
@@ -140,6 +143,9 @@ func (a *App) importRemote(dir, self string) (int, error) {
 		}
 		files, err := os.ReadDir(filepath.Join(dir, m.Name()))
 		if err != nil {
+			return read, err
+		}
+		if err := a.readMachineFile(filepath.Join(dir, m.Name()), m.Name()); err != nil {
 			return read, err
 		}
 		for _, f := range files {

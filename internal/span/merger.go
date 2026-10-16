@@ -378,6 +378,10 @@ func (m *Merger) feedSample(s *Sample) []Op {
 		m.ignoreIdleNext = false
 	}
 	thr := m.cfg.IdleThreshold.Milliseconds()
+	// Once idle, only input ends it: a video that starts on its own does not.
+	if s.Video && m.cfg.VideoIdleMax > m.cfg.IdleThreshold && (m.cur == nil || !m.cur.idle) {
+		thr = m.cfg.VideoIdleMax.Milliseconds()
+	}
 
 	switch {
 	case idleMS >= thr:

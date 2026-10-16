@@ -141,7 +141,15 @@ func runWithStore(o daemonOpts, log *slog.Logger, st *store.Store) int {
 		log.Error("next id", "err", err)
 		return exitRestart
 	}
-	m := span.New(mergerConfig(next))
+	afk := config.DefaultAFK()
+	if o.ConfigDir != "" {
+		c, err := config.Load(filepath.Join(o.ConfigDir, config.File))
+		if err != nil {
+			log.Warn("config", "err", err) // the defaults still apply
+		}
+		afk = c.AFK
+	}
+	m := span.New(mergerConfig(next, afk))
 
 	src, err := o.NewSource()
 	if err != nil {
@@ -222,10 +230,13 @@ func runWithStore(o daemonOpts, log *slog.Logger, st *store.Store) int {
 // mergerConfig is the daemon's span configuration: the Phase 1 defaults with
 // titles compared after classify.Clean, so a spinner or counter change in a
 // title does not split the span.
-func mergerConfig(nextID int64) span.Config {
+//
+// While a video plays it waits [afk] video (read at start) before idle.
+func mergerConfig(nextID int64, afk config.AFK) span.Config {
 	cfg := span.DefaultConfig()
 	cfg.NextID = nextID
 	cfg.TitleKey = classify.Clean
+	cfg.VideoIdleMax = time.Duration(afk.VideoMS) * time.Millisecond
 	return cfg
 }
 
