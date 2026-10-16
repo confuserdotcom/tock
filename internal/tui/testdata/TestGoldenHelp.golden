@@ -17,14 +17,14 @@ tock    today    week   inbox ³   focus   rules   plan   labels          Sat 10
  │   l      next day                 e      edit rules.toml                                       │ 
  │   .      back to today            J/K    move rule down/up      Plan                           │ 
  │   /      filter rows              j/k    move                     enter  done / not done       │ 
- │   i      why this score                                           a      add a task            │ 
- │   g/G    first / last row       Labels                            f      focus session         │ 
- │                                   a      add a category           d      delete                │ 
-▸│ Go                                m      add a module             e      edit the file         │ 
- │   1-7    switch tab               e      rename                   j/k    move                  │ 
- │   tab    next tab                 K      kind                     g/G    first / last task     │ 
- │                                   w      afk window                                            │ 
- │ App                               f      file under a catego…                                  │ 
- │   ?      help                     l      other names                                           │ 
- │   :      commands                 x      archive / unarchive                                   │ 
+ │   c      every window ↔ comp…                                     a      add a task            │ 
+ │   i      why this score         Labels                            f      focus session         │ 
+ │   g/G    first / last row         a      add a category           d      delete                │ 
+▸│                                   m      add a module             e      edit the file         │ 
+ │ Go                                e      rename                   j/k    move                  │ 
+ │   1-7    switch tab               K      kind                     g/G    first / last task     │ 
+ │   tab    next tab                 w      afk window                                            │ 
+ │                                   f      file under a catego…   App                            │ 
+ │                                   l      other names              ?      help                  │ 
+ │                                   x      archive / unarchive      :      commands              │ 
 esc close · : commands                                                                              

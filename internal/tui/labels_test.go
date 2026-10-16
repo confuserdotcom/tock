@@ -103,3 +103,23 @@ func TestPickerOffersModules(t *testing.T) {
 		t.Fatalf("options %+v", opts)
 	}
 }
+
+func TestCompactRows(t *testing.T) {
+	e := apptest.New(t, apptest.Rules)
+	e.Seed(t,
+		apptest.Span{ID: 1, Start: "09:00", End: "09:20", Bundle: "term", App: "WezTerm", Title: "a"},
+		apptest.Span{ID: 2, Start: "09:20", End: "09:21", Bundle: "term", App: "WezTerm", Title: "b"},
+		apptest.Span{ID: 3, Start: "09:21", End: "09:30", Bundle: "term", App: "WezTerm", Title: "c"},
+		apptest.Span{ID: 4, Start: "09:30", End: "09:35", Bundle: "arc", App: "Arc", Title: "x", URL: "chatgpt.com/c/1"},
+		apptest.Span{ID: 5, Start: "09:35", End: "09:40", Bundle: "arc", App: "Arc", Title: "y", URL: "labs.x.tv/lab/1"},
+	)
+	m := newModel(t, e)
+	rs := m.today.rows()
+	if len(rs) != 3 || rs[0].End-rs[0].Start != 30*60_000 || len(rs[0].IDs) != 3 || rs[0].Text != "a" {
+		t.Fatalf("compact rows %+v", rs)
+	}
+	m = press(t, m, "c")
+	if n := len(m.today.rows()); n != 5 {
+		t.Fatalf("full rows = %d", n)
+	}
+}

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"os"
 	"path/filepath"
 	"strings"
@@ -39,5 +40,25 @@ func TestProjectCommand(t *testing.T) {
 	}
 	if code, _ := te.run(t, "", "project", "rm", "Thermodynamique"); code != 0 {
 		t.Fatalf("rm: %s", te.errb)
+	}
+}
+
+func TestProjectRefile(t *testing.T) {
+	te := newTestEnv(t, testRules+"\n[[project]]\nname = \"Thermo\"\ncategory = \"Study\"\n[[project]]\nname = \"Licence\"\n")
+	te.seed(t, daySpans()...)
+	// span 1's title is "tock │ ✳ x": rename it so it names the module.
+	db, err := sql.Open("sqlite", "file:"+te.dbPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, q := range []string{`UPDATE span SET title = 'Thermo cours' WHERE id = 1`,
+		`INSERT INTO override(span_id, category, project, at) VALUES(1, 'Study', 'Licence', 1), (2, 'Study', 'Licence', 1)`} {
+		if _, err := db.Exec(q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	db.Close()
+	if code, out := te.run(t, "", "project", "refile", "Licence"); code != 0 || out != "moved 1 span to modules: Thermo 1\n" {
+		t.Fatalf("refile: %d %q %s", code, out, te.errb)
 	}
 }

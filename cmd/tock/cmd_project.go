@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"tock/internal/app"
@@ -14,7 +15,8 @@ const projectUsage = `usage: tock project                                    cat
        tock project set <name> [--category C|none] [--alias a,b|none] [--archived true|false]
        tock project rename <name> <new name>
        tock project rm <name>                                only when nothing names it
-       tock project scan <dir> --category C                  a module for each folder in dir`
+       tock project scan <dir> --category C                  a module for each folder in dir
+       tock project refile <name>                            hand tags of a catch-all project go to the module their title names`
 
 // cmdProject manages the projects (and modules) in rules.toml.
 func cmdProject(env Env, args []string) error {
@@ -102,6 +104,30 @@ func cmdProject(env Env, args []string) error {
 			return err
 		}
 		fmt.Fprintf(env.Stdout, "removed project %s (old rules.toml kept as rules.toml.bak)\n", report.Safe(name))
+	case "refile":
+		if len(rest) != 1 {
+			return usagef(projectUsage)
+		}
+		moved, err := a.RefileProject(rest[0])
+		if err != nil {
+			return err
+		}
+		if len(moved) == 0 {
+			fmt.Fprintln(env.Stdout, "no hand-tagged span names a module in its title")
+			return nil
+		}
+		names := make([]string, 0, len(moved))
+		for p := range moved {
+			names = append(names, p)
+		}
+		sort.Strings(names)
+		var parts []string
+		total := 0
+		for _, p := range names {
+			parts = append(parts, fmt.Sprintf("%s %d", report.Safe(p), moved[p]))
+			total += moved[p]
+		}
+		fmt.Fprintf(env.Stdout, "moved %s to modules: %s\n", plural(total, "span"), strings.Join(parts, ", "))
 	case "scan":
 		fs := newFlags("project scan")
 		cat := fs.String("category", "", "the category the modules go under")

@@ -23,6 +23,7 @@ type todayTab struct {
 	follow    bool
 	filter    string
 	filtering bool
+	full      bool // every row; off, labelled rows in a row with one label merge (c)
 	timelineH int // timeline rows that fit; set by Model.Update
 	// sugg are the inbox suggestions by key and trackdUp trackd's state,
 	// both copied from the model on each load.
@@ -47,14 +48,18 @@ func sameDay(a, b time.Time) bool {
 	return ay == by && am == bm && ad == bd
 }
 
-// rows is the timeline after the filter.
+// rows is the timeline after the filter, compact unless full.
 func (t *todayTab) rows() []report.Row {
+	rs := t.day.Timeline
+	if !t.full {
+		rs = compact(rs)
+	}
 	if t.filter == "" {
-		return t.day.Timeline
+		return rs
 	}
 	q := strings.ToLower(t.filter)
 	var out []report.Row
-	for _, r := range t.day.Timeline {
+	for _, r := range rs {
 		hay := strings.ToLower(rowLabel(r) + " " + r.App + " " + r.Text)
 		if strings.Contains(hay, q) {
 			out = append(out, r)
@@ -230,6 +235,11 @@ func (m Model) todayKey(k string) (tea.Model, tea.Cmd) {
 		t.move(half)
 	case "ctrl+u":
 		t.move(-half)
+	case "c":
+		t.full = !t.full
+		t.cursor = min(t.cursor, max(len(t.rows())-1, 0))
+		t.clampScroll()
+		return m, nil
 	case "/":
 		t.filtering = true
 	case "h":
@@ -381,4 +391,34 @@ func shade(ms int64) string {
 		return "▓"
 	}
 	return "█"
+}
+
+// compact merges each run of labelled rows with one label (category and
+// project), back to back, into one row: what the stretch was, not every
+// window. Unlabelled, idle, away and meeting rows stay as they are, so
+// each can still be labelled on its own. The merged row's app and text are
+// those of its longest row; it holds every row's span ids.
+func compact(rs []report.Row) []report.Row {
+	out := make([]report.Row, 0, len(rs))
+	longest := map[int]int64{} // out index -> its longest member's length
+	for _, r := range rs {
+		n := len(out)
+		if n > 0 && mergeable(out[n-1]) && mergeable(r) && out[n-1].Label.Category == r.Label.Category &&
+			out[n-1].Label.Project == r.Label.Project && r.Start-out[n-1].End < 60_000 {
+			p := &out[n-1]
+			if d := r.End - r.Start; d > longest[n-1] {
+				p.App, p.Text, p.Key, longest[n-1] = r.App, r.Text, r.Key, d
+			}
+			p.IDs = append(append([]int64{}, p.IDs...), r.IDs...)
+			p.End, p.Open = r.End, r.Open
+			continue
+		}
+		longest[n] = r.End - r.Start
+		out = append(out, r)
+	}
+	return out
+}
+
+func mergeable(r report.Row) bool {
+	return !r.Idle && r.Label.Category != "" && r.App != span.AwayApp && r.App != span.MeetingApp && !remoteRow(&r)
 }

@@ -3,10 +3,12 @@ package app
 import (
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"strings"
 
 	"tock/internal/classify"
+	"tock/internal/store"
 )
 
 // CategorySpec is a category to add or the fields to change: "" and 0
@@ -337,4 +339,44 @@ func (a *App) ScanModules(dir, category string) ([]string, error) {
 		return []byte(text), learned, nil
 	})
 	return add, err
+}
+
+// RefileProject moves the time you tagged by hand with project from (a
+// catch-all such as "Licence") to the module its window title names, where
+// one does. It returns how many spans moved, by module.
+func (a *App) RefileProject(from string) (map[string]int, error) {
+	from, err := a.rs.ResolveName(classify.NameProject, from)
+	if err != nil {
+		return nil, err
+	}
+	ovs, err := a.st.Overrides()
+	if err != nil {
+		return nil, err
+	}
+	rows, err := a.st.AllSpans()
+	if err != nil {
+		return nil, err
+	}
+	moved := map[string]int{}
+	var set []store.Override
+	for _, v := range views(rows, math.MinInt64, math.MaxInt64, a.nowMS()) {
+		o, ok := ovs[v.ID]
+		if !ok || !strings.EqualFold(o.Project, from) {
+			continue
+		}
+		p, cat := a.rs.ModuleFor(v)
+		if p == "" || strings.EqualFold(p, from) {
+			continue
+		}
+		if o.Category == "" {
+			o.Category = cat
+		}
+		o.Project, o.At = p, a.nowMS()
+		set = append(set, o)
+		moved[p]++
+	}
+	if len(set) == 0 {
+		return moved, nil
+	}
+	return moved, a.st.SetOverrides(set)
 }

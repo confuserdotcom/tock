@@ -122,6 +122,7 @@ today            enter label the row (accepts a ★ suggestion, or labels time a
                  a label the latest time away · A leave it idle
                  s split (label part of the row) · d delete its time · + add time
                  j/k move · h/l previous/next day · . today · / filter
+                 c every window ↔ compact rows (labelled rows in a row merge)
 week             enter open day · h/l week · . this week · m month trends
 inbox            enter accept the suggestion, else learn a rule · T pick a label
                  o tag once · x ignore
@@ -504,8 +505,13 @@ tock project scan ~/Licence/S1 --category Study   a module for each folder
 tock project add Thermodynamique --category Study --alias thermo
 tock project set ana --alias ana1,AF               --category none unfiles it
 tock project rename "Analyse 1" "Analyse I"
+tock project refile Licence                        hand tags of a catch-all go to the module in their title
 tock project                                       categories with their modules
 ```
+
+A module named in a window title also wins over the label another machine
+synced for it, so an older machine with a catch-all project can't undo
+your modules.
 
 Projects without a category work as before: rules set them, and they can
 list `repos` and a `rate`.

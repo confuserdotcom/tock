@@ -14,7 +14,7 @@ tock    today    week   inbox ³   focus   rules   plan   labels          Sat 10
  ╰────────────────│   add time you forgot                               Today  + │────────────────╯ 
                   │   previous day                                      Today  h │                  
   09:00–10:40   1h│   filter rows                                       Today  / │                  
-  10:40–11:14    3│   why this score                                    Today  i │                  
+  10:40–11:14    3│   every window ↔ compact rows                       Today  c │                  
   11:14–11:26    1╰──────────────────────────────────────────────────────────────╯                  
   11:26–11:35     9m  ○ unlabelled          Arc         XOR Equivalence Check                       
   11:35–11:41     6m  ○ unlabelled          Arc         Low Level Labs                              

@@ -3,6 +3,8 @@ package classify
 import (
 	"strings"
 	"unicode"
+
+	"tock/internal/span"
 )
 
 // A module is a project filed under a category (`category = "Study"`):
@@ -124,6 +126,25 @@ func (rs *Ruleset) ModuleOf(name string) string {
 		}
 	}
 	return ""
+}
+
+// ModuleFor returns the module (and its category) named in v's title or
+// directory, or "".
+func (rs *Ruleset) ModuleFor(v SpanView) (project, category string) {
+	if v.BundleID == span.IdleBundleID || v.Private {
+		return "", ""
+	}
+	title, dir := "", ""
+	if v.Title != nil {
+		title = Clean(*v.Title)
+	}
+	if v.Dir != nil {
+		dir = *v.Dir
+	}
+	if m := rs.moduleFor(title, dir); m != nil {
+		return m.project, m.category
+	}
+	return "", ""
 }
 
 // ProjectCategory returns the category a project is filed under, or "".

@@ -147,7 +147,8 @@ func (a *App) decorate(vs []classify.SpanView, ovs map[int64]classify.Override, 
 
 // markRemote fills idle time and gaps with the other machines' views. Their
 // labels go into ovs under the views' ids when the category and project
-// exist here; otherwise this machine's rules label them.
+// exist here, unless a module here names the view; otherwise this
+// machine's rules label them.
 func (a *App) markRemote(vs []classify.SpanView, ovs map[int64]classify.Override, from, to int64) ([]classify.SpanView, error) {
 	rv, err := a.st.RemoteViews(from, to)
 	if err != nil || len(rv) == 0 {
@@ -159,6 +160,9 @@ func (a *App) markRemote(vs []classify.SpanView, ovs map[int64]classify.Override
 		marks[i] = classify.RemoteMark{ID: r.ID, Machine: r.Machine, View: classify.SpanView{
 			Start: r.StartMS, End: r.EndMS, BundleID: r.Bundle, App: r.App, Title: r.Title, URL: r.URL}}
 		var o classify.Override
+		if p, _ := a.rs.ModuleFor(marks[i].View); p != "" {
+			continue // this machine's modules know better
+		}
 		if r.Category != "" && a.rs.HasCategory(r.Category) {
 			o.Category = r.Category
 		}
