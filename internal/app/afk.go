@@ -34,15 +34,56 @@ func inputKnown(goos, home string) bool {
 	return HypridleHooked(home)
 }
 
-// HypridleHooked reports whether ~/.config/hypr/hypridle.conf (or
-// $XDG_CONFIG_HOME's) runs trackd idle.
+// HypridleHooked reports whether hypridle's config runs trackd idle: the
+// config of each running hypridle (its -c or --config), else
+// ~/.config/hypr/hypridle.conf (or $XDG_CONFIG_HOME's).
 func HypridleHooked(home string) bool {
-	dir := os.Getenv("XDG_CONFIG_HOME")
-	if dir == "" {
-		dir = filepath.Join(home, ".config")
+	paths := hypridleConfigs("/proc")
+	if len(paths) == 0 {
+		dir := os.Getenv("XDG_CONFIG_HOME")
+		if dir == "" {
+			dir = filepath.Join(home, ".config")
+		}
+		paths = []string{filepath.Join(dir, "hypr", "hypridle.conf")}
 	}
-	b, err := os.ReadFile(filepath.Join(dir, "hypr", "hypridle.conf"))
-	return err == nil && strings.Contains(string(b), "trackd idle")
+	for _, p := range paths {
+		if b, err := os.ReadFile(p); err == nil && strings.Contains(string(b), "trackd idle") {
+			return true
+		}
+	}
+	return false
+}
+
+// hypridleConfigs is the config file of each hypridle running under proc
+// that names one with -c or --config.
+func hypridleConfigs(proc string) []string {
+	ents, err := os.ReadDir(proc)
+	if err != nil {
+		return nil
+	}
+	var out []string
+	for _, e := range ents {
+		if e.Name()[0] < '0' || e.Name()[0] > '9' {
+			continue
+		}
+		b, err := os.ReadFile(filepath.Join(proc, e.Name(), "cmdline"))
+		if err != nil {
+			continue
+		}
+		args := strings.Split(strings.TrimRight(string(b), "\x00"), "\x00")
+		if filepath.Base(args[0]) != "hypridle" {
+			continue
+		}
+		for i, a := range args {
+			switch {
+			case (a == "-c" || a == "--config") && i+1 < len(args):
+				out = append(out, args[i+1])
+			case strings.HasPrefix(a, "--config="):
+				out = append(out, strings.TrimPrefix(a, "--config="))
+			}
+		}
+	}
+	return out
 }
 
 // InputKnown reports whether this machine's time saw input (see inputKnown).

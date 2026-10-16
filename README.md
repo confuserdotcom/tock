@@ -846,7 +846,10 @@ graphical session. Its log is `~/.local/state/tock/trackd.log`, and
 `systemctl --user status trackd` shows the unit.
 
 Wayland gives no app the idle time, so hypridle tells trackd. Add this to
-`~/.config/hypr/hypridle.conf`, keeping your other listeners:
+hypridle's config, keeping your other listeners. That is
+`~/.config/hypr/hypridle.conf`, or the file hypridle runs with when it is
+started with `-c` (some shells do this); `tock doctor` checks the one that
+is running:
 
 ```
 general {

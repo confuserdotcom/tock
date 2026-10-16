@@ -205,7 +205,7 @@ func doctorAFK(env Env, cfg config.Config, ok func(name, detail string), bad fun
 	stale := classify.FormatDur(cfg.AFK.StaleMS)
 	if env.Linux && (env.Hypridle == nil || !env.Hypridle()) {
 		bad("idle", "hypridle does not run trackd idle, so trackd never sees you leave; windows over "+stale+" are cut",
-			"add the listener in README › Linux to ~/.config/hypr/hypridle.conf")
+			"add the listener in README › Linux to hypridle's config (the -c file it runs with, else ~/.config/hypr/hypridle.conf)")
 	}
 	detail := "idle after 5m without input"
 	if rs, err := classify.Load(env.rulesPath(), env.learnedPath()); err == nil {

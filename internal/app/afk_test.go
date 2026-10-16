@@ -3,6 +3,7 @@ package app
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -104,5 +105,23 @@ func TestStaleRemoteMachine(t *testing.T) {
 	b, err := os.ReadFile(filepath.Join(dir, "mac", machineFile))
 	if err != nil || !strings.HasPrefix(string(b), `{"input":true,"rules_at":`) {
 		t.Fatalf("machine.json = %q, %v", b, err)
+	}
+}
+
+func TestHypridleConfigs(t *testing.T) {
+	proc := t.TempDir()
+	for pid, cmd := range map[string]string{
+		"12":   "hypridle\x00-c\x00/home/x/.config/ryoku/hypridle.conf\x00",
+		"13":   "/usr/bin/hypridle\x00--config=/etc/hi.conf\x00",
+		"14":   "bash\x00-c\x00hypridle\x00",
+		"self": "hypridle\x00-c\x00/nope\x00",
+	} {
+		os.MkdirAll(filepath.Join(proc, pid), 0o700)
+		os.WriteFile(filepath.Join(proc, pid, "cmdline"), []byte(cmd), 0o600)
+	}
+	got := hypridleConfigs(proc)
+	slices.Sort(got)
+	if want := []string{"/etc/hi.conf", "/home/x/.config/ryoku/hypridle.conf"}; !slices.Equal(got, want) {
+		t.Fatalf("configs = %v", got)
 	}
 }
