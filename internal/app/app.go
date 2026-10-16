@@ -39,6 +39,9 @@ type App struct {
 	shellErr error
 	home     string // the user's home, for "~/…" dirs
 	input    bool   // this machine reports input (see inputKnown)
+	// inputSince is when it began to: math.MinInt64 for always (macOS),
+	// math.MaxInt64 for not yet. The stale rule cuts the time before.
+	inputSince int64
 
 	git      gitlog.Runner // nil = gitlog.Exec
 	gitCache map[gitKey]gitEntry
@@ -85,6 +88,7 @@ func Open(p Paths, now func() time.Time) (*App, error) {
 		shell: shell.Log{Path: p.ShellLog}}
 	a.home, _ = os.UserHomeDir()
 	a.input = inputKnown(runtime.GOOS, a.home)
+	a.inputSince = a.loadInputSince(runtime.GOOS, a.input)
 	a.loadConfig()
 	return a, nil
 }

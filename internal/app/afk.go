@@ -5,6 +5,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"tock/internal/classify"
@@ -16,10 +17,38 @@ import (
 const machineFile = "machine.json"
 
 type machineInfo struct {
-	Input    bool   `json:"input"`
-	RulesAt  int64  `json:"rules_at,omitempty"`  // rules.toml's change time, ms
-	RulesSum string `json:"rules_sum,omitempty"` // sha256 of the shared copy
+	Input      bool   `json:"input"`
+	InputSince int64  `json:"input_since,omitempty"` // when it began to report input, ms; 0 for always
+	RulesAt    int64  `json:"rules_at,omitempty"`    // rules.toml's change time, ms
+	RulesSum   string `json:"rules_sum,omitempty"`   // sha256 of the shared copy
 }
+
+// KeyInputSince is the daemon_state key holding when this Linux machine
+// began reporting input (ms), "" while it does not.
+const KeyInputSince = "input_since"
+
+// loadInputSince is when this machine began reporting input (see
+// App.inputSince), recording now as that time the first time it does.
+func (a *App) loadInputSince(goos string, input bool) int64 {
+	switch {
+	case goos != "linux":
+		return math.MinInt64
+	case !input:
+		a.st.SetState(KeyInputSince, "", a.nowMS())
+		return math.MaxInt64
+	}
+	v, _, _ := a.st.State(KeyInputSince)
+	if n, err := strconv.ParseInt(v, 10, 64); err == nil {
+		return n
+	}
+	now := a.nowMS()
+	a.st.SetState(KeyInputSince, strconv.FormatInt(now, 10), now)
+	return now
+}
+
+// RemoteInputSinceKey is the daemon_state key holding when a remote
+// machine began reporting input (ms), "" or absent for always.
+func RemoteInputSinceKey(machine string) string { return "remote_input_since:" + machine }
 
 // RemoteInputKey is the daemon_state key holding "1" when a remote machine
 // says it reports input.
@@ -109,8 +138,8 @@ func (a *App) base(rows []store.SpanRow, ovs map[int64]classify.Override, from, 
 	vs := views(rows, math.MinInt64, math.MaxInt64, nowMS)
 	a.attachShell(vs)
 	afk := classify.AFK{Window: a.afkWindow(ovs)}
-	if !a.input {
-		afk.StaleMS = a.cfg.AFK.StaleMS
+	if a.inputSince > math.MinInt64 {
+		afk.StaleMS, afk.StaleUntil = a.cfg.AFK.StaleMS, a.inputSince
 	}
 	return clipViews(classify.MarkAFK(vs, afk), from, to)
 }
@@ -131,16 +160,20 @@ func clipViews(vs []classify.SpanView, from, to int64) []classify.SpanView {
 // say they report input: a view longer than [afk] stale keeps its
 // category's window.
 func (a *App) staleRemote(rv []store.RemoteView) []store.RemoteView {
-	known := map[string]bool{}
+	// since is when each machine began reporting input: MaxInt64 for not.
+	since := map[string]int64{}
 	out := make([]store.RemoteView, 0, len(rv))
 	for _, r := range rv {
-		in, ok := known[r.Machine]
+		s, ok := since[r.Machine]
 		if !ok {
-			v, _, _ := a.st.State(RemoteInputKey(r.Machine))
-			in = v == "1"
-			known[r.Machine] = in
+			s = math.MaxInt64
+			if v, _, _ := a.st.State(RemoteInputKey(r.Machine)); v == "1" {
+				w, _, _ := a.st.State(RemoteInputSinceKey(r.Machine))
+				s, _ = strconv.ParseInt(w, 10, 64) // "" is 0: always
+			}
+			since[r.Machine] = s
 		}
-		if !in && r.EndMS-r.StartMS > a.cfg.AFK.StaleMS {
+		if r.StartMS < s && r.EndMS-r.StartMS > a.cfg.AFK.StaleMS {
 			cat := r.Category
 			if !a.rs.HasCategory(cat) {
 				cat = a.rs.Label(classify.SpanView{BundleID: r.Bundle, App: r.App, Title: r.Title, URL: r.URL}, nil).Category
@@ -158,6 +191,9 @@ func (a *App) staleRemote(rv []store.RemoteView) []store.RemoteView {
 // and shares rules.toml unless [sync] rules is off.
 func (a *App) writeMachineFile(dir string) error {
 	mi := machineInfo{Input: a.input}
+	if a.input && a.inputSince > math.MinInt64 {
+		mi.InputSince = a.inputSince
+	}
 	if !a.cfg.Sync.NoRules {
 		if err := a.shareRules(dir, &mi); err != nil {
 			return err
@@ -177,9 +213,15 @@ func (a *App) readMachineFile(dir, machine string) error {
 	if !ok {
 		return nil // an older tock writes none: unknown
 	}
-	v := "0"
+	v, since := "0", ""
 	if mi.Input {
 		v = "1"
+	}
+	if mi.InputSince > 0 {
+		since = strconv.FormatInt(mi.InputSince, 10)
+	}
+	if err := a.st.SetState(RemoteInputSinceKey(machine), since, a.nowMS()); err != nil {
+		return err
 	}
 	return a.st.SetState(RemoteInputKey(machine), v, a.nowMS())
 }

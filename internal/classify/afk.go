@@ -10,6 +10,9 @@ type AFK struct {
 	// StaleMS > 0 means this machine reports no input: a view longer than
 	// StaleMS keeps its window and the rest is idle.
 	StaleMS int64
+	// StaleUntil, when set, limits the stale rule to views that start
+	// before it: the machine has reported input since.
+	StaleUntil int64
 }
 
 // MarkAFK applies the AFK windows to this machine's views, in start order.
@@ -29,7 +32,8 @@ func MarkAFK(views []SpanView, a AFK) []SpanView {
 				continue
 			}
 		}
-		if cut := v.Start + a.Window(v); local && a.StaleMS > 0 && v.DurMS() > a.StaleMS && cut < v.End {
+		if cut := v.Start + a.Window(v); local && a.StaleMS > 0 && (a.StaleUntil == 0 || v.Start < a.StaleUntil) &&
+			v.DurMS() > a.StaleMS && cut < v.End {
 			keep, rest := v, v
 			keep.End = cut
 			rest.Start, rest.BundleID, rest.App = cut, span.IdleBundleID, span.IdleApp

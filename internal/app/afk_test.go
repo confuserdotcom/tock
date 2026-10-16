@@ -1,14 +1,17 @@
 package app
 
 import (
+	"math"
 	"os"
 	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"tock/internal/apptest"
+	"tock/internal/store"
 )
 
 const afkRules = apptest.Rules + `
@@ -64,9 +67,36 @@ func TestAFKStaleWithoutInput(t *testing.T) {
 	e.Seed(t, apptest.Span{ID: 1, Start: "00:00", End: "06:33", Bundle: "pdf", App: "PDF", Title: "L'Étranger"})
 	a := open(t, e)
 	a.input = false
+	a.inputSince = a.loadInputSince("linux", false)
 	got := timeline(t, a)
 	if !strings.Contains(got, "00:00-00:10 PDF Reading") || !strings.Contains(got, "00:10-06:33 Idle") {
 		t.Fatalf("timeline:\n%s", got)
+	}
+}
+
+// Once input is reported, the time before it is still judged by the stale
+// rule; the time after is not.
+func TestAFKStaleBeforeInputBegan(t *testing.T) {
+	e := apptest.New(t, afkRules)
+	e.Seed(t, apptest.Span{ID: 1, Start: "00:00", End: "06:33", Bundle: "pdf", App: "PDF", Title: "L'Étranger"},
+		apptest.Span{ID: 2, Start: "09:00", End: "10:00", Bundle: "pdf", App: "PDF", Title: "L'Étranger"})
+	a := open(t, e)
+	a.input = true
+	e.Clock = time.UnixMilli(apptest.At(t, "08:00", 0)) // hooked at 08:00
+	a.now = e.NowFunc()
+	a.inputSince = a.loadInputSince("linux", true)
+	e.Clock = apptest.Now
+	a.now = e.NowFunc()
+	if again := a.loadInputSince("linux", true); again != a.inputSince {
+		t.Fatalf("input since moved: %d, was %d", again, a.inputSince)
+	}
+	got := timeline(t, a)
+	if !strings.Contains(got, "00:10-06:33 Idle") || !strings.Contains(got, "09:00-10:00 PDF Reading") {
+		t.Fatalf("timeline:\n%s", got)
+	}
+	// Unhooked again: it starts over when hooked next.
+	if a.loadInputSince("linux", false) != math.MaxInt64 || a.loadInputSince("linux", true) != apptest.Now.UnixMilli() {
+		t.Fatal("input since not reset")
 	}
 }
 
@@ -124,5 +154,25 @@ func TestHypridleConfigs(t *testing.T) {
 	slices.Sort(got)
 	if want := []string{"/etc/hi.conf", "/home/x/.config/ryoku/hypridle.conf", "/home/x/.config/tock/hypridle.conf"}; !slices.Equal(got, want) {
 		t.Fatalf("configs = %v", got)
+	}
+}
+
+func TestStaleRemoteBeforeInputBegan(t *testing.T) {
+	e := apptest.New(t, afkRules)
+	e.Seed(t, apptest.Span{ID: 1, Start: "14:00", End: "14:10", Bundle: "term", App: "WezTerm", Title: "x"})
+	a := open(t, e)
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, machineFile), []byte(`{"input":true,"input_since":`+
+		strconv.FormatInt(apptest.At(t, "08:00", 0), 10)+"}\n"), 0o600)
+	if err := a.readMachineFile(dir, "ryuk"); err != nil {
+		t.Fatal(err)
+	}
+	rv := []store.RemoteView{
+		{Machine: "ryuk", StartMS: apptest.At(t, "00:00", 0), EndMS: apptest.At(t, "06:33", 0), Bundle: "pdf", App: "PDF", Category: "Reading"},
+		{Machine: "ryuk", StartMS: apptest.At(t, "09:00", 0), EndMS: apptest.At(t, "10:00", 0), Bundle: "pdf", App: "PDF", Category: "Reading"},
+	}
+	got := a.staleRemote(rv)
+	if got[0].EndMS != apptest.At(t, "00:10", 0) || got[1].EndMS != apptest.At(t, "10:00", 0) {
+		t.Fatalf("cut = %v, %v", time.UnixMilli(got[0].EndMS), time.UnixMilli(got[1].EndMS))
 	}
 }
