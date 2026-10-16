@@ -19,6 +19,7 @@ type SpanView struct {
 	Dir            *string // the shell's working directory, for terminal views; "~/…" under home
 	InCall         bool    // a camera or microphone was in use (see MarkCalls)
 	Kept           *Kept   // the label kept when the title was deleted; nil = none
+	Planned        string  // the module of the plan's task at this time (see MarkPlan); "" = none
 }
 
 // DurMS returns End-Start, or 0 when End is before Start.

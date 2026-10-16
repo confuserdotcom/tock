@@ -458,6 +458,42 @@ Each category has a kind:
 The starter rules have Reading (neutral, for books and long reads), Research
 (shallow: encyclopedias, papers, dictionaries) and Browsing.
 
+## Modules
+
+A project filed under a category is a module: a course, a client, a side
+project, whatever groups your time inside that category.
+
+```toml
+[[project]]
+name = "Analyse 1"
+category = "Study"
+aliases = ["ana1", "Nombres réels", "Suites numériques"]
+```
+
+- tock finds a module by its name and aliases in window titles and terminal
+  directories, whatever the app: `Cours Complet ALGEBRE 1.pdf` is Algèbre
+  1 and `~/Licence/S1/Analyse 1` in a terminal is Analyse 1. Case and
+  accents don't matter, and words match whole (`Analyse 1` never matches
+  `Analyse 12`). This comes before every rule; `match = false` turns it off
+  for one module, and a hand tag still wins.
+- Time with the module and no category of its own takes the module's
+  category, so `p` (project only) on a row also makes it Study.
+- With a `[plan]` file, a timed task whose `+tag` names a module (`+ana1
+  @ven-19h30 due:2026-10-16`) claims that module for Study time without
+  one, from its time to the next timed task that day (3 hours at most).
+  Notes titled `TD 1` then still land in the right module.
+
+```
+tock project scan ~/Licence/S1 --category Study   a module for each folder
+tock project add Thermodynamique --category Study --alias thermo
+tock project set ana --alias ana1,AF               --category none unfiles it
+tock project rename "Analyse 1" "Analyse I"
+tock project                                       categories with their modules
+```
+
+Projects without a category work as before: rules set them, and they can
+list `repos` and a `rate`.
+
 ## AFK
 
 Time counts while you are at the machine. trackd notices when there has

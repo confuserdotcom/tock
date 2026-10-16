@@ -47,6 +47,9 @@ const usage = `usage:
   tock category [add <name> <kind> [--afk D] | set <name> [--kind K] [--afk D] |
                 rename <name> <new> | rm <name>]
                                          list or change your categories (rules.toml)
+  tock project [add <name> [--category C] [--alias a,b] | set <name> ... |
+               rename <name> <new> | rm <name> | scan <dir> --category C]
+                                         projects; filed under a category they are modules
   tock session [start [MIN] | stop]      focus session: show, start (default 25), stop
   tock recap [YYYY-MM-DD]                the daily recap
   tock trends [--month YYYY-MM]          a month against the one before
@@ -190,6 +193,7 @@ var commands = map[string]func(Env, []string) error{
 	"init":       cmdInit,
 	"rules":      cmdRules,
 	"category":   cmdCategory,
+	"project":    cmdProject,
 	"today":      cmdToday,
 	"inbox":      cmdInbox,
 	"ignore":     cmdIgnore,

@@ -67,9 +67,13 @@ const (
 type Project struct {
 	Name     string
 	Archived bool
-	// Category files the project under a declared category: time with the
-	// project and no category of its own takes it. "" = none.
+	// Category files the project under a declared category, which makes
+	// it a module: time with the project and no category of its own takes
+	// it, and tock finds the module by Name and Aliases in window titles
+	// (unless Match is false). "" = none.
 	Category string
+	Aliases  []string
+	Match    bool
 	// Rate is the hourly rate billed in tock export; nil = none.
 	Rate *float64
 	// Repos are local git repositories as written (see ExpandHome).
@@ -177,6 +181,8 @@ type Ruleset struct {
 	// Goals are the [[goal]] tables, in file order.
 	Goals []Goal
 
+	modules     []module    // projects with a category, in file order
+	moduleKeys  []moduleKey // every name and alias of a module, for ModuleOf
 	catByLower  map[string]Category
 	projByLower map[string]Project
 
@@ -203,6 +209,8 @@ type rulesTOML struct {
 	Project []struct {
 		Name     string   `toml:"name"`
 		Category string   `toml:"category"`
+		Aliases  []string `toml:"aliases"`
+		Match    *bool    `toml:"match"`
 		Archived bool     `toml:"archived"`
 		Rate     *float64 `toml:"rate"`
 		Repos    []string `toml:"repos"`
@@ -324,6 +332,26 @@ func Parse(rulesData, learnedData []byte) (*Ruleset, error) {
 				return nil, fmt.Errorf("%s: project %q: unknown category %q", RulesFile, p.Name, p.Category)
 			}
 			proj.Category = cat.Name
+			proj.Match = p.Match == nil || *p.Match
+		}
+		for _, al := range p.Aliases {
+			if strings.TrimSpace(foldWords(al)) == "" {
+				return nil, fmt.Errorf("%s: project %q: empty alias", RulesFile, p.Name)
+			}
+			proj.Aliases = append(proj.Aliases, strings.TrimSpace(al))
+		}
+		if proj.Category != "" && !proj.Archived {
+			m := module{project: proj.Name, category: proj.Category}
+			for _, k := range append([]string{proj.Name}, proj.Aliases...) {
+				m.keys = append(m.keys, foldWords(k))
+			}
+			if !proj.Match {
+				m.keys = nil // still known to the plan by name and aliases
+			}
+			rs.modules = append(rs.modules, m)
+			for _, k := range append([]string{proj.Name}, proj.Aliases...) {
+				rs.moduleKeys = append(rs.moduleKeys, moduleKey{foldWords(k), proj.Name})
+			}
 		}
 		for _, r := range p.Repos {
 			r = strings.TrimSpace(r)

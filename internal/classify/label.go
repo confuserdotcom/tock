@@ -1,6 +1,10 @@
 package classify
 
-import "tock/internal/span"
+import (
+	"strings"
+
+	"tock/internal/span"
+)
 
 // Source says where a label field came from.
 type Source string
@@ -13,6 +17,9 @@ const (
 	SourceCall     Source = "call"
 	SourceCalendar Source = "calendar"
 	SourceKept     Source = "kept" // the rule label kept when the title was deleted
+	SourceModule   Source = "module"  // a module's name or alias in the title
+	SourceProject  Source = "project" // the category the project is filed under
+	SourcePlan     Source = "plan"    // the module of the plan's task at that time
 )
 
 // Kept is the rule label a span kept when [privacy] keep_titles deleted its
@@ -74,6 +81,17 @@ func (rs *Ruleset) Label(v SpanView, o *Override) Label {
 		l.Project = o.Project
 		l.ProjectSource, l.ProjectRule = SourceManual, ""
 	}
+	if l.Project == "" && v.Planned != "" {
+		if c := rs.ProjectCategory(v.Planned); c != "" && strings.EqualFold(c, l.Category) {
+			l.Project, l.ProjectSource, l.ProjectRule = v.Planned, SourcePlan, ""
+		}
+	}
+	if l.Category == "" && l.Project != "" {
+		if c := rs.ProjectCategory(l.Project); c != "" {
+			l.Category, l.Kind = c, rs.Kind(c)
+			l.CategorySource, l.CategoryRule = SourceProject, ""
+		}
+	}
 	return l
 }
 
@@ -121,6 +139,15 @@ func (rs *Ruleset) ruleLabel(v *SpanView) Label {
 	}
 
 	l = Label{CategorySource: SourceNone, ProjectSource: SourceNone}
+	dir := ""
+	if v.Dir != nil {
+		dir = *v.Dir
+	}
+	if m := rs.moduleFor(clean, dir); m != nil {
+		l.Category, l.Kind, l.Project = m.category, rs.Kind(m.category), m.project
+		l.CategorySource, l.ProjectSource = SourceModule, SourceModule
+		l.CategoryRule, l.ProjectRule = "module:"+m.project, "module:"+m.project
+	}
 	for _, set := range []struct {
 		rules []Rule
 		src   Source

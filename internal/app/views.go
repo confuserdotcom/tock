@@ -79,7 +79,7 @@ func (a *App) spans(from, to int64) ([]store.SpanRow, map[int64]classify.Overrid
 		return nil, nil, err
 	}
 	if fp := fingerprint(ovs) ^ uint64(n)<<48 ^ uint64(lastAt) ^ uint64(en)<<32 ^ uint64(eid)<<8 ^
-		uint64(rn)<<40 ^ uint64(rid)<<16 ^ uint64(dn)<<52 ^ uint64(dsum)*31; fp != a.pastKey {
+		uint64(rn)<<40 ^ uint64(rid)<<16 ^ uint64(dn)<<52 ^ uint64(dsum)*31 ^ a.planStamp()*17; fp != a.pastKey {
 		a.past, a.pastKey = nil, fp
 	}
 	return rows, overrides(ovs), nil
@@ -130,7 +130,7 @@ func (a *App) decorate(vs []classify.SpanView, ovs map[int64]classify.Override, 
 			ovs[-r.ID] = classify.Override{Category: r.Category, Project: r.Project}
 		}
 	}
-	vs = classify.MarkAway(vs, marks, from, to)
+	vs = classify.MarkPlan(classify.MarkAway(vs, marks, from, to), a.planSlots(from, to))
 	if a.rs.CalendarCategory == "" {
 		return a.markEdits(vs, ovs, from, to)
 	}

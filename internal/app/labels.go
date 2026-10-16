@@ -207,3 +207,134 @@ func (a *App) LabelTree(days int) ([]TreeCategory, error) {
 	}
 	return out, nil
 }
+
+// ProjectSpec is a project to add, or what to change in one (Edit): nil
+// leaves a field, Category "" unfiles it.
+type ProjectSpec struct {
+	Name     string
+	Category *string
+	Aliases  *[]string
+	Archived *bool
+}
+
+func (a *App) checkProject(p ProjectSpec) (ProjectSpec, error) {
+	if p.Category != nil && *p.Category != "" {
+		c, err := a.rs.ResolveCategory(*p.Category)
+		if err != nil {
+			return p, err
+		}
+		p.Category = &c
+	}
+	if p.Aliases != nil {
+		var clean []string
+		for _, al := range *p.Aliases {
+			if al = strings.TrimSpace(al); al != "" {
+				clean = append(clean, al)
+			}
+		}
+		p.Aliases = &clean
+	}
+	return p, nil
+}
+
+// AddProject declares a new project; with a category it is a module.
+func (a *App) AddProject(p ProjectSpec) error {
+	p.Name = strings.TrimSpace(p.Name)
+	switch {
+	case p.Name == "" || strings.Contains(p.Name, "/"):
+		return fmt.Errorf("project name %q: empty or with /", p.Name)
+	case a.rs.HasProject(p.Name):
+		return fmt.Errorf("project %q exists", p.Name)
+	}
+	p, err := a.checkProject(p)
+	if err != nil {
+		return err
+	}
+	fields := []classify.Field{{Key: "name", Value: classify.TOMLString(p.Name)}}
+	if p.Category != nil && *p.Category != "" {
+		fields = append(fields, classify.Field{Key: "category", Value: classify.TOMLString(*p.Category)})
+	}
+	if p.Aliases != nil && len(*p.Aliases) > 0 {
+		fields = append(fields, classify.Field{Key: "aliases", Value: classify.TOMLStrings(*p.Aliases)})
+	}
+	return a.rewriteRules(func(rules, learned []byte) ([]byte, []byte, error) {
+		return []byte(classify.AddTable(string(rules), classify.NameProject, fields)), learned, nil
+	})
+}
+
+// EditProject changes a project's category, aliases or archived flag.
+func (a *App) EditProject(p ProjectSpec) error {
+	name, err := a.rs.ResolveName(classify.NameProject, p.Name)
+	if err != nil {
+		return err
+	}
+	if p, err = a.checkProject(p); err != nil {
+		return err
+	}
+	return a.rewriteRules(func(rules, learned []byte) ([]byte, []byte, error) {
+		text := string(rules)
+		set := func(key, value string) {
+			if err == nil {
+				text, err = classify.SetTableField(text, classify.NameProject, name, key, value)
+			}
+		}
+		if p.Category != nil {
+			v := ""
+			if *p.Category != "" {
+				v = classify.TOMLString(*p.Category)
+			}
+			set("category", v)
+		}
+		if p.Aliases != nil {
+			v := ""
+			if len(*p.Aliases) > 0 {
+				v = classify.TOMLStrings(*p.Aliases)
+			}
+			set("aliases", v)
+		}
+		if p.Archived != nil {
+			v := ""
+			if *p.Archived {
+				v = "true"
+			}
+			set("archived", v)
+		}
+		return []byte(text), learned, err
+	})
+}
+
+// ScanModules adds a module under category for each folder in dir that no
+// project names yet (by name or alias). It returns the names added.
+func (a *App) ScanModules(dir, category string) ([]string, error) {
+	cat, err := a.rs.ResolveCategory(category)
+	if err != nil {
+		return nil, err
+	}
+	ents, err := os.ReadDir(classify.ExpandHome(dir, a.home))
+	if err != nil {
+		return nil, err
+	}
+	var add []string
+	for _, e := range ents {
+		n := strings.TrimSpace(e.Name())
+		if !e.IsDir() || n == "" || strings.HasPrefix(n, ".") || strings.HasPrefix(n, "_") || strings.Contains(n, "/") {
+			continue
+		}
+		if a.rs.HasProject(n) || a.rs.ModuleOf(n) != "" {
+			continue
+		}
+		add = append(add, n)
+	}
+	if len(add) == 0 {
+		return nil, nil
+	}
+	err = a.rewriteRules(func(rules, learned []byte) ([]byte, []byte, error) {
+		text := string(rules)
+		for _, n := range add {
+			text = classify.AddTable(text, classify.NameProject, []classify.Field{
+				{Key: "name", Value: classify.TOMLString(n)}, {Key: "category", Value: classify.TOMLString(cat)}})
+		}
+		return []byte(text), learned, nil
+	})
+	return add, err
+}

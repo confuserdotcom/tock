@@ -257,6 +257,13 @@ func Rows(lines []string, day, tomorrow string) []Row {
 
 var clockRE = regexp.MustCompile(`(?:^|\D)(\d{1,2})[h:](\d{2})$`)
 
+// Clock is the minute of the day in a context (@07h30, @ven-07h30,
+// @07:30); ok is false for an untimed line.
+func Clock(it Item) (minute int, ok bool) {
+	m := clock(it)
+	return m, m < 24*60
+}
+
 // clock is the minute of the day in a context; untimed lines sort last.
 func clock(it Item) int {
 	for _, c := range it.Contexts {
