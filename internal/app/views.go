@@ -252,6 +252,9 @@ func (a *App) Day(day time.Time) (report.Day, error) {
 	if d.Away, err = a.pending(vs, from.UnixMilli(), to.UnixMilli()); err != nil {
 		return report.Day{}, err
 	}
+	for _, iv := range d.Away {
+		d.AwayBefore = append(d.AwayBefore, classify.Before(vs, labels, iv.From))
+	}
 	d.Commits = a.commits(from.UnixMilli(), to.UnixMilli())
 	if err := a.fillSummaries(from, &d.Summary, func(start int64, text string) {
 		for i := range d.Blocks {

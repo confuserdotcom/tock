@@ -222,9 +222,17 @@ func stepAway(in Input, st *State) (Event, bool) {
 	}
 	st.AwayAt = a.To
 	clock := func(ms int64) string { return time.UnixMilli(ms).In(in.Day.Location()).Format("15:04") }
-	n := note(TopicAway, TitleAway, fmt.Sprintf("Away %s (%s–%s). What was it? Run tock away or open tock.",
-		classify.FormatDur(a.To-a.From), clock(a.From), clock(a.To)), false)
-	n.Away = *a
+	ask := "What was it?"
+	if b := in.AbsenceBefore; b.Category != "" {
+		what := b.Category
+		if b.Project != "" {
+			what += " / " + b.Project
+		}
+		ask = "Still on " + what + "?"
+	}
+	n := note(TopicAway, TitleAway, fmt.Sprintf("Away %s (%s–%s). %s Run tock away or open tock.",
+		classify.FormatDur(a.To-a.From), clock(a.From), clock(a.To), ask), false)
+	n.Away, n.Before = *a, in.AbsenceBefore
 	return n, true
 }
 

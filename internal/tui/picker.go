@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"slices"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -105,6 +106,9 @@ func (p *picker) withQuick(m *Model, key string) *picker {
 		m.src.do(func(a *app.App) { recent, _ = a.RecentAwayLabels(3) })
 		for _, w := range recent {
 			w := w
+			if slices.ContainsFunc(p.quick, func(o option) bool { return o.want != nil && *o.want == w }) {
+				continue
+			}
 			p.quick = append(p.quick, option{name: report.LabelText(w.Category, w.Project), note: "↺ recent", want: &w})
 		}
 	}

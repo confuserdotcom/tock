@@ -42,6 +42,9 @@ type Day struct {
 	Score      stats.Score
 	Goals      []GoalRow           // filled by the caller from the week to date; nil without goals
 	Away       []classify.Interval // pending absences, filled by the caller
+	// AwayBefore[i] is the label of what Away[i] follows, zero when
+	// unlabelled: "still on it" answers with it.
+	AwayBefore []classify.Want
 	Commits    []NameN             // commits per project, filled by the caller
 	Blocks     []Block             // work blocks, in order
 	Summary    string              // the day's AI summary, filled by the caller when one is saved

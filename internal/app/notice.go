@@ -3,6 +3,7 @@ package app
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strconv"
 
 	"tock/internal/classify"
@@ -44,6 +45,10 @@ func (a *App) Enqueue(ev focus.Event) error {
 		ls, err := a.RecentAwayLabels(AwayQuickLabels)
 		if err != nil {
 			return err
+		}
+		if b := ev.Before; b.Category != "" {
+			ls = slices.DeleteFunc(ls, func(w classify.Want) bool { return w == b })
+			ls = append([]classify.Want{b}, ls[:min(len(ls), AwayQuickLabels-1)]...)
 		}
 		d.Labels = ls
 	}

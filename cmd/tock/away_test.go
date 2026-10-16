@@ -48,3 +48,17 @@ func TestAwayErrors(t *testing.T) {
 		t.Fatal("unknown category accepted")
 	}
 }
+
+func TestAwaySame(t *testing.T) {
+	te := newTestEnv(t, testRules)
+	te.seed(t, seedSpan{1, "09:00", "10:00", "term", "WezTerm", "tock │ x", "", false},
+		seedSpan{2, "10:00", "10:30", "tock.idle", "Idle", "", "", false},
+		seedSpan{3, "10:30", "11:00", "term", "WezTerm", "tock │ y", "", false})
+	code, out := te.run(t, "", "away")
+	if code != 0 || !strings.Contains(out, "10:00–10:30    30m  after Code / tock\n") || !strings.Contains(out, "tock away <HH:MM> same") {
+		t.Fatalf("list: code %d\n%s", code, out)
+	}
+	if code, out := te.run(t, "", "away", "10:00", "same"); code != 0 || out != "labelled 10:00–10:30 (30m) → Code / tock\n" {
+		t.Fatalf("same: code %d %q %q", code, out, te.errb.String())
+	}
+}

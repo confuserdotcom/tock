@@ -95,6 +95,7 @@ type Event struct {
 	OfSession   bool              // a Notify about the running session; drop it when that session was closed meanwhile
 	Minutes     int               // TopicDone: the finished session's planned length
 	Away        classify.Interval // TopicAway: the absence asked about
+	Before      classify.Want     // TopicAway: the label of what it follows, if any
 	Sess        Session
 	State       State
 }
@@ -112,6 +113,8 @@ type Input struct {
 	RecapBody string // the recap text; the caller fills it when RecapDue
 	// Absence is the latest absence today that has no answer yet, or nil.
 	Absence *classify.Interval
+	// AbsenceBefore is the label of what Absence follows; zero when none.
+	AbsenceBefore classify.Want
 }
 
 // IsMeeting reports a meeting view: a meeting app, or a URL whose host is a

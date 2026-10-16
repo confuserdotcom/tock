@@ -112,6 +112,11 @@ func actionTable() []action {
 			when: rowIs(func(m *Model, r *report.Row) bool { return m.today.enterAction(r, m.inbox.sugg) != "" })},
 		{key: "a", name: "label time away", group: grToday, prio: 2,
 			when: func(m *Model) bool { return m.tab == tabToday && len(m.today.day.Away) > 0 }},
+		{key: "y", name: "away: still on it", group: grToday, prio: 3,
+			when: func(m *Model) bool {
+				n := len(m.today.day.Away)
+				return m.tab == tabToday && n > 0 && m.today.before(m.today.day.Away[n-1]).Category != ""
+			}},
 		{key: "A", name: "leave time away idle", group: grToday, prio: 45,
 			when: func(m *Model) bool { return m.tab == tabToday && len(m.today.day.Away) > 0 }},
 		{key: "t", name: "tag", group: grToday, prio: 10,

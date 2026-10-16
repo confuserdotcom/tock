@@ -102,7 +102,7 @@ func TestStaleRemoteMachine(t *testing.T) {
 		t.Fatalf("tracked = %d", d.TrackedMS)
 	}
 	b, err := os.ReadFile(filepath.Join(dir, "mac", machineFile))
-	if err != nil || strings.TrimSpace(string(b)) != `{"input":true}` {
+	if err != nil || !strings.HasPrefix(string(b), `{"input":true,"rules_at":`) {
 		t.Fatalf("machine.json = %q, %v", b, err)
 	}
 }

@@ -26,6 +26,15 @@ func TestStepAway(t *testing.T) {
 		t.Fatalf("asked twice: %+v", notes)
 	}
 
+	// After something labelled: asks whether you were still on it.
+	in.State = State{}
+	in.AbsenceBefore = classify.Want{Category: "Study", Project: "Analyse 1"}
+	if notes := only(Step(in), Notify); len(notes) != 1 || notes[0].Before != in.AbsenceBefore ||
+		notes[0].Body != "Away 35m (12:10–12:45). Still on Study / Analyse 1? Run tock away or open tock." {
+		t.Fatalf("after a label: %+v", notes)
+	}
+	in.State, in.AbsenceBefore = st[0].State, classify.Want{}
+
 	late := input(abs.To+AwayNotifyMS+1, vw{from: at(12, 0, 0), to: at(12, 10, 0)}, vw{from: at(12, 45, 0), to: abs.To + AwayNotifyMS + 1})
 	late.Absence = abs
 	if notes := only(Step(late), Notify); len(notes) != 0 {

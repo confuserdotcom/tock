@@ -42,6 +42,22 @@ func TestEnqueueAndTake(t *testing.T) {
 	if ns, _ := a.TakeNotices(); len(ns) != 0 {
 		t.Fatalf("taken twice: %+v", ns)
 	}
+
+	// What the absence follows leads the buttons, once.
+	for _, b := range []classify.Want{{Category: "Code", Project: "tock"}, {Category: "Communication"}} {
+		if err := a.Enqueue(focus.Event{Kind: focus.Notify, Topic: focus.TopicAway, Title: focus.TitleAway, Away: away, Before: b}); err != nil {
+			t.Fatal(err)
+		}
+		ns, _ := a.TakeNotices()
+		_, d, _ := a.Notice(ns[0].ID)
+		want := []classify.Want{b}
+		if b.Category == "Code" {
+			want = append(want, classify.Want{Category: "Communication"})
+		}
+		if !reflect.DeepEqual(d.Labels, want) {
+			t.Fatalf("labels after %v = %+v", b, d.Labels)
+		}
+	}
 }
 
 func TestBarReady(t *testing.T) {

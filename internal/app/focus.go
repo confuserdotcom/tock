@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"time"
 
+	"tock/internal/classify"
 	"tock/internal/config"
 	"tock/internal/focus"
 	"tock/internal/report"
@@ -63,6 +64,7 @@ func (a *App) GuardTick(call bool) ([]focus.Event, focus.Guard, error) {
 	}
 	if n := len(abs); n > 0 {
 		in.Absence = &abs[n-1]
+		in.AbsenceBefore = classify.Before(vs, labels, abs[n-1].From)
 	}
 	if !a.cfg.Hours.Off(day) && focus.RecapDue(in) {
 		d, err := a.Day(nowT)

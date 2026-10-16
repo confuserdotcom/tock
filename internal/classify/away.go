@@ -110,3 +110,15 @@ func awayView(id, start, end int64) SpanView {
 
 // IsAway reports a labelled away view.
 func IsAway(v SpanView) bool { return v.BundleID == span.AwayBundleID }
+
+// Before is the label of what an absence starting at from follows: the
+// last view, not idle, that ends at from. Zero when there is none or it has
+// no label.
+func Before(views []SpanView, labels []Label, from int64) Want {
+	for i := len(views) - 1; i >= 0; i-- {
+		if v := views[i]; v.BundleID != span.IdleBundleID && v.End == from {
+			return Want{Category: labels[i].Category, Project: labels[i].Project}
+		}
+	}
+	return Want{}
+}

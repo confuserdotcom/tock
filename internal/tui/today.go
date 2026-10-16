@@ -214,6 +214,26 @@ func (t *todayTab) enterAction(r *report.Row, sugg map[string]classify.Want) str
 func remoteRow(r *report.Row) bool { return len(r.IDs) > 0 && app.IsRemoteView(r.IDs[0]) }
 
 // awayWhat names an absence: "12:25–14:50 (2h25)".
+// before is the label of what the pending absence iv follows, or zero.
+func (t *todayTab) before(iv classify.Interval) classify.Want {
+	for i, a := range t.day.Away {
+		if a == iv && i < len(t.day.AwayBefore) {
+			return t.day.AwayBefore[i]
+		}
+	}
+	return classify.Want{}
+}
+
+// awayPicker labels the absence iv; what it follows leads the quick
+// options.
+func (m *Model) awayPicker(iv classify.Interval) *picker {
+	p := newAwayPicker(m.src, iv, awayWhat(iv, m.now().Location()))
+	if b := m.today.before(iv); b.Category != "" {
+		p.quick = append(p.quick, option{name: report.LabelText(b.Category, b.Project), note: "◷ before", want: &b})
+	}
+	return p.withQuick(m, "")
+}
+
 func awayWhat(iv classify.Interval, loc *time.Location) string {
 	clock := func(ms int64) string { return time.UnixMilli(ms).In(loc).Format("15:04") }
 	return clock(iv.From) + "–" + clock(iv.To) + " (" + report.Dur(iv.To-iv.From) + ")"
@@ -273,7 +293,7 @@ func (m Model) todayKey(k string) (tea.Model, tea.Cmd) {
 			m.picker = newPicker(m.src, pickTag, r.IDs, "", spansWhat(len(r.IDs), r.End-r.Start)).withQuick(&m, r.Key)
 		case "away":
 			iv := *t.awayOf(r)
-			m.picker = newAwayPicker(m.src, iv, awayWhat(iv, m.now().Location())).withQuick(&m, "")
+			m.picker = m.awayPicker(iv)
 		}
 		return m, nil
 	case "d":
@@ -299,15 +319,26 @@ func (m Model) todayKey(k string) (tea.Model, tea.Cmd) {
 		}
 		m.edit = newRangeDlg(classify.EditAdd, "Add time", from, to, t.day.Date)
 		return m, nil
-	case "a", "A":
+	case "a", "A", "y":
 		n := len(t.day.Away)
 		if n == 0 {
 			m.setFlash("no time away to label", true)
 			return m, nil
 		}
 		iv := t.day.Away[n-1]
+		if k == "y" {
+			b := t.before(iv)
+			if b.Category == "" {
+				m.setFlash("nothing labelled right before it: a to label it", true)
+				return m, nil
+			}
+			what := awayWhat(iv, m.now().Location())
+			return m, m.act(func(a *app.App) (string, error) {
+				return "labelled away " + what + " → " + report.LabelText(b.Category, b.Project), a.Answer(iv, b)
+			})
+		}
 		if k == "a" {
-			m.picker = newAwayPicker(m.src, iv, awayWhat(iv, m.now().Location())).withQuick(&m, "")
+			m.picker = m.awayPicker(iv)
 			return m, nil
 		}
 		what := awayWhat(iv, m.now().Location())
@@ -320,7 +351,7 @@ func (m Model) todayKey(k string) (tea.Model, tea.Cmd) {
 		case r == nil:
 		case r.Idle && k == "t":
 			if iv := t.awayOf(r); iv != nil {
-				m.picker = newAwayPicker(m.src, *iv, awayWhat(*iv, m.now().Location())).withQuick(&m, "")
+				m.picker = m.awayPicker(*iv)
 				return m, nil
 			}
 			m.setFlash("not an away period: too short, too long or already answered", true)
@@ -421,4 +452,15 @@ func compact(rs []report.Row) []report.Row {
 
 func mergeable(r report.Row) bool {
 	return !r.Idle && r.Label.Category != "" && r.App != span.AwayApp && r.App != span.MeetingApp && !remoteRow(&r)
+}
+
+// kindOf is the kind of category name in the day shown, "" when it has no
+// time.
+func (t *todayTab) kindOf(name string) string {
+	for _, c := range t.day.Categories {
+		if c.Name == name {
+			return c.Kind
+		}
+	}
+	return ""
 }

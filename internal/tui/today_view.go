@@ -170,8 +170,13 @@ func (t *todayTab) attention() string {
 	d := t.day
 	if n := len(d.Away); n > 0 {
 		iv := d.Away[n-1]
-		line := " " + sAccent.Bold(true).Render("⚑ Away "+awayWhat(iv, d.Date.Location())) +
-			sText.Render(" — what was it?   ") + keycap("a", "label") + "   " + keycap("A", "leave idle")
+		line := " " + sAccent.Bold(true).Render("⚑ Away "+awayWhat(iv, d.Date.Location()))
+		if b := t.before(iv); b.Category != "" {
+			line += sText.Render(" after ") + kindStyle(t.kindOf(b.Category)).Render(report.Safe(report.LabelText(b.Category, b.Project))) +
+				sText.Render(" — still on it?   ") + keycap("y", "yes") + "   " + keycap("a", "something else") + "   " + keycap("A", "leave idle")
+		} else {
+			line += sText.Render(" — what was it?   ") + keycap("a", "label") + "   " + keycap("A", "leave idle")
+		}
 		if n > 1 {
 			line += sDim.Render(fmt.Sprintf("   +%d more", n-1))
 		}

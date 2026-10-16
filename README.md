@@ -177,7 +177,7 @@ tock inbox [--days N] [--all]          unlabelled activity, numbered
 tock tag [--once] <n> [<Category>[/<Project>]]   no label: accept the → suggestion
 tock tag --span <id> <Category>[/<Project>]
 tock ignore <n> | tock ignore --undo <key>
-tock away [--date D] [<HH:MM> <Category>[/<Project>] | --skip <HH:MM>]
+tock away [--date D] [<HH:MM> <Category>[/<Project>] | <HH:MM> same | --skip <HH:MM>]
                                        label time away (idle or asleep) or leave it idle
 tock edit add <HH:MM-HH:MM> <Category>[/<Project>] [note]
                                        add time you forgot to track
@@ -440,7 +440,10 @@ between two stretches of activity: 10 minutes to 4 hours by default
 (`[away]` in config.toml). When you come back, trackd sends one
 notification. Label the absence with `a` on the today tab, `t` on its idle
 row, or `tock away 12:10 Meeting`; `A` or `tock away --skip 12:10` leaves it
-idle. A labelled absence counts towards totals and goals, but not towards
+idle. When the time before the absence had a label (often reading with no
+input past its AFK window), tock asks whether you were still on it: `y`, the
+notification's first button or `tock away 12:10 same` gives the absence that
+label. A labelled absence counts towards totals and goals, but not towards
 focus blocks, context switches or break reminders. Absences that cross
 midnight are never asked about.
 
