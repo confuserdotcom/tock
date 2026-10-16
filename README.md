@@ -873,6 +873,7 @@ network share, and name it on both machines in `config.toml`:
 [sync]
 dir = "~/Sync/tock"
 machine = "mac"        # optional; default: the host name
+rules = true           # optional; share rules.toml (see Rules below)
 ```
 
 Every minute, trackd writes this machine's last two days to
@@ -887,6 +888,11 @@ Every minute, trackd writes this machine's last two days to
   it.
 - **Relabelling.** To relabel another machine's time, do it on that machine.
   Its time never enters this machine's inbox or Claude suggestions.
+- **Rules.** Each machine also shares its `rules.toml`. When another
+  machine's copy changed later than yours, has fully arrived and parses with
+  your `learned.toml`, tock takes it and keeps yours as `rules.toml.bak`.
+  `learned.toml` stays per machine. Clocks decide which edit is newer, so
+  keep them in time. `rules = false` under `[sync]` turns this off.
 - **Commands.** `tock sync` syncs now and lists the machines. Use
   `tock sync --days 30` once to send older days. `tock doctor` shows a
   `sync` line.

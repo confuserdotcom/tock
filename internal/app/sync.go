@@ -41,6 +41,9 @@ type SyncReport struct {
 	Written  int // day files written (unchanged ones are skipped)
 	Read     int // other machines' day files read
 	Machines []store.RemoteMachine
+	// RulesFrom is the machine whose newer rules.toml this sync took;
+	// RulesRefused a newer copy it could not take, as "<machine>: why".
+	RulesFrom, RulesRefused string
 }
 
 // ErrSyncOff means config.toml has no [sync] dir.
@@ -53,6 +56,12 @@ func (a *App) Sync(days int) (SyncReport, error) {
 	dir := a.cfg.Sync.Dir
 	if dir == "" {
 		return r, ErrSyncOff
+	}
+	if !a.cfg.Sync.NoRules {
+		var err error
+		if r.RulesFrom, r.RulesRefused, err = a.takeRules(dir, r.Machine); err != nil {
+			return r, err
+		}
 	}
 	today := a.midnight(a.now())
 	for i := range max(days, 1) {

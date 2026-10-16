@@ -274,6 +274,22 @@ func doctorSync(env Env, s config.Sync, ok func(name, detail string), bad func(n
 		}
 	}
 	ok("sync", detail)
+	switch {
+	case s.NoRules:
+		ok("rules sync", "off ([sync] rules = false)")
+	default:
+		detail := "on: the newest rules.toml wins, the one it replaces is kept as rules.toml.bak"
+		if st, err := openStore(env); err == nil {
+			v, _, _ := st.State(app.KeyRulesFrom)
+			st.Close()
+			if name, ms, ok := strings.Cut(v, " "); ok {
+				if n, err := strconv.ParseInt(ms, 10, 64); err == nil {
+					detail = "on; last took " + name + "'s, changed " + time.UnixMilli(n).In(env.Now().Location()).Format("Mon 2 Jan 15:04")
+				}
+			}
+		}
+		ok("rules sync", detail)
+	}
 }
 
 // doctorRepos checks that git reads every [[project]] repo.

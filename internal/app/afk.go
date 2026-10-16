@@ -16,7 +16,9 @@ import (
 const machineFile = "machine.json"
 
 type machineInfo struct {
-	Input bool `json:"input"`
+	Input    bool   `json:"input"`
+	RulesAt  int64  `json:"rules_at,omitempty"`  // rules.toml's change time, ms
+	RulesSum string `json:"rules_sum,omitempty"` // sha256 of the shared copy
 }
 
 // RemoteInputKey is the daemon_state key holding "1" when a remote machine
@@ -109,9 +111,16 @@ func (a *App) staleRemote(rv []store.RemoteView) []store.RemoteView {
 	return out
 }
 
-// writeMachineFile writes this machine's machine.json to its sync folder.
+// writeMachineFile writes this machine's machine.json to its sync folder,
+// and shares rules.toml unless [sync] rules is off.
 func (a *App) writeMachineFile(dir string) error {
-	b, err := json.Marshal(machineInfo{Input: a.input})
+	mi := machineInfo{Input: a.input}
+	if !a.cfg.Sync.NoRules {
+		if err := a.shareRules(dir, &mi); err != nil {
+			return err
+		}
+	}
+	b, err := json.Marshal(mi)
 	if err != nil {
 		return err
 	}
@@ -121,13 +130,9 @@ func (a *App) writeMachineFile(dir string) error {
 
 // readMachineFile records what a remote machine's machine.json says.
 func (a *App) readMachineFile(dir, machine string) error {
-	b, err := os.ReadFile(filepath.Join(dir, machineFile))
-	if err != nil {
+	mi, ok := readMachineInfo(dir)
+	if !ok {
 		return nil // an older tock writes none: unknown
-	}
-	var mi machineInfo
-	if json.Unmarshal(b, &mi) != nil {
-		return nil
 	}
 	v := "0"
 	if mi.Input {

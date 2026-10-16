@@ -34,6 +34,12 @@ func cmdSync(env Env, args []string) error {
 		return err
 	}
 	fmt.Fprintf(env.Stdout, "%s: wrote %d day files, read %d\n", r.Machine, r.Written, r.Read)
+	if r.RulesFrom != "" {
+		fmt.Fprintf(env.Stdout, "took the newer rules.toml from %s (yours is rules.toml.bak)\n", r.RulesFrom)
+	}
+	if r.RulesRefused != "" {
+		fmt.Fprintf(env.Stdout, "kept your rules.toml: the newer one from %s\n", r.RulesRefused)
+	}
 	if len(r.Machines) == 0 {
 		fmt.Fprintln(env.Stdout, "no other machine yet")
 	}

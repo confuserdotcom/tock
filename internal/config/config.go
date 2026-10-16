@@ -85,6 +85,9 @@ func DefaultSlack() Slack {
 type Sync struct {
 	Dir     string // absolute; "" = off
 	Machine string // "" = the host name
+	// NoRules keeps rules.toml out of the sync: by default each machine
+	// shares its copy and takes a newer one from another machine.
+	NoRules bool
 }
 
 // machineRE is a valid machine name: it becomes a folder name.
@@ -302,6 +305,7 @@ type calendarTOML struct {
 type syncTOML struct {
 	Dir     *string `toml:"dir"`
 	Machine *string `toml:"machine"`
+	Rules   *bool   `toml:"rules"`
 }
 
 type hoursTOML struct {
@@ -474,6 +478,9 @@ func Load(path string) (Config, error) {
 			return Default(), fmt.Errorf("%s: [sync] machine = %q, want lowercase letters, digits and -, at most 32", name, *f.Sync.Machine)
 		}
 		c.Sync.Machine = *f.Sync.Machine
+	}
+	if f.Sync.Rules != nil {
+		c.Sync.NoRules = !*f.Sync.Rules
 	}
 	return c, nil
 }

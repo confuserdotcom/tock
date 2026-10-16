@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"tock/internal/apptest"
 	"tock/internal/classify"
@@ -93,5 +94,93 @@ func TestSyncOffAndBadLines(t *testing.T) {
 	vs, err := readDayFile(p)
 	if err != nil || len(vs) != 1 || vs[0].App != "X" {
 		t.Fatalf("parsed = %+v, %v", vs, err)
+	}
+}
+
+func TestSyncTakesNewerRules(t *testing.T) {
+	mac, ryuk, dir := twoMachines(t)
+	old := time.Now().Add(-time.Hour)
+	if err := os.Chtimes(ryuk.paths.Rules, old, old); err != nil {
+		t.Fatal(err)
+	}
+	newer := apptest.Rules + "\n[[category]]\nname = \"Reading\"\nkind = \"neutral\"\n"
+	if err := os.WriteFile(mac.paths.Rules, []byte(newer), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	macAt, _ := os.Stat(mac.paths.Rules)
+	if r, err := mac.Sync(SyncDays); err != nil || r.RulesFrom != "" {
+		t.Fatalf("mac sync = %+v, %v", r, err)
+	}
+	if b, _ := os.ReadFile(filepath.Join(dir, "mac", rulesCopy)); string(b) != newer {
+		t.Fatalf("shared copy = %q", b)
+	}
+
+	// A copy that has not fully arrived is left alone.
+	if err := os.WriteFile(filepath.Join(dir, "mac", rulesCopy), []byte(newer[:20]), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if r, err := ryuk.Sync(SyncDays); err != nil || r.RulesFrom != "" || ryuk.Rules().HasCategory("Reading") {
+		t.Fatalf("partial copy taken: %+v, %v", r, err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "mac", rulesCopy), []byte(newer), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	r, err := ryuk.Sync(SyncDays)
+	if err != nil || r.RulesFrom != "mac" || !ryuk.Rules().HasCategory("Reading") {
+		t.Fatalf("ryuk sync = %+v, %v", r, err)
+	}
+	if b, _ := os.ReadFile(ryuk.paths.Rules + ".bak"); string(b) != apptest.Rules {
+		t.Fatalf("backup = %q", b)
+	}
+	if fi, _ := os.Stat(ryuk.paths.Rules); !fi.ModTime().Equal(macAt.ModTime().Truncate(time.Millisecond)) {
+		t.Fatalf("took copy changed %v, mac's %v", fi.ModTime(), macAt.ModTime())
+	}
+	if from, _ := ryuk.RulesFrom(); from != "mac" {
+		t.Fatalf("rules from %q", from)
+	}
+	// The same rules go nowhere: not back to the Mac, not again to ryuk.
+	if r, err := mac.Sync(SyncDays); err != nil || r.RulesFrom != "" {
+		t.Fatalf("mac took its own rules back: %+v, %v", r, err)
+	}
+	if r, err := ryuk.Sync(SyncDays); err != nil || r.RulesFrom != "" {
+		t.Fatalf("ryuk took them twice: %+v, %v", r, err)
+	}
+
+	// A newer copy that does not parse here is refused, and named.
+	if err := os.WriteFile(mac.paths.Rules, []byte(newer+"\n[[rule]]\napp = '('\ncategory = \"Code\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := mac.Sync(SyncDays); err != nil {
+		t.Fatal(err)
+	}
+	r, err = ryuk.Sync(SyncDays)
+	if err != nil || r.RulesFrom != "" || !strings.HasPrefix(r.RulesRefused, "mac: ") {
+		t.Fatalf("bad copy: %+v, %v", r, err)
+	}
+	if b, _ := os.ReadFile(ryuk.paths.Rules); string(b) != newer {
+		t.Fatal("bad copy replaced the rules")
+	}
+}
+
+func TestSyncRulesOff(t *testing.T) {
+	mac, ryuk, dir := twoMachines(t)
+	for _, a := range []*App{mac, ryuk} {
+		cfg, _ := os.ReadFile(a.paths.Config)
+		if err := os.WriteFile(a.paths.Config, append(cfg, "rules = false\n"...), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		a.Reload()
+	}
+	if err := os.WriteFile(mac.paths.Rules, []byte(apptest.Rules+"\n[[category]]\nname = \"Reading\"\nkind = \"neutral\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := mac.Sync(SyncDays); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "mac", rulesCopy)); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("rules shared with [sync] rules = false: %v", err)
+	}
+	if r, err := ryuk.Sync(SyncDays); err != nil || r.RulesFrom != "" || ryuk.Rules().HasCategory("Reading") {
+		t.Fatalf("ryuk = %+v, %v", r, err)
 	}
 }
