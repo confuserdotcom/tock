@@ -17,9 +17,10 @@ var (
 	colText, colBright, colDim, colFaint, colSurface color.Color
 	colBrand, colGood, colAccent                     color.Color
 	colDeep, colShallow, colNeutral, colUnlabelled   color.Color
-	colBrowse                                        color.Color
+	colBrowse, colHover                              color.Color
 
 	sText, sBright, sHead, sDim, sFaint, sAccent, sSel lipgloss.Style
+	sHover                                             lipgloss.Style
 	sBrand, sGood, sUnl                                lipgloss.Style
 	sDeep, sShallow, sNeutral, sBrowse                 lipgloss.Style
 
@@ -38,6 +39,7 @@ func setTheme(dark bool) {
 	colDim = hex("#6b7080", "#8b90a0")
 	colFaint = hex("#b4b8c4", "#4a4f5c")
 	colSurface = hex("#e9ebf0", "#252833")
+	colHover = hex("#f2f3f7", "#1c1f28")
 	colBrand = hex("#4d5ae0", "#9aa5ff")
 	colDeep = hex("#1f8a73", "#5fc4ad")
 	colShallow = hex("#a07818", "#e0bf72")
@@ -53,6 +55,7 @@ func setTheme(dark bool) {
 	sAccent, sBrand, sGood, sUnl = fg(colAccent), fg(colBrand), fg(colGood), fg(colUnlabelled)
 	sDeep, sShallow, sNeutral, sBrowse = fg(colDeep), fg(colShallow), fg(colNeutral), fg(colBrowse)
 	sSel = lipgloss.NewStyle().Background(colSurface).Foreground(colBright)
+	sHover = lipgloss.NewStyle().Background(colHover)
 }
 
 // kindStyle colours time by category kind; "" is unlabelled.

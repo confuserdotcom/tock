@@ -16,12 +16,12 @@ const inboxHeader = 2
 
 // inboxTab lists unlabelled keys.
 type inboxTab struct {
-	items   []classify.Item
-	loaded  bool
-	cursor  int
-	top     int
-	height  int                      // list rows that fit; set by Model.Update
-	sugg    map[string]classify.Want // valid suggestions by key
+	items  []classify.Item
+	loaded bool
+	cursor int
+	top    int
+	height int                      // list rows that fit; set by Model.Update
+	sugg   map[string]classify.Want // valid suggestions by key
 }
 
 func (t *inboxTab) count() int { return len(t.items) }

@@ -27,19 +27,20 @@ type action struct {
 func (a action) nav() bool { return strings.Contains(a.key, "/") && a.key != "/" }
 
 const (
-	grToday = "Today"
-	grWeek  = "Week"
-	grMonth = "Month"
-	grInbox = "Inbox"
-	grFocus = "Focus"
-	grRules = "Rules"
-	grPlan  = "Plan"
-	grGo    = "Go"
-	grApp   = "App"
+	grToday  = "Today"
+	grWeek   = "Week"
+	grMonth  = "Month"
+	grInbox  = "Inbox"
+	grFocus  = "Focus"
+	grRules  = "Rules"
+	grPlan   = "Plan"
+	grLabels = "Labels"
+	grGo     = "Go"
+	grApp    = "App"
 )
 
 // tabGroup is the action group of each tab.
-var tabGroup = [numTabs]string{grToday, grWeek, grInbox, grFocus, grRules, grPlan}
+var tabGroup = [numTabs]string{grToday, grWeek, grInbox, grFocus, grRules, grPlan, grLabels}
 
 func onTab(tab int) func(m *Model) bool {
 	return func(m *Model) bool { return m.tab == tab && !(tab == tabWeek && m.week.month) }
@@ -84,6 +85,23 @@ func startN(n int) func(m Model) (tea.Model, tea.Cmd) {
 }
 
 func inAway(m *Model, r *report.Row) bool { return m.today.awayOf(r) != nil }
+
+// labelSel is the labels tab's selection when that tab is open.
+func labelSel(m *Model) (cat, proj bool) {
+	if m.tab != tabLabels {
+		return false, false
+	}
+	c, p, ok := m.labels.selected()
+	if !ok {
+		return false, false
+	}
+	return c.Name != "", p != nil
+}
+
+func labelCat(m *Model) bool     { c, _ := labelSel(m); return c }
+func labelCatOnly(m *Model) bool { c, p := labelSel(m); return c && !p }
+func labelProj(m *Model) bool    { _, p := labelSel(m); return p }
+func labelAny(m *Model) bool     { c, p := labelSel(m); return c || p }
 
 // actionTable is every action, in help order within each group.
 func actionTable() []action {
@@ -175,12 +193,26 @@ func actionTable() []action {
 		{key: "j/k", name: "move", group: grPlan},
 		{key: "g/G", name: "first / last task", group: grPlan},
 
+		{key: "a", name: "add a category", group: grLabels, prio: 1, when: onTab(tabLabels)},
+		{key: "m", name: "add a module", group: grLabels, prio: 2, when: labelCat},
+		{key: "e", name: "rename", group: grLabels, prio: 3, when: labelAny},
+		{key: "K", name: "kind", group: grLabels, prio: 4, when: labelCatOnly},
+		{key: "w", name: "afk window", group: grLabels, prio: 5, when: labelCatOnly},
+		{key: "f", name: "file under a category", group: grLabels, prio: 4, when: labelProj},
+		{key: "l", name: "other names", group: grLabels, prio: 5, when: labelProj},
+		{key: "x", name: "archive / unarchive", group: grLabels, prio: 20, when: labelProj},
+		{key: "M", name: "merge into another", group: grLabels, prio: 30, when: labelAny},
+		{key: "d", name: "delete", group: grLabels, prio: 31, when: labelAny},
+		{key: "enter", name: "fold / other names", group: grLabels},
+		{key: "j/k", name: "move", group: grLabels},
+
 		{key: "1", name: "today", group: grGo, when: always, run: goTab(tabToday)},
 		{key: "2", name: "week", group: grGo, when: always, run: goTab(tabWeek)},
 		{key: "3", name: "inbox", group: grGo, when: always, run: goTab(tabInbox)},
 		{key: "4", name: "focus", group: grGo, when: always, run: goTab(tabFocus)},
 		{key: "5", name: "rules", group: grGo, when: always, run: goTab(tabRules)},
 		{key: "6", name: "plan", group: grGo, when: always, run: goTab(tabPlan)},
+		{key: "7", name: "categories and modules", group: grGo, when: always, run: goTab(tabLabels)},
 		{key: "tab", name: "next tab", group: grGo},
 
 		{key: "?", name: "help", group: grApp, prio: 98, when: always},

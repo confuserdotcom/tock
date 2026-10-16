@@ -48,7 +48,7 @@ func TestCategoryLifecycle(t *testing.T) {
 	if !strings.Contains(timeline(t, a), "11:26-11:35 Arc Messages") {
 		t.Fatalf("timeline:\n%s", timeline(t, a))
 	}
-	if _, err := a.RemoveName(classify.NameCategory, "Messages"); err == nil || !strings.Contains(err.Error(), "by hand") {
+	if _, err := a.RemoveName(classify.NameCategory, "Messages"); err == nil || !strings.Contains(err.Error(), "labels you set by hand") {
 		t.Fatalf("removed a hand-labelled category: %v", err)
 	}
 	if _, err := a.RemoveName(classify.NameCategory, "Code"); err == nil {

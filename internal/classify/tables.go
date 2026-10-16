@@ -243,11 +243,18 @@ func RemoveName(rulesData, learnedData []byte, kind, name string) ([]byte, strin
 		return nil, "", fmt.Errorf("remove: no %s %q", kind, name)
 	}
 	if n := rs.Uses(kind, decl); n > 0 {
-		return nil, "", fmt.Errorf("remove: %d rules or goals still name %q: merge it into another %s instead", n, decl, kind)
+		return nil, "", fmt.Errorf("%s is named by %s: merge it into another %s instead", decl, plural(n, "rule or goal", "rules or goals"), kind)
 	}
 	out := []byte(dropTable(string(rulesData), kind, decl))
 	if _, err := Parse(out, learnedData); err != nil {
 		return nil, "", fmt.Errorf("remove: the rewritten file does not parse (%v); edit it by hand", err)
 	}
 	return out, decl, nil
+}
+
+func plural(n int, one, many string) string {
+	if n == 1 {
+		return "1 " + one
+	}
+	return fmt.Sprintf("%d %s", n, many)
 }

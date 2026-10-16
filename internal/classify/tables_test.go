@@ -104,7 +104,7 @@ func TestRemoveName(t *testing.T) {
 		t.Fatalf("%v\n%s", err, out)
 	}
 	if _, _, err := RemoveName([]byte(tablesRules), nil, NameCategory, "Code"); err == nil ||
-		!strings.Contains(err.Error(), "3 rules or goals still name \"Code\"") {
+		!strings.Contains(err.Error(), "Code is named by 3 rules or goals") {
 		t.Fatalf("in use: %v", err)
 	}
 }

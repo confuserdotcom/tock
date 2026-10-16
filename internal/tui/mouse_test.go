@@ -37,7 +37,7 @@ func wheel(t *testing.T, m Model, b tea.MouseButton, n int) Model {
 
 func TestMouseModeOn(t *testing.T) {
 	m, _ := seeded(t)
-	if got := m.View().MouseMode; got != tea.MouseModeCellMotion {
+	if got := m.View().MouseMode; got != tea.MouseModeAllMotion {
 		t.Fatalf("MouseMode = %v", got)
 	}
 }

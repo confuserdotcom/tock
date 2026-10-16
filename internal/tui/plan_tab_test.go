@@ -64,7 +64,7 @@ func TestPlanToggleAndUndo(t *testing.T) {
 	if got := fileLines(t, file)[1]; got != "x 2026-10-10 Thermo · TD 1 +thermo @sam-07h00 due:2026-10-10 id:W41-1 pri:A" {
 		t.Fatalf("ticked line = %q", got)
 	}
-	mustContain(t, m, "done: Thermo · TD 1 (u undo)", "[x]   Thermo · TD 1")
+	mustContain(t, m, "done: Thermo · TD 1   u undo", "[x]   Thermo · TD 1")
 	m = press(t, m, "u")
 	if got := fileLines(t, file)[1]; got != planLines[1] {
 		t.Fatalf("after undo = %q", got)

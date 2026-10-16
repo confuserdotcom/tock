@@ -12,7 +12,7 @@ import (
 func TestTodayShowsTheDay(t *testing.T) {
 	m, _ := seeded(t)
 	mustContain(t, m,
-		"tock   today   week   inbox ³", "Sat 10 Oct  15:00  ● trackd down",
+		"tock    today    week   inbox ³", "Sat 10 Oct  15:00  ● trackd down",
 		"trackd is not running",
 		"74  score  good day", "2h14 focus of 4h00",
 		"1 block · longest 2h14 · 2 switches · tracked 2h54 · idle 41m",

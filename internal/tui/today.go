@@ -99,6 +99,25 @@ func nearestRow(rs []report.Row, id, start int64) int {
 	return best
 }
 
+// jumpTo selects the row that holds ms, else the last one starting before it.
+func (t *todayTab) jumpTo(ms int64) {
+	rs := t.rows()
+	if len(rs) == 0 {
+		return
+	}
+	best := 0
+	for i, r := range rs {
+		if r.Start <= ms {
+			best = i
+		}
+		if r.Start <= ms && ms < r.End {
+			break
+		}
+	}
+	t.cursor, t.follow = best, best == len(rs)-1
+	t.clampScroll()
+}
+
 func (t *todayTab) move(delta int) {
 	n := len(t.rows())
 	if n == 0 {
@@ -311,6 +330,7 @@ func (m Model) todayKey(k string) (tea.Model, tea.Cmd) {
 			m.picker = newPicker(m.src, pickTag, r.IDs, "", spansWhat(len(r.IDs), r.End-r.Start)).withQuick(&m, r.Key)
 		case k == "p":
 			m.picker = newPicker(m.src, pickProject, r.IDs, "", spansWhat(len(r.IDs), r.End-r.Start))
+			m.picker.rowCategory = r.Label.Category
 		default:
 			m.picker = newPicker(m.src, pickLearn, nil, r.Key, "").withQuick(&m, r.Key)
 		}

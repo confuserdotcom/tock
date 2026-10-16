@@ -5,7 +5,7 @@ import (
 )
 
 // helpOrder is the order of the help groups after the current tab's.
-var helpOrder = []string{grToday, grWeek, grMonth, grInbox, grFocus, grRules, grGo, grApp}
+var helpOrder = []string{grToday, grWeek, grMonth, grInbox, grFocus, grRules, grPlan, grLabels, grGo, grApp}
 
 // helpBody is the help card: every keyed action by group, the current
 // tab's group first, in two columns when the screen is wide enough.
@@ -25,7 +25,7 @@ func (m *Model) helpBody(w int) []string {
 		lines := []string{sHead.Render(g)}
 		seen := map[string]bool{}
 		if g == grGo {
-			lines = append(lines, "  "+sBrand.Bold(true).Render(fit("1-5", 6))+" "+sText.Render("switch tab"))
+			lines = append(lines, "  "+sBrand.Bold(true).Render(fit("1-7", 6))+" "+sText.Render("switch tab"))
 			seen["tab"+"next tab"] = false
 		}
 		for _, a := range actionTable() {

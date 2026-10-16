@@ -135,7 +135,7 @@ func (t weekTab) monthView(w int) []string {
 	for i, l := range lines {
 		switch c := i - first; {
 		case i == 0:
-			out[i] = " " + sHead.Render(l) + sFaint.Render("  ‹ h  l ›")
+			out[i] = " " + sHead.Render(l) + navArrows()
 		case c >= 0 && len(cats) > 0:
 			name := report.Pad(cats[c].Name, 16)
 			kind := cats[c].Kind
@@ -223,7 +223,7 @@ func (t weekTab) view(w, h int) []string {
 	}
 	wk := t.week
 	parts := []string{sBright.Render(report.Dur(wk.TrackedMS)) + sDim.Render(" tracked"), weekScore(wk)}
-	out := []string{spread(" "+sHead.Render("Week of "+wk.Monday.Format("Mon 2 Jan"))+sFaint.Render("  ‹ h  l ›"),
+	out := []string{spread(" "+sHead.Render("Week of "+wk.Monday.Format("Mon 2 Jan"))+navArrows(),
 		strings.Join(parts, sDim.Render(" · "))+" ", w)}
 	if wk.Plan != "" {
 		out = append(out, fit(" "+sBrand.Render("◆ plan  ")+sText.Render(wk.Plan), w))

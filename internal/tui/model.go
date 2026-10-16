@@ -10,6 +10,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"tock/internal/app"
 	"tock/internal/classify"
@@ -26,6 +27,7 @@ const (
 	tabFocus
 	tabRules
 	tabPlan
+	tabLabels
 	numTabs
 )
 
@@ -62,11 +64,14 @@ type Model struct {
 	focus         focusTab
 	rules         rulesTab
 	plan          planTab
+	labels        labelsTab
 
 	picker  *picker
 	learn   *learnDlg
 	start   *startDlg
 	edit    *rangeDlg
+	ask     *askDlg
+	choose  *chooseDlg
 	help    bool
 	score   bool // the today tab's score breakdown
 	palette *palette
@@ -76,6 +81,9 @@ type Model struct {
 	flashUntil  time.Time
 	loading     bool
 	reloadAgain bool
+
+	zones *zoneMap // the last frame's clickable zones; shared by copies
+	menu  *ctxMenu // the right-click menu, nil = closed
 
 	suggester  suggest.Client // nil: no key, no suggestions
 	suggesting bool           // a background run is in flight
@@ -91,6 +99,7 @@ func New(a *app.App, now func() time.Time) Model {
 		tick:      func() tea.Cmd { return tea.Tick(Refresh, func(time.Time) tea.Msg { return tickMsg{} }) },
 		clockTick: func() tea.Cmd { return tea.Tick(clockEvery, func(time.Time) tea.Msg { return clockMsg{} }) },
 		exec:      tea.ExecProcess,
+		zones:     &zoneMap{},
 	}
 }
 
@@ -114,6 +123,7 @@ type loadedMsg struct {
 	month     *report.Month
 	focus     *report.Focus
 	rules     *rulesSnap
+	labels    []app.TreeCategory
 	planCfg   config.Plan
 	planLines []string
 	planErr   error
@@ -177,6 +187,8 @@ func (m *Model) load() tea.Cmd {
 				msg.week, msg.err = &w, err
 			case tabRules:
 				msg.rules = snapRules(a)
+			case tabLabels:
+				msg.labels, msg.err = a.LabelTree(LabelDays)
 			}
 		})
 		if tab == tabPlan && msg.planCfg.File != "" {
@@ -212,6 +224,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	mm.rules.clampScroll()
 	mm.plan.height = mm.bodyH()
 	mm.plan.clampScroll()
+	mm.labels.height = mm.bodyH()
+	mm.labels.clampScroll()
 	return mm, cmd
 }
 
@@ -262,6 +276,9 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if msg.rules != nil {
 				m.rules.set(*msg.rules)
 			}
+			if m.tab == tabLabels && msg.labels != nil {
+				m.labels.set(msg.labels)
+			}
 			if m.tab == tabPlan {
 				m.plan.set(msg.planCfg, msg.planLines, msg.planErr, m.now())
 			}
@@ -305,6 +322,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.key(msg)
 	case tea.MouseClickMsg:
 		return m.click(msg.Mouse())
+	case tea.MouseMotionMsg:
+		return m.motion(msg.Mouse())
 	case tea.MouseWheelMsg:
 		return m.wheel(msg.Mouse())
 	}
@@ -317,6 +336,8 @@ func (m Model) key(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 	}
 	switch {
+	case m.menu != nil:
+		return m.menuKey(k)
 	case m.palette != nil:
 		return m.paletteKey(msg)
 	case m.picker != nil:
@@ -325,6 +346,10 @@ func (m Model) key(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m.startKey(msg)
 	case m.edit != nil:
 		return m.rangeKey(msg)
+	case m.ask != nil:
+		return m.askKey(msg)
+	case m.choose != nil:
+		return m.chooseKey(k)
 	case m.learn != nil:
 		return m.learnKey(k)
 	case m.help:
@@ -371,7 +396,7 @@ func (m Model) key(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return m, m.planUndoLast()
 		}
 		return m, m.undo()
-	case "1", "2", "3", "4", "5", "6":
+	case "1", "2", "3", "4", "5", "6", "7":
 		return m.switchTab(int(k[0] - '1'))
 	case "tab":
 		return m.switchTab((m.tab + 1) % numTabs)
@@ -389,6 +414,8 @@ func (m Model) key(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m.rulesKey(k)
 	case tabPlan:
 		return m.planKey(k)
+	case tabLabels:
+		return m.labelsKey(k)
 	}
 	return m.inboxKey(k)
 }
@@ -408,11 +435,23 @@ func (m Model) switchTab(tab int) (tea.Model, tea.Cmd) {
 func (m Model) View() tea.View {
 	v := tea.NewView(m.render())
 	v.AltScreen = true
-	v.MouseMode = tea.MouseModeCellMotion
+	v.MouseMode = tea.MouseModeAllMotion
 	return v
 }
 
+// render draws the screen and records its zones in m.zones.
 func (m Model) render() string {
+	if m.zones == nil {
+		return m.draw()
+	}
+	hover, tipBuf, zoneIDs = m.zones.hover, map[string]string{}, zoneIDs[:0]
+	lines, hits := scanZones(strings.Split(m.draw(), "\n"))
+	m.zones.hits, m.zones.tips = hits, tipBuf
+	hover, tipBuf = "", nil
+	return strings.Join(lines, "\n")
+}
+
+func (m Model) draw() string {
 	if m.width == 0 {
 		return ""
 	}
@@ -425,6 +464,9 @@ func (m Model) render() string {
 	}
 	lines = append(lines, m.body(m.bodyH())...)
 	lines = append(lines, m.footer())
+	if m.menu != nil {
+		lines = paintAt(lines, m.menu.lines(), m.menu.x, m.menu.y, m.width)
+	}
 	return strings.Join(lines, "\n")
 }
 
@@ -447,6 +489,10 @@ func (m Model) body(bodyH int) []string {
 		top = m.start.view(m.width)
 	case m.edit != nil:
 		top = m.edit.view(m.width)
+	case m.ask != nil:
+		top = m.ask.view(m.width)
+	case m.choose != nil:
+		top = m.choose.view(m.width)
 	case m.tab == tabPlan && m.plan.adding:
 		top = m.plan.addView(m.width)
 	}
@@ -484,8 +530,35 @@ func (m Model) tabBody(bodyH int) []string {
 		body = m.rules.view(m.width, bodyH)
 	case m.tab == tabPlan:
 		body = m.plan.view(m.width, bodyH)
+	case m.tab == tabLabels:
+		body = m.labels.view(m.width, bodyH)
 	default:
 		body = m.inbox.view(m.width, bodyH)
+	}
+	return m.rowZones(body)
+}
+
+// rowZones makes each list row of the week, inbox, rules and plan tabs a
+// row zone, found by the tab's own line maths. Today and labels mark their
+// rows as they draw them.
+func (m Model) rowZones(body []string) []string {
+	var at func(line int) (int, bool)
+	switch {
+	case m.tab == tabWeek && !m.week.month:
+		at = m.week.rowAt
+	case m.tab == tabInbox:
+		at = m.inbox.rowAt
+	case m.tab == tabRules:
+		at = m.rules.rowAt
+	case m.tab == tabPlan && !m.plan.adding:
+		at = m.plan.rowAt
+	default:
+		return body
+	}
+	for l := range body {
+		if i, ok := at(l); ok {
+			body[l] = z("row:"+fmt.Sprint(i), fit(body[l], m.width))
+		}
 	}
 	return body
 }
@@ -518,22 +591,42 @@ func (m Model) header() string {
 	names := m.tabNames()
 	parts := []string{sBrand.Bold(true).Render("tock")}
 	for i, n := range names {
+		id := "tab:" + fmt.Sprint(i)
 		switch {
 		case i == m.tab:
-			parts = append(parts, sHead.Underline(true).Render(n))
+			parts = append(parts, z(id, pill(n, sBrand)))
 		case i == tabInbox && m.inbox.count() > 0:
 			name, badge, _ := strings.Cut(n, " ")
-			parts = append(parts, sDim.Render(name+" ")+sUnl.Render(badge))
+			parts = append(parts, z(id, sDim.Render(name+" ")+sUnl.Render(badge)))
 		default:
-			parts = append(parts, sDim.Render(n))
+			parts = append(parts, z(id, sDim.Render(n)))
 		}
 	}
 	left := strings.Join(parts, headerGap)
-	right := sDim.Render(m.now().Format("Mon 2 Jan  15:04")+"  ") + m.trackdText()
+	var session string
 	if s := m.focus.data.Open; s != nil {
-		right = pill("◷ "+report.Countdown(s.PlannedMS-m.now().UnixMilli()), sBrand) + "  " + right
+		session = z("tab:"+fmt.Sprint(tabFocus), pill("◷ "+report.Countdown(s.PlannedMS-m.now().UnixMilli()), sBrand)) + "  "
 	}
-	return spread(left, right, m.width)
+	// The widest right side that fits: date, clock and trackd; then the
+	// clock and trackd's dot; then the dot.
+	for _, right := range []string{
+		session + sDim.Render(m.now().Format("Mon 2 Jan  15:04")+"  ") + m.trackdText(),
+		session + sDim.Render(m.now().Format("15:04")+" ") + m.trackdDot(),
+		session + m.trackdDot(),
+	} {
+		if ansi.StringWidth(left)+ansi.StringWidth(right)+1 <= m.width {
+			return spread(left, right, m.width)
+		}
+	}
+	return fit(left, m.width)
+}
+
+// trackdDot is trackd's state as one dot: green up, coral down.
+func (m Model) trackdDot() string {
+	if m.health.TrackdUp {
+		return sGood.Render("●")
+	}
+	return sAccent.Render("●")
 }
 
 func (m Model) trackdText() string {
@@ -568,7 +661,15 @@ func (m Model) footer() string {
 		if m.flashErr {
 			return sAccent.Render(fit("✗ "+m.flash, m.width))
 		}
+		if text, ok := strings.CutSuffix(m.flash, " (u undo)"); ok {
+			return fit(sGood.Render("✓ ")+sText.Render(text)+"   "+keycap("u", "undo"), m.width)
+		}
 		return sGood.Render("✓ ") + sText.Render(fit(m.flash, m.width-2))
+	}
+	if m.zones != nil && m.menu == nil {
+		if t := m.zones.tips[m.zones.hover]; t != "" {
+			return sBrand.Render("◆ ") + sText.Render(fit(t, m.width-2))
+		}
 	}
 	if m.baseView() {
 		return fit(styledHint(m.footerActions(m.width)), m.width)
@@ -614,6 +715,10 @@ func (m Model) hint() string {
 		hint = "↑/↓ move · digits custom length · enter start · esc cancel"
 	case m.edit != nil:
 		hint = "type HH:MM-HH:MM · enter pick a label · esc cancel"
+	case m.ask != nil:
+		hint = "type · enter ok · esc cancel"
+	case m.choose != nil:
+		hint = "↑/↓ move · enter pick · esc cancel"
 	case m.filtering():
 		hint = m.today.hint()
 	case m.tab == tabPlan && m.plan.adding:
@@ -628,4 +733,4 @@ func (m Model) hint() string {
 func (m Model) TabName() string { return tabTitles[m.tab] }
 
 // tabTitles are the tabs' names, in tab order.
-var tabTitles = [numTabs]string{"today", "week", "inbox", "focus", "rules", "plan"}
+var tabTitles = [numTabs]string{"today", "week", "inbox", "focus", "rules", "plan", "labels"}

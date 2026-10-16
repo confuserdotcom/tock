@@ -40,8 +40,11 @@ type picker struct {
 	what             string
 	cats             []option
 	projects         []option
-	quick            []option // whole labels listed first: suggested, then recent
-	stage            int      // 0 category, 1 project
+	quick            []option          // whole labels listed first: suggested, then recent
+	modules          []option          // whole labels Category / module, offered as you type
+	moduleCat        map[string]string // module -> its category
+	rowCategory      string            // pickProject: the row's category, whose modules lead
+	stage            int               // 0 category, 1 project
 	query            string
 	cursor           int
 	want             classify.Want
@@ -67,9 +70,20 @@ func newPicker(src *source, action pickAction, ids []int64, key, what string) *p
 		if action != pickProject {
 			p.projects = append(p.projects, option{name: noProject})
 		}
+		p.moduleCat = map[string]string{}
 		for _, pr := range rs.Projects {
-			if !pr.Archived {
-				p.projects = append(p.projects, option{name: pr.Name})
+			if pr.Archived {
+				continue
+			}
+			p.projects = append(p.projects, option{name: pr.Name})
+			if pr.Category != "" {
+				p.moduleCat[pr.Name] = pr.Category
+				w := classify.Want{Category: pr.Category, Project: pr.Name}
+				note := "module"
+				if len(pr.Aliases) > 0 {
+					note += " · " + strings.Join(pr.Aliases, ", ")
+				}
+				p.modules = append(p.modules, option{name: report.LabelText(w.Category, w.Project), note: note, want: &w})
 			}
 		}
 	})
@@ -109,9 +123,28 @@ func (p *picker) options() []option {
 	if p.stage == 0 && q == "" {
 		out = append(out, p.quick...)
 	}
+	var mods, rest []option
 	for _, o := range list {
 		if q == "" || (o.name != noProject && strings.HasPrefix(strings.ToLower(o.name), q)) {
-			out = append(out, o)
+			cat := p.want.Category
+			if p.action == pickProject {
+				cat = p.rowCategory
+			}
+			if p.stage == 1 && p.moduleCat[o.name] != "" && strings.EqualFold(p.moduleCat[o.name], cat) {
+				o.note = "module"
+				mods = append(mods, o)
+				continue
+			}
+			rest = append(rest, o)
+		}
+	}
+	out = append(append(out, mods...), rest...)
+	if p.stage == 0 && q != "" && p.action != pickProject {
+		// Typing a module's name (or an alias) offers the whole label.
+		for _, o := range p.modules {
+			if strings.Contains(strings.ToLower(o.name), q) || strings.Contains(strings.ToLower(o.note), q) {
+				out = append(out, o)
+			}
 		}
 	}
 	return out

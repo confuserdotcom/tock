@@ -1,4 +1,4 @@
-tock   today   week   inbox ³   focus   rules   plan                     Sat 10 Oct  15:00  ● trackd
+tock   today   week   inbox ³   focus    rules    plan   labels          Sat 10 Oct  15:00  ● trackd
  rules.toml · 3 rules
  ▸ 1    bundle=[term] title='^tock │'                                          1h40    · / tock     
    2    bundle=[term]                                                          2h14  ● Code         

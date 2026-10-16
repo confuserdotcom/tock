@@ -73,7 +73,7 @@ func TestInboxTagOnce(t *testing.T) {
 func TestInboxIgnoreAndUndo(t *testing.T) {
 	m, _ := seeded(t)
 	m = press(t, m, "3", "x")
-	mustContain(t, m, "ignored: Arc · chatgpt.com/c (u undo)", "inbox ²")
+	mustContain(t, m, "ignored: Arc · chatgpt.com/c   u undo", "inbox ²")
 	m = press(t, m, "u")
 	mustContain(t, m, "undid: ignore Arc · chatgpt.com/c", "inbox ³")
 	m = press(t, m, "u")

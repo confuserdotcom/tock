@@ -2,6 +2,7 @@ package tui
 
 import (
 	"regexp"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 
@@ -30,7 +31,7 @@ func keyPress(k string) tea.KeyPressMsg {
 
 // overlay reports whether a dialog or full-body page covers the tab.
 func (m Model) overlay() bool {
-	return m.picker != nil || m.learn != nil || m.start != nil || m.edit != nil || m.help || m.score ||
+	return m.picker != nil || m.learn != nil || m.start != nil || m.edit != nil || m.ask != nil || m.choose != nil || m.help || m.score ||
 		(m.tab == tabPlan && m.plan.adding)
 }
 
@@ -62,8 +63,27 @@ func (m Model) bodyTop() int {
 }
 
 func (m Model) click(ms tea.Mouse) (tea.Model, tea.Cmd) {
-	if m.tooSmall() || ms.Button != tea.MouseLeft {
+	if m.tooSmall() {
 		return m, nil
+	}
+	id, onZone := m.zones.at(ms.X, ms.Y)
+	if m.menu != nil {
+		if i, ok := menuItem(id); ok && ms.Button == tea.MouseLeft {
+			return m.runMenu(i)
+		}
+		m.menu = nil
+		return m, nil
+	}
+	if ms.Button == tea.MouseRight {
+		return m.rightClick(ms, id)
+	}
+	if ms.Button != tea.MouseLeft {
+		return m, nil
+	}
+	if onZone {
+		if next, cmd, ok := m.clickZone(id); ok {
+			return next, cmd
+		}
 	}
 	switch y := ms.Y; {
 	case y == 0:
@@ -80,11 +100,157 @@ func (m Model) click(ms tea.Mouse) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// motion tracks the zone under the mouse, for hover and tooltips.
+func (m Model) motion(ms tea.Mouse) (tea.Model, tea.Cmd) {
+	if m.zones == nil {
+		return m, nil
+	}
+	id, _ := m.zones.at(ms.X, ms.Y)
+	m.zones.hover = id
+	return m, nil
+}
+
+// clickZone runs what zone id does; ok is false when it does nothing here,
+// so the click falls through to the row maths.
+func (m Model) clickZone(id string) (tea.Model, tea.Cmd, bool) {
+	kind, arg, _ := strings.Cut(id, ":")
+	switch kind {
+	case "tab":
+		t, err := strconv.Atoi(arg)
+		if err != nil || m.overlay() || m.filtering() || m.palette != nil {
+			return m, nil, false
+		}
+		next, cmd := m.switchTab(t)
+		return next, cmd, true
+	case "key":
+		if m.help {
+			m.help = false
+		}
+		next, cmd := m.key(keyPress(arg))
+		return next, cmd, true
+	case "row":
+		i, err := strconv.Atoi(arg)
+		if err != nil || m.overlay() || m.palette != nil {
+			return m, nil, false
+		}
+		return m.clickRow(i)
+	case "at":
+		ms, err := strconv.ParseInt(arg, 10, 64)
+		if err != nil || m.tab != tabToday || m.overlay() {
+			return m, nil, false
+		}
+		m.today.jumpTo(ms)
+		return m, nil, true
+	case "cat":
+		if m.tab != tabToday || m.overlay() {
+			return m, nil, false
+		}
+		if m.today.filter == arg {
+			m.today.filter = ""
+		} else {
+			m.today.filter = arg
+		}
+		m.today.cursor, m.today.top = 0, 0
+		m.today.clampScroll()
+		return m, nil, true
+	case "opt":
+		i, err := strconv.Atoi(arg)
+		if err != nil || m.choose == nil {
+			return m, nil, false
+		}
+		if i == m.choose.cursor {
+			next, cmd := m.pickChoice(i)
+			return next, cmd, true
+		}
+		m.choose.cursor = i
+		return m, nil, true
+	case "lab":
+		if m.tab != tabLabels || m.overlay() {
+			return m, nil, false
+		}
+		return m.labelsChip(arg)
+	}
+	return m, nil, false
+}
+
+// clickRow selects list row i of the open tab; on the selected row it does
+// what enter does.
+func (m Model) clickRow(i int) (tea.Model, tea.Cmd, bool) {
+	again := false
+	switch m.tab {
+	case tabToday:
+		again = i == m.today.cursor
+		m.today.move(i - m.today.cursor)
+		if again && m.today.selected() != nil && m.today.enterAction(m.today.selected(), m.inbox.sugg) == "" {
+			return m, nil, true
+		}
+	case tabWeek:
+		again, m.week.cursor = i == m.week.cursor, i
+	case tabInbox:
+		again, m.inbox.cursor = i == m.inbox.cursor, i
+	case tabRules:
+		m.rules.cursor = i
+		return m, nil, true
+	case tabPlan:
+		m.plan.cursor = i
+		return m, nil, true
+	case tabLabels:
+		again, m.labels.cursor = i == m.labels.cursor, i
+	default:
+		return m, nil, false
+	}
+	if again {
+		next, cmd := m.key(keyPress("enter"))
+		return next, cmd, true
+	}
+	return m, nil, true
+}
+
+// rightClick selects the row under the mouse and opens its menu.
+func (m Model) rightClick(ms tea.Mouse, id string) (tea.Model, tea.Cmd) {
+	if m.overlay() || m.palette != nil || m.filtering() {
+		return m, nil
+	}
+	if kind, arg, _ := strings.Cut(id, ":"); kind == "row" {
+		if i, err := strconv.Atoi(arg); err == nil {
+			next, _, _ := m.clickRowSelect(i)
+			m = next
+		}
+	}
+	m.menu = newMenu(&m, ms.X, ms.Y)
+	if m.menu == nil {
+		return m, nil
+	}
+	return m, nil
+}
+
+// clickRowSelect selects row i without acting on it.
+func (m Model) clickRowSelect(i int) (Model, tea.Cmd, bool) {
+	switch m.tab {
+	case tabToday:
+		m.today.move(i - m.today.cursor)
+	case tabWeek:
+		m.week.cursor = i
+	case tabInbox:
+		m.inbox.cursor = i
+	case tabRules:
+		m.rules.cursor = i
+	case tabPlan:
+		m.plan.cursor = i
+	case tabLabels:
+		m.labels.cursor = i
+	}
+	return m, nil, true
+}
+
 // tabAt is the tab whose name in the header covers column x.
 func (m Model) tabAt(x int) (int, bool) {
 	at := ansi.StringWidth("tock") + len(headerGap)
 	for i, n := range m.tabNames() {
 		w := ansi.StringWidth(n)
+		if i == m.tab {
+			w += 2 // the pill's padding
+		}
 		if x >= at && x < at+w {
 			return i, true
 		}

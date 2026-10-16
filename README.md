@@ -112,7 +112,7 @@ You don't need to learn the keys:
   you want, such as `week`, `50 min` or `edit rules`, and press enter.
 
 ```
-1-6 / tab        today · week · inbox · focus · rules · plan
+1-7 / tab        today · week · inbox · focus · rules · plan · labels
 : / ctrl+k       command palette
 ?                all keys
 r · q            refresh · quit
@@ -130,6 +130,9 @@ focus            s start a session · x stop
 rules            e edit rules.toml · J/K move a rule down/up
 plan             enter/space/x done ↔ not done · a add · d delete · e edit the file
                  f focus session · u undo the tab's last edit
+labels           a add a category · m add a module under it · e rename · K kind
+                 w afk window · f file a project under a category · l other names
+                 x archive · M merge into another · d delete · enter fold
 pickers          ★ suggested and ↺ recent labels come first · type to filter · enter · esc
 ```
 
@@ -140,10 +143,23 @@ variants and follows your terminal's background.
 The first time you run `tock` without rules, it offers to write the starter
 rules.
 
-The mouse works too. Click a tab name to switch tabs, click a row to select
-it, and click the selected row again for `enter` (open a day, label an inbox
-key, pick an option, start a session). Click a key in the footer, such as
-`t tag`, to press it. The wheel moves the cursor.
+The mouse works everywhere. Anything that shows a key is a button: the
+footer, the help, a dialog's `enter ok`, the `a label` of time away, the
+`u undo` after a change. Click a tab to switch, a row to select it and the
+selected row again for `enter`. Right-click a row for a menu of what you
+can do with it. Hovering shows what a thing is in the footer.
+
+On the today tab, the strip under the score is the day: one cell per slice
+of time, coloured by its kind (faint dots are idle). Click a cell, a work
+block or an hour of the heatmap to jump to that time; click a category or
+a module in Where it went to show only its rows, and again to show all; the
+score opens its breakdown. A terminal 130 columns wide or more puts Where
+it went, with every module, the goals and the work blocks in a sidebar.
+
+The labels tab (`7`) is where your categories and modules live: each with
+its kind, AFK window and 30 days of time. Click a kind or an AFK window to
+change it. The label picker (`t`) offers a module as you type its name or
+an alias: `ana` → `Study / Analyse 1`.
 
 While tock has the mouse, dragging no longer selects text. Hold Shift (WezTerm,
 kitty, most terminals) or Option (Terminal.app, iTerm2) while you drag to

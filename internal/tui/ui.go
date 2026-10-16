@@ -66,9 +66,14 @@ func dot(kind string) string {
 	return kindStyle(kind).Render("●")
 }
 
-// keycap renders a key and what it does: "t tag".
+// keycap renders a key and what it does: "t tag". It is a button: a click
+// presses the key. Pairs like "j/k" only describe keys.
 func keycap(k, label string) string {
-	return sBrand.Bold(true).Render(k) + " " + sDim.Render(label)
+	s := sBrand.Bold(true).Render(k) + " " + sDim.Render(label)
+	if strings.Contains(k, "/") && k != "/" {
+		return s
+	}
+	return z("key:"+k, s)
 }
 
 // pill renders text on a coloured background.
@@ -185,4 +190,9 @@ func selRow(s string, w int) string {
 	s = strings.ReplaceAll(s, "\x1b[0m", "\x1b[0m"+bg)
 	s = strings.ReplaceAll(s, "\x1b[m", "\x1b[m"+bg)
 	return bg + s + "\x1b[m"
+}
+
+// navArrows are the "‹ h  l ›" buttons beside a day, week or month title.
+func navArrows() string {
+	return sFaint.Render("  ") + z("key:h", sFaint.Render("‹ h")) + sFaint.Render("  ") + z("key:l", sFaint.Render("l ›"))
 }

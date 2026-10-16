@@ -149,7 +149,7 @@ func (a *App) RemoveName(kind, name string) (string, error) {
 		return "", err
 	}
 	if n > 0 {
-		return "", fmt.Errorf("remove: %d labels you set by hand name %q: merge it into another %s instead", n, name, kind)
+		return "", fmt.Errorf("%s is on %d labels you set by hand: merge it into another %s instead", name, n, kind)
 	}
 	var decl string
 	err = a.rewriteRules(func(rules, learned []byte) ([]byte, []byte, error) {

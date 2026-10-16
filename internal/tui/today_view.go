@@ -17,10 +17,38 @@ const minTimeline = 4
 // sideBySideMin is the narrowest body that shows the two cards side by side.
 const sideBySideMin = 96
 
+// sidebarMin is the narrowest body with the sidebar: Where it went, goals
+// and work blocks on the left, the day on the right. sidebarW is its width.
+const sidebarMin, sidebarW = 130, 38
+
+// split is the main column's width and the sidebar's (0 without one).
+func split(w int) (main, side int) {
+	if w >= sidebarMin {
+		return w - sidebarW - 1, sidebarW
+	}
+	return w, 0
+}
+
 // head is everything above the timeline on a body w×h, ending with a blank
 // line. The view, the scroll and the mouse all measure it, so they agree.
+//
+// w is the body's width: with a sidebar, the head is the main column's,
+// and the cards and the goal and work lines are in the sidebar.
 func (t *todayTab) head(w, h int, now time.Time) []string {
+	w, side := split(w)
 	out := t.hero(w, now)
+	if h >= 24 || side > 0 {
+		out = append(out, ribbon(t.day, w, t.day.Date.Location())...)
+	}
+	if side > 0 {
+		if a := t.attention(); a != "" {
+			out = append(out, fit(a, w))
+		}
+		if t.day.Summary != "" {
+			out = append(out, fit(" "+sBrand.Render("✎ ")+sText.Render(report.Safe(t.day.Summary)), w))
+		}
+		return append(out, "")
+	}
 	out = append(out, t.notes(w)...)
 	out = append(out, "")
 	room := h - len(out) - minTimeline - 1 // the blank line under the cards
@@ -31,6 +59,12 @@ func (t *todayTab) head(w, h int, now time.Time) []string {
 // layout is how many timeline rows fit in a body w×h.
 func (t *todayTab) layout(w, h int) int {
 	return max(h-len(t.head(w, h, time.Time{})), 1)
+}
+
+// rowW is the timeline's width in a body w wide.
+func rowW(w int) int {
+	mw, _ := split(w)
+	return mw
 }
 
 // rowAt is the timeline row shown on body line line of a body w×h, if any.
@@ -62,7 +96,7 @@ func (t *todayTab) hero(w int, now time.Time) []string {
 	if active {
 		num = fmt.Sprint(sc.Value)
 	}
-	left := " " + band.Bold(true).Render(num) + "  " + sDim.Render("score") + "  " + band.Render(word)
+	left := " " + z("key:i", band.Bold(true).Render(num)+"  "+sDim.Render("score")+"  "+band.Render(word))
 	if d.Work.Set && !d.Off {
 		hours := "hours " + report.HoursText(d)
 		if d.OutsideMS >= 60_000 {
@@ -87,7 +121,7 @@ func (t *todayTab) hero(w int, now time.Time) []string {
 		facts = append(facts, plural2(st.Switches, "switch", "switches"))
 	}
 	facts = append(facts, "tracked "+report.Dur(d.TrackedMS), "idle "+report.Dur(d.IdleMS))
-	line2 := spread(" "+sHead.Render(title)+sFaint.Render("  ‹ h  l ›"), sDim.Render(strings.Join(facts, " · "))+" ", w)
+	line2 := spread(" "+sHead.Render(title)+navArrows(), sDim.Render(strings.Join(facts, " · "))+" ", w)
 	return []string{line1, line2}
 }
 
@@ -103,7 +137,7 @@ func (t *todayTab) notes(w int) []string {
 	d := t.day
 	var out []string
 	if len(d.Goals) > 0 {
-		out = append(out, fit(" "+goalChips(d.Goals), w))
+		out = append(out, fit(" "+z("tab:1", goalChips(d.Goals)), w))
 	}
 	if len(d.Commits) > 0 {
 		out = append(out, fit(" "+sDim.Render("commits  ")+sText.Render(report.CommitsLine(d.Commits)), w))
@@ -124,8 +158,8 @@ func (t *todayTab) notes(w int) []string {
 func workLine(blocks []report.Block, loc *time.Location) string {
 	parts := make([]string, len(blocks))
 	for i, b := range blocks {
-		parts[i] = sDim.Render(time.UnixMilli(b.Start).In(loc).Format("15:04")+" ") +
-			kindStyle(b.Kind).Render(report.Safe(b.Name)) + " " + sBright.Render(report.Dur(b.ActiveMS))
+		parts[i] = z(fmt.Sprintf("at:%d", b.Start), sDim.Render(time.UnixMilli(b.Start).In(loc).Format("15:04")+" ")+
+			kindStyle(b.Kind).Render(report.Safe(b.Name))+" "+sBright.Render(report.Dur(b.ActiveMS)))
 	}
 	return strings.Join(parts, sFaint.Render(" · "))
 }
@@ -227,7 +261,9 @@ func heatLines(d report.Day, w int) []string {
 		}
 		var b strings.Builder
 		for h := hrs.First; h <= hrs.Last; h++ {
-			b.WriteString(strings.Repeat(shade(hours[h]), cell))
+			at := time.Date(d.Date.Year(), d.Date.Month(), d.Date.Day(), h, 30, 0, 0, d.Date.Location()).UnixMilli()
+			b.WriteString(tip(fmt.Sprintf("at:%d", at), fmt.Sprintf("%02d:00  %s %s", h, report.Dur(hours[h]), kindName(k)),
+				strings.Repeat(shade(hours[h]), cell)))
 		}
 		st := kindStyle(k)
 		out = append(out, st.Render(fit(kindName(k), label))+st.Render(b.String()))
@@ -257,8 +293,12 @@ func catLines(d report.Day, w, n int) []string {
 			}
 		}
 		line := dot(c.Kind) + " " + kindStyle(c.Kind).Render(fit(name, nameW)) + sBright.Render(fitRight(report.Dur(c.MS), 5)) +
-			"  " + meter(c.MS, maxMS, mw, kindStyle(c.Kind)) + "  " + sDim.Render(extra)
-		out = append(out, fit(line, w))
+			"  " + meter(c.MS, maxMS, mw, kindStyle(c.Kind)) + "  " + projectChips(c, extra)
+		filter := c.Name
+		if c.Name == report.Unclassified {
+			filter = "—"
+		}
+		out = append(out, tip("cat:"+filter, "show only "+name+" rows · click again for all", fit(line, w)))
 	}
 	return out
 }
@@ -271,14 +311,76 @@ func (t todayTab) view(w, h int, now time.Time) []string {
 	if len(t.day.Timeline) == 0 {
 		return t.empty(w, now)
 	}
+	mw, side := split(w)
 	out := t.head(w, h, now)
 	rs := t.rows()
 	end := min(t.top+t.layout(w, h), len(rs))
 	for i := t.top; i < end; i++ {
-		out = append(out, t.timelineRow(rs[i], w, i == t.cursor, now.Location()))
+		out = append(out, t.timelineRow(i, rs[i], mw, i == t.cursor, now.Location()))
 	}
 	if len(rs) == 0 && t.filter != "" {
-		out = append(out, sDim.Render(fmt.Sprintf("   no rows match %q · esc clears the filter", t.filter)))
+		out = append(out, sDim.Render(fmt.Sprintf("   no rows match %q · ", t.filter))+keycap("esc", "show all"))
+	}
+	if side == 0 {
+		return out
+	}
+	return sideBySide(fitBody(t.sidebar(side, h), h), fitBody(out, h), side, 1)
+}
+
+// sidebar is Where it went, with each category's modules, then the goals,
+// the commits and the work blocks, h lines at most, w wide. Everything in
+// it is a button that filters or jumps the timeline.
+func (t todayTab) sidebar(w, h int) []string {
+	d := t.day
+	inner := w - 4
+	var where []string
+	var maxMS int64
+	for _, c := range d.Categories {
+		maxMS = max(maxMS, c.MS)
+	}
+	for _, c := range d.Categories {
+		name, filter := c.Name, c.Name
+		if c.Name == report.Unclassified {
+			name, filter = "unlabelled", "—"
+		}
+		st := kindStyle(c.Kind)
+		on := t.filter != "" && t.filter == filter
+		mark := dot(c.Kind) + " "
+		if on {
+			mark = sBrand.Bold(true).Render("▸ ")
+		}
+		head := mark + st.Bold(on).Render(fit(report.Safe(name), inner-8)) + sBright.Render(fitRight(report.Dur(c.MS), 6))
+		where = append(where, tip("cat:"+filter, "show only "+name+" rows · click again for all", fit(head, inner)),
+			"  "+meter(c.MS, maxMS, inner-2, st))
+		if c.Name == report.Unclassified && len(c.Items) > 0 {
+			where = append(where, "  "+sDim.Render(plural(len(c.Items), "key")+" · ")+keycap("3", "inbox"))
+		}
+		for _, p := range c.Projects {
+			f := report.LabelText(c.Name, p.Name)
+			where = append(where, tip("cat:"+f, "show only "+p.Name+" rows", fit("  "+sFaint.Render("╰ ")+
+				sText.Render(fit(report.Safe(p.Name), inner-10))+sDim.Render(fitRight(report.Dur(p.MS), 6)), inner)))
+		}
+	}
+	out := card("Where it went", where, w)
+	if len(d.Goals) > 0 {
+		var g []string
+		for _, r := range d.Goals {
+			g = append(g, z("tab:1", goalChips([]report.GoalRow{r})))
+		}
+		out = append(out, card("Goals", g, w)...)
+	}
+	if len(d.Blocks) > 0 {
+		var bl []string
+		loc := d.Date.Location()
+		for _, b := range d.Blocks {
+			line := sDim.Render(time.UnixMilli(b.Start).In(loc).Format("15:04")+" ") +
+				kindStyle(b.Kind).Render(fit(report.Safe(b.Name), inner-13)) + sBright.Render(fitRight(report.Dur(b.ActiveMS), 6))
+			bl = append(bl, tip(fmt.Sprintf("at:%d", b.Start), "jump to "+time.UnixMilli(b.Start).In(loc).Format("15:04"), fit(line, inner)))
+		}
+		out = append(out, card("Work blocks", bl, w)...)
+	}
+	if len(d.Commits) > 0 {
+		out = append(out, card("Commits", []string{sText.Render(report.CommitsLine(d.Commits))}, w)...)
 	}
 	return out
 }
@@ -306,7 +408,7 @@ func (t todayTab) empty(w int, now time.Time) []string {
 
 // timelineRow is one timeline row: times, the label with its dot, the app
 // and the text; an unlabelled row with a suggestion ends with it.
-func (t todayTab) timelineRow(r report.Row, w int, sel bool, loc *time.Location) string {
+func (t todayTab) timelineRow(i int, r report.Row, w int, sel bool, loc *time.Location) string {
 	clock := func(ms int64) string { return time.UnixMilli(ms).In(loc).Format("15:04") }
 	mark := "  "
 	if sel {
@@ -335,8 +437,26 @@ func (t todayTab) timelineRow(r report.Row, w int, sel bool, loc *time.Location)
 	if tail != "" {
 		line += " " + tail
 	}
+	line = z("row:"+fmt.Sprint(i), fit(line, w))
 	if sel {
 		return selRow(line, w)
 	}
 	return line
+}
+
+// projectChips are a category's projects (or its inbox keys), each a
+// button that shows only its rows.
+func projectChips(c report.CatRow, extra string) string {
+	if c.Name == report.Unclassified || len(c.Projects) == 0 {
+		return sDim.Render(extra)
+	}
+	var parts []string
+	for _, p := range c.Projects[:min(len(c.Projects), 3)] {
+		parts = append(parts, tip("cat:"+report.LabelText(c.Name, p.Name), "show only "+p.Name+" rows",
+			sDim.Render(report.Safe(p.Name)+" "+report.Dur(p.MS))))
+	}
+	if n := len(c.Projects) - 3; n > 0 {
+		parts = append(parts, sFaint.Render(fmt.Sprintf("+%d", n)))
+	}
+	return strings.Join(parts, sFaint.Render(" · "))
 }
