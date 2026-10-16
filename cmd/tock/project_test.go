@@ -11,7 +11,7 @@ func TestProjectCommand(t *testing.T) {
 	te := newTestEnv(t, testRules)
 	te.seed(t, daySpans()...)
 	vault := t.TempDir()
-	for _, d := range []string{"Analyse 1", "Algèbre 1", "_Système", ".git"} {
+	for _, d := range []string{"Analyse 1", "Alge\u0300bre 1", "_Système", ".git"} {
 		os.MkdirAll(filepath.Join(vault, d), 0o700)
 	}
 	if code, out := te.run(t, "", "project", "add", "Thermodynamique", "--category", "stu", "--alias", "thermo, Précis"); code != 0 ||
@@ -23,6 +23,9 @@ func TestProjectCommand(t *testing.T) {
 	}
 	if _, out := te.run(t, "", "project", "scan", vault, "--category", "Study"); out != "every folder already has a project\n" {
 		t.Fatalf("rescan: %q", out)
+	}
+	if code, out := te.run(t, "", "project", "set", "Algèbre 1", "--alias", "alg1"); code != 0 || out != "Algèbre 1 (module of Study; also alg1)\n" {
+		t.Fatalf("set NFC: %d %q %s", code, out, te.errb)
 	}
 	if code, out := te.run(t, "", "project", "set", "ana", "--alias", "ana1"); code != 0 || out != "Analyse 1 (module of Study; also ana1)\n" {
 		t.Fatalf("set: %d %q %s", code, out, te.errb)

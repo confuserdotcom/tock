@@ -158,10 +158,10 @@ func RenameName(rulesData, learnedData []byte, kind, from, to string) (Merged, e
 	to = strings.TrimSpace(to)
 	byLower := func(n string) (string, bool) {
 		if kind == NameCategory {
-			c, ok := rs.catByLower[strings.ToLower(strings.TrimSpace(n))]
+			c, ok := rs.catByLower[nameKey(n)]
 			return c.Name, ok
 		}
-		p, ok := rs.projByLower[strings.ToLower(strings.TrimSpace(n))]
+		p, ok := rs.projByLower[nameKey(n)]
 		return p.Name, ok
 	}
 	src, ok := byLower(from)
@@ -235,9 +235,9 @@ func RemoveName(rulesData, learnedData []byte, kind, name string) ([]byte, strin
 	}
 	var decl string
 	if kind == NameCategory {
-		decl = rs.catByLower[strings.ToLower(strings.TrimSpace(name))].Name
+		decl = rs.catByLower[nameKey(name)].Name
 	} else {
-		decl = rs.projByLower[strings.ToLower(strings.TrimSpace(name))].Name
+		decl = rs.projByLower[nameKey(name)].Name
 	}
 	if decl == "" {
 		return nil, "", fmt.Errorf("remove: no %s %q", kind, name)

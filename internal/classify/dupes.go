@@ -137,15 +137,15 @@ func MergeNames(rulesData, learnedData []byte, kind, from, to string) (Merged, e
 	var src, dst string
 	switch kind {
 	case NameCategory:
-		f, ok1 := rs.catByLower[strings.ToLower(strings.TrimSpace(from))]
-		t, ok2 := rs.catByLower[strings.ToLower(strings.TrimSpace(to))]
+		f, ok1 := rs.catByLower[nameKey(from)]
+		t, ok2 := rs.catByLower[nameKey(to)]
 		if !ok1 || !ok2 {
 			return Merged{}, fmt.Errorf("merge: %q and %q must both be declared categories", from, to)
 		}
 		src, dst = f.Name, t.Name
 	case NameProject:
-		f, ok1 := rs.projByLower[strings.ToLower(strings.TrimSpace(from))]
-		t, ok2 := rs.projByLower[strings.ToLower(strings.TrimSpace(to))]
+		f, ok1 := rs.projByLower[nameKey(from)]
+		t, ok2 := rs.projByLower[nameKey(to)]
 		if !ok1 || !ok2 {
 			return Merged{}, fmt.Errorf("merge: %q and %q must both be declared projects", from, to)
 		}

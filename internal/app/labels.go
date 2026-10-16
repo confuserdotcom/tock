@@ -316,7 +316,7 @@ func (a *App) ScanModules(dir, category string) ([]string, error) {
 	}
 	var add []string
 	for _, e := range ents {
-		n := strings.TrimSpace(e.Name())
+		n := classify.NFC(strings.TrimSpace(e.Name()))
 		if !e.IsDir() || n == "" || strings.HasPrefix(n, ".") || strings.HasPrefix(n, "_") || strings.Contains(n, "/") {
 			continue
 		}

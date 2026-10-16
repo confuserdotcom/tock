@@ -42,6 +42,9 @@ func foldWords(s string) string {
 			space = false
 			continue
 		}
+		if unicode.Is(unicode.Mn, r) {
+			continue // a decomposed accent (macOS file names): e + ◌́ is e
+		}
 		if !space {
 			b.WriteByte(' ')
 			space = true
@@ -51,6 +54,42 @@ func foldWords(s string) string {
 		b.WriteByte(' ')
 	}
 	return b.String()
+}
+
+// composing maps a base letter and a combining accent to the composed
+// letter, for the accents French and the other Western European languages
+// use. macOS file names come decomposed (NFD).
+var composing = map[[2]rune]rune{}
+
+func init() {
+	marks := map[rune]string{
+		0x300: "aàeèiìoòuùAÀEÈIÌOÒUÙ", 0x301: "aáeéiíoóuúyýAÁEÉIÍOÓUÚYÝ",
+		0x302: "aâeêiîoôuûAÂEÊIÎOÔUÛ", 0x303: "aãnñoõAÃNÑOÕ",
+		0x308: "aäeëiïoöuüyÿAÄEËIÏOÖUÜ", 0x327: "cçCÇ", 0x30A: "aåAÅ",
+	}
+	for m, pairs := range marks {
+		rs := []rune(pairs)
+		for i := 0; i+1 < len(rs); i += 2 {
+			composing[[2]rune{rs[i], m}] = rs[i+1]
+		}
+	}
+}
+
+// NFC composes the decomposed accents composing knows: "Alge\u0300bre"
+// becomes "Algèbre". Anything else is kept as it is.
+func NFC(s string) string {
+	rs := []rune(s)
+	out := make([]rune, 0, len(rs))
+	for _, r := range rs {
+		if n := len(out); n > 0 {
+			if c, ok := composing[[2]rune{out[n-1], r}]; ok {
+				out[n-1] = c
+				continue
+			}
+		}
+		out = append(out, r)
+	}
+	return string(out)
 }
 
 // moduleFor returns the first module (in rules.toml order) named in title
@@ -89,5 +128,5 @@ func (rs *Ruleset) ModuleOf(name string) string {
 
 // ProjectCategory returns the category a project is filed under, or "".
 func (rs *Ruleset) ProjectCategory(project string) string {
-	return rs.projByLower[strings.ToLower(project)].Category
+	return rs.projByLower[nameKey(project)].Category
 }

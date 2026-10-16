@@ -46,13 +46,14 @@ func (rs *Ruleset) ResolveName(kind, s string) (string, error) {
 }
 
 func resolveName(what, s string, names []string) (string, error) {
-	low := strings.ToLower(strings.TrimSpace(s))
+	low := strings.ToLower(NFC(strings.TrimSpace(s)))
 	var hits []string
 	for _, n := range names {
-		if strings.ToLower(n) == low {
+		ln := strings.ToLower(NFC(n))
+		if ln == low {
 			return n, nil
 		}
-		if low != "" && strings.HasPrefix(strings.ToLower(n), low) {
+		if low != "" && strings.HasPrefix(ln, low) {
 			hits = append(hits, n)
 		}
 	}
@@ -89,3 +90,7 @@ func (rs *Ruleset) ParseWant(arg string) (Want, error) {
 	}
 	return w, nil
 }
+
+// nameKey is how category and project names are compared: trimmed,
+// composed (NFC) and lower-case.
+func nameKey(s string) string { return strings.ToLower(NFC(strings.TrimSpace(s))) }

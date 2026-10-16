@@ -276,7 +276,7 @@ func Parse(rulesData, learnedData []byte) (*Ruleset, error) {
 		memo:        map[memoKey]Label{},
 	}
 	for i, c := range rf.Category {
-		lower := strings.ToLower(strings.TrimSpace(c.Name))
+		lower := nameKey(c.Name)
 		switch {
 		case lower == "":
 			return nil, fmt.Errorf("%s: category #%d: empty name", RulesFile, i+1)
@@ -300,14 +300,14 @@ func Parse(rulesData, learnedData []byte) (*Ruleset, error) {
 		rs.Categories = append(rs.Categories, cat)
 	}
 	if c := strings.TrimSpace(rf.Calls.Category); c != "" {
-		cat, ok := rs.catByLower[strings.ToLower(c)]
+		cat, ok := rs.catByLower[nameKey(c)]
 		if !ok {
 			return nil, fmt.Errorf("%s: [calls]: unknown category %q", RulesFile, rf.Calls.Category)
 		}
 		rs.CallCategory = cat.Name
 	}
 	if c := strings.TrimSpace(rf.Calendar.Category); c != "" {
-		cat, ok := rs.catByLower[strings.ToLower(c)]
+		cat, ok := rs.catByLower[nameKey(c)]
 		if !ok {
 			return nil, fmt.Errorf("%s: [calendar]: unknown category %q", RulesFile, rf.Calendar.Category)
 		}
@@ -315,7 +315,7 @@ func Parse(rulesData, learnedData []byte) (*Ruleset, error) {
 	}
 	repoOwner := map[string]string{}
 	for i, p := range rf.Project {
-		lower := strings.ToLower(strings.TrimSpace(p.Name))
+		lower := nameKey(p.Name)
 		switch {
 		case lower == "":
 			return nil, fmt.Errorf("%s: project #%d: empty name", RulesFile, i+1)
@@ -327,7 +327,7 @@ func Parse(rulesData, learnedData []byte) (*Ruleset, error) {
 		}
 		proj := Project{Name: p.Name, Archived: p.Archived}
 		if c := strings.TrimSpace(p.Category); c != "" {
-			cat, ok := rs.catByLower[strings.ToLower(c)]
+			cat, ok := rs.catByLower[nameKey(c)]
 			if !ok {
 				return nil, fmt.Errorf("%s: project %q: unknown category %q", RulesFile, p.Name, p.Category)
 			}
@@ -405,14 +405,14 @@ func (rs *Ruleset) buildRules(file string, in []ruleTOML) ([]Rule, error) {
 			return nil, fail("sets neither category nor project")
 		}
 		if t.Category != "" {
-			c, ok := rs.catByLower[strings.ToLower(t.Category)]
+			c, ok := rs.catByLower[nameKey(t.Category)]
 			if !ok {
 				return nil, fail("unknown category %q", t.Category)
 			}
 			r.Category = c.Name
 		}
 		if t.Project != "" {
-			p, ok := rs.projByLower[strings.ToLower(t.Project)]
+			p, ok := rs.projByLower[nameKey(t.Project)]
 			if !ok {
 				return nil, fail("unknown project %q", t.Project)
 			}
@@ -428,13 +428,13 @@ func (rs *Ruleset) buildRules(file string, in []ruleTOML) ([]Rule, error) {
 
 // Kind returns the kind of a declared category, or "" when undeclared.
 func (rs *Ruleset) Kind(category string) string {
-	return rs.catByLower[strings.ToLower(category)].Kind
+	return rs.catByLower[nameKey(category)].Kind
 }
 
 // AFKWindow returns a category's AFK window: its afk, else DefaultAFKMS
 // (also for "" and undeclared names).
 func (rs *Ruleset) AFKWindow(category string) int64 {
-	if ms := rs.catByLower[strings.ToLower(category)].AFKMS; ms > 0 {
+	if ms := rs.catByLower[nameKey(category)].AFKMS; ms > 0 {
 		return ms
 	}
 	return DefaultAFKMS
@@ -443,12 +443,12 @@ func (rs *Ruleset) AFKWindow(category string) int64 {
 // HasCategory and HasProject report whether a name is declared
 // (case-insensitively).
 func (rs *Ruleset) HasCategory(name string) bool {
-	_, ok := rs.catByLower[strings.ToLower(name)]
+	_, ok := rs.catByLower[nameKey(name)]
 	return ok
 }
 
 func (rs *Ruleset) HasProject(name string) bool {
-	_, ok := rs.projByLower[strings.ToLower(name)]
+	_, ok := rs.projByLower[nameKey(name)]
 	return ok
 }
 
@@ -465,5 +465,5 @@ func ExpandHome(p, home string) string {
 
 // Rate returns a declared project's hourly rate, nil when it has none.
 func (rs *Ruleset) Rate(project string) *float64 {
-	return rs.projByLower[strings.ToLower(project)].Rate
+	return rs.projByLower[nameKey(project)].Rate
 }

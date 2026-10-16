@@ -40,10 +40,20 @@ category = "Fun"
 func TestFoldWords(t *testing.T) {
 	for in, want := range map[string]string{
 		"Algèbre 1 – TD": " algebre 1 td ", "ALGEBRE 1": " algebre 1 ", "": " ", "  Œuvre!! ": " oeuvre ",
+		"Alge\u0300bre 1": " algebre 1 ",
 	} {
 		if got := foldWords(in); got != want {
 			t.Errorf("foldWords(%q) = %q, want %q", in, got, want)
 		}
+	}
+}
+
+func TestNFC(t *testing.T) {
+	if got := NFC("Alge\u0300bre 1 · Me\u0301canique · c\u0327a"); got != "Algèbre 1 · Mécanique · ça" {
+		t.Fatalf("NFC = %q", got)
+	}
+	if got := NFC("\u0301x"); got != "\u0301x" {
+		t.Fatalf("lone mark: %q", got)
 	}
 }
 

@@ -92,14 +92,14 @@ func (rs *Ruleset) buildGoals(in []goalTOML) ([]Goal, error) {
 			return nil, fail("sets neither category nor project")
 		}
 		if t.Category != "" {
-			c, ok := rs.catByLower[strings.ToLower(t.Category)]
+			c, ok := rs.catByLower[nameKey(t.Category)]
 			if !ok {
 				return nil, fail("unknown category %q", t.Category)
 			}
 			g.Category = c.Name
 		}
 		if t.Project != "" {
-			p, ok := rs.projByLower[strings.ToLower(t.Project)]
+			p, ok := rs.projByLower[nameKey(t.Project)]
 			if !ok {
 				return nil, fail("unknown project %q", t.Project)
 			}
