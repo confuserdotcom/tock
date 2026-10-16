@@ -393,3 +393,20 @@ func TestPrivacy(t *testing.T) {
 		}
 	}
 }
+
+func TestLoadPlan(t *testing.T) {
+	home, _ := os.UserHomeDir()
+	c, err := Load(write(t, "[plan]\nfile = \"~/todo.txt\"\ncommand = \" planner --json \"\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.Plan.File != filepath.Join(home, "todo.txt") || c.Plan.Command != "planner --json" {
+		t.Errorf("plan = %+v", c.Plan)
+	}
+	if _, err := Load(write(t, "[plan]\nfile = \"todo.txt\"\n")); err == nil || !strings.Contains(err.Error(), "[plan] file") {
+		t.Errorf("relative file: %v", err)
+	}
+	if c, _ := Load(write(t, "")); c.Plan != (Plan{}) {
+		t.Errorf("default plan = %+v", c.Plan)
+	}
+}

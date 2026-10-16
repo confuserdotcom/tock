@@ -30,7 +30,8 @@ func keyPress(k string) tea.KeyPressMsg {
 
 // overlay reports whether a dialog or full-body page covers the tab.
 func (m Model) overlay() bool {
-	return m.picker != nil || m.learn != nil || m.start != nil || m.edit != nil || m.help || m.score
+	return m.picker != nil || m.learn != nil || m.start != nil || m.edit != nil || m.help || m.score ||
+		(m.tab == tabPlan && m.plan.adding)
 }
 
 func (m Model) tooSmall() bool { return m.width < MinWidth || m.height < MinHeight }
@@ -168,6 +169,10 @@ func (m Model) clickBody(line, x int) (tea.Model, tea.Cmd) {
 	case m.tab == tabRules:
 		if i, ok := m.rules.rowAt(line); ok {
 			m.rules.cursor = i
+		}
+	case m.tab == tabPlan && !m.plan.adding:
+		if i, ok := m.plan.rowAt(line); ok {
+			m.plan.cursor = i
 		}
 	}
 	return m, nil

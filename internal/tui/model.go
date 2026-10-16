@@ -1,5 +1,6 @@
-// Package tui is tock's terminal interface: today, week, inbox, focus and rules tabs over
-// an app session. It never touches the database directly.
+// Package tui is tock's terminal interface: today, week, inbox, focus, rules and plan
+// tabs over an app session. It never touches the database directly; the plan tab edits
+// the [plan] todo.txt file.
 package tui
 
 import (
@@ -12,6 +13,8 @@ import (
 
 	"tock/internal/app"
 	"tock/internal/classify"
+	"tock/internal/config"
+	"tock/internal/plan"
 	"tock/internal/report"
 	"tock/internal/suggest"
 )
@@ -22,6 +25,7 @@ const (
 	tabInbox
 	tabFocus
 	tabRules
+	tabPlan
 	numTabs
 )
 
@@ -57,6 +61,7 @@ type Model struct {
 	week          weekTab
 	focus         focusTab
 	rules         rulesTab
+	plan          planTab
 
 	picker  *picker
 	learn   *learnDlg
@@ -89,6 +94,14 @@ func New(a *app.App, now func() time.Time) Model {
 	}
 }
 
+// WithTab opens on the named tab ("plan"); other names keep today.
+func (m Model) WithTab(name string) Model {
+	if name == "plan" {
+		m.tab, m.plan.force = tabPlan, true
+	}
+	return m
+}
+
 type tickMsg struct{}
 
 // loadedMsg carries one refresh.
@@ -101,6 +114,9 @@ type loadedMsg struct {
 	month     *report.Month
 	focus     *report.Focus
 	rules     *rulesSnap
+	planCfg   config.Plan
+	planLines []string
+	planErr   error
 	sugg      map[string]classify.Want
 	err       error
 }
@@ -133,6 +149,7 @@ func (m *Model) load() tea.Cmd {
 		var msg loadedMsg
 		src.do(func(a *app.App) {
 			a.Reload() // a failure is kept in RulesErr and shown in the banner
+			msg.planCfg = a.Config().Plan
 			msg.health, msg.healthErr = a.Health()
 			f, err := a.Focus(now)
 			if err != nil {
@@ -162,6 +179,9 @@ func (m *Model) load() tea.Cmd {
 				msg.rules = snapRules(a)
 			}
 		})
+		if tab == tabPlan && msg.planCfg.File != "" {
+			msg.planLines, msg.planErr = plan.Read(msg.planCfg.File)
+		}
 		return msg
 	}
 }
@@ -190,6 +210,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	mm.week.clamp()
 	mm.rules.height = mm.bodyH()
 	mm.rules.clampScroll()
+	mm.plan.height = mm.bodyH()
+	mm.plan.clampScroll()
 	return mm, cmd
 }
 
@@ -240,14 +262,21 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if msg.rules != nil {
 				m.rules.set(*msg.rules)
 			}
+			if m.tab == tabPlan {
+				m.plan.set(msg.planCfg, msg.planLines, msg.planErr, m.now())
+			}
 		}
 		clock := m.maybeClock()
 		run := m.maybeSuggest()
+		var planRun tea.Cmd
+		if m.tab == tabPlan && m.plan.due(m.now()) {
+			planRun = m.runCommand()
+		}
 		if m.reloadAgain {
 			m.reloadAgain = false
-			return m, tea.Batch(m.load(), clock, run)
+			return m, tea.Batch(m.load(), clock, run, planRun)
 		}
-		return m, tea.Batch(clock, run)
+		return m, tea.Batch(clock, run, planRun)
 	case clockMsg:
 		m.clockOn = false
 		return m, m.maybeClock()
@@ -268,6 +297,10 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.update(msg.done)
 	case proposedMsg:
 		return m.openLearn(msg)
+	case planCmdMsg:
+		return m.planCommandDone(msg)
+	case planEditedMsg:
+		return m.planEdited(msg)
 	case tea.KeyPressMsg:
 		return m.key(msg)
 	case tea.MouseClickMsg:
@@ -313,6 +346,8 @@ func (m Model) key(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case m.tab == tabToday && m.today.filtering:
 		m.today.filterKey(msg)
 		return m, nil
+	case m.tab == tabPlan && m.plan.adding:
+		return m.planAddKey(msg)
 	}
 	switch k {
 	case "q":
@@ -329,10 +364,14 @@ func (m Model) key(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 	case "r":
+		m.plan.force = true
 		return m, m.reload()
 	case "u", "ctrl+z":
+		if m.tab == tabPlan && m.plan.last != nil {
+			return m, m.planUndoLast()
+		}
 		return m, m.undo()
-	case "1", "2", "3", "4", "5":
+	case "1", "2", "3", "4", "5", "6":
 		return m.switchTab(int(k[0] - '1'))
 	case "tab":
 		return m.switchTab((m.tab + 1) % numTabs)
@@ -348,6 +387,8 @@ func (m Model) key(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m.focusKey(k)
 	case tabRules:
 		return m.rulesKey(k)
+	case tabPlan:
+		return m.planKey(k)
 	}
 	return m.inboxKey(k)
 }
@@ -357,6 +398,9 @@ func (m Model) switchTab(tab int) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	m.tab = tab
+	if tab == tabPlan {
+		m.plan.force = true
+	}
 	return m, m.reload()
 }
 
@@ -403,6 +447,8 @@ func (m Model) body(bodyH int) []string {
 		top = m.start.view(m.width)
 	case m.edit != nil:
 		top = m.edit.view(m.width)
+	case m.tab == tabPlan && m.plan.adding:
+		top = m.plan.addView(m.width)
 	}
 	base := fitBody(m.tabBody(bodyH), bodyH)
 	if top == nil {
@@ -436,6 +482,8 @@ func (m Model) tabBody(bodyH int) []string {
 		body = m.focus.view(m.width, m.now())
 	case m.tab == tabRules:
 		body = m.rules.view(m.width, bodyH)
+	case m.tab == tabPlan:
+		body = m.plan.view(m.width, bodyH)
 	default:
 		body = m.inbox.view(m.width, bodyH)
 	}
@@ -448,7 +496,7 @@ const headerGap = "   "
 // tabNames are the header's tab names, in tab order. The inbox carries its
 // count as a superscript badge.
 func (m Model) tabNames() []string {
-	names := []string{"today", "week", "inbox", "focus", "rules"}
+	names := append([]string{}, tabTitles[:]...)
 	if n := m.inbox.count(); n > 0 {
 		names[tabInbox] = "inbox " + superscript(n)
 	}
@@ -568,8 +616,16 @@ func (m Model) hint() string {
 		hint = "type HH:MM-HH:MM · enter pick a label · esc cancel"
 	case m.filtering():
 		hint = m.today.hint()
+	case m.tab == tabPlan && m.plan.adding:
+		hint = "type the task · enter add · esc cancel"
 	default:
 		hint = hintOf(m.footerActions(m.width))
 	}
 	return hint
 }
+
+// TabName is the open tab's name, as in the header.
+func (m Model) TabName() string { return tabTitles[m.tab] }
+
+// tabTitles are the tabs' names, in tab order.
+var tabTitles = [numTabs]string{"today", "week", "inbox", "focus", "rules", "plan"}

@@ -1,4 +1,4 @@
-tock   today   week   inbox ³   focus   rules                       Sat 10 Oct  15:00  ● trackd down
+tock   today   week   inbox ³   focus   rules   plan                Sat 10 Oct  15:00  ● trackd down
 trackd is not running — showing history. Restart: launchctl kickstart -k gui/$UID/com.tock.trackd   
  74  score  good day                                       2h14 focus of 4h00  ━━━━━━━━━━━───────── 
  Today  ‹ h  l ›                      1 block · longest 2h14 · 2 switches · tracked 2h54 · idle 41m 

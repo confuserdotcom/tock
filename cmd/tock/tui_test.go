@@ -47,3 +47,30 @@ func TestFirstRunWelcome(t *testing.T) {
 		t.Fatalf("non-interactive: exit %d\n%s", code, out)
 	}
 }
+
+func TestPlanCommandLine(t *testing.T) {
+	var tab string
+	old := runProgram
+	runProgram = func(_ Env, m tui.Model) error { tab = m.TabName(); return nil }
+	t.Cleanup(func() { runProgram = old })
+
+	te := newTestEnv(t, "")
+	if code, _ := te.run(t, "", "plan"); code != 1 || !strings.Contains(te.errb.String(), "no plan file") {
+		t.Fatalf("no file: exit %d %s", code, te.errb)
+	}
+	file := te.ConfigDir + "/../todo.txt"
+	os.MkdirAll(te.ConfigDir, 0o755)
+	os.WriteFile(te.ConfigDir+"/config.toml", []byte("[plan]\nfile = \""+file+"\"\n"), 0o644)
+	os.WriteFile(file, []byte("(A) a due:"+testNow.Format("2006-01-02")+"\nx done one\nb\n"), 0o644)
+	te.out.Reset()
+	if code, out := te.run(t, "", "plan"); code != 0 || out != "Today\n  (A) a due:"+testNow.Format("2006-01-02")+"\nNo date\n  b\n" {
+		t.Fatalf("piped: exit %d\n%q", code, out)
+	}
+
+	te2 := newTestEnv(t, testRules)
+	te2.seed(t, daySpans()...)
+	te2.Interactive = true
+	if code, _ := te2.run(t, "", "plan"); code != 0 || tab != "plan" {
+		t.Fatalf("interactive: exit %d tab %q", code, tab)
+	}
+}

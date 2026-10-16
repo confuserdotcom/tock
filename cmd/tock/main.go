@@ -24,7 +24,8 @@ import (
 )
 
 const usage = `usage:
-  tock                                   open the TUI (today, week, inbox, focus, rules)
+  tock                                   open the TUI (today, week, inbox, focus, rules, plan)
+  tock plan                              the TUI on the plan tab ([plan] todo.txt); piped: the open tasks
   tock status                            one line for a status bar
   tock init                              write starter ~/.config/tock/rules.toml
   tock today [--date YYYY-MM-DD] [--keys]
@@ -205,6 +206,7 @@ var commands = map[string]func(Env, []string) error{
 	"summary":    cmdSummary,
 	"ask":        cmdAsk,
 	"undo":       cmdUndo,
+	"plan":       cmdPlan,
 }
 
 // run executes one command and returns the exit code: 0 ok, 1 error, 2 usage.

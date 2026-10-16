@@ -4,11 +4,14 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
 
 	"tock/internal/classify"
+	"tock/internal/config"
+	"tock/internal/plan"
 	"tock/internal/tui"
 )
 
@@ -33,7 +36,10 @@ var runProgram = func(env Env, m tui.Model) error {
 // cmdTUI runs the full-screen interface. Startup errors (no rules, no
 // database) are returned before the screen changes; with no rules it first
 // offers to write the starter rules.
-func cmdTUI(env Env) error {
+func cmdTUI(env Env) error { return cmdTUIOn(env, "") }
+
+// cmdTUIOn is cmdTUI opened on a named tab ("" = today).
+func cmdTUIOn(env Env, tab string) error {
 	a, err := openApp(env)
 	if errors.Is(err, classify.ErrNoRules) {
 		fmt.Fprint(env.Stdout, welcome)
@@ -52,9 +58,44 @@ func cmdTUI(env Env) error {
 		return err
 	}
 	defer a.Close()
-	m := tui.New(a, env.Now)
+	m := tui.New(a, env.Now).WithTab(tab)
 	if env.APIKey != "" {
 		m = m.WithSuggester(env.NewClient(env.APIKey))
 	}
 	return runProgram(env, m)
+}
+
+// cmdPlan opens the TUI on the plan tab; not on a terminal it prints the
+// plan's open tasks, one per line, by section.
+func cmdPlan(env Env, args []string) error {
+	if len(args) > 0 {
+		return usagef("plan takes no arguments")
+	}
+	if env.Interactive {
+		return cmdTUIOn(env, "plan")
+	}
+	c, err := config.Load(filepath.Join(env.ConfigDir, config.File))
+	if err != nil {
+		return err
+	}
+	if c.Plan.File == "" {
+		return errors.New("no plan file: set [plan] file in config.toml")
+	}
+	lines, err := plan.Read(c.Plan.File)
+	if err != nil {
+		return err
+	}
+	now := env.Now()
+	sec := -1
+	for _, r := range plan.Rows(lines, now.Format("2006-01-02"), now.AddDate(0, 0, 1).Format("2006-01-02")) {
+		if r.Done {
+			continue
+		}
+		if r.Section != sec {
+			sec = r.Section
+			fmt.Fprintln(env.Stdout, plan.SectionNames[sec])
+		}
+		fmt.Fprintln(env.Stdout, "  "+r.Raw)
+	}
+	return nil
 }

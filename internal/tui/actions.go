@@ -33,18 +33,22 @@ const (
 	grInbox = "Inbox"
 	grFocus = "Focus"
 	grRules = "Rules"
+	grPlan  = "Plan"
 	grGo    = "Go"
 	grApp   = "App"
 )
 
 // tabGroup is the action group of each tab.
-var tabGroup = [numTabs]string{grToday, grWeek, grInbox, grFocus, grRules}
+var tabGroup = [numTabs]string{grToday, grWeek, grInbox, grFocus, grRules, grPlan}
 
 func onTab(tab int) func(m *Model) bool {
 	return func(m *Model) bool { return m.tab == tab && !(tab == tabWeek && m.week.month) }
 }
 
 func always(*Model) bool { return true }
+
+// planRow reports the plan tab with a task under the cursor.
+func planRow(m *Model) bool { return m.tab == tabPlan && m.plan.selected() != nil }
 
 // todayRows reports the today tab showing a day with activity.
 func todayRows(m *Model) bool { return m.tab == tabToday && len(m.today.day.Timeline) > 0 }
@@ -162,11 +166,21 @@ func actionTable() []action {
 		{key: "J/K", name: "move rule down/up", group: grRules},
 		{key: "j/k", name: "move", group: grRules},
 
+		{key: "enter", name: "done / not done", group: grPlan, prio: 1, when: planRow},
+		{key: "a", name: "add a task", group: grPlan, prio: 2, when: onTab(tabPlan)},
+		{key: "f", name: "focus session", group: grPlan, prio: 5,
+			when: func(m *Model) bool { return m.tab == tabPlan && m.focus.data.Open == nil }},
+		{key: "d", name: "delete", group: grPlan, prio: 10, when: planRow},
+		{key: "e", name: "edit the file", group: grPlan, prio: 20, when: onTab(tabPlan)},
+		{key: "j/k", name: "move", group: grPlan},
+		{key: "g/G", name: "first / last task", group: grPlan},
+
 		{key: "1", name: "today", group: grGo, when: always, run: goTab(tabToday)},
 		{key: "2", name: "week", group: grGo, when: always, run: goTab(tabWeek)},
 		{key: "3", name: "inbox", group: grGo, when: always, run: goTab(tabInbox)},
 		{key: "4", name: "focus", group: grGo, when: always, run: goTab(tabFocus)},
 		{key: "5", name: "rules", group: grGo, when: always, run: goTab(tabRules)},
+		{key: "6", name: "plan", group: grGo, when: always, run: goTab(tabPlan)},
 		{key: "tab", name: "next tab", group: grGo},
 
 		{key: "?", name: "help", group: grApp, prio: 98, when: always},

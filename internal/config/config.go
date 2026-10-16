@@ -33,6 +33,7 @@ type Config struct {
 	Hours    stats.Hours // the work schedule the score is limited to
 	Invoice  Invoice
 	Privacy  Privacy
+	Plan     Plan
 }
 
 // Privacy is the [privacy] section.
@@ -40,6 +41,16 @@ type Privacy struct {
 	// KeepTitles is how many days window titles are kept; older spans
 	// lose their title and the path of their URL. 0 = forever.
 	KeepTitles int
+}
+
+// Plan is the [plan] section: the todo.txt file the plan tab shows, and a
+// command that tock runs when the tab opens, after each change it makes to
+// the file and once a minute. The command may rewrite the file (a planner
+// that rolls the day over); its stdout, JSON {"lines": [...], "seen":
+// {"project": seconds}} or plain lines, is shown above the list.
+type Plan struct {
+	File    string // absolute; "" = no plan tab content
+	Command string // run with sh -c; "" = none
 }
 
 // MaxKeepTitles is the longest keep_titles, in days.
@@ -289,6 +300,11 @@ type privacyTOML struct {
 	KeepTitles *int `toml:"keep_titles"`
 }
 
+type planTOML struct {
+	File    *string `toml:"file"`
+	Command *string `toml:"command"`
+}
+
 type fileTOML struct {
 	Score    scoreTOML    `toml:"score"`
 	Focus    focusTOML    `toml:"focus"`
@@ -301,6 +317,7 @@ type fileTOML struct {
 	Hours    hoursTOML    `toml:"hours"`
 	Invoice  invoiceTOML  `toml:"invoice"`
 	Privacy  privacyTOML  `toml:"privacy"`
+	Plan     planTOML     `toml:"plan"`
 }
 
 // Load reads path. A missing file is Default() and no error. Any other
@@ -407,6 +424,16 @@ func Load(path string) (Config, error) {
 			return Default(), fmt.Errorf("%s: [sync] dir = %q, want an absolute path or ~/…", name, *f.Sync.Dir)
 		}
 		c.Sync.Dir = filepath.Clean(d)
+	}
+	if f.Plan.File != nil && strings.TrimSpace(*f.Plan.File) != "" {
+		p, err := absPath(*f.Plan.File)
+		if err != nil {
+			return Default(), fmt.Errorf("%s: [plan] file: %w", name, err)
+		}
+		c.Plan.File = p
+	}
+	if f.Plan.Command != nil {
+		c.Plan.Command = strings.TrimSpace(*f.Plan.Command)
 	}
 	if f.Sync.Machine != nil {
 		if !machineRE.MatchString(*f.Sync.Machine) {
@@ -653,4 +680,20 @@ func parseClock(s string) (int, bool) {
 		return 0, false
 	}
 	return t.Hour()*60 + t.Minute(), true
+}
+
+// absPath expands a leading ~/ and requires an absolute result.
+func absPath(p string) (string, error) {
+	d := p
+	if rest, ok := strings.CutPrefix(d, "~/"); ok {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", err
+		}
+		d = filepath.Join(home, rest)
+	}
+	if !filepath.IsAbs(d) {
+		return "", fmt.Errorf("%q, want an absolute path or ~/…", p)
+	}
+	return filepath.Clean(d), nil
 }

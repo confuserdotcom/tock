@@ -112,7 +112,7 @@ You don't need to learn the keys:
   you want, such as `week`, `50 min` or `edit rules`, and press enter.
 
 ```
-1-5 / tab        today · week · inbox · focus · rules
+1-6 / tab        today · week · inbox · focus · rules · plan
 : / ctrl+k       command palette
 ?                all keys
 r · q            refresh · quit
@@ -128,6 +128,8 @@ inbox            enter accept the suggestion, else learn a rule · T pick a labe
 anywhere         u undo the last change (tag, rule, ignore, time away, edit)
 focus            s start a session · x stop
 rules            e edit rules.toml · J/K move a rule down/up
+plan             enter/space/x done ↔ not done · a add · d delete · e edit the file
+                 f focus session · u undo the tab's last edit
 pickers          ★ suggested and ↺ recent labels come first · type to filter · enter · esc
 ```
 
@@ -280,6 +282,29 @@ blocks = 0.3
 calm = 0.2
 stretch = 0.0                 # longest run without a context switch, full at 1h30
 ```
+
+## Plan
+
+The plan tab (`6`, or `tock plan`) shows a todo.txt file by day: Overdue,
+Today, Tomorrow, Later, No date, and what you ticked today. Inside a day,
+tasks go by the time in a context (`@07h30`, `@mon-07h30`, `@07:30`).
+Ticking writes `x DATE` and keeps the priority as `pri:A`; unticking puts it
+back. A future `t:YYYY-MM-DD` hides a task until that day. Piped, `tock
+plan` prints the open tasks.
+
+```toml
+[plan]
+file = "~/todo.txt"
+# optional: run when the tab opens, after each change and once a minute
+command = "my-planner --tock"
+```
+
+The command gets `TOCK_PLAN_FILE` and may rewrite the file (a planner that
+rolls missed tasks over, imports ticks). Its output shows above the list:
+plain lines, or JSON `{"lines": ["…"], "seen": {"project": seconds}}`,
+where `seen` puts the time you spent on a `+project` next to its first open
+task today. Edits re-read the file and find the line by its text, so a
+command rewriting the file never makes tock tick the wrong task.
 
 ## Focus guard
 
