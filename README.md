@@ -331,6 +331,16 @@ command rewriting the file never makes tock tick the wrong task.
 
 A focus session can do more than nudge you.
 
+**Focus level.** While a session runs, the focus tab, the menu bar and
+`tock session` show `focus 84% ↗` next to `deep 62%`. Deep % is the
+session's record: deep time over its length so far. The focus level is how
+focused you are now: deep work counts fully, light or unlabelled work half,
+browsing a quarter, distraction and time away nothing, and a glance away
+under a minute between deep work is forgiven. Recent minutes weigh most
+(half as much every five minutes back), so after a drop the level climbs
+back as soon as you settle in again: five focused minutes win back half the
+gap. ↗ or ↘ shows where it moved in the last minute.
+
 **Blocking.** With `block = true` under `[focus]`, a distraction that stays
 in front for 10 seconds (`block_grace`) during a session is taken away:
 

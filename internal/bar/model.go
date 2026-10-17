@@ -38,6 +38,7 @@ type Snapshot struct {
 	UnlabelledMS int64
 	TrackdUp     bool
 	Session      *focus.Session // the running session, or nil
+	Live         focus.Live     // its focus level; Level -1 when unknown
 	Presets      []int
 	Access       string // notification access the app last saw
 }
@@ -60,7 +61,7 @@ func Load(a *app.App, now time.Time, access string) (Snapshot, error) {
 	if err != nil {
 		return s, err
 	}
-	s.Session = f.Open
+	s.Session, s.Live = f.Open, f.Live
 	return s, nil
 }
 
@@ -104,7 +105,11 @@ func (s Snapshot) Items(nowMS int64) []Item {
 		if ss.Interruptions == 1 {
 			word = "interruption"
 		}
-		out = append(out, label("Session · %s left · %d %s", report.Countdown(ss.PlannedMS-nowMS), ss.Interruptions, word))
+		lv := ""
+		if s.Live.Level >= 0 {
+			lv = report.LevelText(s.Live) + " · "
+		}
+		out = append(out, label("Session · %s left · %s%d %s", report.Countdown(ss.PlannedMS-nowMS), lv, ss.Interruptions, word))
 	}
 	if s.UnlabelledMS > 0 {
 		out = append(out, label("%s unlabelled · open tock to label", report.Dur(s.UnlabelledMS)))

@@ -35,7 +35,7 @@ func TestSessionCommands(t *testing.T) {
 		t.Fatalf("double start: %d %q", code, te.errb.String())
 	}
 	te.now = testNow.Add(5 * time.Minute)
-	if code, out := te.run(t, "", "session"); code != 0 || out != "focus 20:00 left of 25m · deep 0% · 0 interruptions\n" {
+	if code, out := te.run(t, "", "session"); code != 0 || out != "session 20:00 left of 25m · focus 50% · deep 0% · 0 interruptions\n" {
 		t.Fatalf("show: %d %q", code, out)
 	}
 	te.now = testNow.Add(10 * time.Minute)

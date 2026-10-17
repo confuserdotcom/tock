@@ -28,7 +28,7 @@ func TestSessionText(t *testing.T) {
 	if got, want := DeepPct(run, now), 77; got != want {
 		t.Errorf("DeepPct = %d, want %d", got, want)
 	}
-	if got, want := SessionStatus(run, now), "12:04 left of 25m · deep 77% · 1 interruption · longest 9m"; got != want {
+	if got, want := SessionStatus(run, focus.Live{Level: -1}, now), "12:04 left of 25m · deep 77% · 1 interruption · longest 9m"; got != want {
 		t.Errorf("SessionStatus = %q, want %q", got, want)
 	}
 	short := run

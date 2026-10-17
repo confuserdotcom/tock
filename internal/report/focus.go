@@ -13,6 +13,7 @@ import (
 type Focus struct {
 	NowMS int64
 	Open  *focus.Session  // the running manual session with live counters, or nil
+	Live  focus.Live      // how focused the running session is now
 	Today []focus.Session // closed sessions that started today, newest first
 	Week  []focus.Session // closed sessions of this week before today, newest first
 }
@@ -54,10 +55,35 @@ func SessionStats(s focus.Session, nowMS int64) string {
 	return strings.Join(parts, " · ")
 }
 
+// LiveStats renders a running session's stats led by its focus level:
+// "focus 91% ↗ · deep 84% · 1 interruption · longest 9m".
+func LiveStats(s focus.Session, lv focus.Live, nowMS int64) string {
+	if lv.Level < 0 {
+		return SessionStats(s, nowMS)
+	}
+	return LevelText(lv) + " · " + SessionStats(s, nowMS)
+}
+
+// LevelText renders a focus level: "focus 91% ↗", with ↗ or ↘ once it moved
+// TrendMin points in the last minute.
+func LevelText(lv focus.Live) string {
+	t := fmt.Sprintf("focus %d%%", lv.Level)
+	switch {
+	case lv.Trend >= TrendMin:
+		t += " ↗"
+	case lv.Trend <= -TrendMin:
+		t += " ↘"
+	}
+	return t
+}
+
+// TrendMin is the change in points over a minute that shows as a trend.
+const TrendMin = 3
+
 // SessionStatus renders a running session:
-// "12:04 left of 25m · deep 84% · 1 interruption".
-func SessionStatus(s focus.Session, nowMS int64) string {
-	return Countdown(s.PlannedMS-nowMS) + " left of " + Dur(s.PlannedMS-s.StartMS) + " · " + SessionStats(s, nowMS)
+// "12:04 left of 25m · focus 91% ↗ · deep 84% · 1 interruption".
+func SessionStatus(s focus.Session, lv focus.Live, nowMS int64) string {
+	return Countdown(s.PlannedMS-nowMS) + " left of " + Dur(s.PlannedMS-s.StartMS) + " · " + LiveStats(s, lv, nowMS)
 }
 
 // SessionLine renders one closed session for the history:

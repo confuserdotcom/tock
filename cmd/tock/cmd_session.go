@@ -40,7 +40,7 @@ func sessionShow(env Env) error {
 		fmt.Fprintln(env.Stdout, "no session")
 		return nil
 	}
-	fmt.Fprintln(env.Stdout, "focus "+report.SessionStatus(*f.Open, f.NowMS))
+	fmt.Fprintln(env.Stdout, "session "+report.SessionStatus(*f.Open, f.Live, f.NowMS))
 	return nil
 }
 

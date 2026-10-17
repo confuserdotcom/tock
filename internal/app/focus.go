@@ -195,7 +195,7 @@ func (a *App) StopSession() (focus.Session, error) {
 		return focus.Session{}, store.ErrNoSession
 	}
 	now := a.nowMS()
-	s, err := a.live(focus.Session(*open), now)
+	s, _, err := a.live(focus.Session(*open), now)
 	if err != nil {
 		return focus.Session{}, err
 	}
@@ -211,16 +211,16 @@ func (a *App) StopSession() (focus.Session, error) {
 }
 
 // live fills a running session's deep, distraction and longest times up to
-// nowMS (capped at its planned end).
-func (a *App) live(s focus.Session, nowMS int64) (focus.Session, error) {
+// nowMS (capped at its planned end), and measures its focus level.
+func (a *App) live(s focus.Session, nowMS int64) (focus.Session, focus.Live, error) {
 	end := max(min(nowMS, s.PlannedMS), s.StartMS)
 	vs, labels, err := a.labelled(s.StartMS, end, nowMS)
 	if err != nil {
-		return s, err
+		return s, focus.Live{Level: -1}, err
 	}
 	ws := focus.WindowStats(vs, labels, s.StartMS, end, a.cfg.Focus)
 	s.DeepMS, s.DistractMS, s.LongestMS = ws.DeepMS, ws.DistractMS, ws.LongestMS
-	return s, nil
+	return s, focus.Level(vs, labels, s.StartMS, end, a.cfg.Focus), nil
 }
 
 // Focus reports the running session (live counters) and this Monday-start
@@ -232,16 +232,16 @@ func (a *App) Focus(now time.Time) (report.Focus, error) {
 	if err != nil {
 		return report.Focus{}, err
 	}
-	f := report.Focus{NowMS: nowMS}
+	f := report.Focus{NowMS: nowMS, Live: focus.Live{Level: -1}}
 	for i := len(ss) - 1; i >= 0; i-- {
 		s := focus.Session(ss[i])
 		switch {
 		case s.EndMS == 0:
-			live, err := a.live(s, nowMS)
+			live, lv, err := a.live(s, nowMS)
 			if err != nil {
 				return report.Focus{}, err
 			}
-			f.Open = &live
+			f.Open, f.Live = &live, lv
 		case s.StartMS >= today.UnixMilli():
 			f.Today = append(f.Today, s)
 		default:

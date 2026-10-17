@@ -180,7 +180,7 @@ func (t focusTab) view(w int, now time.Time) []string {
 		}
 		body = append(body, center(sDim.Render("left of "+report.Dur(total)), inner), "",
 			center(meter(total-left, total, min(inner-4, 48), sBrand), inner),
-			center(sText.Render(report.SessionStats(*s, nowMS)), inner), "")
+			center(sText.Render(report.LiveStats(*s, f.Live, nowMS)), inner), "")
 		body = card("Session", body, cw)
 	} else {
 		body = card("Session", []string{"",

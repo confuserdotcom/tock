@@ -95,7 +95,7 @@ func TestSnapshotSession(t *testing.T) {
 		t.Fatalf("title = %q", got)
 	}
 	got := titles(s.Items(now))
-	if !strings.Contains(got, "Session · 18:42 left · 0 interruptions") || !strings.Contains(got, "Stop session [stop]") ||
+	if !strings.Contains(got, "Session · 18:42 left · focus 50% · 0 interruptions") || !strings.Contains(got, "Stop session [stop]") ||
 		strings.Contains(got, "start:") {
 		t.Fatalf("session menu:\n%s", got)
 	}
