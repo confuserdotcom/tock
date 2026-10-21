@@ -606,13 +606,18 @@ minutes (20) keeps its category's window and the rest is idle. A page turn
 in a PDF reader changes the title, so reading still counts. `tock doctor`
 names those machines.
 
+`tock today` says what did not count: `· 7h18 cut (no input)` for windows
+cut by these rules, `· 47m to other machines` for time you spent on another
+machine while a window stayed open here (see Sync between machines).
+
 hypridle can miss idle even when it is hooked in: it stops, crashes or is
 held off by a player. So on Linux, and for another machine whose sync
 folder doesn't say its input comes from macOS, one window left unchanged
 for longer than `[afk] trust` minutes (180) keeps its category's window
 and the rest is idle. A Mac's own input is always trusted. trackd also
 checks on every sync whether hypridle still runs; while it doesn't, the
-machine reports no input.
+machine reports no input. `tock doctor` names a machine whose windows ran
+over `[afk] trust` in the last 7 days.
 
 ## Editing the timeline
 

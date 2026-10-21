@@ -7,6 +7,7 @@ import (
 	"tock/internal/classify"
 	"tock/internal/report"
 	"tock/internal/shell"
+	"tock/internal/span"
 	"tock/internal/store"
 )
 
@@ -89,6 +90,7 @@ func (a *App) spans(from, to int64) ([]store.SpanRow, map[int64]classify.Overrid
 // labels, the local model's included (see labelModel). The open span ends at nowMS; callers pass the same nowMS to the
 // report so it can tell which row is open.
 func (a *App) labelled(from, to, nowMS int64) ([]classify.SpanView, []classify.Label, error) {
+	a.cut = report.Cut{}
 	rows, ovs, err := a.spans(from, to)
 	if err != nil {
 		return nil, nil, err
@@ -98,7 +100,9 @@ func (a *App) labelled(from, to, nowMS int64) ([]classify.SpanView, []classify.L
 		return nil, nil, err
 	}
 	labels := a.rs.LabelAll(vs, ovs)
-	m, err := a.labelModel()
+	cut := a.cut
+	m, err := a.labelModel() // its history() counts its own cuts
+	a.cut = cut
 	if err != nil {
 		return nil, nil, err
 	}
@@ -160,11 +164,10 @@ func (a *App) markRemote(vs []classify.SpanView, ovs map[int64]classify.Override
 	if err != nil || len(rv) == 0 {
 		return vs, err
 	}
+	whole := remoteMarks(rv)
 	rv = a.staleRemote(rv)
-	marks := make([]classify.RemoteMark, len(rv))
+	marks := remoteMarks(rv)
 	for i, r := range rv {
-		marks[i] = classify.RemoteMark{ID: r.ID, Machine: r.Machine, View: classify.SpanView{
-			Start: r.StartMS, End: r.EndMS, BundleID: r.Bundle, App: r.App, Title: r.Title, URL: r.URL}}
 		var o classify.Override
 		if p, _ := a.rs.ModuleFor(marks[i].View); p != "" {
 			continue // this machine's modules know better
@@ -179,7 +182,43 @@ func (a *App) markRemote(vs []classify.SpanView, ovs map[int64]classify.Override
 			ovs[-(classify.RemoteIDBase + r.ID)] = o
 		}
 	}
-	return classify.MarkRemote(vs, marks, from, min(to, a.nowMS())), nil
+	hi := min(to, a.nowMS())
+	out := classify.MarkRemote(vs, marks, from, hi)
+	// What the stale rule took is what the uncut views would have added.
+	a.cut.StaleMS += remoteMS(classify.MarkRemote(vs, whole, from, hi)) - remoteMS(out)
+	a.cut.OtherMS += localMS(vs) - localMS(out)
+	return out, nil
+}
+
+func remoteMarks(rv []store.RemoteView) []classify.RemoteMark {
+	marks := make([]classify.RemoteMark, len(rv))
+	for i, r := range rv {
+		marks[i] = classify.RemoteMark{ID: r.ID, Machine: r.Machine, View: classify.SpanView{
+			Start: r.StartMS, End: r.EndMS, BundleID: r.Bundle, App: r.App, Title: r.Title, URL: r.URL}}
+	}
+	return marks
+}
+
+// localMS is the time of this machine's recorded, non-idle views.
+func localMS(vs []classify.SpanView) int64 {
+	var ms int64
+	for _, v := range vs {
+		if v.ID > 0 && v.BundleID != span.IdleBundleID {
+			ms += v.DurMS()
+		}
+	}
+	return ms
+}
+
+// remoteMS is the time of the other machines' views.
+func remoteMS(vs []classify.SpanView) int64 {
+	var ms int64
+	for _, v := range vs {
+		if classify.IsRemote(v) {
+			ms += v.DurMS()
+		}
+	}
+	return ms
 }
 
 // attachShell sets the shell's working directory on terminal views.
@@ -245,6 +284,7 @@ func (a *App) Day(day time.Time) (report.Day, error) {
 	if err != nil {
 		return report.Day{}, err
 	}
+	cut := a.cut
 	ignored, err := a.st.Ignored()
 	if err != nil {
 		return report.Day{}, err
@@ -255,6 +295,7 @@ func (a *App) Day(day time.Time) (report.Day, error) {
 	}
 	d := report.BuildDay(report.DayInput{Date: from, NowMS: now, Views: vs, Labels: labels, Ignored: ignored,
 		Target: target, Weights: a.cfg.Score, Hours: a.cfg.Hours})
+	d.Cut = cut
 	if d.Away, err = a.pending(vs, from.UnixMilli(), to.UnixMilli()); err != nil {
 		return report.Day{}, err
 	}

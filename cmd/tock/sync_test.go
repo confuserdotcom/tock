@@ -62,3 +62,20 @@ func TestDoctorNamesMachinesWithoutInput(t *testing.T) {
 		t.Fatalf("ryuk's 30 min should be cut to 5:\n%s", out)
 	}
 }
+
+func TestDoctorNamesMachinesThatMissIdle(t *testing.T) {
+	dir := t.TempDir()
+	te, _ := doctorEnv(t, testRules)
+	te.seed(t, daySpans()...)
+	writeFile(t, te.paths().Config, "[sync]\ndir = \""+dir+"\"\nmachine = \"mac\"\n")
+	os.MkdirAll(filepath.Join(dir, "ryuk"), 0o700)
+	line := `{"s":` + strconv.FormatInt(at(t, "00:30"), 10) + `,"e":` + strconv.FormatInt(at(t, "08:30"), 10) + `,"b":"zathura","a":"zathura"}` + "\n"
+	os.WriteFile(filepath.Join(dir, "ryuk", "2026-10-10.jsonl"), []byte(line), 0o600)
+	os.WriteFile(filepath.Join(dir, "ryuk", "machine.json"), []byte(`{"input":true}`), 0o600)
+	if code, out := te.run(t, "", "sync"); code != 0 {
+		t.Fatalf("sync: %d %s", code, out)
+	}
+	if _, out := te.run(t, "", "doctor"); !strings.Contains(out, "!!  afk: ryuk says it reports input, yet 1 of its windows in the last 7 days ran over 3h") {
+		t.Fatalf("doctor:\n%s", out)
+	}
+}

@@ -33,7 +33,9 @@ type Day struct {
 	Date      time.Time
 	TrackedMS int64
 	IdleMS    int64
-	ByKind    map[string]int64 // kind ("" = unlabelled) -> ms; idle excluded
+	// Cut is the recorded time that did not count, filled by the caller.
+	Cut    Cut
+	ByKind map[string]int64 // kind ("" = unlabelled) -> ms; idle excluded
 	// Categories: by time desc, then name; Unclassified last.
 	Categories []CatRow
 	// Projects: each project's share of the tracked time, "" for the time
@@ -93,6 +95,13 @@ type Row struct {
 
 // MinHours is the narrowest heatmap range.
 const MinHours = 8
+
+// Cut is the recorded time that did not count, and why: StaleMS sat in
+// one window with no input to show for it (see [afk] stale and trust),
+// OtherMS went to another machine you switched to.
+type Cut struct {
+	StaleMS, OtherMS int64
+}
 
 // BuildDay computes the day report.
 func BuildDay(in DayInput) Day {

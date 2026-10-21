@@ -49,7 +49,7 @@ func cmdToday(env Env, args []string) error {
 	if *date != "" {
 		title = d.Date.Format("2006-01-02")
 	}
-	fmt.Fprintf(env.Stdout, "%s  %s tracked · %s idle\n", title, report.Dur(d.TrackedMS), report.Dur(d.IdleMS))
+	fmt.Fprintf(env.Stdout, "%s  %s tracked · %s idle%s\n", title, report.Dur(d.TrackedMS), report.Dur(d.IdleMS), cutNote(d.Cut))
 	if len(d.Categories) == 0 {
 		fmt.Fprintln(env.Stdout, "(no activity)")
 		return nil
@@ -95,4 +95,16 @@ func projectSummary(p []report.NameMS) string {
 		parts = append(parts, n.Name+" "+report.Dur(n.MS))
 	}
 	return strings.Join(parts, " · ")
+}
+
+// cutNote says what recorded time did not count, when a minute or more.
+func cutNote(c report.Cut) string {
+	var s string
+	if c.StaleMS >= 60_000 {
+		s += " · " + report.Dur(c.StaleMS) + " cut (no input)"
+	}
+	if c.OtherMS >= 60_000 {
+		s += " · " + report.Dur(c.OtherMS) + " to other machines"
+	}
+	return s
 }

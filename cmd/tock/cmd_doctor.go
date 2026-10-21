@@ -236,9 +236,17 @@ func doctorAFK(env Env, cfg config.Config, ok func(name, detail string), bad fun
 		return
 	}
 	var blind []string
+	long, _ := st.RemoteLong(env.Now().UnixMilli()-7*24*60*60_000, cfg.AFK.TrustMS)
+	trust := classify.FormatDur(cfg.AFK.TrustMS)
 	for _, m := range ms {
 		if v, _, _ := st.State(app.RemoteInputKey(m.Name)); v != "1" {
 			blind = append(blind, m.Name)
+			continue
+		}
+		if hid, _, _ := st.State(app.RemoteHIDKey(m.Name)); hid != "1" && long[m.Name] > 0 {
+			bad("afk", fmt.Sprintf("%s says it reports input, yet %d of its windows in the last 7 days ran over %s: its hypridle missed idle, and those windows keep only their afk window",
+				m.Name, long[m.Name], trust),
+				"on "+m.Name+": check that hypridle runs (pgrep -a hypridle) and that nothing inhibits it, then tock doctor there")
 		}
 	}
 	if len(blind) > 0 {

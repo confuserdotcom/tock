@@ -132,3 +132,24 @@ func (s *Store) RemoteMachines() ([]RemoteMachine, error) {
 	}
 	return out, rows.Err()
 }
+
+// RemoteLong counts, per machine, the remote views that end after sinceMS
+// and last longer than minMS.
+func (s *Store) RemoteLong(sinceMS, minMS int64) (map[string]int, error) {
+	rows, err := s.db.Query(`SELECT machine, COUNT(*) FROM remote_view
+		WHERE end_ms > ? AND end_ms - start_ms > ? GROUP BY machine`, sinceMS, minMS)
+	if err != nil {
+		return nil, fmt.Errorf("store: long remote views: %w", err)
+	}
+	defer rows.Close()
+	out := map[string]int{}
+	for rows.Next() {
+		var m string
+		var n int
+		if err := rows.Scan(&m, &n); err != nil {
+			return nil, err
+		}
+		out[m] = n
+	}
+	return out, rows.Err()
+}

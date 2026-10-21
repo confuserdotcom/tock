@@ -11,6 +11,7 @@ import (
 	"tock/internal/classify"
 	"tock/internal/config"
 	"tock/internal/gitlog"
+	"tock/internal/report"
 	"tock/internal/shell"
 	"tock/internal/store"
 )
@@ -50,6 +51,8 @@ type App struct {
 
 	past    map[string]pastDay // days before today, by date
 	pastKey uint64             // overrides fingerprint the cache was built with
+
+	cut report.Cut // what the last labelled() did not count
 
 	model   *classify.Model   // the local classifier (see labelModel)
 	modelRS *classify.Ruleset // the rules it was trained with

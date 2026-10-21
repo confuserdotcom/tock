@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"tock/internal/classify"
+	"tock/internal/span"
 	"tock/internal/store"
 )
 
@@ -162,7 +163,17 @@ func (a *App) base(rows []store.SpanRow, ovs map[int64]classify.Override, from, 
 	if a.goos == "linux" {
 		afk.TrustMS = a.cfg.AFK.TrustMS
 	}
-	return clipViews(classify.MarkAFK(vs, afk), from, to)
+	out := clipViews(classify.MarkAFK(vs, afk), from, to)
+	idle := map[int64]bool{}
+	for _, r := range rows {
+		idle[r.ID] = r.BundleID == span.IdleBundleID
+	}
+	for _, v := range out {
+		if v.BundleID == span.IdleBundleID && v.ID > 0 && !idle[v.ID] {
+			a.cut.StaleMS += v.DurMS()
+		}
+	}
+	return out
 }
 
 // clipViews cuts views to [from, to) and drops the ones left empty.

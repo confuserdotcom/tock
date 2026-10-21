@@ -132,6 +132,9 @@ func TestStaleRemoteMachine(t *testing.T) {
 	if d.TrackedMS != 3*3_600_000+20*60_000 {
 		t.Fatalf("tracked = %d", d.TrackedMS)
 	}
+	if d.Cut.StaleMS != 3*3_600_000-10*60_000 {
+		t.Fatalf("cut = %+v", d.Cut)
+	}
 	b, err := os.ReadFile(filepath.Join(dir, "mac", machineFile))
 	if err != nil || !strings.HasPrefix(string(b), `{"input":true,"hid":true,"rules_at":`) {
 		t.Fatalf("machine.json = %q, %v", b, err)
@@ -255,5 +258,29 @@ func TestTrustLocalLinux(t *testing.T) {
 	}
 	if d.TrackedMS != 10*60_000 {
 		t.Fatalf("tracked = %d", d.TrackedMS)
+	}
+}
+
+func TestCutToOtherMachine(t *testing.T) {
+	e := apptest.New(t, afkRules)
+	e.Seed(t, apptest.Span{ID: 1, Start: "14:00", End: "15:00", Bundle: "term", App: "WezTerm", Title: "x"})
+	dir := t.TempDir()
+	e.WriteConfig(t, "[sync]\ndir = '"+dir+"'\nmachine = 'mac'\n")
+	os.MkdirAll(filepath.Join(dir, "ryuk"), 0o700)
+	os.WriteFile(filepath.Join(dir, "ryuk", "2026-10-10.jsonl"), []byte(`{"s":`+strconv.FormatInt(apptest.At(t, "14:30", 0), 10)+
+		`,"e":`+strconv.FormatInt(apptest.At(t, "14:45", 0), 10)+`,"b":"pdf","a":"zathura","t":"book","c":"Reading"}`+"\n"), 0o600)
+	os.WriteFile(filepath.Join(dir, "ryuk", machineFile), []byte(`{"input":true}`), 0o600)
+	a := open(t, e)
+	if _, err := a.Sync(1); err != nil {
+		t.Fatal(err)
+	}
+	d, err := a.Day(apptest.Now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// ryuk turned a page at 14:30: its 15 min are its own, the hour here
+	// keeps 45 min, and nothing is lost.
+	if d.Cut.OtherMS != 15*60_000 || d.TrackedMS != 60*60_000 {
+		t.Fatalf("cut = %+v, tracked = %d", d.Cut, d.TrackedMS)
 	}
 }
