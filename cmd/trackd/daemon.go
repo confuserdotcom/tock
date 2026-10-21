@@ -7,6 +7,8 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -15,6 +17,7 @@ import (
 	"tock/internal/config"
 	"tock/internal/span"
 	"tock/internal/store"
+	"tock/internal/update"
 )
 
 // Exit codes under launchd KeepAlive {SuccessfulExit=false} (D-17): 0 means
@@ -23,6 +26,9 @@ import (
 const (
 	exitNoRestart = 0
 	exitRestart   = 1
+	// exitUpdated is runDaemon only: new binaries are in place and main
+	// execs them; it is never a process exit code.
+	exitUpdated = 3
 )
 
 const (
@@ -62,6 +68,11 @@ type daemonOpts struct {
 	CalendarEvery time.Duration
 	// SyncEvery is the sync loop period (default 1 min).
 	SyncEvery time.Duration
+	// Exe is the running trackd, resolved. "" turns self-update off (main
+	// sets it on Linux only); its folder is where updates are installed.
+	Exe string
+	// UpdateEvery is the update loop period (default 1 min).
+	UpdateEvery time.Duration
 }
 
 func wallNowMS() int64 { return time.Now().Round(0).UnixMilli() }
@@ -179,6 +190,8 @@ func runWithStore(o daemonOpts, log *slog.Logger, st *store.Store) int {
 		}
 		pipeErr <- err
 	}()
+	var updated atomic.Bool
+	stopUpdate := func() {} // called by hand once the source stops
 	if o.ConfigDir != "" {
 		stopFocus := startFocus(o, log)
 		defer stopFocus()
@@ -200,6 +213,21 @@ func runWithStore(o daemonOpts, log *slog.Logger, st *store.Store) int {
 				canPrompt: o.CalendarPrompt, log: log, now: o.Now}, every)
 			defer stopCal()
 		}
+		if o.Exe != "" {
+			every := o.UpdateEvery
+			if every <= 0 {
+				every = syncEvery
+			}
+			stopUpdate = startLoop(&updateLoop{
+				cfgPath: filepath.Join(o.ConfigDir, config.File),
+				pinned:  filepath.Join(o.ConfigDir, update.PubFile),
+				binDir:  filepath.Dir(o.Exe),
+				arch:    runtime.GOARCH,
+				run:     update.ParseRunning(version, builtAt),
+				st:      st, log: log, now: o.Now,
+				restart: func() { updated.Store(true); src.Stop() },
+			}, every)
+		}
 	}
 
 	sigs := make(chan os.Signal, 1)
@@ -213,7 +241,10 @@ func runWithStore(o daemonOpts, log *slog.Logger, st *store.Store) int {
 	}()
 
 	rc := exitNoRestart
-	if err := src.Run(); errors.Is(err, collect.ErrAXStale) {
+	err = src.Run()
+	// Stopping waits for a running tick, so the flag is settled after it.
+	stopUpdate()
+	if errors.Is(err, collect.ErrAXStale) {
 		log.Warn("accessibility grant stale; exiting for restart")
 		rc = exitRestart
 	} else if err != nil {
@@ -223,6 +254,9 @@ func runWithStore(o daemonOpts, log *slog.Logger, st *store.Store) int {
 	if err := <-pipeErr; err != nil {
 		log.Error("pipeline", "err", err)
 		rc = exitRestart
+	}
+	if updated.Load() {
+		return exitUpdated // the new binary restarts anyway
 	}
 	return rc
 }

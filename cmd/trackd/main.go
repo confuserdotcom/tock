@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"syscall"
 	"time"
 
 	"tock/internal/collect"
@@ -14,6 +15,9 @@ import (
 
 // version is set via -ldflags "-X main.version=...".
 var version = "dev"
+
+// builtAt is set via -ldflags "-X main.builtAt=..." (RFC 3339, UTC); "" when unknown.
+var builtAt = ""
 
 func home() string {
 	if h, err := os.UserHomeDir(); err == nil {
@@ -109,6 +113,20 @@ func main() {
 	}
 	if runtime.GOOS == "linux" {
 		o.Notifier, o.Camera, o.Mic, o.Calendar = notifySendNotifier{}, nil, nil, nil
+		// Self-update replaces the files next to this one, as the unit runs it.
+		if exe, err := os.Executable(); err == nil {
+			if exe, err = filepath.EvalSymlinks(exe); err == nil {
+				o.Exe = exe
+			}
+		}
 	}
-	os.Exit(runDaemon(o))
+	rc := runDaemon(o)
+	if rc == exitUpdated {
+		// runDaemon has closed the store and let go of the lock. Exec keeps
+		// the pid, so systemd sees one process.
+		err := syscall.Exec(filepath.Join(filepath.Dir(o.Exe), "trackd"), os.Args, os.Environ())
+		fmt.Fprintf(os.Stderr, "trackd: restart into the update: %v\n", err)
+		rc = exitRestart // systemd starts the new binary
+	}
+	os.Exit(rc)
 }

@@ -302,6 +302,23 @@ func TestSync(t *testing.T) {
 	}
 }
 
+func TestSyncUpdate(t *testing.T) {
+	c, err := Load(write(t, "[sync]\ndir = \"/tmp/s\"\n"))
+	if err != nil || c.Sync.NoUpdate {
+		t.Fatalf("default: NoUpdate = %v, %v", c.Sync.NoUpdate, err)
+	}
+	if c, err = Load(write(t, "[sync]\nupdate = false\n")); err != nil || !c.Sync.NoUpdate {
+		t.Fatalf("update = false: NoUpdate = %v, %v", c.Sync.NoUpdate, err)
+	}
+	if c, err = Load(write(t, "[sync]\nupdate = true\n")); err != nil || c.Sync.NoUpdate {
+		t.Fatalf("update = true: NoUpdate = %v, %v", c.Sync.NoUpdate, err)
+	}
+	// bin is the folder the builds are published to
+	if _, err := Load(write(t, "[sync]\nmachine = \"bin\"\n")); err == nil || !strings.Contains(err.Error(), "[sync]") {
+		t.Fatalf("machine = bin: %v", err)
+	}
+}
+
 func TestLoadFocusGuard(t *testing.T) {
 	d := Default().Focus
 	if d.Block || d.BlockGraceMS != 10_000 || d.FocusOn != "" || d.FocusOff != "" {

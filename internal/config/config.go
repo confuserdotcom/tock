@@ -95,6 +95,9 @@ type Sync struct {
 	// NoRules keeps rules.toml out of the sync: by default each machine
 	// shares its copy and takes a newer one from another machine.
 	NoRules bool
+	// NoUpdate stops trackd on Linux from installing the builds the Mac
+	// publishes to <dir>/bin.
+	NoUpdate bool
 }
 
 // machineRE is a valid machine name: it becomes a folder name.
@@ -319,6 +322,7 @@ type syncTOML struct {
 	Dir     *string `toml:"dir"`
 	Machine *string `toml:"machine"`
 	Rules   *bool   `toml:"rules"`
+	Update  *bool   `toml:"update"`
 }
 
 type hoursTOML struct {
@@ -504,10 +508,16 @@ func Load(path string) (Config, error) {
 		if !machineRE.MatchString(*f.Sync.Machine) {
 			return Default(), fmt.Errorf("%s: [sync] machine = %q, want lowercase letters, digits and -, at most 32", name, *f.Sync.Machine)
 		}
+		if *f.Sync.Machine == "bin" { // the folder the builds are published to
+			return Default(), fmt.Errorf("%s: [sync] machine = %q is taken by the published builds; pick another name", name, *f.Sync.Machine)
+		}
 		c.Sync.Machine = *f.Sync.Machine
 	}
 	if f.Sync.Rules != nil {
 		c.Sync.NoRules = !*f.Sync.Rules
+	}
+	if f.Sync.Update != nil {
+		c.Sync.NoUpdate = !*f.Sync.Update
 	}
 	return c, nil
 }
