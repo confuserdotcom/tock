@@ -133,7 +133,7 @@ func TestStaleRemoteMachine(t *testing.T) {
 		t.Fatalf("tracked = %d", d.TrackedMS)
 	}
 	b, err := os.ReadFile(filepath.Join(dir, "mac", machineFile))
-	if err != nil || !strings.HasPrefix(string(b), `{"input":true,"rules_at":`) {
+	if err != nil || !strings.HasPrefix(string(b), `{"input":true,"hid":true,"rules_at":`) {
 		t.Fatalf("machine.json = %q, %v", b, err)
 	}
 }
@@ -215,5 +215,45 @@ func TestSyncNoticesHypridleStop(t *testing.T) {
 	b, _ := os.ReadFile(filepath.Join(dir, "ryuk", machineFile))
 	if !strings.HasPrefix(string(b), `{"input":false`) {
 		t.Fatalf("machine.json = %q", b)
+	}
+}
+
+func TestTrustRemoteWithoutHID(t *testing.T) {
+	e := apptest.New(t, afkRules)
+	e.Seed(t, apptest.Span{ID: 1, Start: "14:00", End: "14:10", Bundle: "term", App: "WezTerm", Title: "x"})
+	a := open(t, e)
+	for machine, body := range map[string]string{"ryuk": `{"input":true}`, "air": `{"input":true,"hid":true}`} {
+		dir := t.TempDir()
+		os.WriteFile(filepath.Join(dir, machineFile), []byte(body), 0o600)
+		if err := a.readMachineFile(dir, machine); err != nil {
+			t.Fatal(err)
+		}
+	}
+	rv := []store.RemoteView{
+		{Machine: "ryuk", StartMS: apptest.At(t, "00:00", 0), EndMS: apptest.At(t, "09:51", 0), Bundle: "pdf", App: "PDF", Category: "Reading"},
+		{Machine: "ryuk", StartMS: apptest.At(t, "10:00", 0), EndMS: apptest.At(t, "12:00", 0), Bundle: "pdf", App: "PDF", Category: "Reading"},
+		{Machine: "air", StartMS: apptest.At(t, "00:00", 0), EndMS: apptest.At(t, "09:51", 0), Bundle: "pdf", App: "PDF", Category: "Reading"},
+	}
+	got := a.staleRemote(rv)
+	// ryuk's 9h51 is past [afk] trust (3h): its 10 min window; 2h stays; the
+	// Mac-like machine is trusted.
+	if got[0].EndMS != apptest.At(t, "00:10", 0) || got[1].EndMS != apptest.At(t, "12:00", 0) || got[2].EndMS != apptest.At(t, "09:51", 0) {
+		t.Fatalf("cut = %v, %v, %v", time.UnixMilli(got[0].EndMS), time.UnixMilli(got[1].EndMS), time.UnixMilli(got[2].EndMS))
+	}
+}
+
+func TestTrustLocalLinux(t *testing.T) {
+	e := apptest.New(t, afkRules)
+	e.Seed(t, apptest.Span{ID: 1, Start: "00:30", End: "09:30", Bundle: "pdf", App: "zathura", Title: "book"})
+	a := open(t, e)
+	a.goos, a.inputCheck = "linux", func() bool { return true }
+	a.refreshInput()
+	a.inputSince = math.MinInt64 + 1 // input all along
+	d, err := a.Day(apptest.Now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d.TrackedMS != 10*60_000 {
+		t.Fatalf("tracked = %d", d.TrackedMS)
 	}
 }

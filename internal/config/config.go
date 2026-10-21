@@ -145,10 +145,14 @@ type AFK struct {
 	// hypridle hook), one unchanged window longer than this keeps its
 	// category's window and the rest is idle.
 	StaleMS int64
+	// TrustMS: on a machine whose input comes from hypridle, which can
+	// miss idle, one unchanged window longer than this keeps its category's
+	// window and the rest is idle, even while it reports input.
+	TrustMS int64
 }
 
 // DefaultAFK is the [afk] section used when the file does not set it.
-func DefaultAFK() AFK { return AFK{VideoMS: 180 * 60_000, StaleMS: 20 * 60_000} }
+func DefaultAFK() AFK { return AFK{VideoMS: 180 * 60_000, StaleMS: 20 * 60_000, TrustMS: 180 * 60_000} }
 
 // Shell is the [shell] section: which apps are terminals, so their views get
 // the working directory the zsh hook records.
@@ -295,6 +299,7 @@ type awayTOML struct {
 type afkTOML struct {
 	Video *int `toml:"video"`
 	Stale *int `toml:"stale"`
+	Trust *int `toml:"trust"`
 }
 
 type calendarTOML struct {
@@ -416,6 +421,12 @@ func Load(path string) (Config, error) {
 			return Default(), fmt.Errorf("%s: [afk] stale = %d, want 10 to 240 minutes", name, v)
 		}
 		c.AFK.StaleMS = int64(*f.AFK.Stale) * 60_000
+	}
+	if f.AFK.Trust != nil {
+		if v := *f.AFK.Trust; v < 30 || v > 720 {
+			return Default(), fmt.Errorf("%s: [afk] trust = %d, want 30 to 720 minutes", name, v)
+		}
+		c.AFK.TrustMS = int64(*f.AFK.Trust) * 60_000
 	}
 	if err := decodeHours(f.Hours, &c.Hours); err != nil {
 		return Default(), fmt.Errorf("%s: %w", name, err)

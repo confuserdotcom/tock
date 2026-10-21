@@ -292,6 +292,7 @@ max = 240                     # minutes; at most 720
 [afk]                         # when time in front of an app stops counting, see AFK
 video = 180                   # minutes without input while a video plays; trackd reads it at start
 stale = 20                    # minutes; see "Machines that report no input"
+trust = 180                   # minutes; the longest unchanged window hypridle is trusted with
 
 [calendar]                    # meetings from macOS Calendar, see Calendar
 enabled = false               # true: trackd asks for calendar access once
@@ -567,6 +568,14 @@ tock guesses: one window left unchanged for longer than `[afk] stale`
 minutes (20) keeps its category's window and the rest is idle. A page turn
 in a PDF reader changes the title, so reading still counts. `tock doctor`
 names those machines.
+
+hypridle can miss idle even when it is hooked in: it stops, crashes or is
+held off by a player. So on Linux, and for another machine whose sync
+folder doesn't say its input comes from macOS, one window left unchanged
+for longer than `[afk] trust` minutes (180) keeps its category's window
+and the rest is idle. A Mac's own input is always trusted. trackd also
+checks on every sync whether hypridle still runs; while it doesn't, the
+machine reports no input.
 
 ## Editing the timeline
 

@@ -18,6 +18,7 @@ const machineFile = "machine.json"
 
 type machineInfo struct {
 	Input      bool   `json:"input"`
+	HID        bool   `json:"hid,omitempty"`         // input comes from the OS (macOS), not hypridle
 	InputSince int64  `json:"input_since,omitempty"` // when it began to report input, ms; 0 for always
 	RulesAt    int64  `json:"rules_at,omitempty"`    // rules.toml's change time, ms
 	RulesSum   string `json:"rules_sum,omitempty"`   // sha256 of the shared copy
@@ -57,6 +58,10 @@ func (a *App) refreshInput() {
 // RemoteInputSinceKey is the daemon_state key holding when a remote
 // machine began reporting input (ms), "" or absent for always.
 func RemoteInputSinceKey(machine string) string { return "remote_input_since:" + machine }
+
+// RemoteHIDKey is the daemon_state key holding "1" when a remote machine
+// says its input comes from the OS, which never misses idle.
+func RemoteHIDKey(machine string) string { return "remote_hid:" + machine }
 
 // RemoteInputKey is the daemon_state key holding "1" when a remote machine
 // says it reports input.
@@ -154,6 +159,9 @@ func (a *App) base(rows []store.SpanRow, ovs map[int64]classify.Override, from, 
 	if a.inputSince > math.MinInt64 {
 		afk.StaleMS, afk.StaleUntil = a.cfg.AFK.StaleMS, a.inputSince
 	}
+	if a.goos == "linux" {
+		afk.TrustMS = a.cfg.AFK.TrustMS
+	}
 	return clipViews(classify.MarkAFK(vs, afk), from, to)
 }
 
@@ -171,10 +179,12 @@ func clipViews(vs []classify.SpanView, from, to int64) []classify.SpanView {
 
 // staleRemote applies the stale rule to the views of machines that do not
 // say they report input: a view longer than [afk] stale keeps its
-// category's window.
+// category's window. So does a view longer than [afk] trust on a machine
+// whose input does not come from the OS.
 func (a *App) staleRemote(rv []store.RemoteView) []store.RemoteView {
 	// since is when each machine began reporting input: MaxInt64 for not.
 	since := map[string]int64{}
+	hid := map[string]bool{}
 	out := make([]store.RemoteView, 0, len(rv))
 	for _, r := range rv {
 		s, ok := since[r.Machine]
@@ -185,8 +195,11 @@ func (a *App) staleRemote(rv []store.RemoteView) []store.RemoteView {
 				s, _ = strconv.ParseInt(w, 10, 64) // "" is 0: always
 			}
 			since[r.Machine] = s
+			v, _, _ := a.st.State(RemoteHIDKey(r.Machine))
+			hid[r.Machine] = v == "1"
 		}
-		if r.StartMS < s && r.EndMS-r.StartMS > a.cfg.AFK.StaleMS {
+		dur := r.EndMS - r.StartMS
+		if (r.StartMS < s && dur > a.cfg.AFK.StaleMS) || (!hid[r.Machine] && dur > a.cfg.AFK.TrustMS) {
 			cat := r.Category
 			if !a.rs.HasCategory(cat) {
 				cat = a.rs.Label(classify.SpanView{BundleID: r.Bundle, App: r.App, Title: r.Title, URL: r.URL}, nil).Category
@@ -203,7 +216,7 @@ func (a *App) staleRemote(rv []store.RemoteView) []store.RemoteView {
 // writeMachineFile writes this machine's machine.json to its sync folder,
 // and shares rules.toml unless [sync] rules is off.
 func (a *App) writeMachineFile(dir string) error {
-	mi := machineInfo{Input: a.input}
+	mi := machineInfo{Input: a.input, HID: a.goos != "linux"}
 	if a.input && a.inputSince > math.MinInt64 {
 		mi.InputSince = a.inputSince
 	}
@@ -226,9 +239,15 @@ func (a *App) readMachineFile(dir, machine string) error {
 	if !ok {
 		return nil // an older tock writes none: unknown
 	}
-	v, since := "0", ""
+	v, since, hid := "0", "", "0"
 	if mi.Input {
 		v = "1"
+	}
+	if mi.HID {
+		hid = "1"
+	}
+	if err := a.st.SetState(RemoteHIDKey(machine), hid, a.nowMS()); err != nil {
+		return err
 	}
 	if mi.InputSince > 0 {
 		since = strconv.FormatInt(mi.InputSince, 10)

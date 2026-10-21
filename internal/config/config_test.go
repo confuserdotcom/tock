@@ -72,14 +72,14 @@ func TestLoadAway(t *testing.T) {
 }
 
 func TestLoadAFK(t *testing.T) {
-	c, err := Load(write(t, "[afk]\nvideo = 120\nstale = 30\n"))
+	c, err := Load(write(t, "[afk]\nvideo = 120\nstale = 30\ntrust = 90\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c.AFK != (AFK{VideoMS: 120 * 60_000, StaleMS: 30 * 60_000}) {
+	if c.AFK != (AFK{VideoMS: 120 * 60_000, StaleMS: 30 * 60_000, TrustMS: 90 * 60_000}) {
 		t.Fatalf("afk = %+v", c.AFK)
 	}
-	if Default().AFK != (AFK{VideoMS: 180 * 60_000, StaleMS: 20 * 60_000}) {
+	if Default().AFK != (AFK{VideoMS: 180 * 60_000, StaleMS: 20 * 60_000, TrustMS: 180 * 60_000}) {
 		t.Fatalf("default afk = %+v", Default().AFK)
 	}
 }
@@ -120,6 +120,7 @@ func TestLoadErrors(t *testing.T) {
 		{"[score]\nstretch = 0.1\n", "config.toml: [score] weights sum to 1.10, want 1"},
 		{"[afk]\nvideo = 4\n", "config.toml: [afk] video = 4, want 5 to 720 minutes"},
 		{"[afk]\nstale = 300\n", "config.toml: [afk] stale = 300, want 10 to 240 minutes"},
+		{"[afk]\ntrust = 20\n", "config.toml: [afk] trust = 20, want 30 to 720 minutes"},
 	}
 	for _, tt := range tests {
 		c, err := Load(write(t, tt.body))

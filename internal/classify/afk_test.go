@@ -87,3 +87,29 @@ func TestMarkAFKStaleWindowLongerThanView(t *testing.T) {
 		t.Fatalf("got %+v", got)
 	}
 }
+
+func TestMarkAFKTrust(t *testing.T) {
+	z := "org.pwmt.zathura"
+	cases := []struct {
+		name string
+		in   []SpanView
+		a    AFK
+		want []SpanView
+	}{
+		{"over the ceiling keeps its window, even after input began",
+			[]SpanView{av(1, 0, 616*mn, z)}, AFK{TrustMS: 180 * mn, StaleMS: 20 * mn, StaleUntil: -1},
+			[]SpanView{av(1, 0, 10*mn, z), idleV(1, 10*mn, 616*mn)}},
+		{"under the ceiling stays",
+			[]SpanView{av(1, 0, 179*mn, z)}, AFK{TrustMS: 180 * mn},
+			[]SpanView{av(1, 0, 179*mn, z)}},
+		{"no ceiling",
+			[]SpanView{av(1, 0, 616*mn, z)}, AFK{},
+			[]SpanView{av(1, 0, 616*mn, z)}},
+	}
+	for _, c := range cases {
+		c.a.Window = windows
+		if got := MarkAFK(c.in, c.a); !reflect.DeepEqual(got, c.want) {
+			t.Errorf("%s:\n got %+v\nwant %+v", c.name, got, c.want)
+		}
+	}
+}
