@@ -35,6 +35,13 @@ type Config struct {
 	Invoice  Invoice
 	Privacy  Privacy
 	Plan     Plan
+	Model    Model
+}
+
+// Model is the [model] section: the local classifier that labels what the
+// rules miss (see classify.Model). It never leaves the machine.
+type Model struct {
+	Enabled bool
 }
 
 // Privacy is the [privacy] section.
@@ -242,7 +249,8 @@ func DefaultLLM() LLM {
 
 // Default is the configuration used when there is no file.
 func Default() Config {
-	return Config{Score: stats.DefaultWeights, Focus: DefaultFocus(), LLM: DefaultLLM(), Shell: DefaultShell(), Away: DefaultAway(), AFK: DefaultAFK(), Slack: DefaultSlack()}
+	return Config{Score: stats.DefaultWeights, Focus: DefaultFocus(), LLM: DefaultLLM(), Shell: DefaultShell(), Away: DefaultAway(), AFK: DefaultAFK(), Slack: DefaultSlack(),
+		Model: Model{Enabled: true}}
 }
 
 type scoreTOML struct {
@@ -326,6 +334,10 @@ type invoiceTOML struct {
 	Note     *string   `toml:"note"`
 }
 
+type modelTOML struct {
+	Enabled *bool `toml:"enabled"`
+}
+
 type privacyTOML struct {
 	KeepTitles *int `toml:"keep_titles"`
 }
@@ -349,6 +361,7 @@ type fileTOML struct {
 	Invoice  invoiceTOML  `toml:"invoice"`
 	Privacy  privacyTOML  `toml:"privacy"`
 	Plan     planTOML     `toml:"plan"`
+	Model    modelTOML    `toml:"model"`
 }
 
 // Load reads path. A missing file is Default() and no error. Any other
@@ -433,6 +446,9 @@ func Load(path string) (Config, error) {
 	}
 	if c.Hours.Set && f.Focus.Recap == nil {
 		c.Focus.RecapAt = c.Hours.EndMin // the recap closes the work day
+	}
+	if f.Model.Enabled != nil {
+		c.Model.Enabled = *f.Model.Enabled
 	}
 	if k := f.Privacy.KeepTitles; k != nil {
 		if *k < 1 || *k > MaxKeepTitles {

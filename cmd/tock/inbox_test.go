@@ -1,6 +1,8 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -76,6 +78,7 @@ func TestListingExpiresAndBadNumbers(t *testing.T) {
 // tock tag <n> without a label accepts it.
 func TestInboxGuessAccepted(t *testing.T) {
 	te := newTestEnv(t, testRules)
+	os.WriteFile(filepath.Join(te.ConfigDir, "config.toml"), []byte("[model]\nenabled = false\n"), 0o600) // the model would label it outright
 	te.seed(t, append(daySpans(), seedSpan{9, "13:00", "13:20", "arc", "Arc", "Settings", "chatgpt.com/settings", false})...)
 	if code, _ := te.run(t, "", "tag", "--span", "9", "Study"); code != 0 {
 		t.Fatalf("tag --span: %s", te.errb)
@@ -93,5 +96,19 @@ func TestInboxGuessAccepted(t *testing.T) {
 	}
 	if code, _ := te.run(t, "", "tag", "1"); code != 1 || !strings.Contains(te.errb.String(), "no suggestion for Mail · inbox") {
 		t.Fatalf("no suggestion: code %d %q", code, te.errb.String())
+	}
+}
+
+// With the model on, the label of one chatgpt.com page carries to another
+// page there whose title is study, without a trip to the inbox.
+func TestInboxModelLabels(t *testing.T) {
+	te := newTestEnv(t, testRules)
+	te.seed(t, append(daySpans(), seedSpan{9, "13:00", "13:20", "arc", "Arc", "Settings", "chatgpt.com/settings", false})...)
+	if code, _ := te.run(t, "", "tag", "--span", "9", "Study"); code != 0 {
+		t.Fatalf("tag --span: %s", te.errb)
+	}
+	code, out := te.run(t, "", "inbox")
+	if code != 0 || strings.Contains(out, "Proofs") {
+		t.Fatalf("inbox: code %d\n%s", code, out)
 	}
 }

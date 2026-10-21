@@ -86,7 +86,7 @@ func (a *App) spans(from, to int64) ([]store.SpanRow, map[int64]classify.Overrid
 }
 
 // labelled loads the spans overlapping [from, to), clipped, with their
-// labels. The open span ends at nowMS; callers pass the same nowMS to the
+// labels, the local model's included (see labelModel). The open span ends at nowMS; callers pass the same nowMS to the
 // report so it can tell which row is open.
 func (a *App) labelled(from, to, nowMS int64) ([]classify.SpanView, []classify.Label, error) {
 	rows, ovs, err := a.spans(from, to)
@@ -97,7 +97,13 @@ func (a *App) labelled(from, to, nowMS int64) ([]classify.SpanView, []classify.L
 	if err != nil {
 		return nil, nil, err
 	}
-	return vs, a.rs.LabelAll(vs, ovs), nil
+	labels := a.rs.LabelAll(vs, ovs)
+	m, err := a.labelModel()
+	if err != nil {
+		return nil, nil, err
+	}
+	a.rs.ApplyModel(m, vs, labels)
+	return vs, labels, nil
 }
 
 // CallMinMS is the shortest call that labels time, which keeps dictation and

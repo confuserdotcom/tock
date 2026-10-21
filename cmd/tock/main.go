@@ -57,6 +57,8 @@ const usage = `usage:
   tock trends [--month YYYY-MM]          a month against the one before
   tock top [--days N | --week | --month] [--by category|app|site|project] [--limit N]
                                          where the time went: top categories, apps and sites
+  tock model [why <app> "<title>" [<label>]]
+                                         how well the local model labels; why it labels a window so
   tock web [--port N] [--no-open]       the dashboard in your browser, on this machine only
   tock review [--week YYYY-MM-DD] [--plan TEXT]
                                          weekly recap, then next week's focus
@@ -215,6 +217,7 @@ var commands = map[string]func(Env, []string) error{
 	"away":       cmdAway,
 	"trends":     cmdTrends,
 	"top":        cmdTop,
+	"model":      cmdModel,
 	"review":     cmdReview,
 	"report":     cmdReport,
 	"invoice":    cmdInvoice,

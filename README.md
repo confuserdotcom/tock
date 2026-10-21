@@ -9,6 +9,8 @@ score your focus, run focus sessions and help you label what is left.
 ## Privacy
 
 - Everything stays on your Mac, in `~/.local/share/tock/tock.db` (mode 0600).
+- The model that labels what the rules miss is trained and run on this
+  machine (see The model).
 - `trackd` contains no network code at all; a test fails the build if it ever
   links an HTTP or TLS client.
 - Private-browsing windows are recorded as "<app> (private)", with no title or
@@ -195,6 +197,8 @@ tock recap [YYYY-MM-DD]                the daily recap
 tock trends [--month YYYY-MM]          a month against the one before
 tock top [--days N | --week | --month] [--by category|app|site|project] [--limit N]
                                        where the time went: top categories, apps and sites
+tock model [why <app> "<title>" [<label>]]
+                                       how well the local model labels; why it labels a window so
 tock web [--port N] [--no-open]       the dashboard in your browser, on this machine only
 tock review [--week YYYY-MM-DD] [--plan TEXT]
                                        weekly recap, then next week's focus
@@ -496,6 +500,39 @@ Each category has a kind:
 
 The starter rules have Reading (neutral, for books and long reads), Research
 (shallow: encyclopedias, papers, dictionaries) and Browsing.
+
+## The model
+
+Rules see the app and the site; the title often says more. A small
+classifier, trained on this machine from the labels you already have, reads
+the title too. It never sends anything anywhere.
+
+- **What it learns from:** every labelled key, weighted by where the label
+  came from (your own tags most, a rule that names only an app or a site
+  least) and gently by time. A study category (deep, named like Study,
+  Learning or Études) also starts with a list of French and English study
+  words. It retrains when you tag something and every 15 minutes.
+- **Filling gaps:** time no rule labels gets the model's category when it is
+  sure (80% on at least two known words or the site), and either the site
+  is known or the title alone agrees. It leaves the inbox.
+- **Correcting a broad rule:** time a rule labelled only by its app or site
+  (`youtube.com` is Entertainment), or another machine labelled, takes
+  another category when the title alone says so (85%, with at least two
+  words for it), not counting what that rule taught. A YouTube video called
+  "Diagrammes de phase et de Clapeyron" is Study.
+- **Never over:** your own tags, rules with a title, modules, calls,
+  meetings, the plan, time away and edits. Tag a window to correct the
+  model; the tag is what it learns from next.
+- Labels it chose show `model` as their source (`tock export`, the web
+  dashboard).
+
+```
+tock model                                 how often it is right on labels it did not see
+tock model why chromium "Apprendre à conjecturer - Chromium" [Entertainment]
+                                           the categories it sees, and the words behind them
+```
+
+`[model] enabled = false` in config.toml turns it off.
 
 ## Modules
 

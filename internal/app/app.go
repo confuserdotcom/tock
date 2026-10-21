@@ -50,6 +50,11 @@ type App struct {
 
 	past    map[string]pastDay // days before today, by date
 	pastKey uint64             // overrides fingerprint the cache was built with
+
+	model   *classify.Model   // the local classifier (see labelModel)
+	modelRS *classify.Ruleset // the rules it was trained with
+	modelFP uint64            // pastKey it was trained with
+	modelAt int64             // when, ms
 }
 
 // stamp identifies the versions of the rule files and the config file.
