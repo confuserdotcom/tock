@@ -20,9 +20,9 @@ tock    today    week   inbox ³   focus   rules   plan   labels          Sat 10
  │   /      filter rows                                              a      add a task            │ 
  │   c      every window ↔ comp…   Labels                            f      focus session         │ 
  │   i      why this score           a      add a category           d      delete                │ 
-▸│   g/G    first / last row         m      add a module             e      edit the file         │ 
+ │   g/G    first / last row         m      add a module             e      edit the file         │ 
  │                                   e      rename                   j/k    move                  │ 
- │ Go                                K      kind                     g/G    first / last task     │ 
+▸│ Go                                K      kind                     g/G    first / last task     │ 
  │   1-7    switch tab               w      afk window                                            │ 
  │   tab    next tab                 o      goal                   App                            │ 
  │                                   f      file under a catego…     ?      help                  │ 

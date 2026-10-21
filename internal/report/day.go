@@ -36,12 +36,15 @@ type Day struct {
 	ByKind    map[string]int64 // kind ("" = unlabelled) -> ms; idle excluded
 	// Categories: by time desc, then name; Unclassified last.
 	Categories []CatRow
-	Hours      Heatmap
-	Timeline   []Row // chronological
-	Stats      stats.Day
-	Score      stats.Score
-	Goals      []GoalRow           // filled by the caller from the week to date; nil without goals
-	Away       []classify.Interval // pending absences, filled by the caller
+	// Projects: each project's share of the tracked time, "" for the time
+	// with no project; nil when no project has time.
+	Projects []Share
+	Hours    Heatmap
+	Timeline []Row // chronological
+	Stats    stats.Day
+	Score    stats.Score
+	Goals    []GoalRow           // filled by the caller from the week to date; nil without goals
+	Away     []classify.Interval // pending absences, filled by the caller
 	// AwayBefore[i] is the label of what Away[i] follows, zero when
 	// unlabelled: "still on it" answers with it.
 	AwayBefore []classify.Want
@@ -96,6 +99,7 @@ func BuildDay(in DayInput) Day {
 	loc := in.Date.Location()
 	d := Day{Date: in.Date, ByKind: map[string]int64{}, Hours: Heatmap{MS: map[string][24]int64{}}}
 	cats := map[string]*CatRow{}
+	projects := map[string]int64{}
 	for i, v := range in.Views {
 		ms := v.DurMS()
 		if v.BundleID == span.IdleBundleID {
@@ -119,6 +123,7 @@ func BuildDay(in DayInput) Day {
 			cats[name] = c
 		}
 		c.MS += ms
+		projects[l.Project] += ms
 		if l.Project != "" {
 			c.Projects = addMS(c.Projects, l.Project, ms)
 		}
@@ -137,6 +142,7 @@ func BuildDay(in DayInput) Day {
 		d.Categories = append(d.Categories, *c)
 	}
 	sortCats(d.Categories)
+	d.Projects = Shares(projects)
 	d.Hours.First, d.Hours.Last = hourRange(d.Hours.MS, in.Date, in.NowMS)
 	d.Timeline = timeline(in.Views, in.Labels, in.NowMS)
 	d.Work, d.Off = in.Hours, in.Hours.Off(in.Date)

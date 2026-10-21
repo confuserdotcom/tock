@@ -3,26 +3,26 @@ tock    today    week   inbox ³   focus   rules   plan   labels          Sat 10
  Today  ‹ h  l ›  ╭─ Commands ───────────────────────────────────────────────────╮d 2h54 · idle 41m 
  █████████████████│ › ▏                                                          │              ▆▆▆ 
  09              1│                                                              │14                
- work  09:00 tock │ ▸ label it                                      Today  enter │                  
- ⚑ Away 12:25–14:5│   label time away                                   Today  a │                  
-                  │   leave time away idle                              Today  A │                  
- ╭─ Day ──────────│   tag                                               Today  t │────────────────╮ 
- │            09  │   set project                                       Today  p │━  tock 1h40    │ 
- │ deep       ████│   tag and learn a rule                              Today  T │─               │ 
- │ unlabelled     │   split: label part of the row                      Today  s │─  3 keys       │ 
- │ distract       │   delete the row's time                             Today  d │                │ 
- ╰────────────────│   add time you forgot                               Today  + │────────────────╯ 
-                  │   previous day                                      Today  h │                  
-  09:00–10:40   1h│   filter rows                                       Today  / │                  
-  10:40–11:14    3│   every window ↔ compact rows                       Today  c │                  
-  11:14–11:26    1╰──────────────────────────────────────────────────────────────╯                  
+ █████████████████│ ▸ label it                                      Today  enter │█████████████████ 
+ ■ tock 57% · ■ no│   label time away                                   Today  a │                  
+ work  09:00 tock │   leave time away idle                              Today  A │                  
+ ⚑ Away 12:25–14:5│   tag                                               Today  t │                  
+                  │   set project                                       Today  p │                  
+ ╭─ Day ──────────│   tag and learn a rule                              Today  T │────────────────╮ 
+ │            09  │   split: label part of the row                      Today  s │━  tock 1h40    │ 
+ │ deep       ████│   delete the row's time                             Today  d │─               │ 
+ │ unlabelled     │   add time you forgot                               Today  + │─  3 keys       │ 
+ │ distract       │   previous day                                      Today  h │                │ 
+ ╰────────────────│   filter rows                                       Today  / │────────────────╯ 
+                  │   every window ↔ compact rows                       Today  c │                  
+  09:00–10:40   1h╰──────────────────────────────────────────────────────────────╯                  
+  10:40–11:14    34m  ● Code                WezTerm     ATLAS │ y                                   
+  11:14–11:26    12m  ● Entertainment       Arc         Video                                       
   11:26–11:35     9m  ○ unlabelled          Arc         XOR Equivalence Check                       
   11:35–11:41     6m  ○ unlabelled          Arc         Low Level Labs                              
   11:41–12:22    41m    idle                Idle                                                    
   12:22–12:25     3m  ○ unlabelled          Arc         Proofs                                      
 ▸ 14:50–15:00    10m  ○ unlabelled          Mail        Inbox                                       
-
-
 
 
 

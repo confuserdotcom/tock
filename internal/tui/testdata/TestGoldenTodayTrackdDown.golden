@@ -4,6 +4,8 @@ trackd is not running — showing history. Restart: launchctl kickstart -k gui/$
  Today  ‹ h  l ›                      1 block · longest 2h14 · 2 switches · tracked 2h54 · idle 41m 
  ████████████████████████████████████████▆▆▆▆···········▆                                       ▆▆▆
  09              10              11               12              13              14
+ ██████████████████████████████████████████████████████████████████████████████████████████████████
+ ■ tock 57% · ■ no project 43%
  work  09:00 tock 1h40 · 10:40 Code 34m · 11:26 Unlabelled 15m                                      
  ⚑ Away 12:25–14:50 (2h25) — what was it?   a label   A leave idle   +1 more                        
 
@@ -22,8 +24,6 @@ trackd is not running — showing history. Restart: launchctl kickstart -k gui/$
   11:41–12:22    41m    idle                Idle                                                    
   12:22–12:25     3m  ○ unlabelled          Arc         Proofs                                      
 ▸ 14:50–15:00    10m  ○ unlabelled          Mail        Inbox                                       
-
-
 
 
 

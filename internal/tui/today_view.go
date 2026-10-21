@@ -39,6 +39,7 @@ func (t *todayTab) head(w, h int, now time.Time) []string {
 	out := t.hero(w, now)
 	if h >= 24 || side > 0 {
 		out = append(out, ribbon(t.day, w, t.day.Date.Location())...)
+		out = append(out, projectStrip(t.day, w)...)
 	}
 	if side > 0 {
 		if a := t.attention(); a != "" {
@@ -363,7 +364,8 @@ func (t todayTab) sidebar(w, h int) []string {
 		for _, p := range c.Projects {
 			f := report.LabelText(c.Name, p.Name)
 			where = append(where, tip("cat:"+f, "show only "+p.Name+" rows", fit("  "+sFaint.Render("╰ ")+
-				sText.Render(fit(report.Safe(p.Name), inner-10))+sDim.Render(fitRight(report.Dur(p.MS), 6)), inner)))
+				sText.Render(fit(report.Safe(p.Name), inner-15))+sDim.Render(fitRight(sharePct(d.Projects, p.Name), 5)+
+				fitRight(report.Dur(p.MS), 6)), inner)))
 		}
 	}
 	out := card("Where it went", where, w)
