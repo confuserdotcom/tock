@@ -12,6 +12,7 @@ import (
 
 	"tock/internal/apptest"
 	"tock/internal/store"
+	"tock/internal/update"
 )
 
 const afkRules = apptest.Rules + `
@@ -282,5 +283,48 @@ func TestCutToOtherMachine(t *testing.T) {
 	// keeps 45 min, and nothing is lost.
 	if d.Cut.OtherMS != 15*60_000 || d.TrackedMS != 60*60_000 {
 		t.Fatalf("cut = %+v, tracked = %d", d.Cut, d.TrackedMS)
+	}
+}
+
+func TestMachineFileCarriesVersionAndUpdateError(t *testing.T) {
+	e := apptest.New(t, afkRules)
+	e.Seed(t, apptest.Span{ID: 1, Start: "14:00", End: "14:10", Bundle: "term", App: "WezTerm", Title: "x"})
+	dir := t.TempDir()
+	a := open(t, e)
+	// none known: both left out
+	if err := a.writeMachineFile(dir); err != nil {
+		t.Fatal(err)
+	}
+	if b, _ := os.ReadFile(filepath.Join(dir, machineFile)); strings.Contains(string(b), "version") || strings.Contains(string(b), "update_error") {
+		t.Fatalf("machine.json = %q", b)
+	}
+	a.st.SetState(store.KeyVersion, "v1", 1)
+	a.st.SetState(update.KeyError, "update: key changed", 1)
+	if err := a.writeMachineFile(dir); err != nil {
+		t.Fatal(err)
+	}
+	mi, ok := readMachineInfo(dir)
+	if !ok || mi.Version != "v1" || mi.UpdateError != "update: key changed" {
+		t.Fatalf("machine info = %+v", mi)
+	}
+	if err := a.readMachineFile(dir, "ryuk"); err != nil {
+		t.Fatal(err)
+	}
+	if v, _, _ := a.st.State(RemoteVersionKey("ryuk")); v != "v1" {
+		t.Fatalf("remote version = %q", v)
+	}
+	if v, _, _ := a.st.State(RemoteUpdateErrorKey("ryuk")); v != "update: key changed" {
+		t.Fatalf("remote update error = %q", v)
+	}
+	// a machine.json without them clears both
+	os.WriteFile(filepath.Join(dir, machineFile), []byte(`{"input":true}`), 0o600)
+	if err := a.readMachineFile(dir, "ryuk"); err != nil {
+		t.Fatal(err)
+	}
+	if v, _, _ := a.st.State(RemoteVersionKey("ryuk")); v != "" {
+		t.Fatalf("remote version = %q after it went", v)
+	}
+	if v, _, _ := a.st.State(RemoteUpdateErrorKey("ryuk")); v != "" {
+		t.Fatalf("remote update error = %q after it went", v)
 	}
 }

@@ -14,6 +14,7 @@ import (
 
 	"tock/internal/classify"
 	"tock/internal/store"
+	"tock/internal/update"
 )
 
 // SyncDays is how many days, today included, each sync writes.
@@ -149,6 +150,9 @@ func (a *App) importRemote(dir, self string) (int, error) {
 	read := 0
 	for _, m := range machines {
 		if !m.IsDir() || m.Name() == self || strings.HasPrefix(m.Name(), ".") {
+			continue
+		}
+		if m.Name() == update.BinDir { // the published builds, not a machine
 			continue
 		}
 		files, err := os.ReadDir(filepath.Join(dir, m.Name()))

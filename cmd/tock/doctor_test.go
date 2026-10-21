@@ -10,6 +10,7 @@ import (
 	"tock/internal/config"
 
 	"tock/internal/store"
+	"tock/internal/update"
 )
 
 func setStates(t *testing.T, te *tenv, kv map[string]string) {
@@ -205,6 +206,93 @@ func TestDoctorLinux(t *testing.T) {
 	if _, out := te.run(t, "", "doctor"); !strings.Contains(out, "!!  trackd: not running — systemctl --user restart trackd") ||
 		!strings.Contains(out, "!!  idle: hypridle does not run trackd idle") {
 		t.Fatalf("down:\n%s", out)
+	}
+}
+
+// lagDoctor is tock doctor on a Mac that syncs with ryuk. ryuk's machine.json
+// is ryukJSON, and the Mac published pubVer pubAge before testNow ("" for none).
+func lagDoctor(t *testing.T, ryukJSON, pubVer string, pubAge time.Duration) (code int, out string) {
+	t.Helper()
+	dir := t.TempDir()
+	te, _ := doctorEnv(t, testRules)
+	te.seed(t, daySpans()...)
+	setStates(t, te, map[string]string{store.KeyHeartbeat: nowMS(), store.KeyAXTrusted: "1", store.KeyVersion: "mac1"})
+	writeFile(t, te.paths().Config, "[sync]\ndir = \""+dir+"\"\nmachine = \"mac\"\n")
+	os.MkdirAll(filepath.Join(dir, "ryuk"), 0o700)
+	line := `{"s":` + strconv.FormatInt(at(t, "11:45"), 10) + `,"e":` + strconv.FormatInt(at(t, "12:15"), 10) + `,"b":"kitty","a":"kitty","c":"Code"}` + "\n"
+	os.WriteFile(filepath.Join(dir, "ryuk", "2026-10-10.jsonl"), []byte(line), 0o600)
+	os.WriteFile(filepath.Join(dir, "ryuk", "machine.json"), []byte(ryukJSON), 0o600)
+	if pubVer != "" {
+		os.MkdirAll(filepath.Join(dir, "bin", "linux-amd64"), 0o700)
+		m := `{"version":"` + pubVer + `","built_at":"` + testNow.Add(-pubAge).UTC().Format(time.RFC3339) + `","files":{}}`
+		os.WriteFile(filepath.Join(dir, "bin", "linux-amd64", "manifest.json"), []byte(m), 0o600)
+	}
+	if code, out := te.run(t, "", "sync"); code != 0 {
+		t.Fatalf("sync: %d %s", code, out)
+	}
+	return te.run(t, "", "doctor")
+}
+
+func TestDoctorUpdatesLag(t *testing.T) {
+	const old = `{"input":true,"version":"old1","update_error":"update: manifest.sig does not match"}`
+	_, out := lagDoctor(t, old, "new2", 2*time.Hour)
+	for _, want := range []string{"!!  updates: ryuk runs old1, but new2 was published 2h ago", "it says: update: manifest.sig does not match",
+		"ok  sync: as mac with ryuk old1 (last "} {
+		if !strings.Contains(out, want) {
+			t.Errorf("output lacks %q:\n%s", want, out)
+		}
+	}
+	// a recent publish is not behind yet
+	code, out := lagDoctor(t, old, "new2", 10*time.Minute)
+	if !strings.Contains(out, "ok  updates: ryuk runs old1; new2 published 10m ago, not taken yet") || strings.Contains(out, "!!  updates") {
+		t.Errorf("10 min:\n%s", out)
+	}
+	if code != 0 {
+		t.Errorf("exit %d with ryuk 10 min behind:\n%s", code, out)
+	}
+	_, out = lagDoctor(t, `{"input":true,"version":"new2"}`, "new2", 2*time.Hour)
+	if !strings.Contains(out, "ok  updates: ryuk runs the published new2") || strings.Contains(out, "!!  updates") {
+		t.Errorf("up to date:\n%s", out)
+	}
+}
+
+func TestDoctorUpdatesUnknownVersion(t *testing.T) {
+	_, out := lagDoctor(t, `{"input":true}`, "new2", 2*time.Hour)
+	if !strings.Contains(out, "!!  updates: ryuk runs unknown, but new2 was published 2h ago") || !strings.Contains(out, "trackd install") {
+		t.Errorf("output:\n%s", out)
+	}
+}
+
+func TestDoctorUpdatesNothingPublished(t *testing.T) {
+	code, out := lagDoctor(t, `{"input":true}`, "", 0)
+	if code != 0 || !strings.Contains(out, "ok  updates: nothing published for Linux") || strings.Contains(out, "!!") {
+		t.Errorf("exit %d:\n%s", code, out)
+	}
+	if !strings.Contains(out, "ok  sync: as mac with ryuk (last ") {
+		t.Errorf("sync line changed:\n%s", out)
+	}
+}
+
+func TestDoctorUpdatesLinux(t *testing.T) {
+	linux := func(cfg string, states map[string]string) string {
+		te, _ := doctorEnv(t, testRules)
+		te.Linux = true
+		te.Hypridle = func() bool { return true }
+		te.seed(t, daySpans()...)
+		states[store.KeyHeartbeat], states[store.KeyAXTrusted] = nowMS(), "1"
+		setStates(t, te, states)
+		writeFile(t, te.paths().Config, strings.ReplaceAll(cfg, "SYNC", t.TempDir()))
+		_, out := te.run(t, "", "doctor")
+		return out
+	}
+	if out := linux("[sync]\ndir = \"SYNC\"\n", map[string]string{update.KeyError: "update: key changed"}); !strings.Contains(out, "!!  updates: update: key changed") {
+		t.Errorf("error:\n%s", out)
+	}
+	if out := linux("[sync]\ndir = \"SYNC\"\nupdate = false\n", map[string]string{update.KeyError: "x"}); !strings.Contains(out, "ok  updates: off ([sync] update = false)") {
+		t.Errorf("off:\n%s", out)
+	}
+	if out := linux("[sync]\ndir = \"SYNC\"\n", map[string]string{}); !strings.Contains(out, "ok  updates: on; nothing published yet") {
+		t.Errorf("on:\n%s", out)
 	}
 }
 

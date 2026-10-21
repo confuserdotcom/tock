@@ -11,6 +11,7 @@ import (
 	"tock/internal/classify"
 	"tock/internal/span"
 	"tock/internal/store"
+	"tock/internal/update"
 )
 
 // machineFile is the file in a machine's sync folder that says what the
@@ -23,6 +24,10 @@ type machineInfo struct {
 	InputSince int64  `json:"input_since,omitempty"` // when it began to report input, ms; 0 for always
 	RulesAt    int64  `json:"rules_at,omitempty"`    // rules.toml's change time, ms
 	RulesSum   string `json:"rules_sum,omitempty"`   // sha256 of the shared copy
+	// Version is this machine's trackd version; UpdateError its last failed
+	// self-update.
+	Version     string `json:"version,omitempty"`
+	UpdateError string `json:"update_error,omitempty"`
 }
 
 // KeyInputSince is the daemon_state key holding when this Linux machine
@@ -67,6 +72,14 @@ func RemoteHIDKey(machine string) string { return "remote_hid:" + machine }
 // RemoteInputKey is the daemon_state key holding "1" when a remote machine
 // says it reports input.
 func RemoteInputKey(machine string) string { return "remote_input:" + machine }
+
+// RemoteVersionKey is the daemon_state key holding a remote machine's trackd
+// version, "" when it does not say.
+func RemoteVersionKey(machine string) string { return "remote_version:" + machine }
+
+// RemoteUpdateErrorKey is the daemon_state key holding a remote machine's
+// last failed self-update, "" when none.
+func RemoteUpdateErrorKey(machine string) string { return "remote_update_error:" + machine }
 
 // inputKnown reports whether this machine reports input to trackd: always
 // on macOS; on Linux only once hypridle runs trackd idle.
@@ -228,6 +241,8 @@ func (a *App) staleRemote(rv []store.RemoteView) []store.RemoteView {
 // and shares rules.toml unless [sync] rules is off.
 func (a *App) writeMachineFile(dir string) error {
 	mi := machineInfo{Input: a.input, HID: a.goos != "linux"}
+	mi.Version, _, _ = a.st.State(store.KeyVersion)
+	mi.UpdateError, _, _ = a.st.State(update.KeyError)
 	if a.input && a.inputSince > math.MinInt64 {
 		mi.InputSince = a.inputSince
 	}
@@ -264,6 +279,12 @@ func (a *App) readMachineFile(dir, machine string) error {
 		since = strconv.FormatInt(mi.InputSince, 10)
 	}
 	if err := a.st.SetState(RemoteInputSinceKey(machine), since, a.nowMS()); err != nil {
+		return err
+	}
+	if err := a.st.SetState(RemoteVersionKey(machine), mi.Version, a.nowMS()); err != nil {
+		return err
+	}
+	if err := a.st.SetState(RemoteUpdateErrorKey(machine), mi.UpdateError, a.nowMS()); err != nil {
 		return err
 	}
 	return a.st.SetState(RemoteInputKey(machine), v, a.nowMS())

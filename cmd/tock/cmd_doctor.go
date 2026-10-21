@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -14,6 +15,8 @@ import (
 	"tock/internal/classify"
 	"tock/internal/config"
 	"tock/internal/gitlog"
+	"tock/internal/store"
+	"tock/internal/update"
 )
 
 // System Settings panes for the grants trackd needs.
@@ -22,6 +25,10 @@ const (
 	automationSettingsURL = "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation"
 	calendarSettingsURL   = "x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars"
 )
+
+// updateLagMS is how long a Linux machine may run an older build than the
+// one published before doctor on the Mac says so.
+const updateLagMS = 60 * 60_000
 
 // doctorWait is how long --wait gives trackd to report its first heartbeat.
 const doctorWait = 15 * time.Second
@@ -133,6 +140,7 @@ func cmdDoctor(env Env, args []string) error {
 	if cfgErr == nil {
 		doctorAFK(env, cfg, ok, bad)
 		doctorSync(env, cfg.Sync, ok, bad)
+		doctorUpdates(env, cfg.Sync, ok, bad)
 		doctorGuard(env, cfg, ok, bad)
 	}
 
@@ -268,11 +276,13 @@ func doctorSync(env Env, s config.Sync, ok func(name, detail string), bad func(n
 	detail := "as " + s.MachineName() + ", no other machine yet"
 	if st, err := openStore(env); err == nil {
 		ms, err := st.RemoteMachines()
-		st.Close()
 		if err == nil && len(ms) > 0 {
 			var names []string
 			for _, m := range ms {
 				n := m.Name
+				if v, _, _ := st.State(app.RemoteVersionKey(m.Name)); v != "" {
+					n += " " + v
+				}
 				if m.LastMS > 0 {
 					n += " (last " + time.UnixMilli(m.LastMS).In(env.Now().Location()).Format("Mon 15:04") + ")"
 				}
@@ -280,6 +290,7 @@ func doctorSync(env Env, s config.Sync, ok func(name, detail string), bad func(n
 			}
 			detail = "as " + s.MachineName() + " with " + strings.Join(names, ", ")
 		}
+		st.Close()
 	}
 	ok("sync", detail)
 	switch {
@@ -297,6 +308,77 @@ func doctorSync(env Env, s config.Sync, ok func(name, detail string), bad func(n
 			}
 		}
 		ok("rules sync", detail)
+	}
+}
+
+// doctorUpdates checks the self-update. On Linux: whether it is on and the
+// last error. On the Mac: whether each Linux machine runs the build that was
+// published, or has lagged it for more than an hour.
+func doctorUpdates(env Env, s config.Sync, ok func(name, detail string), bad func(name, detail, fix string)) {
+	if s.Dir == "" {
+		return
+	}
+	var st *store.Store
+	if st, _ = openStore(env); st != nil {
+		defer st.Close()
+	}
+	pub, published := update.Published(filepath.Join(s.Dir, update.BinDir))
+	if env.Linux {
+		var e string
+		if st != nil {
+			e, _, _ = st.State(update.KeyError)
+		}
+		switch {
+		case s.NoUpdate:
+			ok("updates", "off ([sync] update = false)")
+		case e != "":
+			bad("updates", e, "see ~/.local/state/tock/trackd.log and README › Updates")
+		case published:
+			ok("updates", "on; published "+pub.Version)
+		default:
+			ok("updates", "on; nothing published yet")
+		}
+		return
+	}
+	if st == nil {
+		return
+	}
+	ms, err := st.RemoteMachines()
+	if err != nil {
+		return
+	}
+	home, _ := os.UserHomeDir()
+	for _, m := range ms {
+		if hid, _, _ := st.State(app.RemoteHIDKey(m.Name)); hid == "1" {
+			continue // only Linux machines take published builds
+		}
+		if !published {
+			ok("updates", "nothing published for Linux (make hooks, then commit on main; or make publish-linux)")
+			return
+		}
+		v, _, _ := st.State(app.RemoteVersionKey(m.Name))
+		e, _, _ := st.State(app.RemoteUpdateErrorKey(m.Name))
+		says := ""
+		if e != "" {
+			says = "; it says: " + e
+		}
+		runs := v
+		if runs == "" {
+			runs = "unknown"
+		}
+		age := env.Now().UnixMilli() - pub.BuiltAt.UnixMilli()
+		switch {
+		case v == pub.Version:
+			ok("updates", m.Name+" runs the published "+v)
+		case age <= updateLagMS:
+			ok("updates", fmt.Sprintf("%s runs %s; %s published %s ago, not taken yet%s", m.Name, runs, pub.Version, classify.FormatDur(age), says))
+		case v == "":
+			bad("updates", fmt.Sprintf("%s runs %s, but %s was published %s ago%s", m.Name, runs, pub.Version, classify.FormatDur(age), says),
+				"run once on "+m.Name+": "+update.BootstrapCommand(s.Dir, home, "amd64"))
+		default:
+			bad("updates", fmt.Sprintf("%s runs %s, but %s was published %s ago%s", m.Name, runs, pub.Version, classify.FormatDur(age), says),
+				"on "+m.Name+": check that Syncthing syncs "+filepath.Join(s.Dir, update.BinDir)+", then see ~/.local/state/tock/trackd.log")
+		}
 	}
 }
 

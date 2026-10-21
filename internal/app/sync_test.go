@@ -184,3 +184,22 @@ func TestSyncRulesOff(t *testing.T) {
 		t.Fatalf("ryuk = %+v, %v", r, err)
 	}
 }
+
+func TestSyncSkipsThePublishedBuilds(t *testing.T) {
+	mac, _, dir := twoMachines(t)
+	os.MkdirAll(filepath.Join(dir, "bin", "linux-amd64"), 0o700)
+	os.WriteFile(filepath.Join(dir, "bin", "machine.json"), []byte(`{"input":true}`), 0o600)
+	os.WriteFile(filepath.Join(dir, "bin", "linux-amd64", "manifest.json"), []byte("{}"), 0o600)
+	r, err := mac.Sync(SyncDays)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, m := range r.Machines {
+		if m.Name == "bin" {
+			t.Fatalf("machines = %+v", r.Machines)
+		}
+	}
+	if _, ok, _ := mac.st.State(RemoteInputKey("bin")); ok {
+		t.Fatal("bin was read as a machine")
+	}
+}

@@ -985,6 +985,7 @@ network share, and name it on both machines in `config.toml`:
 dir = "~/Sync/tock"
 machine = "mac"        # optional; default: the host name
 rules = true           # optional; share rules.toml (see Rules below)
+update = true          # optional; Linux: install the builds the Mac publishes (see Updates)
 ```
 
 Every minute, trackd writes this machine's last two days to
@@ -1012,6 +1013,44 @@ Every minute, trackd writes this machine's last two days to
 
 The day files hold titles and URLs (never those of private windows). Keep
 the folder private.
+
+## Updates
+
+With a sync folder, the Mac keeps itself and a Linux machine up to date. You
+do not run `make install` or copy files.
+
+- **On the Mac, once:** `make hooks`. After that every commit or merge on
+  `main` runs `make update` in the background and logs to
+  `~/.local/state/tock/update.log`; git never waits for it. It builds from a
+  clean checkout of `main` (never your working tree) and reinstalls trackd,
+  tock and tockbar. It does nothing when `main` is already installed. You can
+  run `make update` by hand too.
+- **Publishing.** The same run builds trackd and tock for linux-amd64 and
+  linux-arm64 and publishes them, signed, to `<sync dir>/bin`
+  (`make publish-linux` does only this). The signing key is
+  `~/.local/share/tock/update.key`, made on the first run. It never goes in
+  the sync folder: back it up, and keep it private.
+- **On Linux,** trackd checks `<sync dir>/bin` every minute. It trusts the
+  first public key it sees and pins it at `~/.config/tock/update.pub`. It
+  installs a build only when the signature and the sha256 of each file hold
+  and the build is newer than the one it runs. It then replaces
+  `~/.local/bin/trackd` and `tock` and restarts itself. A different key is
+  refused and shown by `tock doctor`; to trust a new one, delete the pinned
+  key on that machine. Before the first pin, anyone who can write the sync
+  folder can offer a key, so run the command below soon after you set the
+  folder up. `update = false` under `[sync]` turns this off.
+- **Once on ryuk,** because it runs a tock from before updates and cannot
+  update itself yet, run this there (use `linux-arm64` on an ARM machine;
+  `make bootstrap-hint` prints it for your sync folder):
+
+  ```sh
+  bash -c 'mkdir -p ~/.local/bin && cd ~/.local/bin && for f in trackd tock; do cp ~/Sync/tock/bin/linux-amd64/$f $f.new && chmod 755 $f.new && mv -f $f.new $f || exit 1; done && ./trackd install'
+  ```
+
+- **Checking.** `tock doctor` shows each machine's version in the `sync`
+  line. On the Mac, an `updates` line warns when a Linux machine has run an
+  older build for more than an hour, and shows the error that machine
+  reported. On Linux it shows whether updates are on and the last error.
 
 ## Backup
 
@@ -1044,6 +1083,8 @@ and `~/.config/tock`.
 make test                                  # vet, build, all tests
 go test ./internal/tui -run Golden -update # regenerate TUI snapshots
 make dump                                  # print trackd's live samples
+make hooks                                 # update after each commit on main (see Updates)
+make update                                # reinstall the Mac and publish for Linux now
 ```
 
 Checklists for things only a person at the Mac can verify are in
