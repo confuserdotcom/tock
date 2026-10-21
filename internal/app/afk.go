@@ -46,6 +46,14 @@ func (a *App) loadInputSince(goos string, input bool) int64 {
 	return now
 }
 
+// refreshInput checks again whether this machine reports input, so a
+// long-running trackd notices hypridle stop and start; input_since moves to
+// when it came back.
+func (a *App) refreshInput() {
+	a.input = a.inputCheck()
+	a.inputSince = a.loadInputSince(a.goos, a.input)
+}
+
 // RemoteInputSinceKey is the daemon_state key holding when a remote
 // machine began reporting input (ms), "" or absent for always.
 func RemoteInputSinceKey(machine string) string { return "remote_input_since:" + machine }
@@ -63,11 +71,16 @@ func inputKnown(goos, home string) bool {
 	return HypridleHooked(home)
 }
 
-// HypridleHooked reports whether hypridle's config runs trackd idle: the
-// config of each running hypridle (its -c or --config), else
-// ~/.config/hypr/hypridle.conf (or $XDG_CONFIG_HOME's).
-func HypridleHooked(home string) bool {
-	paths := hypridleConfigs("/proc")
+// HypridleHooked reports whether a running hypridle's config runs trackd
+// idle: its -c or --config, else ~/.config/hypr/hypridle.conf (or
+// $XDG_CONFIG_HOME's). With no hypridle running, nothing reports input.
+func HypridleHooked(home string) bool { return hypridleHooked("/proc", home) }
+
+func hypridleHooked(proc, home string) bool {
+	paths, running := hypridleConfigs(proc)
+	if !running {
+		return false
+	}
 	if len(paths) == 0 {
 		dir := os.Getenv("XDG_CONFIG_HOME")
 		if dir == "" {
@@ -86,13 +99,12 @@ func HypridleHooked(home string) bool {
 // hypridleConfigs is the config file of each hypridle running under proc
 // that names one with -c or --config, including one started under another
 // name (a tock-hypridle link, so a desktop that manages hypridle leaves it
-// alone).
-func hypridleConfigs(proc string) []string {
+// alone), and whether any hypridle runs at all.
+func hypridleConfigs(proc string) (out []string, running bool) {
 	ents, err := os.ReadDir(proc)
 	if err != nil {
-		return nil
+		return nil, false
 	}
-	var out []string
 	for _, e := range ents {
 		if e.Name()[0] < '0' || e.Name()[0] > '9' {
 			continue
@@ -105,6 +117,7 @@ func hypridleConfigs(proc string) []string {
 		if !strings.Contains(filepath.Base(args[0]), "hypridle") { // also a renamed one, like tock-hypridle
 			continue
 		}
+		running = true
 		for i, a := range args {
 			switch {
 			case (a == "-c" || a == "--config") && i+1 < len(args):
@@ -114,7 +127,7 @@ func hypridleConfigs(proc string) []string {
 			}
 		}
 	}
-	return out
+	return out, running
 }
 
 // InputKnown reports whether this machine's time saw input (see inputKnown).

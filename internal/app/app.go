@@ -42,6 +42,8 @@ type App struct {
 	// inputSince is when it began to: math.MinInt64 for always (macOS),
 	// math.MaxInt64 for not yet. The stale rule cuts the time before.
 	inputSince int64
+	goos       string      // runtime.GOOS; tests set it
+	inputCheck func() bool // inputKnown on this machine; tests substitute it
 
 	git      gitlog.Runner // nil = gitlog.Exec
 	gitCache map[gitKey]gitEntry
@@ -87,8 +89,9 @@ func Open(p Paths, now func() time.Time) (*App, error) {
 	a := &App{paths: p, now: now, st: st, rs: rs, stamp: st0, cfg: config.Default(),
 		shell: shell.Log{Path: p.ShellLog}}
 	a.home, _ = os.UserHomeDir()
-	a.input = inputKnown(runtime.GOOS, a.home)
-	a.inputSince = a.loadInputSince(runtime.GOOS, a.input)
+	a.goos = runtime.GOOS
+	a.inputCheck = func() bool { return inputKnown(a.goos, a.home) }
+	a.refreshInput()
 	a.loadConfig()
 	return a, nil
 }

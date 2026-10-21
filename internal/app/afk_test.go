@@ -150,7 +150,7 @@ func TestHypridleConfigs(t *testing.T) {
 		os.MkdirAll(filepath.Join(proc, pid), 0o700)
 		os.WriteFile(filepath.Join(proc, pid, "cmdline"), []byte(cmd), 0o600)
 	}
-	got := hypridleConfigs(proc)
+	got, _ := hypridleConfigs(proc)
 	slices.Sort(got)
 	if want := []string{"/etc/hi.conf", "/home/x/.config/ryoku/hypridle.conf", "/home/x/.config/tock/hypridle.conf"}; !slices.Equal(got, want) {
 		t.Fatalf("configs = %v", got)
@@ -174,5 +174,46 @@ func TestStaleRemoteBeforeInputBegan(t *testing.T) {
 	got := a.staleRemote(rv)
 	if got[0].EndMS != apptest.At(t, "00:10", 0) || got[1].EndMS != apptest.At(t, "10:00", 0) {
 		t.Fatalf("cut = %v, %v", time.UnixMilli(got[0].EndMS), time.UnixMilli(got[1].EndMS))
+	}
+}
+
+func TestHypridleHookedNeedsARunningHypridle(t *testing.T) {
+	home, proc := t.TempDir(), t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", "")
+	conf := filepath.Join(home, ".config", "hypr", "hypridle.conf")
+	os.MkdirAll(filepath.Dir(conf), 0o700)
+	os.WriteFile(conf, []byte("listener {\n  on-timeout = trackd idle\n}\n"), 0o600)
+	if hypridleHooked(proc, home) {
+		t.Fatal("hooked with no hypridle running")
+	}
+	os.MkdirAll(filepath.Join(proc, "40"), 0o700)
+	os.WriteFile(filepath.Join(proc, "40", "cmdline"), []byte("hypridle\x00"), 0o600)
+	if !hypridleHooked(proc, home) {
+		t.Fatal("a hypridle on the default config is not hooked")
+	}
+}
+
+func TestSyncNoticesHypridleStop(t *testing.T) {
+	e := apptest.New(t, afkRules)
+	e.Seed(t, apptest.Span{ID: 1, Start: "14:00", End: "14:10", Bundle: "term", App: "WezTerm", Title: "x"})
+	dir := t.TempDir()
+	e.WriteConfig(t, "[sync]\ndir = '"+dir+"'\nmachine = 'ryuk'\n")
+	a := open(t, e)
+	hooked := true
+	a.goos, a.inputCheck = "linux", func() bool { return hooked }
+	a.refreshInput()
+	if !a.input {
+		t.Fatal("no input with hypridle hooked")
+	}
+	hooked = false
+	if _, err := a.Sync(1); err != nil {
+		t.Fatal(err)
+	}
+	if a.input || a.inputSince != math.MaxInt64 {
+		t.Fatalf("input = %v since %d after hypridle stopped", a.input, a.inputSince)
+	}
+	b, _ := os.ReadFile(filepath.Join(dir, "ryuk", machineFile))
+	if !strings.HasPrefix(string(b), `{"input":false`) {
+		t.Fatalf("machine.json = %q", b)
 	}
 }

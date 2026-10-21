@@ -57,6 +57,7 @@ func (a *App) Sync(days int) (SyncReport, error) {
 	if dir == "" {
 		return r, ErrSyncOff
 	}
+	a.refreshInput()
 	if !a.cfg.Sync.NoRules {
 		var err error
 		if r.RulesFrom, r.RulesRefused, err = a.takeRules(dir, r.Machine); err != nil {
