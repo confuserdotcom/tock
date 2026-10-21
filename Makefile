@@ -187,14 +187,20 @@ install: install-mac
 	-"$(BIN_DIR)/tock" doctor --wait --open
 
 # install-mac: install without the doctor, for make update.
+# UNLOADED waits up to 10 s for launchctl bootout to finish: it returns
+# before the agent is gone, and bundle refuses a loaded agent.
+UNLOADED = i=0; while launchctl print "gui/$$(id -u)/$(1)" >/dev/null 2>&1; do i=$$((i+1)); [ $$i -gt 20 ] && { echo "$(1) still loaded after 10 s" >&2; exit 1; }; sleep 0.5; done
+
 install-mac:
 	-launchctl bootout gui/$$(id -u)/$(AGENT_LABEL) 2>/dev/null
+	@$(call UNLOADED,$(AGENT_LABEL))
 	$(MAKE) bundle
 	CGO_ENABLED=0 go build -o build/tock ./cmd/tock
 	install -d -m 755 "$(BIN_DIR)"
 	install -m 755 build/tock "$(BIN_DIR)/tock"
 	"$(BUNDLE)/Contents/MacOS/trackd" install
 	-launchctl bootout gui/$$(id -u)/$(BAR_ID) 2>/dev/null
+	@$(call UNLOADED,$(BAR_ID))
 	$(MAKE) bundle-bar
 	"$(BAR_BUNDLE)/Contents/MacOS/tockbar" install
 	@[ -f "$${TOCK_CONFIG_DIR:-$(HOME)/.config/tock}/rules.toml" ] || "$(BIN_DIR)/tock" init
