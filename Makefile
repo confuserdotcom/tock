@@ -1,4 +1,8 @@
 VERSION ?= $(shell git describe --always --dirty 2>/dev/null || echo dev)
+# When this build was made, UTC. trackd on Linux installs a published build
+# only if it is newer than the one it runs. Fixed per make run.
+BUILT_AT := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
+LDFLAGS = -X main.version=$(VERSION) -X main.builtAt=$(BUILT_AT)
 
 # Packaging and TCC identity (plan 01-08). The bundle path and bundle id are
 # what Accessibility and Automation grants key on; never change them.
@@ -15,6 +19,10 @@ BIN_DIR ?= $(HOME)/.local/bin
 # deploy-linux: the Linux machine to build for and copy to over ssh.
 LINUX_HOST ?= ryuk
 LINUX_ARCH ?= amd64
+# publish-linux: the sync folder to publish to ("" = [sync] dir in
+# config.toml) and the signing key. The key stays out of the sync folder.
+SYNC_DIR ?=
+UPDATE_KEY ?= $(TOCK_DATA)/update.key
 SIGN_ID ?= tock-local-codesign
 # auto | cert | adhoc. Pinned to cert (plan 01-09): a missing identity is a hard
 # error, never a silent switch to ad-hoc that would orphan TCC grants.
@@ -25,20 +33,20 @@ CODESIGN_TIMEOUT ?= 60
 # receives SIGALRM and exits 142 when it overruns.
 WITH_TIMEOUT = perl -e 'alarm shift; exec @ARGV or exit 127'
 
-.PHONY: install-linux uninstall-linux deploy-linux build test test-quick vet clean bundle bundle-bar print-dr cert cert-trust dump dump-bg dump-stop install uninstall
+.PHONY: install-linux uninstall-linux deploy-linux build test test-quick vet clean bundle bundle-bar print-dr cert cert-trust dump dump-bg dump-stop install install-mac uninstall update update-here hooks publish-linux bootstrap-hint
 
 build:
-	CGO_ENABLED=1 go build -ldflags "-X main.version=$(VERSION)" -o bin/trackd ./cmd/trackd
+	CGO_ENABLED=1 go build -ldflags "$(LDFLAGS)" -o bin/trackd ./cmd/trackd
 	CGO_ENABLED=0 go build -o bin/tock ./cmd/tock
-	CGO_ENABLED=1 go build -ldflags "-X main.version=$(VERSION)" -o bin/tockbar ./cmd/tockbar
+	CGO_ENABLED=1 go build -ldflags "$(LDFLAGS)" -o bin/tockbar ./cmd/tockbar
 
 test-quick:
-	CGO_ENABLED=0 go test ./internal/span/... ./internal/store/... ./internal/classify/... ./internal/stats/... ./internal/focus/... ./internal/config/... ./internal/report/... ./internal/suggest/... ./internal/claude/... ./internal/app/... ./internal/tui/... ./internal/bar/... ./internal/service/... -count=1
+	CGO_ENABLED=0 go test ./internal/span/... ./internal/store/... ./internal/classify/... ./internal/stats/... ./internal/focus/... ./internal/config/... ./internal/report/... ./internal/suggest/... ./internal/claude/... ./internal/app/... ./internal/tui/... ./internal/bar/... ./internal/service/... ./internal/update/... -count=1
 
 test:
 	go vet ./...
 	go build ./...
-	CGO_ENABLED=0 go test ./internal/span/... ./internal/store/... ./internal/classify/... ./internal/stats/... ./internal/focus/... ./internal/config/... ./internal/report/... ./internal/suggest/... ./internal/claude/... ./internal/app/... ./internal/tui/... ./internal/bar/... ./internal/service/... -count=1
+	CGO_ENABLED=0 go test ./internal/span/... ./internal/store/... ./internal/classify/... ./internal/stats/... ./internal/focus/... ./internal/config/... ./internal/report/... ./internal/suggest/... ./internal/claude/... ./internal/app/... ./internal/tui/... ./internal/bar/... ./internal/service/... ./internal/update/... -count=1
 	go test ./... -count=1
 
 vet:
@@ -54,7 +62,7 @@ bundle:
 	fi
 	@mkdir -p build
 	CGO_ENABLED=1 go build \
-		-ldflags "-X main.version=$(VERSION) -extldflags=-Wl,-sectcreate,__TEXT,__info_plist,$(CURDIR)/packaging/Info.plist" \
+		-ldflags "$(LDFLAGS) -extldflags=-Wl,-sectcreate,__TEXT,__info_plist,$(CURDIR)/packaging/Info.plist" \
 		-o build/trackd ./cmd/trackd
 	@mkdir -p "$(TOCK_DATA)" && chmod 700 "$(TOCK_DATA)"
 	@mkdir -p "$(BUNDLE)/Contents/MacOS"
@@ -101,7 +109,7 @@ bundle-bar:
 		echo "agent $(BAR_ID) is loaded; use make install" >&2; exit 1; \
 	fi
 	@mkdir -p build
-	CGO_ENABLED=1 go build -ldflags "-X main.version=$(VERSION)" -o build/tockbar ./cmd/tockbar
+	CGO_ENABLED=1 go build -ldflags "$(LDFLAGS)" -o build/tockbar ./cmd/tockbar
 	@mkdir -p "$(TOCK_DATA)" && chmod 700 "$(TOCK_DATA)"
 	@mkdir -p "$(BAR_BUNDLE)/Contents/MacOS"
 	cp build/tockbar "$(BAR_BUNDLE)/Contents/MacOS/tockbar"
@@ -175,7 +183,11 @@ dump-stop:
 # for trackd's first heartbeat and opens System Settings for missing grants
 # (trackd itself shows the Accessibility prompt). A doctor problem does not
 # fail the install.
-install:
+install: install-mac
+	-"$(BIN_DIR)/tock" doctor --wait --open
+
+# install-mac: install without the doctor, for make update.
+install-mac:
 	-launchctl bootout gui/$$(id -u)/$(AGENT_LABEL) 2>/dev/null
 	$(MAKE) bundle
 	CGO_ENABLED=0 go build -o build/tock ./cmd/tock
@@ -186,7 +198,6 @@ install:
 	$(MAKE) bundle-bar
 	"$(BAR_BUNDLE)/Contents/MacOS/tockbar" install
 	@[ -f "$${TOCK_CONFIG_DIR:-$(HOME)/.config/tock}/rules.toml" ] || "$(BIN_DIR)/tock" init
-	-"$(BIN_DIR)/tock" doctor --wait --open
 
 # uninstall: unload the agent and remove its plist; tock.db and the log stay.
 uninstall:
@@ -208,7 +219,7 @@ uninstall:
 # tock go to ~/.local/bin and trackd runs as the systemd user unit
 # trackd.service. Add the hypridle listener from the README for idle time.
 install-linux:
-	CGO_ENABLED=0 go build -ldflags "-X main.version=$(VERSION)" -o build/trackd ./cmd/trackd
+	CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)" -o build/trackd ./cmd/trackd
 	CGO_ENABLED=0 go build -o build/tock ./cmd/tock
 	install -d -m 755 "$(BIN_DIR)"
 	install -m 755 build/trackd "$(BIN_DIR)/trackd"
@@ -223,7 +234,7 @@ install-linux:
 # which restarts trackd. Remote commands run under bash: the login shell may
 # be fish.
 deploy-linux:
-	GOOS=linux GOARCH=$(LINUX_ARCH) CGO_ENABLED=0 go build -ldflags "-X main.version=$(VERSION)" -o build/linux/trackd ./cmd/trackd
+	GOOS=linux GOARCH=$(LINUX_ARCH) CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)" -o build/linux/trackd ./cmd/trackd
 	GOOS=linux GOARCH=$(LINUX_ARCH) CGO_ENABLED=0 go build -o build/linux/tock ./cmd/tock
 	ssh $(LINUX_HOST) 'bash -c "mkdir -p ~/.local/bin"'
 	scp -q build/linux/trackd $(LINUX_HOST):.local/bin/trackd.new
@@ -235,3 +246,60 @@ deploy-linux:
 uninstall-linux:
 	@if [ -x "$(BIN_DIR)/trackd" ]; then "$(BIN_DIR)/trackd" uninstall; \
 	else systemctl --user disable --now trackd.service 2>/dev/null; rm -f "$${XDG_CONFIG_HOME:-$(HOME)/.config}/systemd/user/trackd.service"; fi
+
+# publish-linux: build trackd and tock for linux-amd64 and linux-arm64 and
+# publish them, signed, to <sync>/bin. A Linux trackd installs them. The
+# signing key is made on the first run. Prints the one-time command for a
+# machine that runs a tock from before updates.
+publish-linux:
+	@for a in amd64 arm64; do \
+		mkdir -p build/linux-$$a && \
+		GOOS=linux GOARCH=$$a CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)" -o build/linux-$$a/trackd ./cmd/trackd && \
+		GOOS=linux GOARCH=$$a CGO_ENABLED=0 go build -o build/linux-$$a/tock ./cmd/tock || exit 1; \
+	done
+	go run ./cmd/tockpub -version "$(VERSION)" -built-at "$(BUILT_AT)" -key "$(UPDATE_KEY)" $(if $(SYNC_DIR),-sync "$(SYNC_DIR)") build/linux-amd64 build/linux-arm64
+
+# bootstrap-hint: print the one-time command for a Linux machine.
+bootstrap-hint:
+	@go run ./cmd/tockpub -hint $(if $(SYNC_DIR),-sync "$(SYNC_DIR)")
+
+# update-here: install on this Mac and publish for Linux, from this tree.
+# Neither failure stops the other, but the run fails, so it is tried again.
+update-here:
+	@rc=0; \
+	$(MAKE) install-mac || rc=$$?; \
+	"$(BIN_DIR)/tock" doctor --wait || true; \
+	$(MAKE) publish-linux || rc=$$?; \
+	exit $$rc
+
+# update: update-here for the committed main, never the working tree: it
+# builds from a clean worktree. Does nothing when main is already installed.
+update:
+	@mkdir -p "$(TOCK_STATE)"; \
+	v=$$(git describe --always main) || exit 1; \
+	if [ "$$v" = "$$(cat "$(TOCK_STATE)/last-update" 2>/dev/null)" ]; then \
+		echo "update: $$v already installed"; exit 0; \
+	fi; \
+	git worktree prune; \
+	wt=$$(mktemp -d) || exit 1; \
+	git worktree add --detach -q "$$wt" main || { rm -rf "$$wt"; exit 1; }; \
+	rc=0; \
+	$(MAKE) -C "$$wt" update-here VERSION="$$v" || rc=$$?; \
+	git worktree remove --force "$$wt"; rm -rf "$$wt"; \
+	[ "$$rc" = 0 ] && echo "$$v" > "$(TOCK_STATE)/last-update"; \
+	exit $$rc
+
+# hooks: run make update in the background after a commit or merge on main
+# (packaging/git-hook.sh). The hooks call the script in the tree, so editing
+# it needs no reinstall. Never overwrites a hook of your own.
+hooks:
+	@dir=$$(git rev-parse --git-path hooks) || exit 1; \
+	mkdir -p "$$dir"; \
+	for h in post-commit post-merge; do \
+		f="$$dir/$$h"; \
+		if [ -e "$$f" ] && ! grep -q 'installed by make hooks' "$$f"; then \
+			echo "hooks: $$f exists and was not installed by make hooks; not overwriting" >&2; exit 1; \
+		fi; \
+		printf '%s\n' '#!/bin/sh' '# installed by make hooks' 'h="$$(git rev-parse --show-toplevel)/packaging/git-hook.sh"' '[ -f "$$h" ] && exec sh "$$h"' 'exit 0' > "$$f" && chmod 755 "$$f" || exit 1; \
+	done; \
+	echo "hooks: post-commit and post-merge installed in $$dir"
