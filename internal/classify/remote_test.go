@@ -53,3 +53,28 @@ func TestMarkRemote(t *testing.T) {
 		t.Fatalf("remote views must stay out of the inbox: %+v", items)
 	}
 }
+
+func TestMarkRemoteLatestSwitchWins(t *testing.T) {
+	inCall := SpanView{ID: 4, Start: 100 * mn, End: 130 * mn, BundleID: "zoom", App: "Zoom", InCall: true}
+	views := []SpanView{
+		{ID: 1, Start: 0, End: 60 * mn, BundleID: "arc", App: "Arc"},
+		{ID: 2, Start: 60 * mn, End: 90 * mn, BundleID: "wez", App: "Wez"},
+		inCall,
+	}
+	marks := []RemoteMark{
+		// started before the Mac's view: the Mac switched later and keeps it
+		{ID: 5, Machine: "ryuk", View: SpanView{Start: -10 * mn, End: 10 * mn, BundleID: "pdf", App: "zathura"}},
+		// a page turn on ryuk at 20 min: ryuk is in front until it stops
+		{ID: 6, Machine: "ryuk", View: SpanView{Start: 20 * mn, End: 40 * mn, BundleID: "pdf", App: "zathura"}},
+		// within the grace after the Mac switched: clock skew, the Mac keeps it
+		{ID: 7, Machine: "ryuk", View: SpanView{Start: 60*mn + 10_000, End: 70 * mn, BundleID: "pdf", App: "zathura"}},
+		// never over a call
+		{ID: 8, Machine: "ryuk", View: SpanView{Start: 110 * mn, End: 120 * mn, BundleID: "pdf", App: "zathura"}},
+	}
+	got := remotePieces(MarkRemote(views, marks, -60*mn, 200*mn))
+	want := fmt.Sprintf("r5:%d-0 ryuk · zathura, 1:0-%d Arc, r6:%d-%d ryuk · zathura, 1:%d-%d Arc, 2:%d-%d Wez, 4:%d-%d Zoom",
+		-10*mn, 20*mn, 20*mn, 40*mn, 40*mn, 60*mn, 60*mn, 90*mn, 100*mn, 130*mn)
+	if got != want {
+		t.Fatalf("got  %s\nwant %s", got, want)
+	}
+}

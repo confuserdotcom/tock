@@ -952,9 +952,11 @@ Every minute, trackd writes this machine's last two days to
   machine uses those labels when it has a category and project of the same
   name; otherwise its own rules apply.
 - **Merging.** Another machine's time shows in the timeline as
-  `ryuk · kitty`. It only fills time when this machine was idle or off, so
-  local activity always wins. Totals, the score, goals and the week include
-  it.
+  `ryuk · kitty`. You are at one machine at a time, the one you switched
+  on last: it fills time when this machine was idle or off, and it takes
+  the rest of a window here when it changed window or page more than 30
+  seconds after this one did, until you switch here again. A call here is
+  never taken. Totals, the score, goals and the week include it.
 - **Relabelling.** To relabel another machine's time, do it on that machine.
   Its time never enters this machine's inbox or Claude suggestions.
 - **Rules.** Each machine also shares its `rules.toml`. When another
