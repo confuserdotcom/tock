@@ -2,9 +2,11 @@ package tui
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	tea "charm.land/bubbletea/v2"
 
@@ -22,9 +24,82 @@ const clockEvery = time.Second
 type focusTab struct {
 	data   report.Focus
 	loaded bool
+	cursor int                   // the selected row of rows()
+	detail *report.SessionDetail // the card of the selected row, nil until loaded
 }
 
-func (t *focusTab) set(f report.Focus) { t.data, t.loaded = f, true }
+// rows are the finished sessions the cursor moves over: today's, then the
+// rest of the week's, newest first. The running session is never a row, so
+// the card and its keys never act on it.
+func (t focusTab) rows() []focus.Session {
+	return append(slices.Clone(t.data.Today), t.data.Week...)
+}
+
+// shown is the session the card shows, nil when nothing has finished.
+func (t focusTab) shown() *focus.Session {
+	rows := t.rows()
+	if t.cursor < 0 || t.cursor >= len(rows) {
+		return nil
+	}
+	return &rows[t.cursor]
+}
+
+func sessionIDs(ss []focus.Session) []int64 {
+	ids := make([]int64, len(ss))
+	for i, s := range ss {
+		ids[i] = s.ID
+	}
+	return ids
+}
+
+// set takes a reload. A list of other sessions puts the cursor back on the
+// newest and drops the card; the same list keeps both, the card refreshing
+// when its detail arrives.
+func (t *focusTab) set(f report.Focus) {
+	before := sessionIDs(t.rows())
+	t.data, t.loaded = f, true
+	rows := t.rows()
+	if !slices.Equal(before, sessionIDs(rows)) {
+		t.cursor, t.detail = 0, nil
+	}
+	t.cursor = max(min(t.cursor, len(rows)-1), 0)
+}
+
+// detailMsg carries the card of session id.
+type detailMsg struct {
+	id  int64
+	d   report.SessionDetail
+	err error
+}
+
+// loadDetail reads the card of the selected row. It is asked per selection,
+// never for the whole week (the card needs the labelled window of one
+// session).
+func (m Model) loadDetail() tea.Cmd {
+	s := m.focus.shown()
+	if s == nil {
+		return nil
+	}
+	id, src := s.ID, m.src
+	return func() tea.Msg {
+		msg := detailMsg{id: id}
+		src.do(func(a *app.App) { msg.d, msg.err = a.SessionDetail(id) })
+		return msg
+	}
+}
+
+// gotDetail keeps the card when it still belongs to the selected row.
+func (m Model) gotDetail(msg detailMsg) (tea.Model, tea.Cmd) {
+	if msg.err != nil {
+		m.setFlash("could not load the session: "+msg.err.Error(), true)
+		return m, nil
+	}
+	if s := m.focus.shown(); s != nil && s.ID == msg.id {
+		d := msg.d
+		m.focus.detail = &d
+	}
+	return m, nil
+}
 
 // clockMsg redraws the countdown.
 type clockMsg struct{}
@@ -41,6 +116,17 @@ func (m *Model) maybeClock() tea.Cmd {
 
 func (m Model) focusKey(k string) (tea.Model, tea.Cmd) {
 	switch k {
+	case "j", "down", "k", "up":
+		n := len(m.focus.rows())
+		to := m.focus.cursor + 1
+		if k == "k" || k == "up" {
+			to = m.focus.cursor - 1
+		}
+		if to < 0 || to >= n {
+			return m, nil
+		}
+		m.focus.cursor, m.focus.detail = to, nil
+		return m, m.loadDetail()
 	case "s":
 		if m.focus.data.Open != nil {
 			m.setFlash("a session is already running · x stops it", true)
@@ -163,11 +249,12 @@ func (d *startDlg) view(w int) []string {
 	return center2(card("Start a focus session", out, cell+4), w)
 }
 
-func (t focusTab) view(w int, now time.Time) []string {
+func (t focusTab) view(w, h int, now time.Time) []string {
 	if !t.loaded {
 		return []string{"", center(sDim.Render("loading…"), w)}
 	}
-	f, nowMS, loc := t.data, now.UnixMilli(), now.Location()
+	f, loc := t.data, now.Location()
+	nowMS := now.UnixMilli()
 	cw := min(w-2, 72)
 	pad := strings.Repeat(" ", max((w-cw)/2, 0))
 	var body []string
@@ -194,19 +281,138 @@ func (t focusTab) view(w int, now time.Time) []string {
 	for _, l := range body {
 		out = append(out, pad+l)
 	}
+	out = append(out, "")
+	for _, l := range t.card(cw, h, loc) {
+		out = append(out, pad+l)
+	}
+	n := len(f.Today)
 	out = append(out, "", pad+" "+sHead.Render("Today"))
-	out = append(out, prefix(sessionLines(f.Today, loc, false, cw), pad)...)
+	out = append(out, prefix(t.sessionRows(f.Today, 0, loc, false, cw), pad)...)
 	out = append(out, "", pad+" "+sHead.Render("Earlier this week"))
-	return append(out, prefix(sessionLines(f.Week, loc, true, cw), pad)...)
+	return append(out, prefix(t.sessionRows(f.Week, n, loc, true, cw), pad)...)
 }
 
-func sessionLines(ss []focus.Session, loc *time.Location, withDay bool, w int) []string {
+// cardLabel is a card row's 12-cell label.
+func cardLabel(s string) string { return sDim.Render(fit(s, 12)) }
+
+// qualityLine draws the breakdown "share 82 · longest 70 · ..." with the
+// numbers in the text colour and the words dim.
+func qualityLine(s string) string {
+	var out, run strings.Builder
+	digits := false
+	flush := func() {
+		if run.Len() == 0 {
+			return
+		}
+		st := sDim
+		if digits {
+			st = sText
+		}
+		out.WriteString(st.Render(run.String()))
+		run.Reset()
+	}
+	for _, r := range s {
+		if d := unicode.IsDigit(r); d != digits {
+			flush()
+			digits = d
+		}
+		run.WriteRune(r)
+	}
+	flush()
+	return out.String()
+}
+
+// starsLine draws the rating: filled stars bright, the rest and "unrated"
+// faint.
+func starsLine(rating int) string {
+	if rating < 1 {
+		return sFaint.Render(report.Stars(0))
+	}
+	rating = min(rating, 5)
+	return sBright.Render(strings.Repeat("★", rating)) + sFaint.Render(strings.Repeat("☆", 5-rating))
+}
+
+// card is the last-session card of the selected row (UI-SPEC Surface 1),
+// shortened to fit a body of h lines: below 34 the blank lines go, then the
+// apps row at 31, then the categories row.
+func (t focusTab) card(cw, h int, loc *time.Location) []string {
+	title := "Last session"
+	s := t.shown()
+	if s == nil {
+		return card(title, []string{
+			sText.Render("No finished session yet."),
+			sDim.Render("A finished session gets a quality score and a card here.")}, cw)
+	}
+	if t.cursor > 0 {
+		title = "Session · " + time.UnixMilli(s.StartMS).In(loc).Format("Mon 15:04")
+	}
+	d := t.detail
+	if d == nil || d.Sess.ID != s.ID {
+		return card(title, []string{sDim.Render("loading…")}, cw)
+	}
+	clock := func(ms int64) string { return time.UnixMilli(ms).In(loc).Format("15:04") }
+	length := d.Sess.EndMS - d.Sess.StartMS
+	share := func(xs []focus.Share) string {
+		if txt := report.ShareText(xs); txt != "" {
+			return sText.Render(report.Safe(txt))
+		}
+		return sDim.Render("none")
+	}
+	blank := h >= 34
+	var lines []string
+	lines = append(lines,
+		spread(sText.Render(clock(d.Sess.StartMS)+"–"+clock(d.Sess.EndMS)+"  "+report.Dur(length)+"  "+d.Sess.Kind),
+			sBrand.Bold(true).Render("quality "+strconv.Itoa(d.Q.Score)), cw-4),
+		meter(d.Sess.DeepMS, length, 40, sDeep)+"  "+sText.Render(strconv.Itoa(d.DeepPct())+"% deep"),
+		qualityLine(d.Q.Line()))
+	if blank {
+		lines = append(lines, "")
+	}
+	if h >= 31 {
+		lines = append(lines, cardLabel("categories")+share(d.Top.Categories))
+	}
+	if h >= 32 {
+		lines = append(lines, cardLabel("apps")+share(d.Top.Apps))
+	}
+	lines = append(lines, cardLabel("")+sText.Render(d.RunLine()),
+		cardLabel("rating")+starsLine(d.Sess.Rating))
+	if d.Sess.Note != "" {
+		lines = append(lines, cardLabel("note")+sText.Render(report.Safe(d.Sess.Note)))
+	}
+	if blank {
+		lines = append(lines, "")
+	}
+	keys := keycap("R", "rate") + "   " + keycap("n", "note")
+	if d.Top.Refile() {
+		keys += "   " + keycap("f", "refile → "+report.Cut(report.Safe(d.Top.Project), 24))
+	}
+	keys += "   " + keycap("j/k", "other session")
+	lines = append(lines, keys)
+	for i := range lines {
+		lines[i] = fit(lines[i], cw-4)
+	}
+	return card(title, lines, cw)
+}
+
+// sessionRows draws ss, the rows from index first of the cursor's list, each
+// ending in its quality and rating (UI-SPEC "List rows").
+func (t focusTab) sessionRows(ss []focus.Session, first int, loc *time.Location, withDay bool, w int) []string {
 	if len(ss) == 0 {
 		return []string{"   " + sDim.Render("none")}
 	}
 	out := make([]string, len(ss))
 	for i, s := range ss {
-		out[i] = "   " + sText.Render(fit(report.SessionLine(s, loc, withDay), w-3))
+		star := sFaint.Render(fitRight("·", 3))
+		if s.Rating > 0 {
+			star = sBright.Render(fitRight("★"+strconv.Itoa(s.Rating), 3))
+		}
+		q := sBrand.Render(fitRight("Q"+strconv.Itoa(focus.Quality(s, t.data.Weights).Score), 4))
+		row := sText.Render(fit(report.SessionLine(s, loc, withDay), w-3-9)) + " " + q + " " + star
+		if first+i == t.cursor {
+			out[i] = selRow(sBrand.Bold(true).Render("▸")+"  "+row, w)
+			continue
+		}
+		out[i] = "   " + row
 	}
 	return out
 }

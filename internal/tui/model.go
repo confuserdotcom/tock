@@ -285,15 +285,21 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		clock := m.maybeClock()
 		run := m.maybeSuggest()
+		var detail tea.Cmd
+		if m.tab == tabFocus {
+			detail = m.loadDetail()
+		}
 		var planRun tea.Cmd
 		if m.tab == tabPlan && m.plan.due(m.now()) {
 			planRun = m.runCommand()
 		}
 		if m.reloadAgain {
 			m.reloadAgain = false
-			return m, tea.Batch(m.load(), clock, run, planRun)
+			return m, tea.Batch(m.load(), clock, run, planRun, detail)
 		}
-		return m, tea.Batch(clock, run, planRun)
+		return m, tea.Batch(clock, run, planRun, detail)
+	case detailMsg:
+		return m.gotDetail(msg)
 	case clockMsg:
 		m.clockOn = false
 		return m, m.maybeClock()
@@ -525,7 +531,7 @@ func (m Model) tabBody(bodyH int) []string {
 	case m.tab == tabWeek:
 		body = m.week.view(m.width, bodyH)
 	case m.tab == tabFocus:
-		body = m.focus.view(m.width, m.now())
+		body = m.focus.view(m.width, bodyH, m.now())
 	case m.tab == tabRules:
 		body = m.rules.view(m.width, bodyH)
 	case m.tab == tabPlan:

@@ -182,3 +182,45 @@ func TestGoldenFocusIdle(t *testing.T) {
 	m = press(t, m, "r", "4")
 	golden.RequireEqual(t, screen(m))
 }
+
+// Phase 8: the last-session card on the focus tab, full height.
+func goldenCard(t *testing.T, seed func(e *apptest.Env), keys ...string) Model {
+	t.Helper()
+	m, e := seeded(t)
+	e.Heartbeat(t, e.Clock.UnixMilli())
+	seed(e)
+	m = step(t, m, windowSize(100, 50))
+	return press(t, m, append([]string{"4"}, keys...)...)
+}
+
+func TestGoldenFocusCardUnrated(t *testing.T) {
+	m := goldenCard(t, func(e *apptest.Env) {
+		seedManual(t, e, "09:10", "10:00", 0, counters)
+		seedAuto(t, e, "07:00", "07:40", 0, store.Session{DeepMS: 38 * min1, LongestMS: 30 * min1, Switches: 6})
+		seedManual(t, e, "10:00", "10:25", -2, store.Session{DeepMS: 15 * min1, LongestMS: 9 * min1, Interruptions: 2, Switches: 11})
+	})
+	golden.RequireEqual(t, screen(m))
+}
+
+func TestGoldenFocusCardRated(t *testing.T) {
+	m := goldenCard(t, func(e *apptest.Env) {
+		id := seedManual(t, e, "09:10", "10:00", 0, counters)
+		seedRating(t, e, id, 4, "derivation went well")
+		seedAuto(t, e, "07:00", "07:40", 0, store.Session{DeepMS: 38 * min1, LongestMS: 30 * min1, Switches: 6})
+	})
+	golden.RequireEqual(t, screen(m))
+}
+
+func TestGoldenFocusCardAuto(t *testing.T) {
+	m := goldenCard(t, func(e *apptest.Env) {
+		seedAuto(t, e, "13:00", "13:40", 0, store.Session{DeepMS: 38 * min1, LongestMS: 30 * min1, Switches: -1})
+	})
+	golden.RequireEqual(t, screen(m))
+}
+
+func TestGoldenFocusCardRunning(t *testing.T) {
+	m := goldenCard(t, func(e *apptest.Env) {
+		seedManual(t, e, "09:10", "10:00", 0, counters)
+	}, "s", "enter")
+	golden.RequireEqual(t, screen(m))
+}
