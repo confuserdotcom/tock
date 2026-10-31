@@ -16,6 +16,9 @@ type Focus struct {
 	Live  focus.Live      // how focused the running session is now
 	Today []focus.Session // closed sessions that started today, newest first
 	Week  []focus.Session // closed sessions of this week before today, newest first
+	// Weights are the quality weights to score rows with: refit from the
+	// ratings, or the defaults.
+	Weights focus.Weights
 }
 
 // Countdown renders ms as m:ss, rounding up to the second; negative is 0:00.

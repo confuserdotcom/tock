@@ -240,3 +240,72 @@ func TestGuardTickHooksAndBlock(t *testing.T) {
 		t.Fatalf("after stop = %+v, %v", g, err)
 	}
 }
+
+// seedRated stores rated auto sessions number lo to hi-1 on earlier days whose
+// ratings follow the longest run, so the fit moves away from the defaults.
+func seedRated(t *testing.T, a *App, lo, hi int) {
+	t.Helper()
+	for i := lo; i < hi; i++ {
+		start := apptest.At(t, "09:00", -(i + 1))
+		x := store.Session{Kind: store.SessionAuto, StartMS: start, EndMS: start + 50*60_000,
+			DeepMS: int64(10+i%3) * 60_000, LongestMS: int64(5+8*(i%5)) * 60_000, Switches: i % 4}
+		if ok, err := a.st.AddAutoSession(x); err != nil || !ok {
+			t.Fatalf("AddAutoSession = %v, %v", ok, err)
+		}
+		ss, err := a.st.Sessions(start, start+1)
+		if err != nil || len(ss) != 1 {
+			t.Fatalf("Sessions = %v, %v", ss, err)
+		}
+		if _, _, err := a.RateSession(ss[0].ID, 1+i%5, nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestFocusTickUsesFittedWeights(t *testing.T) {
+	e := distracted(t)
+	a := open(t, e)
+	seedRated(t, a, 0, 10)
+	w, n, fitted, err := a.Weights()
+	if err != nil || n != 10 || !fitted || w == focus.DefaultQualityWeights() {
+		t.Fatalf("Weights = %+v, %d, %v, %v", w, n, fitted, err)
+	}
+	startAt(t, e, a, "14:50", 25)
+	e.Clock = time.UnixMilli(apptest.At(t, "15:16", 0)).In(apptest.Zone)
+	notes, err := a.FocusTick(false)
+	if err != nil || len(notes) != 1 || notes[0].Topic != focus.TopicDone {
+		t.Fatalf("notes = %+v, %v", notes, err)
+	}
+	ended := notes[0].Sess
+	got, def := focus.Quality(ended, w).Score, focus.Quality(ended, focus.Weights{}).Score
+	if got == def {
+		t.Fatalf("fitted score %d equals the default score; the fixture does not exercise the weights", got)
+	}
+	if want := "quality " + strconv.Itoa(got) + " "; !strings.Contains(notes[0].Body, want) {
+		t.Fatalf("body %q lacks %q (default score %d)", notes[0].Body, want, def)
+	}
+}
+
+func TestFocusCarriesWeights(t *testing.T) {
+	e := distracted(t)
+	a := open(t, e)
+	check := func(wantFitted bool) {
+		t.Helper()
+		w, _, fitted, err := a.Weights()
+		if err != nil || fitted != wantFitted {
+			t.Fatalf("Weights = %+v, fitted %v, %v", w, fitted, err)
+		}
+		f, err := a.Focus(e.Clock)
+		if err != nil || f.Weights != w {
+			t.Fatalf("Focus.Weights = %+v, want %+v (%v)", f.Weights, w, err)
+		}
+		if wantFitted == (w == focus.DefaultQualityWeights()) {
+			t.Fatalf("weights %+v: default-ness does not match fitted = %v", w, wantFitted)
+		}
+	}
+	check(false)
+	seedRated(t, a, 0, 9)
+	check(false)
+	seedRated(t, a, 9, 10)
+	check(true)
+}

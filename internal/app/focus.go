@@ -59,6 +59,16 @@ func (a *App) GuardTick(call bool) ([]focus.Event, focus.Guard, error) {
 	}
 	in := focus.Input{Now: now, Day: day, Views: vs, Labels: labels, Sessions: focusSessions(ss),
 		Call: call, State: st, Cfg: a.cfg.Focus}
+	if open != nil && now >= open.PlannedMS {
+		// The open session ends on this tick: its done notice is scored with
+		// the current weights. On every other tick no event uses them, so the
+		// rated sessions are not read (trackd's idle budget).
+		w, _, _, err := a.Weights()
+		if err != nil {
+			return nil, focus.Guard{}, err
+		}
+		in.Weights = w
+	}
 	abs, err := a.pending(vs, from, now)
 	if err != nil {
 		return nil, focus.Guard{}, err
@@ -234,7 +244,11 @@ func (a *App) Focus(now time.Time) (report.Focus, error) {
 	if err != nil {
 		return report.Focus{}, err
 	}
-	f := report.Focus{NowMS: nowMS, Live: focus.Live{Level: -1}}
+	w, _, _, err := a.Weights()
+	if err != nil {
+		return report.Focus{}, err
+	}
+	f := report.Focus{NowMS: nowMS, Live: focus.Live{Level: -1}, Weights: w}
 	for i := len(ss) - 1; i >= 0; i-- {
 		s := focus.Session(ss[i])
 		switch {
