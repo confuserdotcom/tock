@@ -11,6 +11,7 @@ import (
 
 	"tock/internal/apptest"
 	"tock/internal/focus"
+	"tock/internal/store"
 )
 
 // slotEnv is an env whose plan file holds a Review slot at 14:00 ended by a
@@ -185,5 +186,84 @@ func TestSlotNotifyOff(t *testing.T) {
 	a2 := open(t, e2)
 	if a2.ConfigErr() != nil || a2.cfg.Plan.Notify {
 		t.Fatalf("NoPlanNotices: err %v, notify %v, want a loaded config with notices off", a2.ConfigErr(), a2.cfg.Plan.Notify)
+	}
+}
+
+func standupKey(t testing.TB) string {
+	h := fnv.New64a()
+	h.Write([]byte("Standup"))
+	return fmt.Sprintf("event:%d:%016x", apptest.At(t, "14:30", 0), h.Sum64())
+}
+
+// eventEnv is an env with NoRoutines, a span open since 14:20 and the clock at 14:24.
+func eventEnv(t *testing.T) (*apptest.Env, *App) {
+	t.Helper()
+	e := apptest.New(t, moduleRules)
+	e.WriteConfig(t, apptest.NoRoutines)
+	e.Seed(t, apptest.Span{ID: 1, Start: "14:20", Bundle: "term", App: "WezTerm", Title: "x"})
+	e.Event(t, "14:30", "15:00", "Standup")
+	slotClock(e, 14, 24, 0)
+	return e, open(t, e)
+}
+
+func TestEventSlotNotices(t *testing.T) {
+	e, a := eventEnv(t)
+	wantList(t, "14:24", tickAt(t, a, e, 14, 24, 0))
+	wantList(t, "14:25", tickAt(t, a, e, 14, 25, 0), wantNote(focus.TopicUpcoming, "Up next", "14:30 Standup (Work) · in 5 min"))
+	wantList(t, "14:30:10", tickAt(t, a, e, 14, 30, 10), wantNote(focus.TopicStarting, "Starting now", "14:30–15:00 Standup (Work)"))
+	wantList(t, "14:30:20", tickAt(t, a, e, 14, 30, 20))
+}
+
+func TestEventSlotResync(t *testing.T) {
+	e, a := eventEnv(t)
+	wantList(t, "14:25", tickAt(t, a, e, 14, 25, 0), wantNote(focus.TopicUpcoming, "Up next", "14:30 Standup (Work) · in 5 min"))
+	st := a.st
+	if _, err := st.SyncEvents(apptest.At(t, "00:00", 0), apptest.At(t, "00:00", 1), []store.Event{
+		{StartMS: apptest.At(t, "14:30", 0), EndMS: apptest.At(t, "15:00", 0), Title: "Standup", Calendar: "Work"},
+		{StartMS: apptest.At(t, "16:00", 0), EndMS: apptest.At(t, "16:30", 0), Title: "Retro", Calendar: "Work"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	wantList(t, "14:26", tickAt(t, a, e, 14, 26, 0))
+	slotClock(e, 14, 26, 0)
+	got, err := a.Slots(e.Clock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var titles []string
+	for _, s := range got {
+		titles = append(titles, s.Title)
+	}
+	wantList(t, "slots", titles, "Standup", "Retro")
+}
+
+func TestSlotsMerged(t *testing.T) {
+	e, todo := slotEnv(t, "")
+	writePlan(t, todo, "Review @14h30 due:2026-10-10\n")
+	e.Event(t, "14:30", "15:00", "Standup")
+	a := open(t, e)
+	got, err := a.Slots(e.Clock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 || got[0].Kind != focus.SlotEvent || got[1].Kind != focus.SlotPlan {
+		t.Fatalf("slots = %+v, want the event first, then the plan item", got)
+	}
+	if got[0].Key != standupKey(t) {
+		t.Errorf("event key = %q, want %q", got[0].Key, standupKey(t))
+	}
+	wantList(t, "14:30:10", tickAt(t, a, e, 14, 30, 10),
+		wantNote(focus.TopicStarting, "Starting now", "14:30–15:00 Standup (Work)"),
+		wantNote(focus.TopicStarting, "Starting now", "14:30–17:30 Review"))
+}
+
+func TestEventSlotJoinURL(t *testing.T) {
+	e := apptest.New(t, moduleRules)
+	e.WriteConfig(t, apptest.NoRoutines)
+	e.EventLink(t, "14:30", "15:00", "Standup", "https://meet.google.com/abc-defg-hij")
+	slotClock(e, 14, 24, 0)
+	got, err := open(t, e).Slots(e.Clock)
+	if err != nil || len(got) != 1 || got[0].JoinURL != "https://meet.google.com/abc-defg-hij" {
+		t.Fatalf("slots = %+v, %v, want the Standup slot with its link", got, err)
 	}
 }

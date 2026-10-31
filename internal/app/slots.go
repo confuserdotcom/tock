@@ -10,6 +10,7 @@ import (
 	"tock/internal/classify"
 	"tock/internal/focus"
 	"tock/internal/plan"
+	"tock/internal/store"
 )
 
 // slotCache is the slot list built from the plan file, with what it was
@@ -20,24 +21,54 @@ type slotCache struct {
 	stamp uint64
 	rs    *classify.Ruleset
 	day   string
-	slots []focus.Slot // SeenMS filled
+	// events is the (count, max id) of the event table the slots were built
+	// from.
+	eventN, eventMax int64
+	slots            []focus.Slot // SeenMS filled
 }
 
-// Slots returns today's slots in start order: the timed, not done items of
-// the [plan] file due on the calendar day of now. A slot ends where the next
-// later timed item starts, at most PlanSlotMaxMS after its start. A plan
-// file that cannot be read gives no slots. The list is kept until the plan
-// file, the rules or the day change; a slot's SeenMS is the tick time its key
-// first appeared (a restart starts over).
+// Slots returns today's slots in start order (then key): the timed, not done
+// items of the [plan] file due on the calendar day of now, and the calendar
+// events overlapping the day. A plan slot ends where the next later timed
+// item starts, at most PlanSlotMaxMS after its start. A plan file that
+// cannot be read gives no plan slots; an event table that cannot be read is
+// an error. The list is kept until the plan file, the rules, the event table
+// or the day change; a slot's SeenMS is the tick time its key first appeared
+// (a restart starts over).
 func (a *App) Slots(now time.Time) ([]focus.Slot, error) {
 	day := a.midnight(now)
 	dayKey := day.Format("2006-01-02")
 	c := &a.slotCache
 	stamp := a.planStamp()
-	if c.slots != nil && c.file == a.cfg.Plan.File && c.stamp == stamp && c.rs == a.rs && c.day == dayKey {
+	n, maxID, err := a.st.EventStamp()
+	if err != nil {
+		return nil, fmt.Errorf("event stamp: %w", err)
+	}
+	if c.slots != nil && c.file == a.cfg.Plan.File && c.stamp == stamp && c.rs == a.rs && c.day == dayKey &&
+		c.eventN == n && c.eventMax == maxID {
 		return slices.Clone(c.slots), nil
 	}
+	evs, err := a.st.Events(day.UnixMilli(), day.AddDate(0, 0, 1).UnixMilli())
+	if err != nil {
+		return nil, fmt.Errorf("events: %w", err)
+	}
 	slots := a.planSlotList(day)
+	haveEvent := map[string]bool{}
+	for _, ev := range evs {
+		key := eventSlotKey(ev)
+		if haveEvent[key] { // the same event in two calendars notifies once
+			continue
+		}
+		haveEvent[key] = true
+		slots = append(slots, focus.Slot{Key: key, Kind: focus.SlotEvent, StartMS: ev.StartMS,
+			EndMS: ev.EndMS, Title: ev.Title, Calendar: ev.Calendar, JoinURL: ev.JoinURL})
+	}
+	sort.SliceStable(slots, func(i, j int) bool {
+		if slots[i].StartMS != slots[j].StartMS {
+			return slots[i].StartMS < slots[j].StartMS
+		}
+		return slots[i].Key < slots[j].Key
+	})
 	seen := make(map[string]int64, len(slots))
 	for i := range slots {
 		ms, ok := a.slotSeen[slots[i].Key]
@@ -51,8 +82,17 @@ func (a *App) Slots(now time.Time) ([]focus.Slot, error) {
 	if slots == nil {
 		slots = []focus.Slot{} // an empty list is still a built one
 	}
-	*c = slotCache{file: a.cfg.Plan.File, stamp: stamp, rs: a.rs, day: dayKey, slots: slots}
+	*c = slotCache{file: a.cfg.Plan.File, stamp: stamp, rs: a.rs, day: dayKey, eventN: n, eventMax: maxID, slots: slots}
 	return slices.Clone(slots), nil
+}
+
+// eventSlotKey is the key of an event slot: its start and a hash of its
+// title. Row ids change when trackd syncs the calendar again, so they never
+// take part.
+func eventSlotKey(ev store.Event) string {
+	h := fnv.New64a()
+	h.Write([]byte(ev.Title))
+	return fmt.Sprintf("event:%d:%016x", ev.StartMS, h.Sum64())
 }
 
 // planSlotList reads the plan file and builds the slots of day.

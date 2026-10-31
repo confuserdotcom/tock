@@ -37,6 +37,8 @@ const (
 	SlotFreshMS = 60_000
 	// SlotTitleCells is the longest slot title in a notice body, in cells.
 	SlotTitleCells = 40
+	// SlotCalendarCells is the longest calendar name in a notice body.
+	SlotCalendarCells = 24
 )
 
 // Slot is a stretch of today that starts at a known time: a timed plan item
@@ -74,6 +76,16 @@ func SlotName(s Slot, cells int) string {
 		return "(no title)"
 	}
 	return ansi.Truncate(strings.Join(words, " "), cells, "…")
+}
+
+// slotLabel is the slot as a notice body names it: its title, and for an
+// event with a calendar that calendar's name in parentheses.
+func slotLabel(s Slot) string {
+	name := SlotName(s, SlotTitleCells)
+	if s.Kind == SlotEvent && s.Calendar != "" {
+		name += " (" + ansi.Truncate(s.Calendar, SlotCalendarCells, "…") + ")"
+	}
+	return name
 }
 
 // inStartWindow reports Now in [StartMS, StartMS + SlotStartWindowMS).
@@ -120,12 +132,12 @@ func stepSlots(in Input) []Event {
 		if inUpcomingWindow(in, s) && !in.SlotSent[SlotSentKey(s.Key, SlotUpcoming)] {
 			n := max((s.StartMS-in.Now+59_999)/60_000, 1)
 			out = append(out, Event{Kind: SlotDue, Topic: TopicUpcoming, Title: TitleUpcoming,
-				Body: fmt.Sprintf("%s %s · in %d min", clock(s.StartMS), SlotName(s, SlotTitleCells), n),
+				Body: fmt.Sprintf("%s %s · in %d min", clock(s.StartMS), slotLabel(s), n),
 				Slot: s, SlotKind: SlotUpcoming})
 		}
 		if inStartWindow(in, s) && !in.SlotSent[SlotSentKey(s.Key, SlotStarting)] {
 			out = append(out, Event{Kind: SlotDue, Topic: TopicStarting, Title: TitleStarting,
-				Body: clock(s.StartMS) + "–" + clock(s.EndMS) + " " + SlotName(s, SlotTitleCells),
+				Body: clock(s.StartMS) + "–" + clock(s.EndMS) + " " + slotLabel(s),
 				Slot: s, SlotKind: SlotStarting})
 		}
 	}

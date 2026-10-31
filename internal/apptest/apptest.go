@@ -198,6 +198,17 @@ func (e *Env) Event(t testing.TB, from, to, title string) {
 	}
 }
 
+// EventLink is like Event, with the meeting link trackd would have found.
+func (e *Env) EventLink(t testing.TB, from, to, title, link string) {
+	t.Helper()
+	db := e.raw(t)
+	defer db.Close()
+	if _, err := db.Exec(`INSERT INTO event(start_ms, end_ms, title, calendar, join_url) VALUES(?, ?, ?, 'Work', ?)`,
+		At(t, from, 0), At(t, to, 0), title, link); err != nil {
+		t.Fatal(err)
+	}
+}
+
 // Plan saves the plan of the week starting on monday (YYYY-MM-DD).
 func (e *Env) Plan(t testing.TB, monday, text string) {
 	t.Helper()

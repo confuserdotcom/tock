@@ -144,3 +144,45 @@ func TestSlotFirstSeen(t *testing.T) {
 		t.Errorf("seen 3 min before: %+v, want up-next in 3 min", evs)
 	}
 }
+
+func standupSlot(calendar string) Slot {
+	return Slot{Key: "event:1:x", Kind: SlotEvent, StartMS: at(14, 30, 0), EndMS: at(15, 0, 0), Title: "Standup", Calendar: calendar}
+}
+
+func slotBody(t *testing.T, now int64, s Slot) string {
+	t.Helper()
+	in := input(now)
+	in.Plan = config.DefaultPlan()
+	in.Slots = []Slot{s}
+	evs := only(Step(in), SlotDue)
+	if len(evs) != 1 {
+		t.Fatalf("events = %+v, want exactly one SlotDue", evs)
+	}
+	return evs[0].Body
+}
+
+func TestSlotEventBodies(t *testing.T) {
+	for _, tt := range []struct {
+		name string
+		now  int64
+		slot Slot
+		want string
+	}{
+		{"upcoming", at(14, 25, 0), standupSlot("Work"), "14:30 Standup (Work) · in 5 min"},
+		{"starting", at(14, 30, 10), standupSlot("Work"), "14:30–15:00 Standup (Work)"},
+		{"upcoming no calendar", at(14, 25, 0), standupSlot(""), "14:30 Standup · in 5 min"},
+		{"starting no calendar", at(14, 30, 10), standupSlot(""), "14:30–15:00 Standup"},
+		{"long calendar", at(14, 30, 10), standupSlot(strings.Repeat("c", 30)), "14:30–15:00 Standup (" + strings.Repeat("c", 23) + "…)"},
+	} {
+		s := tt.slot
+		s.SeenMS = 0
+		if got := slotBody(t, tt.now, s); got != tt.want {
+			t.Errorf("%s: body = %q, want %q", tt.name, got, tt.want)
+		}
+	}
+	plan := reviewSlot()
+	plan.Calendar = "Ignored"
+	if got := slotBody(t, at(14, 0, 30), plan); got != "14:00–14:50 Review" {
+		t.Errorf("plan slot body = %q, want it without a calendar", got)
+	}
+}
