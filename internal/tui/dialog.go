@@ -11,8 +11,12 @@ import (
 // askDlg asks for one line of text.
 type askDlg struct {
 	title, prompt, text string
+	max                 int // longest text in runes; 0 means askMax
 	done                func(m Model, text string) (tea.Model, tea.Cmd)
 }
+
+// askMax is the default longest text of an askDlg, in runes.
+const askMax = 80
 
 // choice is one option of a chooseDlg.
 type choice struct {
@@ -21,10 +25,11 @@ type choice struct {
 
 // chooseDlg asks to pick one option.
 type chooseDlg struct {
-	title  string
-	opts   []choice
-	cursor int
-	done   func(m Model, c choice) (tea.Model, tea.Cmd)
+	title   string
+	opts    []choice
+	cursor  int
+	hotkeys bool // a key equal to an option's value picks it at once
+	done    func(m Model, c choice) (tea.Model, tea.Cmd)
 }
 
 func (m Model) askKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
@@ -42,8 +47,18 @@ func (m Model) askKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.ask = nil
 		return d.done(m, strings.TrimSpace(d.text))
 	default:
-		if msg.Text != "" && utf8.RuneCountInString(d.text) < 80 {
-			d.text += msg.Text
+		if msg.Text == "" {
+			break
+		}
+		// One line: pasted line breaks become spaces, and only as many
+		// runes as fit under the cap are kept.
+		in := []rune(strings.NewReplacer("\r\n", " ", "\r", " ", "\n", " ").Replace(msg.Text))
+		limit := d.max
+		if limit <= 0 {
+			limit = askMax
+		}
+		if room := limit - utf8.RuneCountInString(d.text); room > 0 {
+			d.text += string(in[:min(room, len(in))])
 		}
 	}
 	return m, nil
@@ -71,6 +86,14 @@ func (m Model) chooseKey(k string) (tea.Model, tea.Cmd) {
 		d.cursor = min(d.cursor+1, len(d.opts)-1)
 	case "enter":
 		return m.pickChoice(d.cursor)
+	default:
+		if d.hotkeys {
+			for i, o := range d.opts {
+				if o.value == k {
+					return m.pickChoice(i)
+				}
+			}
+		}
 	}
 	return m, nil
 }

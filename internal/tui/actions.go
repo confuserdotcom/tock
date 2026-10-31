@@ -7,6 +7,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
+	"tock/internal/focus"
 	"tock/internal/report"
 	"tock/internal/span"
 )
@@ -81,6 +82,33 @@ func startN(n int) func(m Model) (tea.Model, tea.Cmd) {
 		}
 		m.tab = tabFocus
 		return m, m.startSession(n)
+	}
+}
+
+// finishedShown reports the focus tab with a finished session on its card.
+func finishedShown(m *Model) bool { return m.tab == tabFocus && m.focus.shown() != nil }
+
+// hasFinished reports a finished session this week, on any tab.
+func hasFinished(m *Model) bool { return len(m.focus.rows()) > 0 }
+
+// lastSession runs f on the most recent finished session (not the cursor's).
+func lastSession(f func(m Model, s focus.Session) Model) func(m Model) (tea.Model, tea.Cmd) {
+	return func(m Model) (tea.Model, tea.Cmd) {
+		rows := m.focus.rows()
+		if len(rows) == 0 {
+			return m.noFinished()
+		}
+		return f(m, rows[0]), nil
+	}
+}
+
+func rateLast(n int) func(m Model) (tea.Model, tea.Cmd) {
+	return func(m Model) (tea.Model, tea.Cmd) {
+		rows := m.focus.rows()
+		if len(rows) == 0 {
+			return m.noFinished()
+		}
+		return m, m.rate(rows[0], n)
 	}
 }
 
@@ -185,6 +213,19 @@ func actionTable() []action {
 		{name: "stop the session", group: grFocus,
 			when: func(m *Model) bool { return m.tab != tabFocus && m.focus.data.Open != nil },
 			run:  func(m Model) (tea.Model, tea.Cmd) { return m, m.stopSession() }},
+		{key: "R", name: "rate the session", group: grFocus, when: finishedShown},
+		{key: "n", name: "note on the session", group: grFocus, when: finishedShown},
+		{key: "f", name: "refile the session", group: grFocus, when: finishedShown},
+		{key: "j/k", name: "move", group: grFocus},
+		{name: "rate last session 1 star", group: grFocus, when: hasFinished, run: rateLast(1)},
+		{name: "rate last session 2 stars", group: grFocus, when: hasFinished, run: rateLast(2)},
+		{name: "rate last session 3 stars", group: grFocus, when: hasFinished, run: rateLast(3)},
+		{name: "rate last session 4 stars", group: grFocus, when: hasFinished, run: rateLast(4)},
+		{name: "rate last session 5 stars", group: grFocus, when: hasFinished, run: rateLast(5)},
+		{name: "note on last session", group: grFocus, when: hasFinished,
+			run: lastSession(func(m Model, s focus.Session) Model { return m.openNote(s) })},
+		{name: "refile last session", group: grFocus, when: hasFinished,
+			run: lastSession(func(m Model, s focus.Session) Model { return m.openRefile(s) })},
 
 		{key: "e", name: "edit rules.toml", group: grRules, prio: 1, when: onTab(tabRules)},
 		{key: "J/K", name: "move rule down/up", group: grRules},

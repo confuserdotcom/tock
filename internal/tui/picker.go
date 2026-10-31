@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"fmt"
 	"slices"
 	"strings"
 
@@ -22,6 +23,7 @@ const (
 	pickLearn                     // propose a rule for key
 	pickAway                      // label the absence away
 	pickEdit                      // a timeline edit over editFrom–editTo
+	pickRefile                    // relabel the finished session refileID to a project
 )
 
 const noProject = "(no project)"
@@ -52,6 +54,7 @@ type picker struct {
 	away             classify.Interval // pickAway
 	editKind         string            // pickEdit: classify.EditAdd or EditLabel
 	editFrom, editTo int64             // pickEdit
+	refileID         int64             // pickRefile
 }
 
 // newAwayPicker labels the absence iv.
@@ -68,7 +71,7 @@ func newPicker(src *source, action pickAction, ids []int64, key, what string) *p
 		for _, c := range rs.Categories {
 			p.cats = append(p.cats, option{name: c.Name, note: c.Kind})
 		}
-		if action != pickProject {
+		if action != pickProject && action != pickRefile {
 			p.projects = append(p.projects, option{name: noProject})
 		}
 		p.moduleCat = map[string]string{}
@@ -88,7 +91,7 @@ func newPicker(src *source, action pickAction, ids []int64, key, what string) *p
 			}
 		}
 	})
-	if action == pickProject {
+	if action == pickProject || action == pickRefile {
 		p.stage = 1
 	}
 	return p
@@ -124,7 +127,7 @@ func (p *picker) options() []option {
 	}
 	q := strings.ToLower(p.query)
 	var out []option
-	if p.stage == 0 && q == "" {
+	if (p.stage == 0 || p.action == pickRefile) && q == "" {
 		out = append(out, p.quick...)
 	}
 	var mods, rest []option
@@ -213,6 +216,15 @@ func (m Model) finishPick(p *picker) tea.Cmd {
 		iv, what := p.away, p.what
 		return m.act(func(a *app.App) (string, error) {
 			return "labelled " + what + " → " + label, a.Answer(iv, want)
+		})
+	case pickRefile:
+		id, project := p.refileID, want.Project
+		return m.act(func(a *app.App) (string, error) {
+			s, canonical, err := a.RefileSession(id, project)
+			if err != nil {
+				return "", err
+			}
+			return fmt.Sprintf("refiled %s to %s (u undo)", report.Dur(s.EndMS-s.StartMS), canonical), nil
 		})
 	case pickOnce:
 		key := p.key

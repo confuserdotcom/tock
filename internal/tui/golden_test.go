@@ -224,3 +224,13 @@ func TestGoldenFocusCardRunning(t *testing.T) {
 	}, "s", "enter")
 	golden.RequireEqual(t, screen(m))
 }
+
+// Phase 8: the rate dialog over the focus tab.
+func TestGoldenFocusRateDialog(t *testing.T) {
+	m, e := seeded(t)
+	e.Heartbeat(t, e.Clock.UnixMilli())
+	id := seedManual(t, e, "09:10", "10:00", 0, counters)
+	seedRating(t, e, id, 4, "")
+	m = press(t, m, "4", "R")
+	golden.RequireEqual(t, screen(m))
+}

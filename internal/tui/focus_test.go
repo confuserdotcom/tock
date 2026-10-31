@@ -10,6 +10,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
+	"tock/internal/app"
 	"tock/internal/apptest"
 	"tock/internal/focus"
 	"tock/internal/store"
@@ -265,5 +266,161 @@ func TestFocusCardShortBody(t *testing.T) {
 	}
 	if blank(h30) != 0 || has(h30, "apps") || has(h30, "categories") {
 		t.Fatalf("h=30 also drops categories:\n%s", strings.Join(h30, "\n"))
+	}
+}
+
+func TestFocusRateKeys(t *testing.T) {
+	m, e := seeded(t)
+	e.Heartbeat(t, e.Clock.UnixMilli())
+	id := seedManual(t, e, "09:10", "10:00", 0, counters)
+	m = press(t, m, "4", "R")
+	mustContain(t, m, "Rate this session", "★★★★★", "★☆☆☆☆", "deep, nothing pulled", "lost it")
+	if l := line(t, m, "★★★★★"); !strings.Contains(l, "▸") {
+		t.Fatalf("an unrated session must start on ★5: %q", l)
+	}
+	m = press(t, m, "4")
+	mustContain(t, m, "rated 09:10 session ★4", "Last session", "★★★★☆")
+	mustNotContain(t, m, "Rate this session")
+	if m.tab != tabFocus {
+		t.Fatalf("the digit switched tabs: tab = %d", m.tab)
+	}
+	var got focus.Session
+	m.src.do(func(a *app.App) { got, _ = a.SessionByID(id) })
+	if got.Rating != 4 {
+		t.Fatalf("stored rating = %d, want 4", got.Rating)
+	}
+	m = press(t, m, "R")
+	if l := line(t, m, "★★★★☆  4"); !strings.Contains(l, "▸") {
+		t.Fatalf("a rated session must start on its rating: %q", l)
+	}
+	m = press(t, m, "5")
+	mustContain(t, m, "rating changed to ★5", "★★★★★")
+	m = press(t, m, "R", "esc")
+	mustNotContain(t, m, "Rate this session")
+	m.src.do(func(a *app.App) { got, _ = a.SessionByID(id) })
+	if got.Rating != 5 {
+		t.Fatalf("esc changed the rating to %d", got.Rating)
+	}
+	// enter picks the highlighted option too
+	m = press(t, m, "R", "j", "j", "enter")
+	mustContain(t, m, "rating changed to ★3")
+}
+
+func TestFocusNoteCap(t *testing.T) {
+	m, e := seeded(t)
+	e.Heartbeat(t, e.Clock.UnixMilli())
+	seedManual(t, e, "09:10", "10:00", 0, counters)
+	m = press(t, m, "4", "n")
+	mustContain(t, m, "Note for 09:10 session", "One line, up to 200 characters.")
+	m = typeText(t, m, strings.Repeat("a", 205))
+	if n := len([]rune(m.ask.text)); n != 200 {
+		t.Fatalf("note field has %d runes, want 200", n)
+	}
+	m = press(t, m, "ctrl+u")
+	m = step(t, m, tea.KeyPressMsg{Code: 'a', Text: "a\nb"})
+	if m.ask.text != "a b" {
+		t.Fatalf("pasted text = %q, want \"a b\"", m.ask.text)
+	}
+	m = press(t, m, "enter")
+	mustContain(t, m, "note saved", "a b")
+	m = press(t, m, "n")
+	if m.ask.text != "a b" {
+		t.Fatalf("the dialog must be prefilled with the note, got %q", m.ask.text)
+	}
+	m = press(t, m, "ctrl+u", "enter")
+	mustContain(t, m, "note cleared")
+	mustNotContain(t, m, "note        a b")
+	// other dialogs keep the 80-rune cap
+	m = press(t, m, "esc", "4")
+	m.ask = &askDlg{title: "x", done: func(m Model, text string) (tea.Model, tea.Cmd) { return m, nil }}
+	m = typeText(t, m, strings.Repeat("b", 90))
+	if n := len([]rune(m.ask.text)); n != 80 {
+		t.Fatalf("default cap = %d, want 80", n)
+	}
+}
+
+func TestFocusRefilePick(t *testing.T) {
+	m, e := seeded(t)
+	e.Heartbeat(t, e.Clock.UnixMilli())
+	id := seedManual(t, e, "10:20", "11:00", 0, store.Session{DeepMS: 30 * min1, LongestMS: 20 * min1, Switches: 3})
+	m = press(t, step(t, m, windowSize(100, 50)), "4", "f")
+	mustContain(t, m, "Refile session 10:20–11:00 (40m) to", "tock", "top project")
+	m = press(t, m, "enter")
+	if m.flash != "refiled 40m to tock (u undo)" {
+		t.Fatalf("flash = %q", m.flash)
+	}
+	mustContain(t, m, "refiled 40m to tock")
+	undoable := func() bool {
+		var ok bool
+		m.src.do(func(a *app.App) { ok, _ = a.RefileUndoable(id) })
+		return ok
+	}
+	if !undoable() {
+		t.Fatal("the refile left no undo entry")
+	}
+	m = press(t, m, "u")
+	mustContain(t, m, "undid: refile session")
+	if undoable() {
+		t.Fatal("u did not revert the refile")
+	}
+	// any project can be chosen, not only the top one
+	m = press(t, m, "f")
+	m = typeText(t, m, "atl")
+	m = press(t, m, "enter")
+	if m.flash != "refiled 40m to ATLAS (u undo)" {
+		t.Fatalf("flash = %q", m.flash)
+	}
+}
+
+func TestFocusNoSession(t *testing.T) {
+	m, e := seeded(t)
+	e.Heartbeat(t, e.Clock.UnixMilli())
+	m = press(t, m, "4")
+	for _, k := range []string{"R", "n", "f"} {
+		m = press(t, m, k)
+		mustContain(t, m, "no finished session yet · s starts one")
+		mustNotContain(t, m, "Rate this session", "Note for", "Refile session")
+		if m.choose != nil || m.ask != nil || m.picker != nil {
+			t.Fatalf("%s opened a dialog with nothing to act on", k)
+		}
+	}
+	// a running session is never the target
+	m = press(t, m, "s", "enter", "R", "n", "f")
+	mustContain(t, m, "no finished session yet · s starts one")
+	if m.choose != nil || m.ask != nil || m.picker != nil {
+		t.Fatal("a key acted on the running session")
+	}
+}
+
+func TestFocusRatePersists(t *testing.T) {
+	m, e := seeded(t)
+	e.Heartbeat(t, e.Clock.UnixMilli())
+	seedManual(t, e, "09:10", "10:00", 0, counters)
+	m = press(t, m, "4", "R", "4")
+	mustContain(t, m, "rated 09:10 session ★4")
+	again := press(t, newModel(t, e), "4")
+	mustContain(t, again, "★★★★☆")
+	if l := line(t, again, "09:10  manual"); !strings.Contains(l, "★4") {
+		t.Fatalf("row after restart = %q", l)
+	}
+}
+
+func TestFocusPaletteRates(t *testing.T) {
+	m, e := seeded(t)
+	e.Heartbeat(t, e.Clock.UnixMilli())
+	m = press(t, m, ":")
+	mustNotContain(t, m, "rate last session")
+	m = press(t, m, "esc")
+	id := seedManual(t, e, "09:10", "10:00", 0, counters)
+	seedManual(t, e, "07:00", "07:50", 0, counters)
+	m = press(t, m, "r", ":")
+	m = typeText(t, m, "last session")
+	mustContain(t, m, "rate last session 5 stars", "rate last session 1 star", "note on last session", "refile last session")
+	m = typeText(t, m, " 3")
+	m = press(t, m, "enter")
+	var got focus.Session
+	m.src.do(func(a *app.App) { got, _ = a.SessionByID(id) })
+	if got.Rating != 3 {
+		t.Fatalf("palette rated session %d, want the newest rated 3", got.Rating)
 	}
 }

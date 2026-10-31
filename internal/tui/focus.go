@@ -11,6 +11,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"tock/internal/app"
+	"tock/internal/classify"
 	"tock/internal/config"
 	"tock/internal/focus"
 	"tock/internal/report"
@@ -127,6 +128,18 @@ func (m Model) focusKey(k string) (tea.Model, tea.Cmd) {
 		}
 		m.focus.cursor, m.focus.detail = to, nil
 		return m, m.loadDetail()
+	case "R", "n", "f":
+		s := m.focus.shown()
+		if s == nil {
+			return m.noFinished()
+		}
+		switch k {
+		case "R":
+			return m.openRate(*s), nil
+		case "n":
+			return m.openNote(*s), nil
+		}
+		return m.openRefile(*s), nil
 	case "s":
 		if m.focus.data.Open != nil {
 			m.setFlash("a session is already running · x stops it", true)
@@ -143,6 +156,100 @@ func (m Model) focusKey(k string) (tea.Model, tea.Cmd) {
 		return m, m.stopSession()
 	}
 	return m, nil
+}
+
+// noFinished is the answer to a session key when nothing has finished.
+func (m Model) noFinished() (tea.Model, tea.Cmd) {
+	m.setFlash("no finished session yet · s starts one", true)
+	return m, nil
+}
+
+// sessionClock is the "HH:MM" a session started at, in the card's zone.
+func (m Model) sessionClock(s focus.Session) string {
+	return time.UnixMilli(s.StartMS).In(m.now().Location()).Format("15:04")
+}
+
+// ratingWords are the advisory words of the rate dialog, ★5 first. They are
+// not stored.
+var ratingWords = [5]string{"deep, nothing pulled", "good", "ok", "scattered", "lost it"}
+
+// openRate opens the rate dialog for s. Its option values are the digits, so
+// 1 to 5 pick at once (dialog keys come before the tab keys).
+func (m Model) openRate(s focus.Session) Model {
+	opts := make([]choice, 5)
+	for i := range opts {
+		n := 5 - i
+		opts[i] = choice{label: report.Stars(n) + "  " + strconv.Itoa(n), value: strconv.Itoa(n), note: ratingWords[i]}
+	}
+	cursor := 0
+	if s.Rating >= 1 && s.Rating <= 5 {
+		cursor = 5 - s.Rating
+	}
+	m.choose = &chooseDlg{title: "Rate this session", opts: opts, cursor: cursor, hotkeys: true,
+		done: func(m Model, c choice) (tea.Model, tea.Cmd) {
+			n, _ := strconv.Atoi(c.value)
+			return m, m.rate(s, n)
+		}}
+	return m
+}
+
+// rate gives session s the rating n (the last rating wins).
+func (m Model) rate(s focus.Session, n int) tea.Cmd {
+	id, clock := s.ID, m.sessionClock(s)
+	return m.act(func(a *app.App) (string, error) {
+		_, prev, err := a.RateSession(id, n, nil)
+		if err != nil {
+			return "", fmt.Errorf("could not save the rating: %w", err)
+		}
+		if prev > 0 {
+			return fmt.Sprintf("rating changed to ★%d", n), nil
+		}
+		return fmt.Sprintf("rated %s session ★%d", clock, n), nil
+	})
+}
+
+// openNote opens the one-line note dialog for s, prefilled with its note.
+func (m Model) openNote(s focus.Session) Model {
+	id := s.ID
+	m.ask = &askDlg{title: "Note for " + m.sessionClock(s) + " session", prompt: "One line, up to 200 characters.",
+		text: s.Note, max: report.MaxNoteRunes,
+		done: func(m Model, text string) (tea.Model, tea.Cmd) {
+			return m, m.act(func(a *app.App) (string, error) {
+				if _, err := a.SetNote(id, text); err != nil {
+					return "", fmt.Errorf("could not save the note: %w", err)
+				}
+				if text == "" {
+					return "note cleared", nil
+				}
+				return "note saved", nil
+			})
+		}}
+	return m
+}
+
+// openRefile opens the project picker to refile s, the project holding most
+// of its deep time first.
+func (m Model) openRefile(s focus.Session) Model {
+	loc := m.now().Location()
+	clock := func(ms int64) string { return time.UnixMilli(ms).In(loc).Format("15:04") }
+	what := fmt.Sprintf("Refile session %s–%s (%s) to", clock(s.StartMS), clock(s.EndMS), report.Dur(s.EndMS-s.StartMS))
+	p := newPicker(m.src, pickRefile, nil, "", what)
+	p.refileID = s.ID
+	var top string
+	if d := m.focus.detail; d != nil && d.Sess.ID == s.ID {
+		top = d.Top.Project
+	} else {
+		m.src.do(func(a *app.App) {
+			if d, err := a.SessionDetail(s.ID); err == nil {
+				top = d.Top.Project
+			}
+		})
+	}
+	if top != "" {
+		p.quick = append(p.quick, option{name: top, note: "top project", want: &classify.Want{Project: top}})
+	}
+	m.picker = p
+	return m
 }
 
 func (m Model) startSession(n int) tea.Cmd {
