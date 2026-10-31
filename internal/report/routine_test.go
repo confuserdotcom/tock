@@ -114,3 +114,14 @@ func TestMiddayBody(t *testing.T) {
 		t.Errorf("cut name %q too long", got)
 	}
 }
+
+func TestOverBody(t *testing.T) {
+	d := Day{TrackedMS: 9*3_600_000 + 40*60_000, Work: stats.Hours{Set: true, EndMin: 18 * 60}}
+	if got, want := OverBody(d, 65*60_000), "Past work hours: 9h40 tracked today, 1h05 after 18:00. Time to stop."; got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+	d.Work.EndMin = 17*60 + 30
+	if got, want := OverBody(d, 65*60_000), "Past work hours: 9h40 tracked today, 1h05 after 17:30. Time to stop."; got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}

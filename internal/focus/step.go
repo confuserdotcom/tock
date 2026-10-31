@@ -45,6 +45,10 @@ func Step(in Input) []Event {
 		notes = append(notes, n)
 		stateChanged = true
 	}
+	if n, ok := stepOver(in, &st); ok {
+		notes = append(notes, n)
+		stateChanged = true
+	}
 	if n, ok := stepAway(in, &st); ok {
 		notes = append(notes, n)
 		stateChanged = true

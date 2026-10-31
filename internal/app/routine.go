@@ -27,6 +27,13 @@ func (a *App) routineBodies(in *focus.Input, nowT time.Time, today func() (repor
 		}
 		in.MiddayBody = report.MiddayBody(d)
 	}
+	if focus.OverDue(*in) {
+		d, err := today()
+		if err != nil {
+			return err
+		}
+		in.OverBody = report.OverBody(d, focus.OverMS(*in))
+	}
 	return nil
 }
 

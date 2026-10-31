@@ -39,6 +39,8 @@ const (
 	TitleStart = "Start of day"
 	// TitleMidday is the midday check-in notice.
 	TitleMidday = "Midday check-in"
+	// TitleOver is the overworking notice.
+	TitleOver = "Overworking"
 )
 
 // Notification topics: what a note is about, so a notifier can offer the
@@ -51,6 +53,8 @@ const (
 	TopicAway   = "away"
 	TopicStart  = "start"
 	TopicMidday = "midday"
+	// TopicOver is the overworking notice's topic.
+	TopicOver = "overwork"
 )
 
 // AwayNotifyMS is how soon after coming back the away question is sent; an
@@ -85,6 +89,8 @@ type State struct {
 	RecapDay  string // YYYY-MM-DD of the last recap
 	StartDay  string // YYYY-MM-DD of the last start-of-day notice
 	MiddayDay string // YYYY-MM-DD of the last midday check-in
+	OverDay   string // YYYY-MM-DD of the last overworking notice
+	OverAt    int64  // when the last overworking notice was sent
 	AwayAt    int64  // end of the last absence asked about
 	// SnoozeUntil holds break reminders back until this time (ms).
 	SnoozeUntil int64
@@ -143,6 +149,8 @@ type Input struct {
 	StartBody string
 	// MiddayBody is the midday check-in text; the caller fills it when MiddayDue.
 	MiddayBody string
+	// OverBody is the overworking text; the caller fills it when OverDue.
+	OverBody string
 	// Absence is the latest absence today that has no answer yet, or nil.
 	Absence *classify.Interval
 	// AbsenceBefore is the label of what Absence follows; zero when none.

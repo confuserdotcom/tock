@@ -158,7 +158,8 @@ func (a *App) focusState() (focus.State, error) {
 	away, _ := strconv.ParseInt(m[store.KeyFocusAwayAt], 10, 64)
 	snooze, _ := strconv.ParseInt(m[store.KeyFocusBreakSnooze], 10, 64)
 	distract, _ := strconv.ParseInt(m[store.KeyFocusDistractSnooze], 10, 64)
-	return focus.State{BreakFrom: from, BreakAt: at, RecapDay: m[store.KeyFocusRecapDay], StartDay: m[store.KeyFocusStartDay], MiddayDay: m[store.KeyFocusMiddayDay], AwayAt: away,
+	overAt, _ := strconv.ParseInt(m[store.KeyFocusOverAt], 10, 64)
+	return focus.State{OverDay: m[store.KeyFocusOverDay], OverAt: overAt, BreakFrom: from, BreakAt: at, RecapDay: m[store.KeyFocusRecapDay], StartDay: m[store.KeyFocusStartDay], MiddayDay: m[store.KeyFocusMiddayDay], AwayAt: away,
 		SnoozeUntil: snooze, DistractSnoozeUntil: distract}, nil
 }
 
@@ -170,6 +171,8 @@ func (a *App) setFocusState(s focus.State, nowMS int64) error {
 		{store.KeyFocusRecapDay, s.RecapDay},
 		{store.KeyFocusStartDay, s.StartDay},
 		{store.KeyFocusMiddayDay, s.MiddayDay},
+		{store.KeyFocusOverDay, s.OverDay},
+		{store.KeyFocusOverAt, strconv.FormatInt(s.OverAt, 10)},
 		{store.KeyFocusAwayAt, strconv.FormatInt(s.AwayAt, 10)},
 		{store.KeyFocusBreakSnooze, strconv.FormatInt(s.SnoozeUntil, 10)},
 	} {

@@ -25,7 +25,11 @@ const (
 	KeyFocusStartDay = "focus_start_day"
 	// KeyFocusMiddayDay is the YYYY-MM-DD of the last midday check-in sent.
 	KeyFocusMiddayDay = "focus_midday_day"
-	KeyFocusAwayAt    = "focus_away_at"
+	// KeyFocusOverDay is the YYYY-MM-DD of the last overworking notice sent.
+	KeyFocusOverDay = "focus_over_day"
+	// KeyFocusOverAt is the unix ms of the last overworking notice sent.
+	KeyFocusOverAt = "focus_over_at"
+	KeyFocusAwayAt = "focus_away_at"
 	// KeyFocusBreakSnooze is when (ms) snoozed break reminders resume.
 	KeyFocusBreakSnooze = "focus_break_snooze"
 	// KeyFocusDistractSnooze is when (ms) snoozed distraction notices of the

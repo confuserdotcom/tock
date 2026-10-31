@@ -168,3 +168,98 @@ func TestStepStartAndMidday(t *testing.T) {
 		t.Fatalf("state = %+v", st)
 	}
 }
+
+// overInput is a tick at now over vs on a work day that ends at 18:00, with
+// the routines on.
+func overInput(now int64, vs ...vw) Input {
+	in := startInput(now, vs...)
+	in.Hours = stats.Hours{Set: true, StartMin: 9 * 60, EndMin: 18 * 60,
+		Days: [7]bool{true, true, true, true, true, true, true}}
+	return in
+}
+
+func TestOverDue(t *testing.T) {
+	deep := func(h1, m1, h2, m2 int) vw { return vw{at(h1, m1, 0), at(h2, m2, 0), classify.KindDeep, "", ""} }
+	idle := func(h1, m1, h2, m2 int) vw { return vw{at(h1, m1, 0), at(h2, m2, 0), "idle", "", ""} }
+	for _, tt := range []struct {
+		name string
+		in   Input
+		want bool
+		over int64
+	}{
+		{"29 min", overInput(at(18, 29, 0), deep(17, 0, 18, 29)), false, 29 * minute},
+		{"30 min", overInput(at(18, 30, 0), deep(17, 0, 18, 30)), true, 30 * minute},
+		{"idle now", overInput(at(18, 45, 0), deep(17, 0, 18, 40), idle(18, 40, 18, 45)), false, 40 * minute},
+		{"stopped, still idle", overInput(at(19, 0, 0), deep(17, 0, 18, 20), idle(18, 20, 19, 0)), false, 20 * minute},
+		{"came back", overInput(at(19, 10, 0), deep(17, 0, 18, 20), idle(18, 20, 19, 0), deep(19, 0, 19, 10)), true, 30 * minute},
+	} {
+		if got := OverDue(tt.in); got != tt.want {
+			t.Errorf("%s: OverDue = %v, want %v", tt.name, got, tt.want)
+		}
+		if got := OverMS(tt.in); got != tt.over {
+			t.Errorf("%s: OverMS = %d, want %d", tt.name, got, tt.over)
+		}
+	}
+
+	sent := func(now int64, day string, sentAt int64) Input {
+		in := overInput(now, deep(17, 0, 23, 59))
+		in.Views[0].End = now
+		in.State = State{OverDay: day, OverAt: sentAt}
+		return in
+	}
+	if OverDue(sent(at(19, 29, 0), "2026-10-10", at(18, 30, 0))) {
+		t.Error("due before the repeat interval")
+	}
+	if !OverDue(sent(at(19, 30, 0), "2026-10-10", at(18, 30, 0))) {
+		t.Error("not due after the repeat interval")
+	}
+	if !OverDue(sent(at(18, 30, 0), "2026-10-09", at(18, 30, 0)-24*60*minute)) {
+		t.Error("yesterday's notice holds today's back")
+	}
+
+	work := deep(17, 0, 18, 30)
+	unset := overInput(at(18, 30, 0), work)
+	unset.Hours = stats.Hours{}
+	if OverDue(unset) || OverMS(unset) != 0 {
+		t.Error("due without a schedule")
+	}
+	dayOff := overInput(at(18, 30, 0), work)
+	dayOff.Hours.Days = [7]bool{time.Monday: true}
+	if OverDue(dayOff) || OverMS(dayOff) != 0 {
+		t.Error("due on a day off (day0 is a Saturday)")
+	}
+	off := overInput(at(18, 30, 0), work)
+	off.Routine.Overwork = false
+	if OverDue(off) {
+		t.Error("due when switched off")
+	}
+	call := overInput(at(18, 30, 0), work)
+	call.Call = true
+	if OverDue(call) {
+		t.Error("due during a call")
+	}
+	call.Call = false
+	if !OverDue(call) {
+		t.Error("not due once the call is over")
+	}
+}
+
+func TestStepOver(t *testing.T) {
+	in := overInput(at(18, 30, 0), vw{at(17, 0, 0), at(18, 30, 0), classify.KindDeep, "", ""})
+	in.Cfg.BreakAfterMS = 8 * 60 * minute
+	in.OverBody = "O."
+	evs := Step(in)
+	notes := only(evs, Notify)
+	if len(notes) != 1 || notes[0] != (Event{Kind: Notify, Topic: TopicOver, Title: TitleOver, Body: "O."}) {
+		t.Fatalf("notes = %+v", notes)
+	}
+	if st := only(evs, StateUpdate); len(st) != 1 || st[0].State != (State{OverDay: "2026-10-10", OverAt: at(18, 30, 0)}) {
+		t.Fatalf("state = %+v", st)
+	}
+
+	in.OverBody = ""
+	evs = Step(in)
+	if len(only(evs, Notify)) != 0 || len(only(evs, StateUpdate)) != 0 {
+		t.Fatalf("no body, got %+v", evs)
+	}
+}

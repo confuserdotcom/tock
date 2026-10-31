@@ -56,3 +56,52 @@ func stepMidday(in Input, st *State) (Event, bool) {
 	st.MiddayDay = dayKey(in.Day)
 	return note(TopicMidday, TitleMidday, in.MiddayBody, false), true
 }
+
+// OverMS is the non-idle time after today's work end, up to Now; 0 when the
+// schedule is unset, today is a day off or the work end has not come.
+func OverMS(in Input) int64 {
+	if !in.Hours.Set || in.Hours.Off(in.Day) {
+		return 0
+	}
+	_, to := in.Hours.Window(in.Day)
+	if in.Now <= to {
+		return 0
+	}
+	return activeSince(in, to)
+}
+
+// OverDue reports whether this tick should send the overworking notice: it
+// is on, today is a work day of a set schedule, the last one is at least
+// Routine.OverRepeatMS old (or from another day), the grace has passed since
+// the work end, the user is active now, no call is going on and the active
+// time after the work end has reached Routine.OverGraceMS. The cheap
+// conditions come first so no views are scanned before the grace could have
+// passed.
+func OverDue(in Input) bool {
+	r := in.Routine
+	if !r.Overwork || !in.Hours.Set || in.Hours.Off(in.Day) {
+		return false
+	}
+	if in.State.OverDay == dayKey(in.Day) && in.Now-in.State.OverAt < r.OverRepeatMS {
+		return false
+	}
+	_, to := in.Hours.Window(in.Day)
+	if in.Now-to < r.OverGraceMS {
+		return false
+	}
+	if c := current(in); c == nil || isIdle(*c) || inMeeting(in) {
+		return false
+	}
+	return OverMS(in) >= r.OverGraceMS
+}
+
+// stepOver sends the overworking notice. The caller fills OverBody only when
+// OverDue.
+func stepOver(in Input, st *State) (Event, bool) {
+	if in.OverBody == "" || !OverDue(in) {
+		return Event{}, false
+	}
+	st.OverDay = dayKey(in.Day)
+	st.OverAt = in.Now
+	return note(TopicOver, TitleOver, in.OverBody, false), true
+}

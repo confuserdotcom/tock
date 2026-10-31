@@ -76,3 +76,11 @@ func MiddayBody(d Day) string {
 	}
 	return s + " · focus " + Dur(d.Stats.FocusMS) + "."
 }
+
+// OverBody is the overworking notice text: all tracked time today and the
+// time since the work hours ended.
+// "Past work hours: 9h40 tracked today, 1h05 after 18:00. Time to stop."
+func OverBody(d Day, overMS int64) string {
+	return fmt.Sprintf("Past work hours: %s tracked today, %s after %02d:%02d. Time to stop.",
+		Dur(d.TrackedMS), Dur(overMS), d.Work.EndMin/60, d.Work.EndMin%60)
+}

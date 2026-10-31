@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -150,7 +151,7 @@ func TestMiddayCheckIn(t *testing.T) {
 }
 
 func TestMiddaySkippedAfterHours(t *testing.T) {
-	e := middayEnv(t, "[focus]\nrecap = \"\"\n[hours]\ndays = [\"mon\",\"tue\",\"wed\",\"thu\",\"fri\",\"sat\",\"sun\"]\nstart = \"09:00\"\nend = \"12:00\"\n[routine]\nstart = false\n")
+	e := middayEnv(t, "[focus]\nrecap = \"\"\n[hours]\ndays = [\"mon\",\"tue\",\"wed\",\"thu\",\"fri\",\"sat\",\"sun\"]\nstart = \"09:00\"\nend = \"12:00\"\n[routine]\nstart = false\noverwork = false\n")
 	a := open(t, e)
 	if notes, err := a.FocusTick(false); err != nil || len(notes) != 0 {
 		t.Fatalf("notes = %+v, %v", notes, err)
@@ -177,5 +178,89 @@ func TestRoutineEndOff(t *testing.T) {
 	text, err := a.Recap(e.Clock)
 	if err != nil || text != report.Recap(day) || !strings.HasSuffix(text, "Top project: tock.") {
 		t.Fatalf("Recap = %q, %v", text, err)
+	}
+}
+
+// overEnv seeds an open Code span from 13:00 with the hours ending at 14:00;
+// the clock is set by the test.
+func overEnv(t *testing.T, hoursExtra string) *apptest.Env {
+	t.Helper()
+	e := apptest.New(t, apptest.Rules)
+	e.Seed(t, apptest.Span{ID: 1, Start: "13:00", Bundle: "term", App: "WezTerm", Title: "secret-today-title"})
+	e.WriteConfig(t, "[focus]\nbreak_after = 480\n[hours]\ndays = [\"mon\",\"tue\",\"wed\",\"thu\",\"fri\",\"sat\",\"sun\"]\nstart = \"09:00\"\nend = \"14:00\"\n"+
+		hoursExtra+"[routine]\nstart = false\nmidday = \"off\"\nend = false\n")
+	return e
+}
+
+func overTick(t *testing.T, a *App, e *apptest.Env, h, m int) []focus.Event {
+	t.Helper()
+	e.Clock = time.Date(2026, 10, 10, h, m, 0, 0, apptest.Zone)
+	notes, err := a.FocusTick(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return notes
+}
+
+func TestOverworking(t *testing.T) {
+	e := overEnv(t, "")
+	a := open(t, e)
+	if notes := overTick(t, a, e, 14, 29); len(notes) != 0 {
+		t.Fatalf("14:29 notes = %+v", notes)
+	}
+	notes := overTick(t, a, e, 14, 30)
+	d, err := a.Day(e.Clock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := report.OverBody(d, 30*60_000)
+	want := []focus.Event{{Kind: focus.Notify, Topic: focus.TopicOver, Title: focus.TitleOver, Body: body}}
+	if !reflect.DeepEqual(notes, want) {
+		t.Fatalf("14:30 notes = %+v, want %+v", notes, want)
+	}
+	if !strings.Contains(body, "after 14:00") || strings.Contains(body, "secret") {
+		t.Fatalf("body = %q", body)
+	}
+	if notes := overTick(t, a, e, 14, 30); len(notes) != 0 {
+		t.Fatalf("second tick = %+v", notes)
+	}
+	b := open(t, e)
+	if notes := overTick(t, b, e, 14, 31); len(notes) != 0 {
+		t.Fatalf("tick after restart = %+v", notes)
+	}
+	if notes := overTick(t, b, e, 15, 29); len(notes) != 0 {
+		t.Fatalf("15:29 notes = %+v", notes)
+	}
+	if notes := overTick(t, b, e, 15, 30); len(notes) != 1 || notes[0].Topic != focus.TopicOver {
+		t.Fatalf("15:30 notes = %+v", notes)
+	}
+	if v, _, _ := b.st.State(store.KeyFocusOverDay); v != "2026-10-10" {
+		t.Fatalf("focus_over_day = %q", v)
+	}
+	if v, _, _ := b.st.State(store.KeyFocusOverAt); v != strconv.FormatInt(e.Clock.UnixMilli(), 10) {
+		t.Fatalf("focus_over_at = %q, want %d", v, e.Clock.UnixMilli())
+	}
+}
+
+func TestOverworkingStoppedBeforeGrace(t *testing.T) {
+	e := apptest.New(t, apptest.Rules)
+	e.Seed(t,
+		apptest.Span{ID: 1, Start: "13:00", End: "14:20", Bundle: "term", App: "WezTerm", Title: "t"},
+		apptest.Span{ID: 2, Start: "14:20", Bundle: "tock.idle", App: "idle", Title: ""},
+	)
+	e.WriteConfig(t, "[focus]\nbreak_after = 480\n[hours]\ndays = [\"mon\",\"tue\",\"wed\",\"thu\",\"fri\",\"sat\",\"sun\"]\nstart = \"09:00\"\nend = \"14:00\"\n[routine]\nstart = false\nmidday = \"off\"\nend = false\n")
+	a := open(t, e)
+	if notes := overTick(t, a, e, 15, 0); len(notes) != 0 {
+		t.Fatalf("notes = %+v", notes)
+	}
+}
+
+func TestOverworkingOff(t *testing.T) {
+	e := apptest.New(t, apptest.Rules)
+	e.Seed(t, apptest.Span{ID: 1, Start: "13:00", Bundle: "term", App: "WezTerm", Title: "t"})
+	e.WriteConfig(t, "[focus]\nbreak_after = 480\n[hours]\ndays = [\"mon\",\"tue\",\"wed\",\"thu\",\"fri\",\"sat\",\"sun\"]\nstart = \"09:00\"\nend = \"14:00\"\n[routine]\nstart = false\nmidday = \"off\"\nend = false\noverwork = false\n")
+	a := open(t, e)
+	if notes := overTick(t, a, e, 14, 45); len(notes) != 0 {
+		t.Fatalf("notes = %+v", notes)
 	}
 }

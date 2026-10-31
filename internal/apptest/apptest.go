@@ -20,7 +20,7 @@ var Zone = time.FixedZone("T", 2*3600)
 
 // NoRoutines is the [routine] config lines that turn the daily routine
 // notices off, for tests that assert exact notice lists.
-const NoRoutines = "[routine]\nstart = false\nmidday = \"off\"\n"
+const NoRoutines = "[routine]\nstart = false\nmidday = \"off\"\noverwork = false\n"
 
 // Now is the default test clock: Saturday 2026-10-10 15:00 local.
 var Now = time.Date(2026, 10, 10, 15, 0, 0, 0, Zone)

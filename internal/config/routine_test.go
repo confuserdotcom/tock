@@ -66,3 +66,18 @@ func TestLoadRoutineEnd(t *testing.T) {
 		}
 	}
 }
+
+func TestLoadRoutineOverwork(t *testing.T) {
+	r := Default().Routine
+	if !r.Overwork || r.OverGraceMS != 1_800_000 || r.OverRepeatMS != 3_600_000 {
+		t.Fatalf("Default: %+v", r)
+	}
+	c, err := Load(write(t, "[routine]\noverwork = false\n"))
+	if err != nil || c.Routine.Overwork {
+		t.Fatalf("overwork = false: Overwork = %v, err = %v", c.Routine.Overwork, err)
+	}
+	c, err = Load(write(t, "[routine]\noverwork = true\n"))
+	if err != nil || !c.Routine.Overwork {
+		t.Fatalf("overwork = true: Overwork = %v, err = %v", c.Routine.Overwork, err)
+	}
+}
