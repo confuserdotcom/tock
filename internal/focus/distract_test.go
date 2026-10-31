@@ -96,6 +96,31 @@ func TestStepUnmarkNoImmediateAlert(t *testing.T) {
 	if u := sessionUpdate(t, evs); u.Interruptions != 2 || u.AlertedMS != 3*minute {
 		t.Fatalf("after the notice: %+v, want Interruptions 2 and AlertedMS 3 min", u)
 	}
+
+	// Unmarking makes the 6 min alertable again, but the user is back at
+	// work: no notice and no interruption charged for time not lived now.
+	back := func(now int64, s Session) Input {
+		in := input(now,
+			vw{at(14, 0, 0), at(14, 5, 0), classify.KindDeep, "", ""},
+			vw{at(14, 5, 0), at(14, 10, 0), classify.KindDistract, "", ""},
+			vw{at(14, 10, 0), at(14, 11, 0), classify.KindDistract, "", ""},
+			vw{at(14, 11, 0), now, classify.KindDeep, "", ""})
+		in.Sessions = []Session{s}
+		mark(&in, 1, "Entertainment", classify.SourceRule, "rules.toml#3", false)
+		mark(&in, 2, "Games", classify.SourceRule, "rules.toml#5", false)
+		return in
+	}
+	s = running()
+	s.Interruptions, s.AlertedMS = 1, minute
+	evs = Step(back(at(14, 11, 30), s))
+	if n := only(evs, Notify); len(n) != 0 {
+		t.Fatalf("after the unmark: %+v, want no notice", n)
+	}
+	for _, e := range only(evs, SessionUpdate) {
+		if e.Sess.Interruptions != 1 {
+			t.Fatalf("after the unmark: %+v, want Interruptions still 1", e.Sess)
+		}
+	}
 }
 
 func TestStepNoticeCarriesTarget(t *testing.T) {

@@ -125,10 +125,16 @@ func stepSession(in Input, s Session) (writes, notes []Event, ended bool) {
 		step = in.Cfg.DistractRepeatMS
 	}
 	// Marking a category quiet lowers the alertable total; the baseline
-	// follows it down so a later notice is a repeat away from there.
+	// follows it down so a later notice is a repeat away from there. The
+	// total can also rise without the user straying (an unmark makes old
+	// time alertable again), so only a distraction in front alerts.
 	alerted := min(s.AlertedMS, ws.AlertMS)
 	next.AlertedMS = alerted
-	if !inMeeting(in) && ws.AlertMS >= alerted+step {
+	front := false
+	if n := len(in.Views); n > 0 && current(in) != nil {
+		front = alertable(in, n-1)
+	}
+	if !inMeeting(in) && front && ws.AlertMS >= alerted+step {
 		next.Interruptions++
 		next.AlertedMS = ws.AlertMS
 		// A snooze mutes the notice only: the counters above advance as
