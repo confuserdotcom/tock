@@ -677,7 +677,7 @@ func TestSnoozeIgnoresStaleNotice(t *testing.T) {
 	if err != nil || s2.ID == s.ID {
 		t.Fatalf("second session = %+v, %v", s2, err)
 	}
-	if msg, err := Respond(a, id, ActSnoozeDistract); err != nil || msg != "no session running, nothing snoozed" {
+	if msg, err := Respond(a, id, ActSnoozeDistract); err != nil || msg != "that session is no longer running, nothing snoozed" {
 		t.Fatalf("late click = %q, %v", msg, err)
 	}
 	if was, err := a.ResumeDistract(); err != nil || was {

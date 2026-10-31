@@ -31,7 +31,8 @@ func Menu(a *app.App, id string) (string, error) {
 	}
 	switch id {
 	case IDSnoozeDistract:
-		return snoozedMsg(a.SnoozeDistract(0, time.Duration(a.Config().Focus.SnoozeMS)*time.Millisecond))
+		until, err := a.SnoozeDistract(0, time.Duration(a.Config().Focus.SnoozeMS)*time.Millisecond)
+		return snoozedMsg(0, until, err)
 	case IDSnoozeOff:
 		if _, err := a.ResumeDistract(); err != nil {
 			return "", err
@@ -85,9 +86,12 @@ func Menu(a *app.App, id string) (string, error) {
 	return "", fmt.Errorf("menu %q: %w", id, ErrUnknown)
 }
 
-// snoozedMsg turns the result of SnoozeDistract into the log line.
-func snoozedMsg(until time.Time, err error) (string, error) {
+// snoozedMsg turns the result of SnoozeDistract for session (0: whatever
+// runs) into the log line.
+func snoozedMsg(session int64, until time.Time, err error) (string, error) {
 	switch {
+	case errors.Is(err, store.ErrNoSession) && session > 0:
+		return "that session is no longer running, nothing snoozed", nil
 	case errors.Is(err, store.ErrNoSession):
 		return "no session running, nothing snoozed", nil
 	case err != nil:
@@ -153,7 +157,8 @@ func Respond(a *app.App, id int64, action string) (string, error) {
 		}
 		return fmt.Sprintf("break reminders snoozed for %d min", int(SnoozeFor.Minutes())), nil
 	case ActSnoozeDistract:
-		return snoozedMsg(a.SnoozeDistract(d.Session, time.Duration(d.SnoozeMin)*time.Minute))
+		until, err := a.SnoozeDistract(d.Session, time.Duration(d.SnoozeMin)*time.Minute)
+		return snoozedMsg(d.Session, until, err)
 	case ActIdle:
 		return "left away time idle", a.Answer(classify.Interval{From: d.From, To: d.To}, classify.Want{})
 	}
