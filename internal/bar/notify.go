@@ -32,6 +32,8 @@ const (
 	// that session: Back to work, and Open anyway (counted).
 	ActUrgeResisted = "urge:resisted:"
 	ActUrgeGiven    = "urge:given:"
+	// ActJoin opens the meeting link of an up-next or starting event notice.
+	ActJoin = "join"
 )
 
 // ProjectCells is how wide a project name may be in a button or menu item.
@@ -79,6 +81,13 @@ func Buttons(n store.Notice, d app.NoticeData) []Button {
 			out = append(out, Button{ActAgain, fmt.Sprintf("Start again (%d min)", d.Minutes)})
 		}
 		return out
+	case focus.TopicUpcoming, focus.TopicStarting:
+		// Join comes first: macOS shows the first two actions.
+		var out []Button
+		if JoinURL(n, d) != "" {
+			out = append(out, Button{ActJoin, "Join"})
+		}
+		return out
 	case focus.TopicBreak:
 		return []Button{{ActSnooze, fmt.Sprintf("Snooze %d min", int(SnoozeFor.Minutes()))}}
 	case focus.TopicAway:
@@ -89,6 +98,19 @@ func Buttons(n store.Notice, d app.NoticeData) []Button {
 		return append(out, Button{ActIdle, "Leave idle"})
 	}
 	return nil
+}
+
+// JoinURL is the link the Join action of a notice opens: the meeting link
+// of an up-next or starting notice, checked again here because the notice
+// data sits in a database any process of the user can write. "" for none.
+func JoinURL(n store.Notice, d app.NoticeData) string {
+	if n.Topic != focus.TopicUpcoming && n.Topic != focus.TopicStarting {
+		return ""
+	}
+	if !classify.IsMeetingLink(d.Join) {
+		return ""
+	}
+	return d.Join
 }
 
 // Category is the notification category id of a notice with buttons: one

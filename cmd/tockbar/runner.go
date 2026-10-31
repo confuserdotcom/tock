@@ -9,6 +9,7 @@ import (
 
 	"tock/internal/app"
 	"tock/internal/bar"
+	"tock/internal/focus"
 )
 
 const (
@@ -184,6 +185,11 @@ func (r *runner) post() {
 		}
 		r.ui.Post(n.ID, n.Title, n.Body, cat, strings.Join(r.cats, "\n"))
 		r.log.Info("notification shown", "title", n.Title)
+		// TakeNotices hands each notice out once, so this opens once per notice.
+		if link := bar.JoinURL(n, d); link != "" && n.Topic == focus.TopicStarting && r.a.Config().Calendar.AutoOpen {
+			r.ui.OpenURL(link)
+			r.log.Info("meeting link opened", "notice", n.ID)
+		}
 	}
 }
 
@@ -254,6 +260,14 @@ func (r *runner) handle(ev event) {
 	case evResponse:
 		if r.a == nil {
 			return
+		}
+		if ev.id == bar.ActJoin {
+			n, d, err := r.a.Notice(ev.notice)
+			if err != nil {
+				r.warn("reading a notice failed", err)
+			} else if link := bar.JoinURL(n, d); link != "" {
+				r.ui.OpenURL(link)
+			}
 		}
 		msg, err := bar.Respond(r.a, ev.notice, ev.id)
 		r.done("notification "+strconv.FormatInt(ev.notice, 10)+" "+ev.id, msg, err)

@@ -220,3 +220,107 @@ func TestRunnerWaitsForTock(t *testing.T) {
 		t.Fatalf("not reopened: %q", last(u.titles))
 	}
 }
+
+const testMeetLink = "https://meet.google.com/abc-defg-hij"
+
+func slotNotice(topic, link string) focus.Event {
+	return focus.Event{Kind: focus.Notify, Topic: topic, Title: "Starting now", Body: "14:00–14:30 Standup",
+		Slot: focus.Slot{Key: "event:1:x", Kind: focus.SlotEvent, JoinURL: link}}
+}
+
+func TestRunnerJoinOpensLink(t *testing.T) {
+	e := seededEnv(t)
+	r, u, logb := testRunner(t, e)
+	r.handle(event{kind: evReady})
+	if err := r.a.Enqueue(slotNotice(focus.TopicStarting, testMeetLink)); err != nil {
+		t.Fatal(err)
+	}
+	r.tick()
+	if len(u.posts) != 1 {
+		t.Fatalf("posts = %q", u.posts)
+	}
+	f := strings.Split(u.posts[0], "|")
+	if !strings.HasPrefix(f[2], "starting-") || !strings.Contains(f[3], f[2]+"\tjoin\tJoin") {
+		t.Fatalf("post = %q", u.posts[0])
+	}
+	if len(u.urls) != 0 {
+		t.Fatalf("auto_open off, but opened %q", u.urls)
+	}
+	nid, err := strconv.ParseInt(strings.TrimPrefix(f[2], "starting-"), 10, 64)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.handle(event{kind: evResponse, notice: nid, id: "join"})
+	if len(u.urls) != 1 || u.urls[0] != testMeetLink {
+		t.Fatalf("urls = %q", u.urls)
+	}
+	if strings.Contains(logb.String(), "meet.google") || strings.Contains(logb.String(), "abc-defg") {
+		t.Fatalf("log holds the link:\n%s", logb.String())
+	}
+	// A body click is not a button: nothing opens.
+	r.handle(event{kind: evResponse, notice: nid, id: "com.apple.UNNotificationDefaultActionIdentifier"})
+	if len(u.urls) != 1 {
+		t.Fatalf("urls after body click = %q", u.urls)
+	}
+}
+
+func TestRunnerJoinIgnoresTamperedLink(t *testing.T) {
+	e := seededEnv(t)
+	r, u, _ := testRunner(t, e)
+	r.handle(event{kind: evReady})
+	if err := r.a.Enqueue(slotNotice(focus.TopicStarting, testMeetLink)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.RawDB(t).Exec(`UPDATE notice SET data = '{"join":"javascript:alert(1)"}'`); err != nil {
+		t.Fatal(err)
+	}
+	r.tick()
+	r.handle(event{kind: evResponse, notice: 1, id: "join"})
+	if len(u.urls) != 0 {
+		t.Fatalf("opened %q", u.urls)
+	}
+}
+
+func TestRunnerAutoOpen(t *testing.T) {
+	setup := func(t *testing.T, cfg string) (*runner, *fakeUI) {
+		e := seededEnv(t)
+		e.WriteConfig(t, apptest.NoRoutines+cfg)
+		r, u, _ := testRunner(t, e)
+		r.handle(event{kind: evReady})
+		return r, u
+	}
+	r, u := setup(t, "[calendar]\nauto_open = true\n")
+	if err := r.a.Enqueue(slotNotice(focus.TopicStarting, testMeetLink)); err != nil {
+		t.Fatal(err)
+	}
+	r.tick()
+	if len(u.urls) != 1 || u.urls[0] != testMeetLink {
+		t.Fatalf("urls = %q, want the link once", u.urls)
+	}
+	r.tick()
+	if len(u.urls) != 1 {
+		t.Fatalf("opened again: %q", u.urls)
+	}
+	for name, ev := range map[string]focus.Event{
+		"up next":      slotNotice(focus.TopicUpcoming, testMeetLink),
+		"without link": slotNotice(focus.TopicStarting, ""),
+		"bad link":     slotNotice(focus.TopicStarting, "https://evil.example/x"),
+	} {
+		r, u := setup(t, "[calendar]\nauto_open = true\n")
+		if err := r.a.Enqueue(ev); err != nil {
+			t.Fatal(err)
+		}
+		r.tick()
+		if len(u.urls) != 0 {
+			t.Errorf("%s: opened %q", name, u.urls)
+		}
+	}
+	r, u = setup(t, "")
+	if err := r.a.Enqueue(slotNotice(focus.TopicStarting, testMeetLink)); err != nil {
+		t.Fatal(err)
+	}
+	r.tick()
+	if len(u.urls) != 0 || len(u.posts) != 1 {
+		t.Fatalf("auto_open off: urls %q posts %q", u.urls, u.posts)
+	}
+}

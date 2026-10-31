@@ -475,3 +475,16 @@ func TestFocusUrgeSurf(t *testing.T) {
 		t.Fatal(`urge_surf = "yes" loaded, want a decode error`)
 	}
 }
+
+func TestLoadCalendarAutoOpen(t *testing.T) {
+	if Default().Calendar.AutoOpen {
+		t.Fatal("auto_open must default to false")
+	}
+	c, err := Load(write(t, "[calendar]\nauto_open = true\n"))
+	if err != nil || !c.Calendar.AutoOpen {
+		t.Fatalf("auto_open = %+v, %v", c.Calendar, err)
+	}
+	if _, err := Load(write(t, "[calendar]\nauto_open = 1\n")); err == nil {
+		t.Fatal("auto_open = 1 must fail to load")
+	}
+}

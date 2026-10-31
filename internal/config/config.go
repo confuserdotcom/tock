@@ -141,6 +141,7 @@ func (s Sync) MachineName() string {
 type Calendar struct {
 	Enabled   bool
 	Calendars []string // calendar names; empty = all
+	AutoOpen  bool     // tockbar opens a starting event's meeting link by itself
 }
 
 // Away is the [away] section: which absences tock asks about.
@@ -261,6 +262,7 @@ type afkTOML struct {
 type calendarTOML struct {
 	Enabled   *bool     `toml:"enabled"`
 	Calendars *[]string `toml:"calendars"`
+	AutoOpen  *bool     `toml:"auto_open"`
 }
 
 type syncTOML struct {
@@ -429,6 +431,9 @@ func Load(path string) (Config, error) {
 	}
 	if f.Calendar.Enabled != nil {
 		c.Calendar.Enabled = *f.Calendar.Enabled
+	}
+	if f.Calendar.AutoOpen != nil {
+		c.Calendar.AutoOpen = *f.Calendar.AutoOpen
 	}
 	if f.Calendar.Calendars != nil {
 		for _, n := range *f.Calendar.Calendars {

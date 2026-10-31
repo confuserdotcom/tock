@@ -159,6 +159,9 @@ func Respond(a *app.App, id int64, action string) (string, error) {
 	case ActSnoozeDistract:
 		until, err := a.SnoozeDistract(d.Session, time.Duration(d.SnoozeMin)*time.Minute)
 		return snoozedMsg(d.Session, until, err)
+	case ActJoin:
+		// The runner opens the link; it owns the UI.
+		return "opened the meeting link", nil
 	case ActIdle:
 		return "left away time idle", a.Answer(classify.Interval{From: d.From, To: d.To}, classify.Want{})
 	}

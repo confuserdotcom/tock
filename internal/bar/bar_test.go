@@ -1029,3 +1029,85 @@ func TestUrgeGone(t *testing.T) {
 		t.Fatalf("respond = %q, %v; want %q", msg, err, "that session is gone")
 	}
 }
+
+const meetLink = "https://meet.google.com/abc-defg-hij"
+
+func slotNotify(topic, link string) focus.Event {
+	return focus.Event{Kind: focus.Notify, Topic: topic, Title: "t", Body: "b",
+		Slot: focus.Slot{Key: "event:1:x", Kind: focus.SlotEvent, JoinURL: link}}
+}
+
+func TestJoinButtons(t *testing.T) {
+	_, a := seeded(t)
+	for _, topic := range []string{focus.TopicUpcoming, focus.TopicStarting} {
+		id := enqueue(t, a, slotNotify(topic, meetLink))
+		n, d, err := a.Notice(id)
+		if err != nil || d.Join != meetLink {
+			t.Fatalf("%s data = %+v, %v", topic, d, err)
+		}
+		if b := Buttons(n, d); len(b) != 1 || b[0] != (Button{"join", "Join"}) {
+			t.Fatalf("%s buttons = %+v", topic, b)
+		}
+		if got := Category(n, d); got != topic+"-"+strconv.FormatInt(id, 10) {
+			t.Fatalf("%s category = %q", topic, got)
+		}
+	}
+	id := enqueue(t, a, slotNotify(focus.TopicStarting, "https://evil.example/x"))
+	n, d, _ := a.Notice(id)
+	if d.Join != "" || Buttons(n, d) != nil || Category(n, d) != "" {
+		t.Fatalf("bad link kept: %+v %+v", d, Buttons(n, d))
+	}
+	id = enqueue(t, a, focus.Event{Kind: focus.Notify, Topic: focus.TopicStarting, Title: "t", Body: "b",
+		Slot: focus.Slot{Key: "plan:x", Kind: focus.SlotPlan}})
+	n, d, _ = a.Notice(id)
+	if Buttons(n, d) != nil {
+		t.Fatalf("plan slot buttons = %+v", Buttons(n, d))
+	}
+}
+
+func TestRespondJoin(t *testing.T) {
+	e, a := seeded(t)
+	id := enqueue(t, a, slotNotify(focus.TopicStarting, meetLink))
+	rows := func() (n int) {
+		for _, tbl := range []string{"span", "session", "override", "event", "slot_notice"} {
+			var c int
+			if err := e.RawDB(t).QueryRow("SELECT COUNT(*) FROM " + tbl).Scan(&c); err != nil {
+				t.Fatal(err)
+			}
+			n = n*1000 + c
+		}
+		return n
+	}
+	before := rows()
+	msg, err := Respond(a, id, ActJoin)
+	if err != nil || msg == "" {
+		t.Fatalf("join = %q, %v", msg, err)
+	}
+	if strings.Contains(msg, "meet.google") {
+		t.Fatalf("message holds the link: %q", msg)
+	}
+	if rows() != before {
+		t.Fatal("join changed the rows")
+	}
+	plain := enqueue(t, a, slotNotify(focus.TopicStarting, ""))
+	if msg, err := Respond(a, plain, ActJoin); err != nil || msg != "" {
+		t.Fatalf("join without a link = %q, %v", msg, err)
+	}
+}
+
+func TestJoinURL(t *testing.T) {
+	for _, c := range []struct {
+		topic, join, want string
+	}{
+		{focus.TopicUpcoming, meetLink, meetLink},
+		{focus.TopicStarting, meetLink, meetLink},
+		{focus.TopicStarting, "javascript:x", ""},
+		{focus.TopicStarting, "", ""},
+		{focus.TopicDone, meetLink, ""},
+		{focus.TopicFocus, meetLink, ""},
+	} {
+		if got := JoinURL(store.Notice{Topic: c.topic}, app.NoticeData{Join: c.join}); got != c.want {
+			t.Errorf("JoinURL(%s, %q) = %q, want %q", c.topic, c.join, got, c.want)
+		}
+	}
+}

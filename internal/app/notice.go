@@ -45,6 +45,7 @@ type NoticeData struct {
 	From      int64           `json:"from,omitempty"`
 	To        int64           `json:"to,omitempty"`
 	Labels    []classify.Want `json:"labels,omitempty"`
+	Join      string          `json:"join,omitempty"` // up-next and starting: the event's meeting link, already checked
 }
 
 // Enqueue queues the notification ev for the menu bar app.
@@ -59,6 +60,9 @@ func (a *App) Enqueue(ev focus.Event) error {
 		if r, ok := a.rs.RuleByRef(ev.RuleRef); ok && ev.RuleRef != "" && strings.EqualFold(r.Category, ev.Category) {
 			d.Rule, d.RuleFP = r.Ref(), r.Fingerprint()
 		}
+	}
+	if (ev.Topic == focus.TopicUpcoming || ev.Topic == focus.TopicStarting) && classify.IsMeetingLink(ev.Slot.JoinURL) {
+		d.Join = ev.Slot.JoinURL
 	}
 	if ev.Topic == focus.TopicAway {
 		d.From, d.To = ev.Away.From, ev.Away.To
