@@ -559,3 +559,26 @@ func TestSnapshotNoRefileToArchivedProject(t *testing.T) {
 		t.Fatalf("archived project offered: %q\n%s", row.Title, titles(row.Sub))
 	}
 }
+
+// A failure reading the last session costs the menu that one row, not the
+// title, countdown and start items.
+func TestLoadSurvivesLastSessionFailure(t *testing.T) {
+	e, a := seeded(t)
+	finished(t, e, a)
+	if _, err := e.RawDB(t).Exec(`DROP TABLE undo`); err != nil {
+		t.Fatal(err)
+	}
+	s, err := Load(a, e.Clock, app.NotifyGranted)
+	if err != nil {
+		t.Fatalf("Load = %v, want the snapshot without the last session", err)
+	}
+	if s.Last != nil || s.LastErr == nil {
+		t.Fatalf("Last = %+v, LastErr = %v", s.Last, s.LastErr)
+	}
+	if got := titles(s.Items(e.Clock.UnixMilli())); !strings.Contains(got, "Start 50 min focus") || strings.Contains(got, "Last session") {
+		t.Fatalf("menu:\n%s", got)
+	}
+	if s.TrackedMS == 0 || !s.OK {
+		t.Fatalf("snapshot lost the day: %+v", s)
+	}
+}

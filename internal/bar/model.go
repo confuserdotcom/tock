@@ -4,6 +4,7 @@
 package bar
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -12,6 +13,7 @@ import (
 	"tock/internal/app"
 	"tock/internal/focus"
 	"tock/internal/report"
+	"tock/internal/store"
 )
 
 // Menu item ids.
@@ -51,6 +53,7 @@ type Snapshot struct {
 	Presets      []int
 	Access       string       // notification access the app last saw
 	Last         *LastSession // the newest finished session if it ended within 24 hours, else nil
+	LastErr      error        // why Last could not be read, for the caller to log; the rest of the snapshot is still good
 }
 
 // LastSession is the finished session the menu offers to rate and refile.
@@ -80,23 +83,34 @@ func Load(a *app.App, now time.Time, access string) (Snapshot, error) {
 		return s, err
 	}
 	s.Session, s.Live = f.Open, f.Live
+	s.Last, s.LastErr = loadLast(a, now)
+	return s, nil
+}
+
+// loadLast reads the last-session row. A session deleted meanwhile is no
+// row and no error; any other failure is returned for the caller to log, so
+// it never costs the rest of the snapshot.
+func loadLast(a *app.App, now time.Time) (*LastSession, error) {
 	last, err := a.LastSession()
 	if err != nil {
-		return s, err
+		return nil, fmt.Errorf("bar: last session: %w", err)
 	}
-	if last != nil && now.UnixMilli()-last.EndMS <= lastWithinMS {
-		detail, err := a.SessionDetail(last.ID)
-		if err != nil {
-			return s, err
-		}
-		undo, err := a.RefileUndoable(last.ID)
-		if err != nil {
-			return s, err
-		}
-		_, resolvable := a.Rules().ResolveProject(detail.Top.Project)
-		s.Last = &LastSession{Detail: detail, Undo: undo, Refile: detail.Top.Refile() && resolvable == nil, Loc: now.Location()}
+	if last == nil || now.UnixMilli()-last.EndMS > lastWithinMS {
+		return nil, nil
 	}
-	return s, nil
+	detail, err := a.SessionDetail(last.ID)
+	if errors.Is(err, store.ErrSessionGone) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("bar: last session detail: %w", err)
+	}
+	undo, err := a.RefileUndoable(last.ID)
+	if err != nil {
+		return nil, fmt.Errorf("bar: last session undo: %w", err)
+	}
+	_, unresolved := a.Rules().ResolveProject(detail.Top.Project)
+	return &LastSession{Detail: detail, Undo: undo, Refile: detail.Top.Refile() && unresolved == nil, Loc: now.Location()}, nil
 }
 
 // Title is the menu bar text at nowMS: the countdown while a session runs,

@@ -148,6 +148,9 @@ func (r *runner) tick() {
 				r.warn("reading today failed", err)
 			} else {
 				r.snap, r.snapAt, r.dirty = s, now, false
+				if s.LastErr != nil {
+					r.warn("reading the last session failed", s.LastErr)
+				}
 			}
 		}
 	}
