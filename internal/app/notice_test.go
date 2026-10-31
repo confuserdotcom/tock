@@ -111,3 +111,46 @@ func TestNoticeDoneData(t *testing.T) {
 		t.Fatalf("old data = %+v, %v", old, err)
 	}
 }
+
+func TestNoticeFocusData(t *testing.T) {
+	e := distracted(t)
+	a := open(t, e)
+	r, _ := a.Rules().RuleByRef("rules.toml#3")
+	take := func(ev focus.Event) NoticeData {
+		t.Helper()
+		if err := a.Enqueue(ev); err != nil {
+			t.Fatal(err)
+		}
+		ns, err := a.TakeNotices()
+		if err != nil || len(ns) != 1 {
+			t.Fatalf("TakeNotices = %+v, %v", ns, err)
+		}
+		_, d, err := a.Notice(ns[0].ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return d
+	}
+	ev := focus.Event{Kind: focus.Notify, Topic: focus.TopicFocus, Title: focus.TitleFocus, Body: "x",
+		Sess: focus.Session{ID: 5}, Category: "Entertainment", RuleRef: "rules.toml#3"}
+	want := NoticeData{Session: 5, SnoozeMin: 10, Category: "Entertainment", Rule: "rules.toml#3", RuleFP: r.Fingerprint()}
+	if d := take(ev); !reflect.DeepEqual(d, want) {
+		t.Fatalf("data = %+v, want %+v", d, want)
+	}
+	// A ref that does not resolve, or whose rule sets another category now.
+	ev.RuleRef = "rules.toml#9"
+	want = NoticeData{Session: 5, SnoozeMin: 10, Category: "Entertainment"}
+	if d := take(ev); !reflect.DeepEqual(d, want) {
+		t.Fatalf("unresolved ref: data = %+v, want %+v", d, want)
+	}
+	ev.RuleRef = "rules.toml#2" // Code
+	if d := take(ev); !reflect.DeepEqual(d, want) {
+		t.Fatalf("other category: data = %+v, want %+v", d, want)
+	}
+	// Notices queued before this release have none of the keys.
+	var old NoticeData
+	if err := json.Unmarshal([]byte(`{"session":5,"snooze_min":10}`), &old); err != nil ||
+		old.Category != "" || old.Rule != "" || old.RuleFP != "" {
+		t.Fatalf("old data = %+v, %v", old, err)
+	}
+}

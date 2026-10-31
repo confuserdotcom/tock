@@ -50,6 +50,7 @@ func TestFocusTickAlertsOnceAcrossRestart(t *testing.T) {
 	}
 	want := []focus.Event{{Kind: focus.Notify, Topic: focus.TopicFocus, Title: focus.TitleFocus,
 		Body: "5 min distracted in your 25 min session, 15 min left.", OfSession: true,
+		Category: "Entertainment", RuleRef: "rules.toml#3",
 		Sess: focus.Session{ID: s.ID, Kind: s.Kind, StartMS: s.StartMS, PlannedMS: s.PlannedMS, Interruptions: 1,
 			AlertedMS: 5 * 60_000, DeepMS: 5 * 60_000, DistractMS: 5 * 60_000, LongestMS: 5 * 60_000}}}
 	if !reflect.DeepEqual(notes, want) {

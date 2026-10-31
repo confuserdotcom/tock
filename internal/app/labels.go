@@ -16,6 +16,9 @@ import (
 type CategorySpec struct {
 	Name, Kind string
 	AFKMS      int64
+	// Interrupt: nil leaves it; false marks the category as one that never
+	// interrupts a session; true removes the mark. AddCategory ignores it.
+	Interrupt *bool
 }
 
 // rewriteRules reads both rule files, lets edit rewrite them, keeps
@@ -112,6 +115,11 @@ func (a *App) EditCategory(c CategorySpec) error {
 		}
 		if c.AFKMS != 0 {
 			if text, err = classify.SetTableField(text, classify.NameCategory, name, "afk", afkValue(c.AFKMS)); err != nil {
+				return nil, nil, err
+			}
+		}
+		if c.Interrupt != nil {
+			if text, err = classify.SetTableField(text, classify.NameCategory, name, "interrupt", interruptValue(*c.Interrupt)); err != nil {
 				return nil, nil, err
 			}
 		}

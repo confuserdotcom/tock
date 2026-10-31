@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"slices"
 	"strconv"
+	"strings"
 
 	"tock/internal/classify"
 	"tock/internal/focus"
@@ -37,6 +38,9 @@ type NoticeData struct {
 	Project   string          `json:"project,omitempty"`    // done: its top project
 	Refile    bool            `json:"refile,omitempty"`     // done: refiling to Project is offered
 	SnoozeMin int             `json:"snooze_min,omitempty"` // focus: the minutes the Snooze button offers
+	Category  string          `json:"category,omitempty"`   // focus: the category the notice offers to mark non-interrupting
+	Rule      string          `json:"rule,omitempty"`       // focus: the rule ref that set Category, "" = none offered
+	RuleFP    string          `json:"rule_fp,omitempty"`    // focus: that rule's Fingerprint() when the notice was queued
 	From      int64           `json:"from,omitempty"`
 	To        int64           `json:"to,omitempty"`
 	Labels    []classify.Want `json:"labels,omitempty"`
@@ -50,6 +54,10 @@ func (a *App) Enqueue(ev focus.Event) error {
 	}
 	if ev.Topic == focus.TopicFocus {
 		d.Session, d.SnoozeMin = ev.Sess.ID, int(a.cfg.Focus.SnoozeMS/60_000)
+		d.Category = ev.Category
+		if r, ok := a.rs.RuleByRef(ev.RuleRef); ok && ev.RuleRef != "" && strings.EqualFold(r.Category, ev.Category) {
+			d.Rule, d.RuleFP = r.Ref(), r.Fingerprint()
+		}
 	}
 	if ev.Topic == focus.TopicAway {
 		d.From, d.To = ev.Away.From, ev.Away.To

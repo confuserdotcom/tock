@@ -2,10 +2,14 @@ package app
 
 import (
 	"errors"
+	"os"
+	"reflect"
+	"strings"
 	"testing"
 	"time"
 
 	"tock/internal/apptest"
+	"tock/internal/classify"
 	"tock/internal/store"
 )
 
@@ -97,5 +101,202 @@ func TestFocusCarriesSnooze(t *testing.T) {
 	e.Clock = until.Add(time.Minute)
 	if f, err = a.Focus(e.Clock); err != nil || f.SnoozeUntilMS != 0 {
 		t.Fatalf("expired: SnoozeUntilMS %d, %v; want 0", f.SnoozeUntilMS, err)
+	}
+}
+
+// catQuiet reports a category marked interrupt = false.
+func catQuiet(a *App, name string) bool {
+	for _, c := range a.Rules().Categories {
+		if strings.EqualFold(c.Name, name) {
+			return c.Quiet
+		}
+	}
+	return false
+}
+
+func slurp(t *testing.T, path string) string {
+	t.Helper()
+	b, err := os.ReadFile(path)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		t.Fatal(err)
+	}
+	return string(b)
+}
+
+func TestSetCategoryInterrupt(t *testing.T) {
+	e := distracted(t)
+	a := open(t, e)
+	if err := a.SetCategoryInterrupt("entertainment", false); err != nil {
+		t.Fatal(err)
+	}
+	if !catQuiet(a, "Entertainment") {
+		t.Fatalf("Entertainment not quiet: %+v", a.Rules().Categories)
+	}
+	text := slurp(t, e.Rules)
+	if !strings.Contains(text, "name = \"Entertainment\"\ninterrupt = false\nkind = \"distract\"\n") {
+		t.Fatalf("rules.toml:\n%s", text)
+	}
+	if slurp(t, e.Rules+".bak") != apptest.Rules {
+		t.Fatal("rules.toml.bak is not the previous rules.toml")
+	}
+	if err := a.SetCategoryInterrupt("Entertainment", true); err != nil {
+		t.Fatal(err)
+	}
+	if catQuiet(a, "Entertainment") || slurp(t, e.Rules) != apptest.Rules {
+		t.Fatalf("unmark left %q", slurp(t, e.Rules))
+	}
+	// A notice names the category exactly: no prefix match.
+	before := slurp(t, e.Rules)
+	if err := a.SetCategoryInterrupt("Ent", false); !errors.Is(err, ErrCategoryGone) {
+		t.Fatalf("Ent: %v, want ErrCategoryGone", err)
+	}
+	if slurp(t, e.Rules) != before {
+		t.Fatal("a refused mark changed rules.toml")
+	}
+}
+
+func TestMarkRuleQuiet(t *testing.T) {
+	e := distracted(t)
+	a := open(t, e)
+	r, ok := a.Rules().RuleByRef("rules.toml#3")
+	if !ok {
+		t.Fatal("no rules.toml#3")
+	}
+	if err := a.MarkRuleQuiet("rules.toml#3", r.Fingerprint(), "entertainment"); err != nil {
+		t.Fatal(err)
+	}
+	if r, _ := a.Rules().RuleByRef("rules.toml#3"); !r.Quiet {
+		t.Fatalf("rule #3 not quiet: %+v", r)
+	}
+	text := slurp(t, e.Rules)
+	if strings.Count(text, "interrupt = false") != 1 || !strings.Contains(text, "[[rule]]\ninterrupt = false\nurl = ") {
+		t.Fatalf("rules.toml:\n%s", text)
+	}
+	if catQuiet(a, "Entertainment") {
+		t.Fatal("marking a rule marked the whole category")
+	}
+	if slurp(t, e.Rules+".bak") != apptest.Rules {
+		t.Fatal("rules.toml.bak is not the previous rules.toml")
+	}
+}
+
+func TestMarkRuleQuietStale(t *testing.T) {
+	t.Run("rule inserted before", func(t *testing.T) {
+		e := distracted(t)
+		a := open(t, e)
+		r, _ := a.Rules().RuleByRef("rules.toml#3")
+		moved := strings.Replace(apptest.Rules, "[[rule]]\nbundle = [\"term\"]\ntitle", "[[rule]]\napp = \"Slack\"\ncategory = \"Communication\"\n\n[[rule]]\nbundle = [\"term\"]\ntitle", 1)
+		e.WriteRules(t, moved)
+		if _, err := a.Reload(); err != nil {
+			t.Fatal(err)
+		}
+		if err := a.MarkRuleQuiet("rules.toml#3", r.Fingerprint(), "Entertainment"); !errors.Is(err, ErrRuleChanged) {
+			t.Fatalf("err = %v, want ErrRuleChanged", err)
+		}
+		if slurp(t, e.Rules) != moved {
+			t.Fatal("rules.toml changed")
+		}
+	})
+	t.Run("learned rule renumbered", func(t *testing.T) {
+		e := distracted(t)
+		if err := classify.AppendLearned(e.Learned, classify.Rule{URL: "reddit", Category: "Entertainment"}, "first"); err != nil {
+			t.Fatal(err)
+		}
+		a := open(t, e)
+		r, ok := a.Rules().RuleByRef("learned.toml#1")
+		if !ok {
+			t.Fatal("no learned.toml#1")
+		}
+		if err := classify.AppendLearned(e.Learned, classify.Rule{URL: "twitch", Category: "Entertainment"}, "second"); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := a.Reload(); err != nil {
+			t.Fatal(err)
+		}
+		rules, learned := slurp(t, e.Rules), slurp(t, e.Learned)
+		if err := a.MarkRuleQuiet("learned.toml#1", r.Fingerprint(), "Entertainment"); !errors.Is(err, ErrRuleChanged) {
+			t.Fatalf("err = %v, want ErrRuleChanged", err)
+		}
+		if slurp(t, e.Rules) != rules || slurp(t, e.Learned) != learned {
+			t.Fatal("a refused mark changed a file")
+		}
+		// The same ref, fingerprinted now, marks the learned file only.
+		cur, _ := a.Rules().RuleByRef("learned.toml#2")
+		if err := a.MarkRuleQuiet("learned.toml#2", cur.Fingerprint(), "Entertainment"); err != nil {
+			t.Fatal(err)
+		}
+		if got := slurp(t, e.Learned); strings.Count(got, "interrupt = false") != 1 || slurp(t, e.Rules) != rules {
+			t.Fatalf("learned.toml:\n%s", got)
+		}
+	})
+	t.Run("recategorised", func(t *testing.T) {
+		e := distracted(t)
+		a := open(t, e)
+		r, _ := a.Rules().RuleByRef("rules.toml#3")
+		changed := strings.Replace(apptest.Rules, "category = \"Entertainment\"\n", "category = \"Communication\"\n", 1)
+		e.WriteRules(t, changed)
+		if _, err := a.Reload(); err != nil {
+			t.Fatal(err)
+		}
+		if err := a.MarkRuleQuiet("rules.toml#3", r.Fingerprint(), "Entertainment"); !errors.Is(err, ErrRuleChanged) {
+			t.Fatalf("err = %v, want ErrRuleChanged", err)
+		}
+		if slurp(t, e.Rules) != changed {
+			t.Fatal("rules.toml changed")
+		}
+	})
+	t.Run("gone", func(t *testing.T) {
+		e := distracted(t)
+		a := open(t, e)
+		if err := a.MarkRuleQuiet("rules.toml#9", "x", "Entertainment"); !errors.Is(err, ErrRuleChanged) {
+			t.Fatalf("err = %v, want ErrRuleChanged", err)
+		}
+	})
+}
+
+func TestMarkWritesNoUndo(t *testing.T) {
+	e := distracted(t)
+	a := open(t, e)
+	if err := a.Tag([]int64{1}, classify.Want{Category: "Study"}); err != nil {
+		t.Fatal(err)
+	}
+	before, err := a.UndoList(10)
+	if err != nil || len(before) == 0 {
+		t.Fatalf("undo list = %+v, %v", before, err)
+	}
+	r, _ := a.Rules().RuleByRef("rules.toml#3")
+	if err := a.SetCategoryInterrupt("Entertainment", false); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.MarkRuleQuiet("rules.toml#3", r.Fingerprint(), "Entertainment"); err != nil {
+		t.Fatal(err)
+	}
+	after, err := a.UndoList(10)
+	if err != nil || !reflect.DeepEqual(after, before) {
+		t.Fatalf("undo list changed: %+v, want %+v (%v)", after, before, err)
+	}
+}
+
+func TestEditCategoryInterrupt(t *testing.T) {
+	e := distracted(t)
+	a := open(t, e)
+	on, off := true, false
+	if err := a.EditCategory(CategorySpec{Name: "Ent", Interrupt: &off}); err != nil {
+		t.Fatal(err)
+	}
+	if !catQuiet(a, "Entertainment") {
+		t.Fatal("Interrupt false did not mark")
+	}
+	if err := a.EditCategory(CategorySpec{Name: "Entertainment", Kind: classify.KindBrowse}); err != nil {
+		t.Fatal(err)
+	}
+	if !catQuiet(a, "Entertainment") || a.Rules().Kind("Entertainment") != classify.KindBrowse {
+		t.Fatal("a nil Interrupt must leave the mark as it is")
+	}
+	if err := a.EditCategory(CategorySpec{Name: "Entertainment", Interrupt: &on}); err != nil {
+		t.Fatal(err)
+	}
+	if catQuiet(a, "Entertainment") || strings.Contains(slurp(t, e.Rules), "interrupt") {
+		t.Fatalf("Interrupt true did not unmark:\n%s", slurp(t, e.Rules))
 	}
 }
