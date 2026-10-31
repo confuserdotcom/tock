@@ -138,9 +138,36 @@ func TestSlotsCached(t *testing.T) {
 		t.Errorf("key = %q, want %q", got[0].Key, reviewKey())
 	}
 	writePlan(t, todo, "Retro @14h00 due:2026-10-10\n")
-	got, err = a.Slots(now)
+	got, err = a.Slots(now.Add(slotRefresh))
 	if err != nil || len(got) != 1 || got[0].Title != "Retro" {
 		t.Fatalf("after rewrite: %+v, %v, want Retro", got, err)
+	}
+}
+
+// The plan file and the event table are looked at once per slotRefresh, not
+// on every 5 s tick (trackd's idle budget); the cached list serves between.
+func TestSlotsRefreshThrottled(t *testing.T) {
+	e, todo := slotEnv(t, "")
+	a := open(t, e)
+	now := e.Clock
+	first, err := a.Slots(now)
+	if err != nil || len(first) != 2 {
+		t.Fatalf("first: %+v, %v", first, err)
+	}
+	writePlan(t, todo, "Retro @14h00 due:2026-10-10\n")
+	e.Event(t, "16:00", "16:30", "New")
+	got, err := a.Slots(now.Add(slotRefresh - time.Second))
+	if err != nil || len(got) != 2 || got[0].Title != "Review" {
+		t.Fatalf("inside the period: %+v, %v, want the cached Review and Break", got, err)
+	}
+	got, err = a.Slots(now.Add(slotRefresh))
+	if err != nil || len(got) != 2 || got[0].Title != "Retro" || got[1].Title != "New" {
+		t.Fatalf("after the period: %+v, %v, want Retro and New", got, err)
+	}
+	// A new day is never served from the cache.
+	got, err = a.Slots(now.AddDate(0, 0, 1).Add(slotRefresh - time.Second))
+	if err != nil || len(got) != 0 {
+		t.Fatalf("next day: %+v, %v, want no slot", got, err)
 	}
 }
 

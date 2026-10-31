@@ -13,14 +13,23 @@ import (
 	"tock/internal/store"
 )
 
+// slotRefresh is how often Slots looks at the plan file and the event table
+// to see whether they changed: not on every 5 s tick, so an idle tick stats no
+// file and runs no query. A notice window is at least 2 min, so an edit seen
+// up to a minute late still notifies on time.
+const slotRefresh = time.Minute
+
 // slotCache is the slot list built from the plan file, with what it was
 // built from. It is rebuilt only when one of them changes, so an idle tick
 // reads no file.
 type slotCache struct {
-	file  string
-	stamp uint64
-	rs    *classify.Ruleset
-	day   string
+	// checkedMS is the tick time (ms) the plan file and the event table were
+	// last looked at.
+	checkedMS int64
+	file      string
+	stamp     uint64
+	rs        *classify.Ruleset
+	day       string
 	// events is the (count, max id) of the event table the slots were built
 	// from.
 	eventN, eventMax int64
@@ -33,19 +42,25 @@ type slotCache struct {
 // item starts, at most PlanSlotMaxMS after its start. A plan file that
 // cannot be read gives no plan slots; an event table that cannot be read is
 // an error. The list is kept until the plan file, the rules, the event table
-// or the day change; a slot's SeenMS is the tick time its key first appeared
+// or the day change (the plan file and the event table are looked at once per
+// slotRefresh); a slot's SeenMS is the tick time its key first appeared
 // (a restart starts over).
 func (a *App) Slots(now time.Time) ([]focus.Slot, error) {
 	day := a.midnight(now)
 	dayKey := day.Format("2006-01-02")
 	c := &a.slotCache
+	nowMS := now.UnixMilli()
+	same := c.slots != nil && c.file == a.cfg.Plan.File && c.rs == a.rs && c.day == dayKey
+	if age := nowMS - c.checkedMS; same && age >= 0 && age < slotRefresh.Milliseconds() {
+		return slices.Clone(c.slots), nil
+	}
 	stamp := a.planStamp()
 	n, maxID, err := a.st.EventStamp()
 	if err != nil {
 		return nil, fmt.Errorf("event stamp: %w", err)
 	}
-	if c.slots != nil && c.file == a.cfg.Plan.File && c.stamp == stamp && c.rs == a.rs && c.day == dayKey &&
-		c.eventN == n && c.eventMax == maxID {
+	if same && c.stamp == stamp && c.eventN == n && c.eventMax == maxID {
+		c.checkedMS = nowMS
 		return slices.Clone(c.slots), nil
 	}
 	evs, err := a.st.Events(day.UnixMilli(), day.AddDate(0, 0, 1).UnixMilli())
@@ -82,7 +97,7 @@ func (a *App) Slots(now time.Time) ([]focus.Slot, error) {
 	if slots == nil {
 		slots = []focus.Slot{} // an empty list is still a built one
 	}
-	*c = slotCache{file: a.cfg.Plan.File, stamp: stamp, rs: a.rs, day: dayKey, eventN: n, eventMax: maxID, slots: slots}
+	*c = slotCache{checkedMS: nowMS, file: a.cfg.Plan.File, stamp: stamp, rs: a.rs, day: dayKey, eventN: n, eventMax: maxID, slots: slots}
 	return slices.Clone(slots), nil
 }
 

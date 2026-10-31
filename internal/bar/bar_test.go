@@ -1348,7 +1348,8 @@ func TestLoadSlots(t *testing.T) {
 	if _, err := e.RawDB(t).Exec(`ALTER TABLE event DROP COLUMN join_url`); err != nil {
 		t.Fatal(err)
 	}
-	e.Event(t, "16:00", "16:30", "New") // a new row changes the stamp, so the slots are read again
+	e.Event(t, "16:00", "16:30", "New") // a new row changes the stamp, so the slots are read again (a minute on)
+	e.Clock = e.Clock.Add(time.Minute)
 	s, err = Load(a, e.Clock, app.NotifyGranted)
 	if err != nil || s.SlotsErr == nil || s.Slots != nil {
 		t.Fatalf("with an event table the slots cannot read: err %v, slots err %v, slots %+v", err, s.SlotsErr, s.Slots)
