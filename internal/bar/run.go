@@ -34,7 +34,48 @@ func Menu(a *app.App, id string) (string, error) {
 		}
 		return "stopped session after " + report.Dur(s.EndMS-s.StartMS), nil
 	}
+	if v, ok := strings.CutPrefix(id, IDRate); ok {
+		r, sid, ok := strings.Cut(v, ":")
+		n, err := strconv.Atoi(r)
+		sess, ok2 := sessionID(sid)
+		if !ok || err != nil || n < 1 || n > 5 || !ok2 {
+			return "", fmt.Errorf("menu %q: %w", id, ErrUnknown)
+		}
+		return rateMsg(a.RateSession(sess, n, nil))
+	}
+	if v, ok := strings.CutPrefix(id, IDRefile); ok {
+		sess, ok := sessionID(v)
+		if !ok {
+			return "", fmt.Errorf("menu %q: %w", id, ErrUnknown)
+		}
+		d, err := a.SessionDetail(sess)
+		switch {
+		case errors.Is(err, store.ErrSessionGone):
+			return goneMsg, nil
+		case err != nil:
+			return "", err
+		case d.Top.Project == "":
+			return "", errors.New("that session has no project to refile to")
+		}
+		return refileMsg(a.RefileSession(sess, d.Top.Project))
+	}
+	if v, ok := strings.CutPrefix(id, IDUnrefile); ok {
+		sess, ok := sessionID(v)
+		if !ok {
+			return "", fmt.Errorf("menu %q: %w", id, ErrUnknown)
+		}
+		if _, err := a.UndoRefile(sess); err != nil {
+			return "", err
+		}
+		return "undid the refile", nil
+	}
 	return "", fmt.Errorf("menu %q: %w", id, ErrUnknown)
+}
+
+// sessionID parses the session id of a menu item id.
+func sessionID(v string) (int64, bool) {
+	n, err := strconv.ParseInt(v, 10, 64)
+	return n, err == nil && n > 0
 }
 
 // goneMsg answers a click on a session that was deleted since.

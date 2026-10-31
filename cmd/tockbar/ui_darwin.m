@@ -71,20 +71,47 @@ void bar_set_title(const char *title) {
     });
 }
 
-// spec: one line per item, "id\ttitle"; an empty id is a disabled label and
-// a line "-" a separator.
+// spec: one line per item, "id\ttitle[\tc]"; an empty id is a disabled label,
+// a line "-" a separator and a third field "c" a check mark. Each leading ">"
+// is one level of submenu: the rows deeper than the item above them are its
+// submenu.
 void bar_set_menu(const char *spec) {
     NSString *s = str(spec);
     dispatch_async(dispatch_get_main_queue(), ^{
         NSMenu *m = [NSMenu new];
         m.autoenablesItems = NO;
-        for (NSString *line in [s componentsSeparatedByString:@"\n"]) {
+        NSMutableArray<NSMenu *> *stack = [NSMutableArray arrayWithObject:m];
+        for (NSString *raw in [s componentsSeparatedByString:@"\n"]) {
+            NSString *line = raw;
+            NSUInteger depth = 0;
+            while ([line hasPrefix:@">"]) {
+                line = [line substringFromIndex:1];
+                depth++;
+            }
+            if (depth > stack.count) {
+                continue;
+            }
+            if (depth == stack.count) {
+                NSMenuItem *parent = stack.lastObject.itemArray.lastObject;
+                if (parent == nil) {
+                    continue;
+                }
+                NSMenu *submenu = [NSMenu new];
+                submenu.autoenablesItems = NO;
+                parent.submenu = submenu;
+                parent.enabled = YES;
+                [stack addObject:submenu];
+            }
+            while (stack.count > depth + 1) {
+                [stack removeLastObject];
+            }
+            NSMenu *top = stack.lastObject;
             if ([line isEqualToString:@"-"]) {
-                [m addItem:[NSMenuItem separatorItem]];
+                [top addItem:[NSMenuItem separatorItem]];
                 continue;
             }
             NSArray *f = [line componentsSeparatedByString:@"\t"];
-            if (f.count != 2) {
+            if (f.count < 2) {
                 continue;
             }
             NSMenuItem *it = [[NSMenuItem alloc] initWithTitle:f[1] action:nil keyEquivalent:@""];
@@ -96,7 +123,10 @@ void bar_set_menu(const char *spec) {
             } else {
                 it.enabled = NO;
             }
-            [m addItem:it];
+            if (f.count >= 3 && [f[2] isEqualToString:@"c"]) {
+                it.state = NSControlStateValueOn;
+            }
+            [top addItem:it];
         }
         bar.item.menu = m;
     });

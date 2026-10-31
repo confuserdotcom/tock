@@ -190,18 +190,32 @@ func (r *runner) render(now time.Time) {
 		r.title = t
 		r.ui.SetTitle(t)
 	}
-	var lines []string
-	for _, it := range r.snap.Items(nowMS) {
-		if it.Separator {
-			lines = append(lines, "-")
-			continue
-		}
-		lines = append(lines, it.ID+"\t"+clean(it.Title))
-	}
-	if m := strings.Join(lines, "\n"); m != r.menu {
+	if m := strings.Join(specLines(r.snap.Items(nowMS), 0, nil), "\n"); m != r.menu {
 		r.menu = m
 		r.ui.SetMenu(m)
 	}
+}
+
+// specLines flattens items into menu spec lines: one ">" per depth, then "-"
+// for a separator, else "id\ttitle" with a third field "c" for a check mark.
+// A submenu parent is written first, with no id, then its rows one deeper.
+func specLines(items []bar.Item, depth int, lines []string) []string {
+	prefix := strings.Repeat(">", depth)
+	for _, it := range items {
+		if it.Separator {
+			lines = append(lines, prefix+"-")
+			continue
+		}
+		line := prefix + it.ID + "\t" + clean(it.Title)
+		if it.Checked {
+			line += "\tc"
+		}
+		lines = append(lines, line)
+		if len(it.Sub) > 0 {
+			lines = specLines(it.Sub, depth+1, lines)
+		}
+	}
+	return lines
 }
 
 // clean keeps tabs and newlines out of a UI spec field.

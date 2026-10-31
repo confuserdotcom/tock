@@ -120,6 +120,44 @@ func TestRunnerPostsAndResponds(t *testing.T) {
 	}
 }
 
+func TestRunnerDrawsSubmenu(t *testing.T) {
+	e := seededEnv(t)
+	r, u, _ := testRunner(t, e)
+	r.handle(event{kind: evReady})
+	if _, err := r.a.StartSession(25); err != nil {
+		t.Fatal(err)
+	}
+	e.Clock = e.Clock.Add(25 * time.Minute)
+	x, err := r.a.StopSession()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := r.a.RateSession(x.ID, 4, nil); err != nil {
+		t.Fatal(err)
+	}
+	r.dirty = true
+	r.tick()
+	id := strconv.FormatInt(x.ID, 10)
+	menu := last(u.menus)
+	var at int
+	for _, want := range []string{
+		"\n\tLast session · 25m · Q", "\n>\t15:00–15:25 · ", "\n>\tshare ", "\n>-\n",
+		"\n>rate:5:" + id + "\tRate ★5\n", "\n>rate:4:" + id + "\tRate ★4\tc\n", "\n>rate:1:" + id + "\tRate ★1",
+	} {
+		i := strings.Index(menu[at:], want)
+		if i < 0 {
+			t.Fatalf("missing %q after offset %d in:\n%s", want, at, menu)
+		}
+		at += i + len(want) - 1
+	}
+	if !strings.Contains(menu, "start:25\tStart 25 min focus") {
+		t.Fatalf("start item gone:\n%s", menu)
+	}
+	if strings.Contains(menu, "\n>>") {
+		t.Fatalf("submenu nested wrongly:\n%s", menu)
+	}
+}
+
 func TestRunnerQuitAndSettings(t *testing.T) {
 	e := seededEnv(t)
 	r, u, _ := testRunner(t, e)

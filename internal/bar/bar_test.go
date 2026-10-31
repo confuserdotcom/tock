@@ -2,7 +2,9 @@ package bar
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -337,5 +339,182 @@ func TestRespondDismiss(t *testing.T) {
 	}
 	if es, _ := a.UndoList(5); len(es) != 0 {
 		t.Fatalf("undo journal = %+v", es)
+	}
+}
+
+// lastRow returns the Last session parent row of the menu at the test clock.
+func lastRow(t *testing.T, a *app.App, e *apptest.Env) (Item, []Item) {
+	t.Helper()
+	s, err := Load(a, e.Clock, app.NotifyGranted)
+	if err != nil {
+		t.Fatal(err)
+	}
+	items := s.Items(e.Clock.UnixMilli())
+	for _, it := range items {
+		if strings.HasPrefix(it.Title, "Last session") {
+			return it, items
+		}
+	}
+	return Item{}, items
+}
+
+func TestSnapshotLastSession(t *testing.T) {
+	e, a := seeded(t)
+	s := finished(t, e, a)
+	note := "derivation went well"
+	if _, _, err := a.RateSession(s.ID, 4, &note); err != nil {
+		t.Fatal(err)
+	}
+	d, err := a.SessionDetail(s.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	row, items := lastRow(t, a, e)
+	wantTitle := fmt.Sprintf("Last session · 50m · Q%d · ★4", d.Q.Score)
+	if row.Title != wantTitle || row.ID != "" {
+		t.Fatalf("parent = %+v, want title %q", row, wantTitle)
+	}
+	// After the Focus/Session lines, before the unlabelled line.
+	var idx, unl = -1, -1
+	for i, it := range items {
+		if it.Title == row.Title {
+			idx = i
+		}
+		if strings.Contains(it.Title, "unlabelled") {
+			unl = i
+		}
+	}
+	if idx != 1 && !(idx == 2 && strings.HasPrefix(items[1].Title, "Focus")) || (unl >= 0 && unl < idx) {
+		t.Fatalf("position: last %d, unlabelled %d\n%s", idx, unl, titles(items))
+	}
+	id := strconv.FormatInt(s.ID, 10)
+	want := []Item{
+		{Title: d.Summary(apptest.Zone)},
+		{Title: d.Q.Line()},
+		{Title: "Note: derivation went well"},
+		sep,
+		{Title: "Rate ★5", ID: "rate:5:" + id},
+		{Title: "Rate ★4", ID: "rate:4:" + id, Checked: true},
+		{Title: "Rate ★3", ID: "rate:3:" + id},
+		{Title: "Rate ★2", ID: "rate:2:" + id},
+		{Title: "Rate ★1", ID: "rate:1:" + id},
+		sep,
+		{Title: "Refile to tock", ID: "refile:" + id},
+	}
+	if !reflect.DeepEqual(row.Sub, want) {
+		t.Fatalf("sub = %+v\nwant %+v", row.Sub, want)
+	}
+	if !strings.HasPrefix(row.Sub[0].Title, "10:00–10:50 · ") {
+		t.Fatalf("summary = %q", row.Sub[0].Title)
+	}
+
+	// Unrated, no note: no check mark, no note row, no star suffix.
+	e2, a2 := seeded(t)
+	finished(t, e2, a2)
+	row2, _ := lastRow(t, a2, e2)
+	if strings.Contains(row2.Title, "★") || strings.Contains(titlesSub(row2.Sub), "Note:") {
+		t.Fatalf("unrated row: %+v", row2)
+	}
+	for _, it := range row2.Sub {
+		if it.Checked {
+			t.Fatalf("checked item in unrated menu: %+v", it)
+		}
+	}
+
+	// More than 24 hours later the row is gone.
+	e.Clock = e.Clock.Add(24*time.Hour + time.Minute)
+	if row, _ := lastRow(t, a, e); row.Title != "" {
+		t.Fatalf("stale session still shown: %+v", row)
+	}
+	e.Clock = e.Clock.Add(-time.Minute)
+	if row, _ := lastRow(t, a, e); row.Title == "" {
+		t.Fatal("session 24 h old should still show")
+	}
+}
+
+func titlesSub(items []Item) string { return titles(items) }
+
+func TestSnapshotUndoRefile(t *testing.T) {
+	e, a := seeded(t)
+	s := finished(t, e, a)
+	if _, _, err := a.RefileSession(s.ID, "ATLAS"); err != nil {
+		t.Fatal(err)
+	}
+	row, _ := lastRow(t, a, e)
+	id := strconv.FormatInt(s.ID, 10)
+	if last := row.Sub[len(row.Sub)-1]; last.Title != "Undo refile" || last.ID != "unrefile:"+id {
+		t.Fatalf("sub = %s", titles(row.Sub))
+	}
+	if _, err := a.AddEdit(classify.EditLabel, apptest.At(t, "09:00", 0), apptest.At(t, "09:05", 0), classify.Want{Category: "Code"}, ""); err != nil {
+		t.Fatal(err)
+	}
+	row, _ = lastRow(t, a, e)
+	if strings.Contains(titles(row.Sub), "Undo refile") {
+		t.Fatalf("undo offered after a newer edit: %s", titles(row.Sub))
+	}
+}
+
+func TestMenuRate(t *testing.T) {
+	e, a := seeded(t)
+	s := finished(t, e, a)
+	id := strconv.FormatInt(s.ID, 10)
+	if msg, err := Menu(a, "rate:4:"+id); err != nil || msg != "rated the 50 min session ★4" {
+		t.Fatalf("rate = %q, %v", msg, err)
+	}
+	if got, _ := a.SessionByID(s.ID); got.Rating != 4 {
+		t.Fatalf("stored = %+v", got)
+	}
+	for _, bad := range []string{"rate:", "rate:4", "rate:4:", "rate:x:" + id, "rate:0:" + id, "rate:6:" + id, "rate:4:0", "rate:4:-1", "rate:4:x"} {
+		if _, err := Menu(a, bad); !errors.Is(err, ErrUnknown) {
+			t.Fatalf("%q = %v, want ErrUnknown", bad, err)
+		}
+	}
+	if msg, err := Menu(a, "rate:3:9999"); err != nil || msg != "that session is gone" {
+		t.Fatalf("gone = %q, %v", msg, err)
+	}
+}
+
+func TestMenuRefile(t *testing.T) {
+	e, a := seeded(t)
+	s := finished(t, e, a)
+	id := strconv.FormatInt(s.ID, 10)
+	if msg, err := Menu(a, "refile:"+id); err != nil || msg != "refiled 50 min to tock" {
+		t.Fatalf("refile = %q, %v", msg, err)
+	}
+	if _, err := Menu(a, "refile:x"); !errors.Is(err, ErrUnknown) {
+		t.Fatalf("bad id = %v", err)
+	}
+	if msg, err := Menu(a, "refile:9999"); err != nil || msg != "that session is gone" {
+		t.Fatalf("gone = %q, %v", msg, err)
+	}
+}
+
+func TestUnrefile(t *testing.T) {
+	e, a := seeded(t)
+	s := finished(t, e, a)
+	id := strconv.FormatInt(s.ID, 10)
+	if _, err := Menu(a, "refile:"+id); err != nil {
+		t.Fatal(err)
+	}
+	if msg, err := Menu(a, "unrefile:"+id); err != nil || msg != "undid the refile" {
+		t.Fatalf("unrefile = %q, %v", msg, err)
+	}
+	if es, _ := a.UndoList(5); len(es) != 0 {
+		t.Fatalf("journal after undo = %+v", es)
+	}
+
+	// A newer change blocks it and nothing is undone.
+	if _, err := Menu(a, "refile:"+id); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.AddEdit(classify.EditLabel, apptest.At(t, "09:00", 0), apptest.At(t, "09:05", 0), classify.Want{Category: "Code"}, ""); err != nil {
+		t.Fatal(err)
+	}
+	before, _ := a.UndoList(5)
+	if _, err := Menu(a, "unrefile:"+id); err == nil {
+		t.Fatal("unrefile after a newer edit succeeded")
+	}
+	if after, _ := a.UndoList(5); len(after) != len(before) {
+		t.Fatalf("journal changed: %d -> %d", len(before), len(after))
 	}
 }

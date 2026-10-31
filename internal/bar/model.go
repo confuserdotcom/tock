@@ -20,7 +20,16 @@ const (
 	IDStop     = "stop"
 	IDSettings = "settings"
 	IDQuit     = "quit"
+	// The last session's items carry its id, because the menu is drawn from
+	// a snapshot up to reloadEvery old: a click must act on the session the
+	// menu showed, not on one that finished since.
+	IDRate     = "rate:"     // + "<rating 1..5>:<session id>"
+	IDRefile   = "refile:"   // + session id
+	IDUnrefile = "unrefile:" // + session id
 )
+
+// lastWithinMS is how long after it ended a session stays in the menu.
+const lastWithinMS = 24 * 60 * 60_000
 
 // SettingsURL opens the Notifications pane of System Settings.
 const SettingsURL = "x-apple.systempreferences:com.apple.Notifications-Settings.extension"
@@ -40,7 +49,15 @@ type Snapshot struct {
 	Session      *focus.Session // the running session, or nil
 	Live         focus.Live     // its focus level; Level -1 when unknown
 	Presets      []int
-	Access       string // notification access the app last saw
+	Access       string       // notification access the app last saw
+	Last         *LastSession // the newest finished session if it ended within 24 hours, else nil
+}
+
+// LastSession is the finished session the menu offers to rate and refile.
+type LastSession struct {
+	Detail report.SessionDetail
+	Undo   bool           // the newest change is this session's refile
+	Loc    *time.Location // zone for the time range
 }
 
 // Load reads today's snapshot. access is the app's notification access.
@@ -62,6 +79,21 @@ func Load(a *app.App, now time.Time, access string) (Snapshot, error) {
 		return s, err
 	}
 	s.Session, s.Live = f.Open, f.Live
+	last, err := a.LastSession()
+	if err != nil {
+		return s, err
+	}
+	if last != nil && now.UnixMilli()-last.EndMS <= lastWithinMS {
+		detail, err := a.SessionDetail(last.ID)
+		if err != nil {
+			return s, err
+		}
+		undo, err := a.RefileUndoable(last.ID)
+		if err != nil {
+			return s, err
+		}
+		s.Last = &LastSession{Detail: detail, Undo: undo, Loc: now.Location()}
+	}
 	return s, nil
 }
 
@@ -80,11 +112,14 @@ func (s Snapshot) Title(nowMS int64) string {
 }
 
 // Item is one menu row. A row with no ID is a disabled label; Separator
-// rows have nothing else.
+// rows have nothing else. A row with Sub is a submenu parent: it has no ID
+// and Sub are its rows. Checked draws a check mark.
 type Item struct {
 	Title     string
 	ID        string
 	Separator bool
+	Checked   bool
+	Sub       []Item
 }
 
 func label(f string, a ...any) Item { return Item{Title: fmt.Sprintf(f, a...)} }
@@ -111,6 +146,9 @@ func (s Snapshot) Items(nowMS int64) []Item {
 		}
 		out = append(out, label("Session · %s left · %s%d %s", report.Countdown(ss.PlannedMS-nowMS), lv, ss.Interruptions, word))
 	}
+	if s.Last != nil {
+		out = append(out, s.Last.item())
+	}
 	if s.UnlabelledMS > 0 {
 		out = append(out, label("%s unlabelled · open tock to label", report.Dur(s.UnlabelledMS)))
 	}
@@ -131,6 +169,40 @@ func (s Snapshot) Items(nowMS int64) []Item {
 	}
 	return append(out, Item{Title: "Quit tock menu bar", ID: IDQuit})
 }
+
+// item is the "Last session" row with its rate, refile and undo submenu.
+func (l *LastSession) item() Item {
+	d, id := l.Detail, strconv.FormatInt(l.Detail.Sess.ID, 10)
+	title := fmt.Sprintf("Last session · %s · Q%d", report.Dur(d.Sess.EndMS-d.Sess.StartMS), d.Q.Score)
+	if d.Sess.Kind == focus.KindAuto {
+		title += " · auto"
+	}
+	if d.Sess.Rating > 0 {
+		title += fmt.Sprintf(" · ★%d", d.Sess.Rating)
+	}
+	sub := []Item{label("%s", d.Summary(l.Loc)), label("%s", d.Q.Line())}
+	if d.Sess.Note != "" {
+		sub = append(sub, label("Note: %s", report.Cut(d.Sess.Note, noteCells)))
+	}
+	sub = append(sub, sep)
+	for r := 5; r >= 1; r-- {
+		sub = append(sub, Item{Title: fmt.Sprintf("Rate ★%d", r), ID: IDRate + strconv.Itoa(r) + ":" + id, Checked: r == d.Sess.Rating})
+	}
+	var acts []Item
+	if d.Top.Project != "" {
+		acts = append(acts, Item{Title: "Refile to " + report.Cut(d.Top.Project, ProjectCells), ID: IDRefile + id})
+	}
+	if l.Undo {
+		acts = append(acts, Item{Title: "Undo refile", ID: IDUnrefile + id})
+	}
+	if len(acts) > 0 {
+		sub = append(append(sub, sep), acts...)
+	}
+	return Item{Title: title, Sub: sub}
+}
+
+// noteCells is how wide a note may be in the menu.
+const noteCells = 60
 
 // startMinutes parses a start item id.
 func startMinutes(id string) (int, bool) {
