@@ -56,6 +56,8 @@ func Menu(a *app.App, id string) (string, error) {
 			return "", err
 		case d.Top.Project == "":
 			return "", errors.New("that session has no project to refile to")
+		case !d.Top.Refile():
+			return "nothing to refile: already filed to " + d.Top.Project, nil
 		}
 		return refileMsg(a.RefileSession(sess, d.Top.Project))
 	}

@@ -518,3 +518,44 @@ func TestUnrefile(t *testing.T) {
 		t.Fatalf("journal changed: %d -> %d", len(before), len(after))
 	}
 }
+
+// The menu offers a refile only when it would change something: not when the
+// session is already filed to its top project, and not when that project is
+// archived and so cannot be chosen.
+func TestSnapshotRefileOnlyWhenItChangesSomething(t *testing.T) {
+	e, a := seeded(t)
+	s := finished(t, e, a)
+	row, _ := lastRow(t, a, e)
+	if !strings.Contains(titles(row.Sub), "Refile to tock") {
+		t.Fatalf("not offered when needed: %s", titles(row.Sub))
+	}
+	id := strconv.FormatInt(s.ID, 10)
+	if _, err := Menu(a, "refile:"+id); err != nil {
+		t.Fatal(err)
+	}
+	row, _ = lastRow(t, a, e)
+	if strings.Contains(titles(row.Sub), "Refile to") {
+		t.Fatalf("offered on a session already filed: %s", titles(row.Sub))
+	}
+	// A stale click does nothing: no edits, no new undo entry.
+	before, _ := a.UndoList(5)
+	if msg, err := Menu(a, "refile:"+id); err != nil || msg != "nothing to refile: already filed to tock" {
+		t.Fatalf("stale refile = %q, %v", msg, err)
+	}
+	if after, _ := a.UndoList(5); len(after) != len(before) {
+		t.Fatalf("journal grew: %d -> %d", len(before), len(after))
+	}
+}
+
+func TestSnapshotNoRefileToArchivedProject(t *testing.T) {
+	e, a := seeded(t)
+	finished(t, e, a)
+	e.WriteRules(t, strings.Replace(apptest.Rules, "[[project]]\nname = \"tock\"\n", "[[project]]\nname = \"tock\"\narchived = true\n", 1))
+	if _, err := a.Reload(); err != nil {
+		t.Fatal(err)
+	}
+	row, _ := lastRow(t, a, e)
+	if row.Title == "" || strings.Contains(titles(row.Sub), "Refile to") {
+		t.Fatalf("archived project offered: %q\n%s", row.Title, titles(row.Sub))
+	}
+}

@@ -57,6 +57,7 @@ type Snapshot struct {
 type LastSession struct {
 	Detail report.SessionDetail
 	Undo   bool           // the newest change is this session's refile
+	Refile bool           // a refile to the top project would change something and can be chosen
 	Loc    *time.Location // zone for the time range
 }
 
@@ -92,7 +93,8 @@ func Load(a *app.App, now time.Time, access string) (Snapshot, error) {
 		if err != nil {
 			return s, err
 		}
-		s.Last = &LastSession{Detail: detail, Undo: undo, Loc: now.Location()}
+		_, resolvable := a.Rules().ResolveProject(detail.Top.Project)
+		s.Last = &LastSession{Detail: detail, Undo: undo, Refile: detail.Top.Refile() && resolvable == nil, Loc: now.Location()}
 	}
 	return s, nil
 }
@@ -189,7 +191,7 @@ func (l *LastSession) item() Item {
 		sub = append(sub, Item{Title: fmt.Sprintf("Rate ★%d", r), ID: IDRate + strconv.Itoa(r) + ":" + id, Checked: r == d.Sess.Rating})
 	}
 	var acts []Item
-	if d.Top.Project != "" {
+	if l.Refile {
 		acts = append(acts, Item{Title: "Refile to " + report.Cut(d.Top.Project, ProjectCells), ID: IDRefile + id})
 	}
 	if l.Undo {
