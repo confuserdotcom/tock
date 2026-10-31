@@ -22,19 +22,8 @@ type EditRange = store.Edit
 // the edit's id.
 func (a *App) AddEdit(kind string, from, to int64, want classify.Want, note string) (int64, error) {
 	now := a.nowMS()
-	switch {
-	case kind != classify.EditAdd && kind != classify.EditCut && kind != classify.EditLabel:
-		return 0, fmt.Errorf("unknown edit %q", kind)
-	case to <= from:
-		return 0, errors.New("the range ends before it starts")
-	case to-from > MaxEditMS:
-		return 0, errors.New("an edit covers at most 24 hours")
-	case to > now:
-		return 0, errors.New("the range reaches into the future")
-	case kind != classify.EditCut && want.Category == "" && want.Project == "":
-		return 0, errors.New("an entry or a label needs a category or a project")
-	case kind == classify.EditCut && (want != classify.Want{} || note != ""):
-		return 0, errors.New("a cut takes no label")
+	if err := a.checkEdit(kind, from, to, want, note, now); err != nil {
+		return 0, err
 	}
 	id, err := a.st.AddEdit(store.Edit{Kind: kind, StartMS: from, EndMS: to, Category: want.Category,
 		Project: want.Project, Note: report.CleanPlan(note), AtMS: now})
@@ -43,6 +32,26 @@ func (a *App) AddEdit(kind string, from, to int64, want classify.Want, note stri
 	}
 	err = a.journal(editWhat(kind, from, to, want, a.now().Location()), undoData{EditsAdded: []int64{id}})
 	return id, err
+}
+
+// checkEdit refuses an edit AddEdit would not record: now is the clock the
+// range may not pass.
+func (a *App) checkEdit(kind string, from, to int64, want classify.Want, note string, now int64) error {
+	switch {
+	case kind != classify.EditAdd && kind != classify.EditCut && kind != classify.EditLabel:
+		return fmt.Errorf("unknown edit %q", kind)
+	case to <= from:
+		return errors.New("the range ends before it starts")
+	case to-from > MaxEditMS:
+		return errors.New("an edit covers at most 24 hours")
+	case to > now:
+		return errors.New("the range reaches into the future")
+	case kind != classify.EditCut && want.Category == "" && want.Project == "":
+		return errors.New("an entry or a label needs a category or a project")
+	case kind == classify.EditCut && (want != classify.Want{} || note != ""):
+		return errors.New("a cut takes no label")
+	}
+	return nil
 }
 
 func editWhat(kind string, from, to int64, want classify.Want, loc *time.Location) string {

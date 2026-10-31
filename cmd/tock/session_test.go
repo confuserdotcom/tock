@@ -373,3 +373,60 @@ func TestSessionWeights(t *testing.T) {
 		t.Fatalf("fitted weights equal the defaults")
 	}
 }
+
+const refileTestRules = testRules + `
+[[project]]
+name = "Analyse 1"
+category = "Study"
+`
+
+func TestSessionRefile(t *testing.T) {
+	te := newTestEnv(t, refileTestRules)
+	te.seed(t, daySpans()...)
+	x := addSession(t, te, "09:00", 0, 50, 40, 1, store.SessionManual)
+
+	code, out := te.run(t, "", "session", "refile", "Analyse", "1")
+	want := fmt.Sprintf("refiled session %d (50m) to Analyse 1 · tock undo reverts it\n", x.ID)
+	if code != 0 || out != want {
+		t.Fatalf("refile: %d %q %q, want %q", code, out, te.errb.String(), want)
+	}
+	if code, out := te.run(t, "", "edit"); code != 0 || !strings.Contains(out, "Study / Analyse 1") {
+		t.Fatalf("edit list after refile: %d %q", code, out)
+	}
+	if code, out := te.run(t, "", "undo"); code != 0 {
+		t.Fatalf("undo: %d %q %q", code, out, te.errb.String())
+	}
+	if code, out := te.run(t, "", "edit"); code != 0 || strings.Contains(out, "Analyse 1") {
+		t.Fatalf("edit list after undo: %d %q", code, out)
+	}
+	// by id and by last, with a project that is not a module
+	id := strconv.FormatInt(x.ID, 10)
+	for _, ref := range [][]string{{id, "ATLAS"}, {"last", "ATLAS"}} {
+		args := append([]string{"session", "refile"}, ref...)
+		want = fmt.Sprintf("refiled session %d (50m) to ATLAS · tock undo reverts it\n", x.ID)
+		if code, out := te.run(t, "", args...); code != 0 || out != want {
+			t.Fatalf("%q: %d %q %q", args, code, out, te.errb.String())
+		}
+	}
+
+	code, _ = te.run(t, "", "session", "refile")
+	if code != 2 || !strings.HasPrefix(te.errb.String(), "tock: session refile: PROJECT is required\nusage:") {
+		t.Fatalf("no project: %d %q", code, te.errb.String())
+	}
+	if code, _ := te.run(t, "", "session", "refile", "last"); code != 2 {
+		t.Fatalf("last only: %d", code)
+	}
+	if code, _ := te.run(t, "", "session", "refile", "Foo"); code != 1 || te.errb.String() != "tock: session refile: no project \"Foo\" (the labels tab lists them)\n" {
+		t.Fatalf("unknown project: %d %q", code, te.errb.String())
+	}
+	if code, _ := te.run(t, "", "session", "refile", "999", "ATLAS"); code != 1 || te.errb.String() != "tock: session refile: no session 999 (tock session list shows ids)\n" {
+		t.Fatalf("unknown id: %d %q", code, te.errb.String())
+	}
+	te.now = testNow.Add(time.Hour)
+	if code, _ := te.run(t, "", "session", "start", "25"); code != 0 {
+		t.Fatalf("start: %d %q", code, te.errb.String())
+	}
+	if code, _ := te.run(t, "", "session", "refile", strconv.FormatInt(x.ID+1, 10), "ATLAS"); code != 1 || te.errb.String() != "tock: session refile: session still running\n" {
+		t.Fatalf("running: %d %q", code, te.errb.String())
+	}
+}

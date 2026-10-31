@@ -56,6 +56,7 @@ const usage = `usage:
   tock session list | weights            this week's finished sessions with quality and rating | the quality weights
   tock session rate [ID|last] N [note...]  rate a finished session 1 to 5, with a one-line note
   tock session note [ID|last] [text...]  set or (no text) clear a session's note
+  tock session refile [ID|last] PROJECT  relabel a finished session's active time to a project (tock undo reverts)
   tock recap [YYYY-MM-DD]                the daily recap
   tock trends [--month YYYY-MM]          a month against the one before
   tock top [--days N | --week | --month] [--by category|app|site|project] [--limit N]

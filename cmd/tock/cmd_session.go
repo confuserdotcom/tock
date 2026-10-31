@@ -41,6 +41,8 @@ func cmdSession(env Env, args []string) error {
 		return sessionRate(env, args[1:])
 	case "note":
 		return sessionNote(env, args[1:])
+	case "refile":
+		return sessionRefile(env, args[1:])
 	case "weights":
 		if len(args) > 1 {
 			return usagef("session weights takes no arguments")
@@ -244,6 +246,35 @@ func sessionNote(env Env, args []string) error {
 		return nil
 	}
 	fmt.Fprintf(env.Stdout, "noted session %d: %s\n", s.ID, s.Note)
+	return nil
+}
+
+// sessionRefile is `session refile [ID|last] PROJECT`. The first argument is
+// the id when it is `last`, or when it is all digits and more arguments
+// follow; the rest joined by a space is the project (names may hold spaces).
+func sessionRefile(env Env, args []string) error {
+	ref := "last"
+	if len(args) > 0 && (args[0] == "last" || (allDigits(args[0]) && len(args) > 1)) {
+		ref, args = args[0], args[1:]
+	}
+	project := strings.TrimSpace(strings.Join(args, " "))
+	if project == "" {
+		return usagef("session refile: PROJECT is required")
+	}
+	a, err := openApp(env)
+	if err != nil {
+		return err
+	}
+	defer a.Close()
+	s, err := sessionTarget(a, ref)
+	if err != nil {
+		return fmt.Errorf("session refile: %w", err)
+	}
+	s, name, err := a.RefileSession(s.ID, project)
+	if err != nil {
+		return fmt.Errorf("session refile: %w", err)
+	}
+	fmt.Fprintf(env.Stdout, "refiled session %d (%s) to %s · tock undo reverts it\n", s.ID, report.Dur(s.EndMS-s.StartMS), name)
 	return nil
 }
 
