@@ -11,7 +11,7 @@ import (
 
 const categoryUsage = `usage: tock category                          list categories, their projects and 30 days of time
        tock category add <name> <kind> [--afk D]  kind: deep, shallow, neutral, browse or distract
-       tock category set <name> [--kind K] [--afk D|none]
+       tock category set <name> [--kind K] [--afk D|none] [--interrupt on|off]
        tock category rename <name> <new name>
        tock category rm <name>                    only when nothing names it (else: tock rules merge)`
 
@@ -48,11 +48,21 @@ func cmdCategory(env Env, args []string) error {
 		fs := newFlags("category set")
 		kind := fs.String("kind", "", "deep, shallow, neutral, browse or distract")
 		afk := fs.String("afk", "", "AFK window, 5m to 2h, or none")
+		interrupt := fs.String("interrupt", "", "on or off")
 		if err := parseFlags(fs, moveFlagsFirst(rest)); err != nil {
 			return err
 		}
-		if fs.NArg() != 1 || (*kind == "" && *afk == "") {
+		if fs.NArg() != 1 || (*kind == "" && *afk == "" && *interrupt == "") {
 			return usagef(categoryUsage)
+		}
+		var on *bool
+		switch *interrupt {
+		case "":
+		case "on", "off":
+			v := *interrupt == "on"
+			on = &v
+		default:
+			return usagef("category set: --interrupt %q, want on or off", *interrupt)
 		}
 		ms, err := afkFlag(*afk)
 		if err != nil {
@@ -62,11 +72,18 @@ func cmdCategory(env Env, args []string) error {
 		if err != nil {
 			return err
 		}
-		if err := a.EditCategory(app.CategorySpec{Name: name, Kind: *kind, AFKMS: ms}); err != nil {
+		if err := a.EditCategory(app.CategorySpec{Name: name, Kind: *kind, AFKMS: ms, Interrupt: on}); err != nil {
 			return err
 		}
 		c := categoryOf(a.Rules(), name)
-		fmt.Fprintf(env.Stdout, "%s: %s, afk %s\n", report.Safe(name), c.Kind, classify.FormatDur(a.Rules().AFKWindow(name)))
+		line := fmt.Sprintf("%s: %s, afk %s", report.Safe(name), c.Kind, classify.FormatDur(a.Rules().AFKWindow(name)))
+		switch {
+		case c.Quiet:
+			line += ", no distraction notices"
+		case on != nil:
+			line += ", distraction notices on"
+		}
+		fmt.Fprintln(env.Stdout, line)
 	case "rename":
 		if len(rest) != 2 {
 			return usagef(categoryUsage)

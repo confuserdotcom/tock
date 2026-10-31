@@ -44,7 +44,8 @@ const usage = `usage:
                                          validate the rules | time each rule decided (default 30 days)
   tock rules dupes | tock rules merge [--project] <from> <into>
                                          look-alike names | fold one name into another everywhere
-  tock category [add <name> <kind> [--afk D] | set <name> [--kind K] [--afk D] |
+  tock category [add <name> <kind> [--afk D] |
+                set <name> [--kind K] [--afk D] [--interrupt on|off] |
                 rename <name> <new> | rm <name>]
                                          list or change your categories (rules.toml)
   tock project [add <name> [--category C] [--alias a,b] | set <name> ... |

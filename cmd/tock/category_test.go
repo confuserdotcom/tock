@@ -36,3 +36,41 @@ func TestCategoryCommand(t *testing.T) {
 		t.Fatal("add without kind is not a usage error")
 	}
 }
+
+func TestCategorySetInterrupt(t *testing.T) {
+	te := newTestEnv(t, testRules)
+	te.seed(t, daySpans()...)
+	if code, out := te.run(t, "", "category", "add", "Reading", "neutral", "--afk", "10m"); code != 0 {
+		t.Fatalf("add: %d %q %s", code, out, te.errb)
+	}
+	if code, out := te.run(t, "", "category", "set", "Reading", "--kind", "browse", "--interrupt", "off"); code != 0 ||
+		out != "Reading: browse, afk 10m, no distraction notices\n" {
+		t.Fatalf("off: %d %q %s", code, out, te.errb)
+	}
+	b, _ := os.ReadFile(te.rulesPath())
+	if !strings.Contains(string(b), "name = \"Reading\"\ninterrupt = false\n") {
+		t.Fatalf("rules.toml:\n%s", b)
+	}
+	// Another flag on a quiet category keeps the segment.
+	if code, out := te.run(t, "", "category", "set", "read", "--afk", "20m"); code != 0 ||
+		out != "Reading: browse, afk 20m, no distraction notices\n" {
+		t.Fatalf("afk on a quiet category: %d %q %s", code, out, te.errb)
+	}
+	if code, out := te.run(t, "", "category", "set", "Reading", "--interrupt", "on"); code != 0 ||
+		out != "Reading: browse, afk 20m, distraction notices on\n" {
+		t.Fatalf("on: %d %q %s", code, out, te.errb)
+	}
+	// A normal category's line is unchanged.
+	if code, out := te.run(t, "", "category", "set", "Reading", "--kind", "neutral"); code != 0 ||
+		out != "Reading: neutral, afk 20m\n" {
+		t.Fatalf("normal: %d %q %s", code, out, te.errb)
+	}
+	te.errb.Reset()
+	if code, _ := te.run(t, "", "category", "set", "Reading", "--interrupt", "maybe"); code != 2 ||
+		!strings.Contains(te.errb.String(), "category set: --interrupt \"maybe\", want on or off") {
+		t.Fatalf("maybe: %d %q", code, te.errb.String())
+	}
+	if code, _ := te.run(t, "", "category", "set", "Reading"); code != 2 {
+		t.Fatal("category set with no flag is not a usage error")
+	}
+}

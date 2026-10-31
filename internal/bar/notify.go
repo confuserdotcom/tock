@@ -24,6 +24,10 @@ const (
 	ActIdle   = "idle"
 	// ActSnoozeDistract snoozes distraction notices for the notice's minutes.
 	ActSnoozeDistract = "snooze:distract"
+	// ActQuietCat and ActQuietRule (+ the session id) mark the notice's
+	// category, or the rule that set it, as one that never interrupts.
+	ActQuietCat  = "quiet:cat:"
+	ActQuietRule = "quiet:rule:"
 )
 
 // ProjectCells is how wide a project name may be in a button or menu item.
@@ -44,6 +48,13 @@ func Buttons(n store.Notice, d app.NoticeData) []Button {
 		var out []Button
 		if d.SnoozeMin > 0 {
 			out = append(out, Button{ActSnoozeDistract, fmt.Sprintf("Snooze %d min", d.SnoozeMin)})
+		}
+		sid := strconv.FormatInt(d.Session, 10)
+		if d.Category != "" {
+			out = append(out, Button{ActQuietCat + sid, "Don't interrupt for " + report.Cut(d.Category, ProjectCells)})
+			if d.Rule != "" {
+				out = append(out, Button{ActQuietRule + sid, "Don't interrupt for this rule"})
+			}
 		}
 		return append(out, Button{ActStop, "Stop session"})
 	case focus.TopicDone:

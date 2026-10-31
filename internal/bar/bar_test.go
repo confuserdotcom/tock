@@ -3,6 +3,7 @@ package bar
 import (
 	"errors"
 	"fmt"
+	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -635,7 +636,9 @@ func TestDistractSnoozeEndToEnd(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []Button{{ActSnoozeDistract, "Snooze 10 min"}, {ActStop, "Stop session"}}
+	sid := strconv.FormatInt(s.ID, 10)
+	want := []Button{{ActSnoozeDistract, "Snooze 10 min"}, {ActQuietCat + sid, "Don't interrupt for Entertainment"},
+		{ActQuietRule + sid, "Don't interrupt for this rule"}, {ActStop, "Stop session"}}
 	if got := Buttons(n, d); !reflect.DeepEqual(got, want) {
 		t.Fatalf("buttons = %+v, want %+v", got, want)
 	}
@@ -763,5 +766,132 @@ func TestLoadFollowsConfig(t *testing.T) {
 	e.WriteConfig(t, "[focus]\nsnooze = 20\n")
 	if got := row(); !strings.Contains(got, "Snooze distraction notices (20 min)") {
 		t.Fatalf("after the edit:\n%s", got)
+	}
+}
+
+func TestQuietButtons(t *testing.T) {
+	n := store.Notice{ID: 3, Topic: focus.TopicFocus}
+	d := app.NoticeData{Session: 7, SnoozeMin: 10, Category: "Entertainment", Rule: "rules.toml#3", RuleFP: "x"}
+	want := []Button{{"snooze:distract", "Snooze 10 min"}, {"quiet:cat:7", "Don't interrupt for Entertainment"},
+		{"quiet:rule:7", "Don't interrupt for this rule"}, {"stop", "Stop session"}}
+	if got := Buttons(n, d); !reflect.DeepEqual(got, want) {
+		t.Fatalf("buttons = %+v, want %+v", got, want)
+	}
+	d.Rule = ""
+	if got := Buttons(n, d); !reflect.DeepEqual(got, []Button{want[0], want[1], want[3]}) {
+		t.Fatalf("no rule: buttons = %+v", got)
+	}
+	d.Category = ""
+	if got := Buttons(n, d); !reflect.DeepEqual(got, []Button{want[0], want[3]}) {
+		t.Fatalf("no category: buttons = %+v", got)
+	}
+	d.Category = strings.Repeat("W", 30)
+	got := Buttons(n, d)
+	name := strings.TrimPrefix(got[1].Title, "Don't interrupt for ")
+	if !strings.HasSuffix(name, "…") || len([]rune(name)) != ProjectCells {
+		t.Fatalf("long name button = %q, want the name cut to %d cells with …", got[1].Title, ProjectCells)
+	}
+}
+
+func TestQuietButtonsNoTitleOrURL(t *testing.T) {
+	e, a, _ := distractedSession(t)
+	at(t, e, "15:00")
+	id := enqueue(t, a, focusNotes(t, a)[0])
+	n, d, err := a.Notice(id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, b := range Buttons(n, d) {
+		if strings.Contains(strings.ToLower(b.Title), "youtube") || strings.Contains(b.Title, "Video") || strings.Contains(b.ID, "youtube") {
+			t.Fatalf("button leaks a title or URL: %+v", b)
+		}
+	}
+	if strings.Contains(n.Body, "Video") || strings.Contains(n.Body, "youtube") {
+		t.Fatalf("body leaks a title or URL: %q", n.Body)
+	}
+}
+
+func TestQuietPickedUp(t *testing.T) {
+	e, a, s := distractedSession(t)
+	at(t, e, "15:00")
+	notes := focusNotes(t, a)
+	if len(notes) != 1 {
+		t.Fatalf("first tick notes = %+v", notes)
+	}
+	id := enqueue(t, a, notes[0])
+	b := openApp(t, e) // tockbar: another process on the same files
+	if msg, err := Respond(b, id, ActQuietCat+strconv.FormatInt(s.ID, 10)); err != nil || msg != "Entertainment will no longer interrupt a session" {
+		t.Fatalf("respond = %q, %v", msg, err)
+	}
+	rules, err := os.ReadFile(e.Rules)
+	if err != nil || !strings.Contains(string(rules), "name = \"Entertainment\"\ninterrupt = false\n") {
+		t.Fatalf("rules.toml (%v):\n%s", err, rules)
+	}
+	if _, err := os.Stat(e.Rules + ".bak"); err != nil {
+		t.Fatalf("no rules.toml.bak: %v", err)
+	}
+	for _, hhmm := range []string{"15:05", "15:09"} {
+		at(t, e, hhmm)
+		if notes := focusNotes(t, a); len(notes) != 0 {
+			t.Fatalf("%s: tick after the mark notified: %+v", hhmm, notes)
+		}
+	}
+	f, err := a.Focus(e.Clock)
+	if err != nil || f.Open == nil || f.Open.Interruptions != 1 || f.Open.DistractMS != 14*60_000 {
+		t.Fatalf("after the mark: %+v, %v; want 1 interruption and 14 min distracted", f.Open, err)
+	}
+}
+
+func TestRespondQuietRule(t *testing.T) {
+	e, a, s := distractedSession(t)
+	at(t, e, "15:00")
+	id := enqueue(t, a, focusNotes(t, a)[0])
+	sid := strconv.FormatInt(s.ID, 10)
+	// A foreign session id is not one of the notice's buttons.
+	if msg, err := Respond(a, id, ActQuietRule+"999"); err != nil || msg != "" {
+		t.Fatalf("forged id = %q, %v; want nothing", msg, err)
+	}
+	if got, _ := os.ReadFile(e.Rules); string(got) != apptest.Rules {
+		t.Fatal("a forged id changed rules.toml")
+	}
+	if msg, err := Respond(a, id, ActQuietRule+sid); err != nil || msg != "that rule will no longer interrupt a session" {
+		t.Fatalf("respond = %q, %v", msg, err)
+	}
+	got, _ := os.ReadFile(e.Rules)
+	if strings.Count(string(got), "interrupt = false") != 1 || !strings.Contains(string(got), "[[rule]]\ninterrupt = false\nurl = ") {
+		t.Fatalf("rules.toml:\n%s", got)
+	}
+
+}
+
+func TestRespondQuietRuleStale(t *testing.T) {
+	e, a, s := distractedSession(t)
+	at(t, e, "15:00")
+	id := enqueue(t, a, focusNotes(t, a)[0])
+	// A rule inserted before the YouTube rule after the notice.
+	moved := strings.Replace(apptest.Rules, "[[rule]]\nbundle = [\"term\"]\ntitle",
+		"[[rule]]\napp = \"Slack\"\ncategory = \"Communication\"\n\n[[rule]]\nbundle = [\"term\"]\ntitle", 1)
+	e.WriteRules(t, moved)
+	if msg, err := Respond(a, id, ActQuietRule+strconv.FormatInt(s.ID, 10)); err != nil || msg != "rule changed, not marked (open tock to pick it again)" {
+		t.Fatalf("stale respond = %q, %v", msg, err)
+	}
+	if after, _ := os.ReadFile(e.Rules); string(after) != moved {
+		t.Fatal("a stale click changed rules.toml")
+	}
+}
+
+func TestRespondQuietCategoryGone(t *testing.T) {
+	e, a, s := distractedSession(t)
+	at(t, e, "15:00")
+	id := enqueue(t, a, focusNotes(t, a)[0])
+	if _, err := a.RenameName(classify.NameCategory, "Entertainment", "Videos"); err != nil {
+		t.Fatal(err)
+	}
+	before, _ := os.ReadFile(e.Rules)
+	if msg, err := Respond(a, id, ActQuietCat+strconv.FormatInt(s.ID, 10)); err != nil || msg != "that category is gone" {
+		t.Fatalf("respond = %q, %v", msg, err)
+	}
+	if after, _ := os.ReadFile(e.Rules); string(after) != string(before) {
+		t.Fatal("a click on a gone category changed rules.toml")
 	}
 }
