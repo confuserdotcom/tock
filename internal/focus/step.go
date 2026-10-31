@@ -33,6 +33,10 @@ func Step(in Input) []Event {
 		stateChanged = true
 	}
 	writes = append(writes, autoSessions(in)...)
+	if n, ok := stepStart(in, &st); ok {
+		notes = append(notes, n)
+		stateChanged = true
+	}
 	if n, ok := stepRecap(in, &st); ok {
 		notes = append(notes, n)
 		stateChanged = true

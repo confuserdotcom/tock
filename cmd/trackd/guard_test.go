@@ -39,7 +39,7 @@ func TestFocusLoopBlocks(t *testing.T) {
 		{false, false, []string{"close arc www.youtube.com", "hide arc"}, ""},
 	} {
 		e := distractedEnv(t, apptest.Rules)
-		e.WriteConfig(t, "[focus]\nblock = true\ndistract_grace = 3600\n")
+		e.WriteConfig(t, "[focus]\nblock = true\ndistract_grace = 3600\n"+apptest.NoRoutines)
 		n := &recNotifier{}
 		f, logb := testLoop(t, e, n, nil)
 		r := &fakeRemover{closeOK: c.closeOK, hideOK: c.hideOK}
@@ -89,7 +89,7 @@ func TestHookCommands(t *testing.T) {
 
 func TestFocusLoopRunsHooksOnce(t *testing.T) {
 	e := distractedEnv(t, apptest.Rules)
-	e.WriteConfig(t, "[focus]\nfocus_on = \"Work\"\nfocus_off = \"Off\"\n")
+	e.WriteConfig(t, "[focus]\nfocus_on = \"Work\"\nfocus_off = \"Off\"\n"+apptest.NoRoutines)
 	f, _ := testLoop(t, e, &recNotifier{}, nil)
 	f.goos = "darwin"
 	var hooks [][]string

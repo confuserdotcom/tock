@@ -22,6 +22,7 @@ func distracted(t *testing.T) *apptest.Env {
 		apptest.Span{ID: 1, Start: "14:50", End: "14:55", Bundle: "term", App: "WezTerm", Title: "tock │ a"},
 		apptest.Span{ID: 2, Start: "14:55", Bundle: "arc", App: "Arc", Title: "Video", URL: "www.youtube.com/watch"},
 	)
+	e.WriteConfig(t, apptest.NoRoutines)
 	return e
 }
 
@@ -110,7 +111,7 @@ func TestFocusTickEndsSession(t *testing.T) {
 func TestFocusTickAutoSessionAndRecap(t *testing.T) {
 	e := apptest.New(t, apptest.Rules)
 	e.Seed(t, apptest.DaySpans()...)
-	e.WriteConfig(t, "[focus]\nrecap = \"14:00\"\n")
+	e.WriteConfig(t, "[focus]\nrecap = \"14:00\"\n"+apptest.NoRoutines)
 	a := open(t, e)
 	day, err := a.Day(e.Clock)
 	if err != nil {
@@ -200,6 +201,7 @@ func TestStatusShowsSession(t *testing.T) {
 
 func TestSnoozeBreak(t *testing.T) {
 	e := apptest.New(t, apptest.Rules)
+	e.WriteConfig(t, apptest.NoRoutines)
 	e.Seed(t, apptest.Span{ID: 1, Start: "14:00", Bundle: "term", App: "WezTerm", Title: "tock │ a"})
 	a := open(t, e)
 	e.Clock = time.UnixMilli(apptest.At(t, "14:40", 0)).In(apptest.Zone)
@@ -221,7 +223,7 @@ func TestSnoozeBreak(t *testing.T) {
 
 func TestGuardTickHooksAndBlock(t *testing.T) {
 	e := distracted(t)
-	e.WriteConfig(t, "[focus]\nblock = true\n")
+	e.WriteConfig(t, "[focus]\nblock = true\n"+apptest.NoRoutines)
 	a := open(t, e)
 	startAt(t, e, a, "14:50", 25)
 	e.Clock = apptest.Now

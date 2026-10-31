@@ -80,7 +80,7 @@ func TestAwayAnswerSkipRelabel(t *testing.T) {
 func TestAwayRespectsConfig(t *testing.T) {
 	e := apptest.New(t, apptest.Rules)
 	e.Seed(t, apptest.DaySpans()...)
-	e.WriteConfig(t, "[away]\nmin = 45\nmax = 120\n")
+	e.WriteConfig(t, "[away]\nmin = 45\nmax = 120\n"+apptest.NoRoutines)
 	d, err := open(t, e).Day(apptest.Now)
 	if err != nil {
 		t.Fatal(err)
@@ -113,6 +113,7 @@ func TestAwayDropsPastCache(t *testing.T) {
 
 func TestFocusTickAsksAboutAwayOnce(t *testing.T) {
 	e := apptest.New(t, apptest.Rules)
+	e.WriteConfig(t, apptest.NoRoutines)
 	e.Seed(t, apptest.DaySpans()...)
 	e.Clock = time.UnixMilli(apptest.At(t, "14:51", 0)).In(apptest.Zone) // back at 14:50
 	a := open(t, e)

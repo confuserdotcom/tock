@@ -35,6 +35,8 @@ const (
 	TitleBreak = "tock · break"
 	TitleRecap = "tock · recap"
 	TitleAway  = "tock · away"
+	// TitleStart is the start-of-day notice.
+	TitleStart = "Start of day"
 )
 
 // Notification topics: what a note is about, so a notifier can offer the
@@ -45,6 +47,7 @@ const (
 	TopicBreak = "break"
 	TopicRecap = "recap"
 	TopicAway  = "away"
+	TopicStart = "start"
 )
 
 // AwayNotifyMS is how soon after coming back the away question is sent; an
@@ -77,6 +80,7 @@ type State struct {
 	BreakFrom int64  // start of the activity run the last break reminder belongs to
 	BreakAt   int64  // when the last break reminder or session end fired
 	RecapDay  string // YYYY-MM-DD of the last recap
+	StartDay  string // YYYY-MM-DD of the last start-of-day notice
 	AwayAt    int64  // end of the last absence asked about
 	// SnoozeUntil holds break reminders back until this time (ms).
 	SnoozeUntil int64
@@ -127,6 +131,12 @@ type Input struct {
 	State     State
 	Cfg       config.Focus
 	RecapBody string // the recap text; the caller fills it when RecapDue
+	// Routine holds the [routine] switches; the app passes cfg.Routine.
+	Routine config.Routine
+	// Hours is the work schedule; the zero value makes every day a work day.
+	Hours stats.Hours
+	// StartBody is the start-of-day text; the caller fills it when StartDue.
+	StartBody string
 	// Absence is the latest absence today that has no answer yet, or nil.
 	Absence *classify.Interval
 	// AbsenceBefore is the label of what Absence follows; zero when none.

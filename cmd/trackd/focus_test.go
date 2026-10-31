@@ -29,6 +29,7 @@ func distractedEnv(t *testing.T, rules string) *apptest.Env {
 		apptest.Span{ID: 1, Start: "14:50", End: "14:55", Bundle: "term", App: "WezTerm", Title: "tock │ a"},
 		apptest.Span{ID: 2, Start: "14:55", Bundle: "arc", App: "Arc", Title: "Video", URL: "www.youtube.com/watch"},
 	)
+	e.WriteConfig(t, apptest.NoRoutines)
 	st, err := store.Open(e.DB)
 	if err != nil {
 		t.Fatal(err)
@@ -75,6 +76,22 @@ func TestFocusLoopAlertsOnce(t *testing.T) {
 	}
 }
 
+func TestFocusLoopSendsStartOfDay(t *testing.T) {
+	e := apptest.New(t, apptest.Rules)
+	e.Seed(t, apptest.Span{ID: 1, Start: "09:00", Bundle: "term", App: "WezTerm", Title: "tock │ a"})
+	e.Clock = time.Date(2026, 10, 10, 9, 30, 0, 0, apptest.Zone)
+	n := &recNotifier{}
+	f, _ := testLoop(t, e, n, nil)
+	f.tick()
+	f.tick()
+	g, _ := testLoop(t, e, n, nil) // trackd restarted
+	g.tick()
+	want := []string{"Start of day|Yesterday: no activity."}
+	if !reflect.DeepEqual(n.got, want) {
+		t.Fatalf("notifications = %q, want %q", n.got, want)
+	}
+}
+
 func TestFocusLoopCameraMutes(t *testing.T) {
 	e := distractedEnv(t, apptest.Rules)
 	n := &recNotifier{}
@@ -112,7 +129,7 @@ func TestFocusLoopMicMutesAndRecords(t *testing.T) {
 
 func TestFocusLoopNotifyOff(t *testing.T) {
 	e := distractedEnv(t, apptest.Rules)
-	e.WriteConfig(t, "[focus]\nnotify = false\n")
+	e.WriteConfig(t, "[focus]\nnotify = false\n"+apptest.NoRoutines)
 	n := &recNotifier{}
 	f, _ := testLoop(t, e, n, nil)
 	f.tick()

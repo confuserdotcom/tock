@@ -35,6 +35,7 @@ type Config struct {
 	Invoice  Invoice
 	Privacy  Privacy
 	Plan     Plan
+	Routine  Routine
 	Model    Model
 }
 
@@ -210,7 +211,7 @@ func DefaultLLM() LLM {
 
 // Default is the configuration used when there is no file.
 func Default() Config {
-	return Config{Score: stats.DefaultWeights, Focus: DefaultFocus(), LLM: DefaultLLM(), Shell: DefaultShell(), Away: DefaultAway(), AFK: DefaultAFK(), Slack: DefaultSlack(),
+	return Config{Score: stats.DefaultWeights, Focus: DefaultFocus(), LLM: DefaultLLM(), Shell: DefaultShell(), Away: DefaultAway(), AFK: DefaultAFK(), Slack: DefaultSlack(), Routine: DefaultRoutine(),
 		Model: Model{Enabled: true}}
 }
 
@@ -304,6 +305,7 @@ type fileTOML struct {
 	Invoice  invoiceTOML  `toml:"invoice"`
 	Privacy  privacyTOML  `toml:"privacy"`
 	Plan     planTOML     `toml:"plan"`
+	Routine  routineTOML  `toml:"routine"`
 	Model    modelTOML    `toml:"model"`
 }
 
@@ -385,6 +387,9 @@ func Load(path string) (Config, error) {
 		c.AFK.TrustMS = int64(*f.AFK.Trust) * 60_000
 	}
 	if err := decodeHours(f.Hours, &c.Hours); err != nil {
+		return Default(), fmt.Errorf("%s: %w", name, err)
+	}
+	if err := decodeRoutine(f.Routine, &c.Routine); err != nil {
 		return Default(), fmt.Errorf("%s: %w", name, err)
 	}
 	if c.Hours.Set && f.Focus.Recap == nil {
