@@ -83,3 +83,29 @@ func TestAutoSessionsAndList(t *testing.T) {
 		t.Fatalf("Sessions(0, 100) = %+v, %v", none, err)
 	}
 }
+
+func TestSessionSwitchesPersist(t *testing.T) {
+	s := openAt(t, dbPath(t))
+	defer s.Close()
+	a, err := s.StartSession(1000, 1000+25*60_000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a.EndMS, a.Switches = 9000, 4
+	if ok, err := s.EndSession(a); err != nil || !ok {
+		t.Fatalf("EndSession = %v, %v", ok, err)
+	}
+	if ok, err := s.AddAutoSession(Session{StartMS: 20_000, EndMS: 30_000, Switches: 2}); err != nil || !ok {
+		t.Fatalf("AddAutoSession = %v, %v", ok, err)
+	}
+	got, err := s.Sessions(0, 100_000)
+	if err != nil || len(got) != 2 {
+		t.Fatalf("Sessions = %+v, %v", got, err)
+	}
+	for i, want := range []int{4, 2} {
+		x := got[i]
+		if x.Switches != want || x.Rating != 0 || x.Note != "" || x.RatedMS != 0 {
+			t.Errorf("session %d = %+v, want switches %d and no rating", i, x, want)
+		}
+	}
+}

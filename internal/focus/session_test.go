@@ -1,10 +1,12 @@
 package focus
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 
 	"tock/internal/classify"
+	"tock/internal/stats"
 )
 
 func running() Session {
@@ -104,20 +106,18 @@ func TestSessionEnd(t *testing.T) {
 	end := running()
 	end.EndMS = at(14, 25, 0)
 	end.DeepMS, end.DistractMS, end.LongestMS = 20*minute, 5*minute, 20*minute
+	end.Switches = stats.WindowSwitches(in.Views, in.Labels, end.StartMS, end.PlannedMS)
+	if end.Switches != 1 {
+		t.Fatalf("fixture switches = %d, want 1", end.Switches)
+	}
+	q := Quality(end, Weights{})
 	want := []Event{
 		{Kind: SessionEnd, Sess: end},
 		{Kind: StateUpdate, State: State{BreakFrom: at(14, 0, 0), BreakAt: at(14, 26, 0)}},
-		{Kind: Notify, Topic: TopicDone, Title: TitleDone, Body: "25 min: 80% deep, 0 interruptions, longest 20 min. Take a 5 min break.", OfSession: true, Minutes: 25},
+		{Kind: Notify, Topic: TopicDone, Title: TitleDone, OfSession: true, Minutes: 25, Sess: end,
+			Body: fmt.Sprintf("25 min · quality %d · 80%% deep · no interruptions", q.Score)},
 	}
 	if got := Step(in); !reflect.DeepEqual(got, want) {
 		t.Fatalf("Step =\n%+v\nwant\n%+v", got, want)
-	}
-}
-
-func TestBreakMin(t *testing.T) {
-	for _, tt := range []struct{ min, want int64 }{{25, 5}, {30, 5}, {31, 10}, {60, 10}, {90, 15}} {
-		if got := breakMin(tt.min * minute); got != tt.want {
-			t.Errorf("breakMin(%d min) = %d, want %d", tt.min, got, tt.want)
-		}
 	}
 }

@@ -50,16 +50,22 @@ type Session struct {
 	DeepMS        int64
 	DistractMS    int64
 	LongestMS     int64
+	Switches      int    // context switches in the session window; -1 = recorded before migration 0014
+	Rating        int    // 1..5, 0 = unrated
+	Note          string // the user's one line about the session
+	RatedMS       int64  // when it was rated, 0 = unrated
 }
 
-const sessionCols = `id, kind, start_ms, planned_ms, end_ms, interruptions, alerted_ms, deep_ms, distract_ms, longest_ms`
+const sessionCols = `id, kind, start_ms, planned_ms, end_ms, interruptions, alerted_ms, deep_ms, distract_ms, longest_ms, switches, rating, note, rated_ms`
 
 func scanSession(sc interface{ Scan(...any) error }) (Session, error) {
 	var x Session
-	var planned, end sql.NullInt64
+	var planned, end, rating, ratedMS sql.NullInt64
+	var note sql.NullString
 	err := sc.Scan(&x.ID, &x.Kind, &x.StartMS, &planned, &end, &x.Interruptions, &x.AlertedMS,
-		&x.DeepMS, &x.DistractMS, &x.LongestMS)
+		&x.DeepMS, &x.DistractMS, &x.LongestMS, &x.Switches, &rating, &note, &ratedMS)
 	x.PlannedMS, x.EndMS = planned.Int64, end.Int64
+	x.Rating, x.Note, x.RatedMS = int(rating.Int64), note.String, ratedMS.Int64
 	return x, err
 }
 
@@ -117,17 +123,17 @@ func (s *Store) UpdateSession(x Session) (bool, error) {
 // EndSession closes a running session at x.EndMS with x's counters. It
 // reports false when the session was already closed.
 func (s *Store) EndSession(x Session) (bool, error) {
-	res, err := s.db.Exec(`UPDATE session SET end_ms=?, interruptions=?, alerted_ms=?, deep_ms=?, distract_ms=?, longest_ms=?
+	res, err := s.db.Exec(`UPDATE session SET end_ms=?, interruptions=?, alerted_ms=?, deep_ms=?, distract_ms=?, longest_ms=?, switches=?
 		WHERE id=? AND end_ms IS NULL`,
-		x.EndMS, x.Interruptions, x.AlertedMS, x.DeepMS, x.DistractMS, x.LongestMS, x.ID)
+		x.EndMS, x.Interruptions, x.AlertedMS, x.DeepMS, x.DistractMS, x.LongestMS, x.Switches, x.ID)
 	return changedOne(res, err, "end session")
 }
 
 // AddAutoSession inserts a closed auto session. It reports false when an
 // auto session with the same start exists.
 func (s *Store) AddAutoSession(x Session) (bool, error) {
-	res, err := s.db.Exec(`INSERT OR IGNORE INTO session(kind, start_ms, end_ms, deep_ms, distract_ms, longest_ms)
-		VALUES(?,?,?,?,?,?)`, SessionAuto, x.StartMS, x.EndMS, x.DeepMS, x.DistractMS, x.LongestMS)
+	res, err := s.db.Exec(`INSERT OR IGNORE INTO session(kind, start_ms, end_ms, deep_ms, distract_ms, longest_ms, switches)
+		VALUES(?,?,?,?,?,?,?)`, SessionAuto, x.StartMS, x.EndMS, x.DeepMS, x.DistractMS, x.LongestMS, x.Switches)
 	return changedOne(res, err, "add auto session")
 }
 

@@ -109,8 +109,10 @@ func stepSession(in Input, s Session) (writes, notes []Event, ended bool) {
 	next.DeepMS, next.DistractMS, next.LongestMS = ws.DeepMS, ws.DistractMS, ws.LongestMS
 	if in.Now >= s.PlannedMS {
 		next.EndMS = s.PlannedMS
-		done := note(TopicDone, TitleDone, doneBody(next), true)
+		next.Switches = stats.WindowSwitches(in.Views, in.Labels, s.StartMS, s.PlannedMS)
+		done := note(TopicDone, TitleDone, doneBody(next, Quality(next, in.Weights)), true)
 		done.Minutes = int(minutes(s.PlannedMS - s.StartMS))
+		done.Sess = next
 		return []Event{{Kind: SessionEnd, Sess: next}}, []Event{done}, true
 	}
 	step := in.Cfg.DistractGraceMS
@@ -133,29 +135,16 @@ func distractBody(s Session, now int64) string {
 		minutes(s.DistractMS), minutes(s.PlannedMS-s.StartMS), minutes(s.PlannedMS-now))
 }
 
-func doneBody(s Session) string {
+// doneBody is the done notice: length, quality, deep share and
+// interruptions.
+func doneBody(s Session, q QualityScore) string {
 	length := s.EndMS - s.StartMS
 	pct := int64(0)
 	if length > 0 {
 		pct = (s.DeepMS*100 + length/2) / length
 	}
-	word := "interruptions"
-	if s.Interruptions == 1 {
-		word = "interruption"
-	}
-	return fmt.Sprintf("%d min: %d%% deep, %d %s, longest %d min. Take a %d min break.",
-		minutes(length), pct, s.Interruptions, word, minutes(s.LongestMS), breakMin(length))
-}
-
-// breakMin is the break suggested after a session of length ms.
-func breakMin(length int64) int64 {
-	switch {
-	case length <= 30*60_000:
-		return 5
-	case length <= 60*60_000:
-		return 10
-	}
-	return 15
+	return fmt.Sprintf("%d min · quality %d · %d%% deep · %s",
+		minutes(length), q.Score, pct, InterruptionsText(s.Interruptions))
 }
 
 // autoSessions records each ended focus block of at least AutoMinMS that no

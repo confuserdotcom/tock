@@ -80,8 +80,14 @@ func TestFocusTickEndsSession(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	ended := focus.Session{ID: 1, Kind: focus.KindManual, StartMS: apptest.At(t, "14:50", 0),
+		PlannedMS: apptest.At(t, "15:15", 0), EndMS: apptest.At(t, "15:15", 0),
+		DeepMS: 5 * 60_000, DistractMS: 20 * 60_000, LongestMS: 5 * 60_000, Switches: 1}
+	if q := focus.Quality(ended, focus.Weights{}); q.Score != 36 {
+		t.Fatalf("quality = %d, want 36", q.Score)
+	}
 	want := []focus.Event{{Kind: focus.Notify, Topic: focus.TopicDone, Title: focus.TitleDone,
-		Body: "25 min: 20% deep, 0 interruptions, longest 5 min. Take a 5 min break.", OfSession: true, Minutes: 25}}
+		Body: "25 min · quality 36 · 20% deep · no interruptions", OfSession: true, Minutes: 25, Sess: ended}}
 	if !reflect.DeepEqual(notes, want) {
 		t.Fatalf("notes = %+v, want %+v", notes, want)
 	}
@@ -89,8 +95,8 @@ func TestFocusTickEndsSession(t *testing.T) {
 	if err != nil || f.Open != nil || len(f.Today) != 1 {
 		t.Fatalf("Focus = %+v, %v", f, err)
 	}
-	if got := f.Today[0]; got.EndMS != apptest.At(t, "15:15", 0) || got.DistractMS != 20*60_000 {
-		t.Fatalf("closed session = %+v", got)
+	if got := f.Today[0]; got != ended {
+		t.Fatalf("closed session = %+v, want %+v", got, ended)
 	}
 	if v, _, _ := a.st.State(store.KeyFocusBreakAt); v != strconv.FormatInt(e.Clock.UnixMilli(), 10) {
 		t.Fatalf("focus_break_at = %q, want the session end tick", v)

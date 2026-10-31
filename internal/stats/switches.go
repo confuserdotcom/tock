@@ -60,3 +60,12 @@ func switches(views []classify.SpanView, labels []classify.Label) (n int, longes
 	}
 	return n, longest
 }
+
+// WindowSwitches counts the context switches inside the half-open window
+// [from, to): views are clipped to it first, so one ending exactly at from or
+// starting exactly at to contributes nothing.
+func WindowSwitches(vs []classify.SpanView, ls []classify.Label, from, to int64) int {
+	cv, cl := Clip(vs, ls, from, to)
+	n, _ := switches(cv, cl)
+	return n
+}

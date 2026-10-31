@@ -64,6 +64,10 @@ type Session struct {
 	DeepMS        int64
 	DistractMS    int64
 	LongestMS     int64
+	Switches      int    // context switches in the session window; -1 = recorded before migration 0014
+	Rating        int    // 1..5, 0 = unrated
+	Note          string // the user's one line about the session
+	RatedMS       int64  // when it was rated, 0 = unrated
 }
 
 // State is the engine's memory between ticks, kept in daemon_state.
@@ -115,6 +119,9 @@ type Input struct {
 	Absence *classify.Interval
 	// AbsenceBefore is the label of what Absence follows; zero when none.
 	AbsenceBefore classify.Want
+	// Weights are the quality weights of the done notice; the zero value
+	// means DefaultQualityWeights().
+	Weights Weights
 }
 
 // IsMeeting reports a meeting view: a meeting app, or a URL whose host is a
