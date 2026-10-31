@@ -57,7 +57,11 @@ type App struct {
 	routineErr error // why a routine notice was not built on the last focus tick
 
 	slotCache slotCache        // today's slots (see Slots)
-	slotSeen  map[string]int64 // slot key -> tick time (ms) it first appeared in the slot list
+	slotSeen  map[string]int64 // slot key -> tick time (ms) it first appeared in the slot list that day
+	// slotSeenDay is the calendar day slotSeen belongs to; planErr is why the
+	// last slot build could not read the plan file, nil if it could.
+	slotSeenDay string
+	planErr     error
 
 	model   *classify.Model   // the local classifier (see labelModel)
 	modelRS *classify.Ruleset // the rules it was trained with

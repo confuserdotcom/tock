@@ -33,18 +33,22 @@ type slotCache struct {
 	// events is the (count, max id) of the event table the slots were built
 	// from.
 	eventN, eventMax int64
-	slots            []focus.Slot // SeenMS filled
+	// planFailed: the plan file could not be read, so slots holds the plan
+	// slots of the earlier build; the next refresh reads it again.
+	planFailed bool
+	slots      []focus.Slot // SeenMS filled
 }
 
 // Slots returns today's slots in start order (then key): the timed, not done
 // items of the [plan] file due on the calendar day of now, and the calendar
 // events overlapping the day. A plan slot ends where the next later timed
 // item starts, at most PlanSlotMaxMS after its start. A plan file that
-// cannot be read gives no plan slots; an event table that cannot be read is
-// an error. The list is kept until the plan file, the rules, the event table
+// cannot be read keeps the plan slots of the earlier build (none on the first)
+// and is reported by slotInput; an event table that cannot be read is an
+// error. The list is kept until the plan file, the rules, the event table
 // or the day change (the plan file and the event table are looked at once per
-// slotRefresh); a slot's SeenMS is the tick time its key first appeared
-// (a restart starts over).
+// slotRefresh); a slot's SeenMS is the tick time its key first appeared that
+// day (a restart starts over, and a slot that is gone for a while keeps it).
 func (a *App) Slots(now time.Time) ([]focus.Slot, error) {
 	day := a.midnight(now)
 	dayKey := day.Format("2006-01-02")
@@ -59,7 +63,7 @@ func (a *App) Slots(now time.Time) ([]focus.Slot, error) {
 	if err != nil {
 		return nil, fmt.Errorf("event stamp: %w", err)
 	}
-	if same && c.stamp == stamp && c.eventN == n && c.eventMax == maxID {
+	if same && !c.planFailed && c.stamp == stamp && c.eventN == n && c.eventMax == maxID {
 		c.checkedMS = nowMS
 		return slices.Clone(c.slots), nil
 	}
@@ -67,7 +71,16 @@ func (a *App) Slots(now time.Time) ([]focus.Slot, error) {
 	if err != nil {
 		return nil, fmt.Errorf("events: %w", err)
 	}
-	slots := a.planSlotList(day)
+	slots, perr := a.planSlotList(day)
+	a.planErr = nil
+	if perr != nil {
+		// Keep what the last good read gave: a plan that is unreadable for a
+		// moment must not make every plan slot vanish and come back "new".
+		a.planErr = fmt.Errorf("plan file: %w", perr)
+		if same {
+			slots = slices.DeleteFunc(slices.Clone(c.slots), func(s focus.Slot) bool { return s.Kind != focus.SlotPlan })
+		}
+	}
 	haveEvent := map[string]bool{}
 	for _, ev := range evs {
 		key := eventSlotKey(ev)
@@ -84,20 +97,24 @@ func (a *App) Slots(now time.Time) ([]focus.Slot, error) {
 		}
 		return slots[i].Key < slots[j].Key
 	})
-	seen := make(map[string]int64, len(slots))
+	if a.slotSeenDay != dayKey {
+		a.slotSeen, a.slotSeenDay = nil, dayKey
+	}
+	if a.slotSeen == nil {
+		a.slotSeen = make(map[string]int64, len(slots))
+	}
 	for i := range slots {
 		ms, ok := a.slotSeen[slots[i].Key]
 		if !ok {
-			ms = now.UnixMilli()
+			ms = nowMS
+			a.slotSeen[slots[i].Key] = ms
 		}
-		seen[slots[i].Key] = ms
 		slots[i].SeenMS = ms
 	}
-	a.slotSeen = seen
 	if slots == nil {
 		slots = []focus.Slot{} // an empty list is still a built one
 	}
-	*c = slotCache{checkedMS: nowMS, file: a.cfg.Plan.File, stamp: stamp, rs: a.rs, day: dayKey, eventN: n, eventMax: maxID, slots: slots}
+	*c = slotCache{checkedMS: nowMS, file: a.cfg.Plan.File, stamp: stamp, rs: a.rs, day: dayKey, eventN: n, eventMax: maxID, planFailed: perr != nil, slots: slots}
 	return slices.Clone(slots), nil
 }
 
@@ -110,14 +127,15 @@ func eventSlotKey(ev store.Event) string {
 	return fmt.Sprintf("event:%d:%016x", ev.StartMS, h.Sum64())
 }
 
-// planSlotList reads the plan file and builds the slots of day.
-func (a *App) planSlotList(day time.Time) []focus.Slot {
+// planSlotList reads the plan file and builds the slots of day. A file that
+// cannot be read gives the error and no slots (a missing file is no error).
+func (a *App) planSlotList(day time.Time) ([]focus.Slot, error) {
 	if a.cfg.Plan.File == "" {
-		return nil
+		return nil, nil
 	}
 	lines, err := plan.Read(a.cfg.Plan.File)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	due := day.Format("2006-01-02")
 	var out []focus.Slot
@@ -162,7 +180,7 @@ func (a *App) planSlotList(day time.Time) []focus.Slot {
 			}
 		}
 	}
-	return out
+	return out, nil
 }
 
 // slotInput fills in the slot part of a tick's input: the [plan] switches
@@ -190,6 +208,9 @@ func (a *App) slotInput(in *focus.Input, nowT time.Time) {
 	if err != nil {
 		skip(fmt.Errorf("app: slots: %w", err))
 		return
+	}
+	if a.planErr != nil && a.routineErr == nil {
+		a.routineErr = a.planErr // the plan slots are the last good ones; say so
 	}
 	in.Slots = slots
 	if !focus.SlotsDue(*in) {

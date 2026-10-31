@@ -578,3 +578,60 @@ func TestSlotFocusNotifyOffMarksNothing(t *testing.T) {
 		t.Errorf("auto rows = %v, want the one start row", rows)
 	}
 }
+
+// A plan file that cannot be read for a moment (an editor saving, a sync tool)
+// keeps the plan slots the app already had, and no slot forgets when it was
+// first seen: a slot back after a gap is not "new", so its up-next notice is
+// not lost to the freshness rule.
+func TestSlotsSurvivePlanReadFailure(t *testing.T) {
+	e, todo := slotEnv(t, "")
+	a := open(t, e)
+	t0 := time.Date(2026, 10, 10, 13, 50, 0, 0, apptest.Zone)
+	got, err := a.Slots(t0)
+	if err != nil || len(got) != 2 || got[0].SeenMS != t0.UnixMilli() {
+		t.Fatalf("first: %+v, %v", got, err)
+	}
+	// The file is unreadable: a directory stands in for it.
+	if err := os.Remove(todo); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(todo, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t1 := t0.Add(slotRefresh)
+	got, err = a.Slots(t1)
+	if err != nil || len(got) != 2 || got[0].Title != "Review" || got[0].SeenMS != t0.UnixMilli() {
+		t.Fatalf("while unreadable: %+v, %v, want the earlier slots kept", got, err)
+	}
+	// The read failure is reported on the focus tick, once the cache is asked.
+	slotClock(e, 13, 52, 0)
+	if _, err := a.FocusTick(false); err != nil {
+		t.Fatal(err)
+	}
+	if a.RoutineErr() == nil {
+		t.Error("RoutineErr = nil, want the unreadable plan file reported")
+	}
+	// It comes back without Review for a minute, then with it again.
+	if err := os.Remove(todo); err != nil {
+		t.Fatal(err)
+	}
+	writePlan(t, todo, "Other @15h00 due:2026-10-10\n")
+	t2 := t1.Add(2 * slotRefresh) // the focus tick at 13:52 read the plan too
+	got, err = a.Slots(t2)
+	if err != nil || len(got) != 1 || got[0].Title != "Other" || got[0].SeenMS != t2.UnixMilli() {
+		t.Fatalf("other plan: %+v, %v", got, err)
+	}
+	writePlan(t, todo, "Review @14h00 due:2026-10-10\nBreak @14h50 due:2026-10-10\n")
+	got, err = a.Slots(t2.Add(slotRefresh))
+	if err != nil || len(got) != 2 || got[0].Title != "Review" || got[0].SeenMS != t0.UnixMilli() {
+		t.Fatalf("Review back: %+v, %v, want it first seen at %d", got, err, t0.UnixMilli())
+	}
+	// A new day starts over.
+	got, err = a.Slots(t0.AddDate(0, 0, 1))
+	if err != nil || len(got) != 0 {
+		t.Fatalf("next day: %+v, %v", got, err)
+	}
+	if a.slotSeen["x"] != 0 || len(a.slotSeen) != 0 {
+		t.Errorf("slotSeen = %v after a new day, want it emptied", a.slotSeen)
+	}
+}
