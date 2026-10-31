@@ -448,3 +448,33 @@ func TestSlotAutoStartSilent(t *testing.T) {
 		t.Errorf("sessions after = %v, want the one ended session", rows)
 	}
 }
+
+// On the day the clocks go forward (2026-03-29 02:00 in Paris) a plan item at
+// 14h00 still starts at 14:00 on the wall, and so does the classify slot.
+func TestSlotsOnDSTDay(t *testing.T) {
+	paris, err := time.LoadLocation("Europe/Paris")
+	if err != nil {
+		t.Skip("no tzdata:", err)
+	}
+	e := apptest.New(t, moduleRules)
+	todo := filepath.Join(t.TempDir(), "todo.txt")
+	writePlan(t, todo, "Review +ana1 @14h00 due:2026-03-29\n")
+	e.WriteConfig(t, apptest.NoRoutines+"[plan]\nfile = '"+todo+"'\n")
+	e.Seed(t, apptest.Span{ID: 1, Start: "13:50", Bundle: "term", App: "WezTerm", Title: "x"})
+	e.Clock = time.Date(2026, 3, 29, 13, 0, 0, 0, paris)
+	a := open(t, e)
+	got, err := a.Slots(e.Clock)
+	if err != nil || len(got) != 1 {
+		t.Fatalf("slots = %+v, %v, want one", got, err)
+	}
+	if h := time.UnixMilli(got[0].StartMS).In(paris).Format("15:04"); h != "14:00" {
+		t.Errorf("slot starts at %s, want 14:00", h)
+	}
+	ps := a.planSlots(time.Date(2026, 3, 29, 0, 0, 0, 0, paris).UnixMilli(), time.Date(2026, 3, 30, 0, 0, 0, 0, paris).UnixMilli())
+	if len(ps) != 1 {
+		t.Fatalf("planSlots = %+v, want one", ps)
+	}
+	if h := time.UnixMilli(ps[0].From).In(paris).Format("15:04"); h != "14:00" {
+		t.Errorf("planSlots starts at %s, want 14:00", h)
+	}
+}

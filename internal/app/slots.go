@@ -128,7 +128,10 @@ func (a *App) planSlotList(day time.Time) []focus.Slot {
 		if !ok || it.Done || it.Due != due {
 			continue
 		}
-		start := day.Add(time.Duration(m) * time.Minute)
+		// Wall-clock time, not midnight plus elapsed time: a zone change
+		// (DST) between midnight and the item must not shift it.
+		y, mo, d := day.Date()
+		start := time.Date(y, mo, d, m/60, m%60, 0, 0, day.Location())
 		h := fnv.New64a()
 		h.Write([]byte(it.Text))
 		key := fmt.Sprintf("plan:%sT%s:%016x", due, start.Format("15:04"), h.Sum64())

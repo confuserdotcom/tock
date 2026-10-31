@@ -40,7 +40,7 @@ func (a *App) planSlots(from, to int64) []classify.PlanSlot {
 		if err != nil {
 			continue
 		}
-		at := day.Add(time.Duration(m) * time.Minute).UnixMilli()
+		at := time.Date(day.Year(), day.Month(), day.Day(), m/60, m%60, 0, 0, loc).UnixMilli() // wall clock: DST-safe
 		project := ""
 		for _, p := range it.Projects {
 			if project = a.rs.ModuleOf(p); project != "" {
