@@ -50,8 +50,26 @@ static NSString *tock_clean(NSString *s) {
 	return [s stringByReplacingOccurrencesOfString:@"\r" withString:@" "];
 }
 
+// tock_field cleans a middle field of an event line: newlines and tabs
+// become spaces, and at most max characters are kept (composed character
+// sequences are never cut in half).
+static NSString *tock_field(NSString *s, NSUInteger max) {
+	if (s == nil) {
+		return @"";
+	}
+	if (s.length > max) {
+		NSRange r = [s rangeOfComposedCharacterSequencesForRange:NSMakeRange(0, max)];
+		if (r.length > max) {
+			r = [s rangeOfComposedCharacterSequencesForRange:NSMakeRange(0, max - 1)];
+		}
+		s = [s substringWithRange:NSMakeRange(0, MIN(r.length, max))];
+	}
+	return [tock_clean(s) stringByReplacingOccurrencesOfString:@"\t" withString:@" "];
+}
+
 // tock_calendar_events returns the timed events overlapping [from_ms, to_ms)
-// as "start\tend\tcalendar\ttitle\n" lines (malloc'd; the caller frees it).
+// as "v2\tstart\tend\tcalendar\tlocation\turl\tnotes\ttitle\n" lines (malloc'd;
+// the caller frees it). Notes are cut to their first 16384 characters.
 // names holds calendar titles separated by "\n"; "" means every calendar.
 // All-day, free and declined events are left out. NULL means failure.
 char *tock_calendar_events(int64_t from_ms, int64_t to_ms, const char *names) {
@@ -92,8 +110,11 @@ char *tock_calendar_events(int64_t from_ms, int64_t to_ms, const char *names) {
 			}
 			long long start = llround(e.startDate.timeIntervalSince1970 * 1000.0);
 			long long end = llround(e.endDate.timeIntervalSince1970 * 1000.0);
-			[out appendFormat:@"%lld\t%lld\t%@\t%@\n", start, end,
-				[tock_clean(e.calendar.title) stringByReplacingOccurrencesOfString:@"\t" withString:@" "],
+			[out appendFormat:@"v2\t%lld\t%lld\t%@\t%@\t%@\t%@\t%@\n", start, end,
+				tock_field(e.calendar.title, NSUIntegerMax),
+				tock_field(e.location, 4096),
+				tock_field(e.URL.absoluteString, 2048),
+				tock_field(e.notes, 16384),
 				tock_clean(e.title)];
 		}
 		const char *utf8 = out.UTF8String;

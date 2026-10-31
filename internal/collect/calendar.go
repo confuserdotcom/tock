@@ -20,6 +20,10 @@ const (
 type CalendarEvent struct {
 	StartMS, EndMS  int64
 	Title, Calendar string
+	// Location, URL and Notes are raw text from EventKit (anyone who sends an
+	// invite writes them). trackd reads them only to find the meeting link
+	// and never stores or logs them.
+	Location, URL, Notes string
 }
 
 // calendarStatus maps EKAuthorizationStatus to an access state: full access
@@ -36,16 +40,29 @@ func calendarStatus(s int) string {
 	return CalendarError
 }
 
-// parseEvents reads the shim's "start\tend\tcalendar\ttitle\n" lines.
+// parseEvents reads the shim's lines: "v2\tstart\tend\tcalendar\tlocation\turl\tnotes\ttitle\n"
+// (title last, so it may hold a tab) or the older
+// "start\tend\tcalendar\ttitle\n".
 func parseEvents(s string) ([]CalendarEvent, error) {
 	var out []CalendarEvent
 	for _, line := range strings.Split(s, "\n") {
 		if line == "" {
 			continue
 		}
-		f := strings.SplitN(line, "\t", 4)
-		if len(f) != 4 {
-			return nil, fmt.Errorf("calendar: bad event line")
+		var f []string
+		var ev CalendarEvent
+		if rest, ok := strings.CutPrefix(line, "v2\t"); ok {
+			f = strings.SplitN(rest, "\t", 7)
+			if len(f) != 7 {
+				return nil, fmt.Errorf("calendar: bad event line")
+			}
+			ev.Calendar, ev.Location, ev.URL, ev.Notes, ev.Title = f[2], f[3], f[4], f[5], f[6]
+		} else {
+			f = strings.SplitN(line, "\t", 4)
+			if len(f) != 4 {
+				return nil, fmt.Errorf("calendar: bad event line")
+			}
+			ev.Calendar, ev.Title = f[2], f[3]
 		}
 		start, err1 := strconv.ParseInt(f[0], 10, 64)
 		end, err2 := strconv.ParseInt(f[1], 10, 64)
@@ -53,7 +70,8 @@ func parseEvents(s string) ([]CalendarEvent, error) {
 			return nil, fmt.Errorf("calendar: bad event times")
 		}
 		if end > start {
-			out = append(out, CalendarEvent{StartMS: start, EndMS: end, Calendar: f[2], Title: f[3]})
+			ev.StartMS, ev.EndMS = start, end
+			out = append(out, ev)
 		}
 	}
 	return out, nil

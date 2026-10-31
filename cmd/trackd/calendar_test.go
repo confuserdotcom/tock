@@ -130,3 +130,29 @@ func TestCalendarLoopOffAndPrompt(t *testing.T) {
 		t.Fatalf("denied: requests %d reads %d status %q\n%s", f.requests, f.reads, state(t, st, store.KeyCalendarStatus), logb)
 	}
 }
+
+func TestCalendarLoopStoresMeetingLink(t *testing.T) {
+	f := &fakeCal{status: collect.CalendarGranted}
+	c, st, logb, now := calLoop(t, f, false, "[calendar]\nenabled = true\n")
+	s := *now - 3600_000
+	f.evs = []collect.CalendarEvent{
+		{StartMS: s, EndMS: s + 1000, Title: "Standup", Notes: "Join https://us02web.zoom.us/j/123?pwd=x"},
+		{StartMS: s + 2000, EndMS: s + 3000, Title: "Review", Location: "https://evil.example/zoom.us"},
+		{StartMS: s + 4000, EndMS: s + 5000, Title: "Sync", URL: "https://meet.google.com/abc-defg-hij", Notes: "https://zoom.us/j/9"},
+	}
+	c.tick()
+	evs, err := st.Events(0, *now)
+	if err != nil || len(evs) != 3 {
+		t.Fatalf("events = %+v, %v", evs, err)
+	}
+	for i, want := range []string{"https://us02web.zoom.us/j/123?pwd=x", "", "https://meet.google.com/abc-defg-hij"} {
+		if evs[i].JoinURL != want {
+			t.Errorf("event %d join_url = %q, want %q", i, evs[i].JoinURL, want)
+		}
+	}
+	for _, leak := range []string{"zoom.us", "meet.google", "evil.example", "Standup", "Review", "Sync"} {
+		if strings.Contains(logb.String(), leak) {
+			t.Errorf("log holds %q: %s", leak, logb.String())
+		}
+	}
+}

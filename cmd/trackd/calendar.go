@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"time"
 
+	"tock/internal/classify"
 	"tock/internal/collect"
 	"tock/internal/config"
 	"tock/internal/store"
@@ -29,7 +30,8 @@ type Calendar interface {
 	Events(from, to int64, calendars []string) ([]collect.CalendarEvent, error)
 }
 
-// calendarLoop copies calendar events into the event table while
+// calendarLoop copies calendar events, with the meeting link found in their
+// URL, location and notes, into the event table while
 // config.toml [calendar] enabled is true. Logs carry the access state and
 // event counts, never titles.
 type calendarLoop struct {
@@ -87,7 +89,8 @@ func (c *calendarLoop) tick() {
 	}
 	rows := make([]store.Event, len(evs))
 	for i, e := range evs {
-		rows[i] = store.Event{StartMS: e.StartMS, EndMS: e.EndMS, Title: e.Title, Calendar: e.Calendar}
+		rows[i] = store.Event{StartMS: e.StartMS, EndMS: e.EndMS, Title: e.Title, Calendar: e.Calendar,
+			JoinURL: classify.MeetingLink(e.URL, e.Location, e.Notes)}
 	}
 	changed, err := c.st.SyncEvents(from, to, rows)
 	if err != nil {
