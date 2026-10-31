@@ -76,3 +76,71 @@ func TestSlotName(t *testing.T) {
 		t.Errorf("long title = %q (%d runes), want 39 a + …", long, len([]rune(long)))
 	}
 }
+
+func TestStepSlotUpcoming(t *testing.T) {
+	for _, tt := range []struct {
+		now  int64
+		body string // "" = no event
+	}{
+		{at(13, 55, 0), "14:00 Review · in 5 min"},
+		{at(13, 57, 10), "14:00 Review · in 3 min"},
+		{at(13, 59, 30), "14:00 Review · in 1 min"},
+		{at(13, 54, 59), ""},
+	} {
+		in := slotInput(tt.now)
+		evs := only(Step(in), SlotDue)
+		if tt.body == "" {
+			if len(evs) != 0 || SlotsDue(in) {
+				t.Errorf("now %d: events %+v, SlotsDue %v, want none", tt.now, evs, SlotsDue(in))
+			}
+			continue
+		}
+		if len(evs) != 1 || evs[0].Topic != TopicUpcoming || evs[0].Title != "Up next" || evs[0].Body != tt.body || evs[0].SlotKind != SlotUpcoming || !SlotsDue(in) {
+			t.Errorf("now %d: events %+v, want one up-next %q", tt.now, evs, tt.body)
+		}
+	}
+
+	both := slotInput(at(14, 0, 0))
+	if evs := only(Step(both), SlotDue); len(evs) != 1 || evs[0].SlotKind != SlotStarting {
+		t.Errorf("at 14:00: %+v, want only the starting event", evs)
+	}
+
+	sent := slotInput(at(13, 56, 0))
+	sent.SlotSent = map[string]bool{SlotSentKey(reviewKey, SlotUpcoming): true}
+	if evs := only(Step(sent), SlotDue); len(evs) != 0 {
+		t.Errorf("up-next already sent: %+v", evs)
+	}
+
+	none := slotInput(at(13, 56, 0))
+	none.Plan.NotifyBeforeMS = 0
+	if evs := only(Step(none), SlotDue); len(evs) != 0 || SlotsDue(none) {
+		t.Errorf("notify_before 0: %+v, SlotsDue %v", evs, SlotsDue(none))
+	}
+	none.Now = at(14, 0, 0)
+	if evs := only(Step(none), SlotDue); len(evs) != 1 || evs[0].SlotKind != SlotStarting {
+		t.Errorf("notify_before 0 at 14:00: %+v, want the starting event", evs)
+	}
+
+	off := slotInput(at(13, 56, 0))
+	off.Plan.Notify = false
+	if evs := only(Step(off), SlotDue); len(evs) != 0 {
+		t.Errorf("notify off: %+v", evs)
+	}
+}
+
+func TestSlotFirstSeen(t *testing.T) {
+	late := slotInput(at(13, 59, 20))
+	late.Slots[0].SeenMS = at(13, 59, 10)
+	if evs := only(Step(late), SlotDue); len(evs) != 0 {
+		t.Errorf("seen 50 s before start: %+v, want no up-next", evs)
+	}
+	late.Now = at(14, 0, 10)
+	if evs := only(Step(late), SlotDue); len(evs) != 1 || evs[0].SlotKind != SlotStarting {
+		t.Errorf("seen late, at 14:00:10: %+v, want the starting event", evs)
+	}
+	early := slotInput(at(13, 57, 5))
+	early.Slots[0].SeenMS = at(13, 57, 0)
+	if evs := only(Step(early), SlotDue); len(evs) != 1 || evs[0].Body != "14:00 Review · in 3 min" {
+		t.Errorf("seen 3 min before: %+v, want up-next in 3 min", evs)
+	}
+}

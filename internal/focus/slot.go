@@ -1,6 +1,7 @@
 package focus
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -80,22 +81,33 @@ func inStartWindow(in Input, s Slot) bool {
 	return in.Now >= s.StartMS && in.Now < s.StartMS+SlotStartWindowMS
 }
 
-// SlotsDue reports that some slot is in a notice window now, so the caller
+// inUpcomingWindow reports Now in [StartMS - NotifyBeforeMS, StartMS) for a
+// slot the caller has known for at least SlotFreshMS before its start. A
+// slot first seen closer to its start gets no up-next notice, only the
+// starting one: "in 0 min" would say nothing the starting notice does not.
+// The window never overlaps the starting one.
+func inUpcomingWindow(in Input, s Slot) bool {
+	return in.Plan.NotifyBeforeMS > 0 && in.Now >= s.StartMS-in.Plan.NotifyBeforeMS && in.Now < s.StartMS &&
+		s.StartMS-s.SeenMS >= SlotFreshMS
+}
+
+// SlotsDue reports that some slot is in a notice window now (up-next or
+// starting), so the caller
 // reads which notices it already sent before calling Step.
 func SlotsDue(in Input) bool {
 	if !in.Plan.Notify {
 		return false
 	}
 	for _, s := range in.Slots {
-		if inStartWindow(in, s) {
+		if inStartWindow(in, s) || inUpcomingWindow(in, s) {
 			return true
 		}
 	}
 	return false
 }
 
-// stepSlots emits a SlotDue for each slot whose starting window holds Now
-// and whose notice was not sent yet. It never looks at calls or meetings:
+// stepSlots emits a SlotDue for each slot in its up-next or starting window
+// whose notice was not sent yet. It never looks at calls or meetings:
 // the point of the notice is to tell you.
 func stepSlots(in Input) []Event {
 	if !in.Plan.Notify {
@@ -105,6 +117,12 @@ func stepSlots(in Input) []Event {
 	clock := func(ms int64) string { return time.UnixMilli(ms).In(loc).Format("15:04") }
 	var out []Event
 	for _, s := range in.Slots {
+		if inUpcomingWindow(in, s) && !in.SlotSent[SlotSentKey(s.Key, SlotUpcoming)] {
+			n := max((s.StartMS-in.Now+59_999)/60_000, 1)
+			out = append(out, Event{Kind: SlotDue, Topic: TopicUpcoming, Title: TitleUpcoming,
+				Body: fmt.Sprintf("%s %s · in %d min", clock(s.StartMS), SlotName(s, SlotTitleCells), n),
+				Slot: s, SlotKind: SlotUpcoming})
+		}
 		if inStartWindow(in, s) && !in.SlotSent[SlotSentKey(s.Key, SlotStarting)] {
 			out = append(out, Event{Kind: SlotDue, Topic: TopicStarting, Title: TitleStarting,
 				Body: clock(s.StartMS) + "–" + clock(s.EndMS) + " " + SlotName(s, SlotTitleCells),

@@ -151,3 +151,39 @@ func TestSlotModule(t *testing.T) {
 		t.Fatalf("slots = %+v, %v, want project Analyse 1", got, err)
 	}
 }
+
+func TestSlotUpcomingNotice(t *testing.T) {
+	e, _ := slotEnv(t, "")
+	a := open(t, e)
+	wantList(t, "13:54", tickAt(t, a, e, 13, 54, 0))
+	wantList(t, "13:55", tickAt(t, a, e, 13, 55, 0), wantNote(focus.TopicUpcoming, "Up next", "14:00 Review · in 5 min"))
+	wantList(t, "13:56", tickAt(t, a, e, 13, 56, 0))
+	wantList(t, "restart at 13:57", tickAt(t, open(t, e), e, 13, 57, 0))
+	wantList(t, "14:00:10", tickAt(t, a, e, 14, 0, 10), wantNote(focus.TopicStarting, "Starting now", "14:00–14:50 Review"))
+	wantList(t, "14:00:20", tickAt(t, a, e, 14, 0, 20))
+}
+
+func TestSlotFirstSeenLate(t *testing.T) {
+	e, _ := slotEnv(t, "")
+	a := open(t, e)
+	wantList(t, "13:59:30", tickAt(t, a, e, 13, 59, 30))
+	wantList(t, "14:00:00", tickAt(t, a, e, 14, 0, 0), wantNote(focus.TopicStarting, "Starting now", "14:00–14:50 Review"))
+}
+
+func TestSlotNotifyOff(t *testing.T) {
+	e, _ := slotEnv(t, "notify = false\n")
+	a := open(t, e)
+	wantList(t, "13:55", tickAt(t, a, e, 13, 55, 0))
+	wantList(t, "14:00", tickAt(t, a, e, 14, 0, 0))
+	wantList(t, "rows", slotRows(t, e))
+
+	e2 := apptest.New(t, moduleRules)
+	todo := filepath.Join(t.TempDir(), "todo.txt")
+	writePlan(t, todo, "Review @14h00 due:2026-10-10\n")
+	e2.WriteConfig(t, apptest.NoRoutines+apptest.NoPlanNotices)
+	e2.Seed(t, apptest.Span{ID: 1, Start: "13:50", Bundle: "term", App: "WezTerm", Title: "x"})
+	a2 := open(t, e2)
+	if a2.ConfigErr() != nil || a2.cfg.Plan.Notify {
+		t.Fatalf("NoPlanNotices: err %v, notify %v, want a loaded config with notices off", a2.ConfigErr(), a2.cfg.Plan.Notify)
+	}
+}
