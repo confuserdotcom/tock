@@ -6,19 +6,24 @@ import (
 )
 
 // cmdRecap prints the daily recap of today or of a YYYY-MM-DD date, or with
-// "start" the text the start-of-day notice would carry now. The preview only
-// reads: it never marks the notice as sent.
+// "start" or "midday" the text that routine notice would carry now. The
+// preview only reads: it never marks the notice as sent.
 func cmdRecap(env Env, args []string) error {
-	if len(args) > 0 && args[0] == "start" {
+	if len(args) > 0 && (args[0] == "start" || args[0] == "midday") {
+		kind := args[0]
 		if len(args) > 1 {
-			return usagef("recap start takes no arguments")
+			return usagef("recap %s takes no arguments", kind)
 		}
 		a, err := openApp(env)
 		if err != nil {
 			return err
 		}
 		defer a.Close()
-		text, err := a.StartBody(env.Now())
+		body := a.StartBody
+		if kind == "midday" {
+			body = a.MiddayBody
+		}
+		text, err := body(env.Now())
 		if err != nil {
 			return err
 		}

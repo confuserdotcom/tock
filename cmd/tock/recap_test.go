@@ -27,3 +27,15 @@ func TestRecapStart(t *testing.T) {
 		t.Fatalf("recap start x: exit %d, want 2", code)
 	}
 }
+
+func TestRecapMidday(t *testing.T) {
+	te := newTestEnv(t, testRules)
+	te.seed(t, daySpans()...)
+	code, out := te.run(t, "", "recap", "midday")
+	if code != 0 || out != "2h54 tracked, 73% of 4h00 target · top: Code · focus 2h14.\n" {
+		t.Fatalf("recap midday: %d %q", code, out)
+	}
+	if code, _ := te.run(t, "", "recap", "midday", "x"); code != 2 {
+		t.Fatalf("recap midday x: exit %d, want 2", code)
+	}
+}

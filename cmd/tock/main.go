@@ -59,7 +59,7 @@ const usage = `usage:
   tock session rate [#ID|last] N [note...]  rate a finished session 1 to 5, with a one-line note
   tock session note [#ID] [text...]      set or (no text) clear a session's note
   tock session refile [#ID|last] PROJECT  relabel a finished session's active time to a project (tock undo reverts)
-  tock recap [YYYY-MM-DD|start]          the daily recap, or the start-of-day notice now
+  tock recap [YYYY-MM-DD|start|midday]   the daily recap, or a routine notice now
   tock trends [--month YYYY-MM]          a month against the one before
   tock top [--days N | --week | --month] [--by category|app|site|project] [--limit N]
                                          where the time went: top categories, apps and sites
