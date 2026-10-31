@@ -129,7 +129,7 @@ week             enter open day · h/l week · . this week · m month trends
 inbox            enter accept the suggestion, else learn a rule · T pick a label
                  o tag once · x ignore
 anywhere         u undo the last change (tag, rule, ignore, time away, edit)
-focus            s start a session · x stop
+focus            s start a session · x stop · z snooze or resume distraction notices
 rules            e edit rules.toml · J/K move a rule down/up
 plan             enter/space/x done ↔ not done · a add · d delete · e edit the file
                  f focus session · u undo the tab's last edit
@@ -193,6 +193,7 @@ tock rules dupes                       look-alike category and project names
 tock rules merge [--project] <from> <into>
                                        fold one name into another everywhere
 tock session [start [MIN] | stop]      focus session: show, start (default 25), stop
+tock session snooze [MIN|off]          hold distraction notices back (default [focus] snooze), or resume them
 tock recap [YYYY-MM-DD]                the daily recap
 tock trends [--month YYYY-MM]          a month against the one before
 tock top [--days N | --week | --month] [--by category|app|site|project] [--limit N]
@@ -246,6 +247,8 @@ break_after = 50         # minutes of focus before a break reminder
 break_repeat = 10        # minutes between reminders
 distract_grace = 60      # seconds on a distraction before a nudge
 distract_repeat = 120    # seconds between nudges
+snooze = 10              # minutes a snooze holds distraction notices back (1 to 240)
+urge_surf = false        # the distraction notice asks you to pause and counts your answer
 auto_min = 25            # minutes of deep work that count as an unplanned session
 recap = "21:00"          # daily recap notification, "" to disable
 notify = true
@@ -360,6 +363,29 @@ in `block_apps` and the sites in `block_hosts`. Nothing is blocked during a
 call or a meeting, and Finder and tock never are. A notification names the
 app, never the site. Closing a tab uses the same Automation permission trackd
 already has for reading URLs.
+
+**Answering a distraction notice.** The notice has buttons (Options in
+Notification Center). The menu bar offers the same snooze while a session
+runs.
+
+- *Snooze N min* holds distraction notices back for `[focus] snooze` minutes.
+  `tock session snooze [MIN|off]` does the same from the shell (`off`
+  resumes them), and `z` on the focus tab snoozes or resumes. The tab shows
+  `notices snoozed until 15:10`. A snooze ends with the session.
+- *Don't interrupt for Entertainment* (or *for this rule*) marks that
+  category, or the rule that matched, as quiet: it writes `interrupt = false`
+  on the `[[category]]` in `rules.toml`, or on the `[[rule]]` in the file it
+  lives in. The rules and labels tabs show `quiet` on marked rows. To undo,
+  run `tock category set <name> --interrupt on` or delete the line. Marked
+  time still counts as distraction in the score and the session's quality;
+  only the notice stops. With `block = true` a quiet category is still closed
+  or hidden. A `rules.toml` containing `interrupt` is refused by older tock
+  builds on another machine until they update.
+- With `urge_surf = true` the notice reads "Pause. Breathe. Name the urge."
+  and offers *Back to work* or *Open anyway (counted)*. Nothing is opened or
+  blocked either way; tock counts your answer on the session. The last-session
+  card in the TUI and the menu bar's Last session submenu show
+  `urges 2 resisted · 1 given in`.
 
 **Focus mode.** macOS has no command for Focus, but Shortcuts does. In the
 Shortcuts app, make a shortcut named `Focus On` with the action *Set Focus*
@@ -479,6 +505,7 @@ changes them without opening the file.
 tock category                              each category, its projects and 30 days of time
 tock category add Podcasts neutral --afk 30m
 tock category set Reading --kind deep      or --afk 15m, --afk none
+tock category set Entertainment --interrupt off   no distraction notices for it (on undoes)
 tock category rename Communication Messages
 tock category rm Podcasts                  only when nothing names it
 ```
