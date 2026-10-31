@@ -152,6 +152,9 @@ func (r *runner) tick() {
 				if s.LastErr != nil {
 					r.warn("reading the last session failed", s.LastErr)
 				}
+				if s.SlotsErr != nil {
+					r.warn("reading the plan and calendar failed", s.SlotsErr)
+				}
 			}
 		}
 	}
@@ -250,6 +253,16 @@ func (r *runner) handle(ev event) {
 			return
 		case bar.IDSettings:
 			r.ui.OpenURL(bar.SettingsURL)
+			return
+		}
+		if strings.HasPrefix(ev.id, bar.IDJoin) {
+			// The runner opens the link; it never reaches bar.Menu.
+			msg := "that meeting is no longer offered"
+			if link, ok := r.snap.JoinURL(ev.id, r.now().UnixMilli()); ok {
+				r.ui.OpenURL(link)
+				msg = "opened the meeting link"
+			}
+			r.done("menu join", msg, nil)
 			return
 		}
 		if r.a == nil {

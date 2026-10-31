@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"tock/internal/app"
+	"tock/internal/classify"
 	"tock/internal/focus"
 	"tock/internal/report"
 	"tock/internal/store"
@@ -32,6 +33,18 @@ const (
 	IDRate     = "rate:"     // + "<rating 1..5>:<session id>"
 	IDRefile   = "refile:"   // + session id
 	IDUnrefile = "unrefile:" // + session id
+	// IDJoin (+ the slot's start, unix ms) opens the meeting link of the
+	// event the menu offers to join. The id carries the start so a click on
+	// a menu drawn from an older snapshot opens nothing new.
+	IDJoin = "join:"
+)
+
+const (
+	// nextWithinMS is how far ahead a slot shows as the Next row.
+	nextWithinMS = 60 * 60_000
+	// joinWithinMS is how far ahead an event with a meeting link shows its
+	// Join item; a running one shows it too.
+	joinWithinMS = 10 * 60_000
 )
 
 // lastWithinMS is how long after it ended a session stays in the menu.
@@ -57,9 +70,12 @@ type Snapshot struct {
 	SnoozeUntil  time.Time      // distraction notices are snoozed until then; zero = not snoozed
 	SnoozeMin    int            // the minutes the snooze item offers
 	Presets      []int
-	Access       string       // notification access the app last saw
-	Last         *LastSession // the newest finished session if it ended within 24 hours, else nil
-	LastErr      error        // why Last could not be read, for the caller to log; the rest of the snapshot is still good
+	Access       string         // notification access the app last saw
+	Last         *LastSession   // the newest finished session if it ended within 24 hours, else nil
+	LastErr      error          // why Last could not be read, for the caller to log; the rest of the snapshot is still good
+	Slots        []focus.Slot   // today's plan items and calendar events, start order
+	SlotsErr     error          // why Slots could not be read, for the caller to log; the rest of the snapshot is still good
+	Loc          *time.Location // zone for the clock times of Slots; nil = local
 }
 
 // LastSession is the finished session the menu offers to rate and refile.
@@ -94,6 +110,10 @@ func Load(a *app.App, now time.Time, access string) (Snapshot, error) {
 		s.SnoozeUntil = time.UnixMilli(f.SnoozeUntilMS).In(now.Location())
 	}
 	s.Last, s.LastErr = loadLast(a, now)
+	s.Loc = now.Location()
+	if s.Slots, err = a.Slots(now); err != nil {
+		s.Slots, s.SlotsErr = nil, fmt.Errorf("bar: slots: %w", err)
+	}
 	return s, nil
 }
 
@@ -195,11 +215,61 @@ func (s Snapshot) Items(nowMS int64) []Item {
 			out = append(out, Item{Title: fmt.Sprintf("Start %d min focus", m), ID: IDStart + strconv.Itoa(m)})
 		}
 	}
+	out = append(out, s.slotItems(nowMS)...)
 	out = append(out, sep)
 	if s.Access == app.NotifyDenied {
 		out = append(out, Item{Title: "Notifications are off…", ID: IDSettings})
 	}
 	return append(out, Item{Title: "Quit tock menu bar", ID: IDQuit})
+}
+
+// slotItems are the Next row and the Join item at nowMS, in that order; none
+// when no slot is near.
+func (s Snapshot) slotItems(nowMS int64) []Item {
+	var out []Item
+	loc := s.Loc
+	if loc == nil {
+		loc = time.Local
+	}
+	for _, sl := range s.Slots {
+		if sl.EndMS <= nowMS || sl.StartMS >= nowMS+nextWithinMS {
+			continue
+		}
+		when := "now"
+		if sl.StartMS > nowMS {
+			when = fmt.Sprintf("in %d min", max((sl.StartMS-nowMS+59_999)/60_000, 1))
+		}
+		out = append(out, label("Next: %s %s (%s)", time.UnixMilli(sl.StartMS).In(loc).Format("15:04"),
+			focus.SlotName(sl, ProjectCells), when))
+		break
+	}
+	if sl, ok := s.joinSlot(nowMS); ok {
+		out = append(out, Item{Title: "Join " + focus.SlotName(sl, ProjectCells), ID: IDJoin + strconv.FormatInt(sl.StartMS, 10)})
+	}
+	return out
+}
+
+// joinSlot is the event the menu offers to join at nowMS: the first one with
+// an accepted meeting link that has not ended and starts within joinWithinMS.
+func (s Snapshot) joinSlot(nowMS int64) (focus.Slot, bool) {
+	for _, sl := range s.Slots {
+		if sl.Kind == focus.SlotEvent && classify.IsMeetingLink(sl.JoinURL) && sl.EndMS > nowMS && sl.StartMS < nowMS+joinWithinMS {
+			return sl, true
+		}
+	}
+	return focus.Slot{}, false
+}
+
+// JoinURL is the link the Join item with id opens at nowMS: only when that
+// item is on the menu now. The link is checked again here. ok is false for
+// any other id, for an event no longer offered, and for a link that is not
+// an accepted meeting link.
+func (s Snapshot) JoinURL(id string, nowMS int64) (string, bool) {
+	sl, ok := s.joinSlot(nowMS)
+	if !ok || !strings.HasPrefix(id, IDJoin) || id != IDJoin+strconv.FormatInt(sl.StartMS, 10) {
+		return "", false
+	}
+	return sl.JoinURL, true
 }
 
 // item is the "Last session" row with its rate, refile and undo submenu.

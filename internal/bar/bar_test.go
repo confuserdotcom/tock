@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
@@ -1196,5 +1197,163 @@ func TestRespondStopStale(t *testing.T) {
 	}
 	if got, _ := a.RunningSessionID(); got != 0 {
 		t.Fatalf("running session = %d, want none", got)
+	}
+}
+
+// slotSnap is a menu snapshot with the given slots, seen in the apptest zone.
+func slotSnap(slots ...focus.Slot) Snapshot {
+	return Snapshot{OK: true, TrackdUp: true, Presets: []int{25}, Slots: slots, Loc: apptest.Zone}
+}
+
+func planSlot(t *testing.T, start, end, title string) focus.Slot {
+	t.Helper()
+	return focus.Slot{Key: "plan:" + start, Kind: focus.SlotPlan, StartMS: apptest.At(t, start, 0), EndMS: apptest.At(t, end, 0), Title: title}
+}
+
+func eventSlot(t *testing.T, start, end, title, link string) focus.Slot {
+	t.Helper()
+	return focus.Slot{Key: "event:" + start, Kind: focus.SlotEvent, StartMS: apptest.At(t, start, 0), EndMS: apptest.At(t, end, 0), Title: title, JoinURL: link}
+}
+
+func TestSnapshotNext(t *testing.T) {
+	now := apptest.At(t, "13:48", 0)
+	plain := titles(slotSnap().Items(now))
+	if strings.Contains(plain, "Next:") || strings.Contains(plain, "Join") {
+		t.Fatalf("no slots, menu:\n%s", plain)
+	}
+	// The block ends with the Next row, under the start items and above the last separator.
+	tail := func(s Snapshot, at int64) string {
+		its := s.Items(at)
+		return titles(its[len(its)-4 : len(its)-2])
+	}
+	review := planSlot(t, "14:00", "14:50", "Review")
+	if got := tail(slotSnap(review), now); got != "Start 25 min focus [start:25]\nNext: 14:00 Review (in 12 min)" {
+		t.Errorf("12 min ahead: %q", got)
+	}
+	if got := titles(slotSnap(review).Items(now)); !strings.HasSuffix(got, "Next: 14:00 Review (in 12 min)\n--\nQuit tock menu bar [quit]") {
+		t.Errorf("menu:\n%s", got)
+	}
+	if got := tail(slotSnap(review), apptest.At(t, "13:48", 0)+30_000); !strings.HasSuffix(got, "(in 12 min)") {
+		t.Errorf("11.5 min ahead rounds up: %q", got)
+	}
+	if got := tail(slotSnap(review), apptest.At(t, "13:59", 0)+30_000); !strings.HasSuffix(got, "(in 1 min)") {
+		t.Errorf("30 s ahead: %q, want at least 1 min", got)
+	}
+	if got := tail(slotSnap(review), apptest.At(t, "14:10", 0)); !strings.HasSuffix(got, "Next: 14:00 Review (now)") {
+		t.Errorf("running: %q", got)
+	}
+	if got := titles(slotSnap(review).Items(apptest.At(t, "14:50", 0))); strings.Contains(got, "Next:") {
+		t.Errorf("ended slot still offered:\n%s", got)
+	}
+	far := planSlot(t, "14:49", "15:30", "Far")
+	if got := titles(slotSnap(far).Items(now)); strings.Contains(got, "Next:") {
+		t.Errorf("61 min ahead:\n%s", got)
+	}
+	if got := titles(slotSnap(planSlot(t, "14:47", "15:30", "Edge")).Items(now)); !strings.Contains(got, "Next: 14:47 Edge (in 59 min)") {
+		t.Errorf("59 min ahead:\n%s", got)
+	}
+	long := planSlot(t, "14:00", "14:50", strings.Repeat("x", 40))
+	if got := tail(slotSnap(long), now); !strings.Contains(got, "Next: 14:00 "+strings.Repeat("x", 23)+"… (in 12 min)") {
+		t.Errorf("long title: %q", got)
+	}
+	// The earliest slot still to end wins, the link words of a title are dropped.
+	words := planSlot(t, "14:00", "14:50", "Review https://x.example/y")
+	later := planSlot(t, "14:30", "15:00", "Later")
+	if got := tail(slotSnap(words, later), now); got != "Start 25 min focus [start:25]\nNext: 14:00 Review (in 12 min)" {
+		t.Errorf("two slots: %q", got)
+	}
+}
+
+func TestSnapshotJoin(t *testing.T) {
+	standup := eventSlot(t, "14:30", "15:00", "Standup", meetLink)
+	id := IDJoin + strconv.FormatInt(standup.StartMS, 10)
+	joinItem := func(s Snapshot, at int64) (Item, bool) {
+		for _, it := range s.Items(at) {
+			if it.ID != "" && strings.HasPrefix(it.ID, IDJoin) {
+				return it, true
+			}
+		}
+		return Item{}, false
+	}
+	it, ok := joinItem(slotSnap(standup), apptest.At(t, "14:21", 0))
+	if !ok || it.Title != "Join Standup" || it.ID != id {
+		t.Fatalf("14:21: %+v, %v", it, ok)
+	}
+	if _, ok := joinItem(slotSnap(standup), apptest.At(t, "14:19", 0)); ok {
+		t.Error("11 min ahead: a Join item")
+	}
+	if _, ok := joinItem(slotSnap(standup), apptest.At(t, "14:45", 0)); !ok {
+		t.Error("running: no Join item")
+	}
+	if _, ok := joinItem(slotSnap(standup), apptest.At(t, "15:00", 0)); ok {
+		t.Error("ended: a Join item")
+	}
+	// Next row first, then Join.
+	if got := titles(slotSnap(standup).Items(apptest.At(t, "14:21", 0))); !strings.Contains(got, "Next: 14:30 Standup (in 9 min)\nJoin Standup ["+id+"]") {
+		t.Errorf("menu:\n%s", got)
+	}
+	bad := standup
+	bad.JoinURL = "javascript:x"
+	if _, ok := joinItem(slotSnap(bad), apptest.At(t, "14:21", 0)); ok {
+		t.Error("tampered link: a Join item")
+	}
+	plan := standup
+	plan.Kind = focus.SlotPlan
+	if _, ok := joinItem(slotSnap(plan), apptest.At(t, "14:21", 0)); ok {
+		t.Error("plan slot: a Join item")
+	}
+	long := standup
+	long.Title = strings.Repeat("y", 40)
+	if it, _ := joinItem(slotSnap(long), apptest.At(t, "14:21", 0)); it.Title != "Join "+strings.Repeat("y", 23)+"…" {
+		t.Errorf("long title: %q", it.Title)
+	}
+
+	s, nowMS := slotSnap(standup), apptest.At(t, "14:21", 0)
+	if got, ok := s.JoinURL(id, nowMS); !ok || got != meetLink {
+		t.Errorf("JoinURL = %q, %v", got, ok)
+	}
+	for _, other := range []string{"join:1", IDJoin, "stop", "", IDJoin + strconv.FormatInt(standup.StartMS+1, 10)} {
+		if got, ok := s.JoinURL(other, nowMS); ok || got != "" {
+			t.Errorf("JoinURL(%q) = %q, %v, want nothing", other, got, ok)
+		}
+	}
+	if got, ok := s.JoinURL(id, apptest.At(t, "15:05", 0)); ok || got != "" {
+		t.Errorf("after the event ended: %q, %v", got, ok)
+	}
+	if got, ok := slotSnap(bad).JoinURL(id, nowMS); ok || got != "" {
+		t.Errorf("tampered link: %q, %v", got, ok)
+	}
+}
+
+func TestLoadSlots(t *testing.T) {
+	e, a := seeded(t)
+	todo := filepath.Join(t.TempDir(), "todo.txt")
+	if err := os.WriteFile(todo, []byte("Review @14h00 due:2026-10-10\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	e.WriteConfig(t, apptest.NoRoutines+"[plan]\nfile = '"+todo+"'\n")
+	e.Clock = time.Date(2026, 10, 10, 13, 48, 0, 0, apptest.Zone)
+	s, err := Load(a, e.Clock, app.NotifyGranted)
+	if err != nil || s.SlotsErr != nil {
+		t.Fatalf("Load: %v, slots err %v", err, s.SlotsErr)
+	}
+	if len(s.Slots) != 1 || s.Slots[0].Title != "Review" || s.Loc == nil || s.Loc.String() != apptest.Zone.String() {
+		t.Fatalf("slots = %+v, loc %v", s.Slots, s.Loc)
+	}
+	if got := titles(s.Items(e.Clock.UnixMilli())); !strings.Contains(got, "Next: 14:00 Review (in 12 min)") {
+		t.Errorf("menu:\n%s", got)
+	}
+
+	// A slot read failure goes to SlotsErr and the rest is good.
+	if _, err := e.RawDB(t).Exec(`ALTER TABLE event DROP COLUMN join_url`); err != nil {
+		t.Fatal(err)
+	}
+	e.Event(t, "16:00", "16:30", "New") // a new row changes the stamp, so the slots are read again
+	s, err = Load(a, e.Clock, app.NotifyGranted)
+	if err != nil || s.SlotsErr == nil || s.Slots != nil {
+		t.Fatalf("with an event table the slots cannot read: err %v, slots err %v, slots %+v", err, s.SlotsErr, s.Slots)
+	}
+	if !s.OK || s.TrackedMS == 0 {
+		t.Errorf("snapshot not good: %+v", s)
 	}
 }

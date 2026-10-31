@@ -12,6 +12,7 @@ import (
 
 	"tock/internal/app"
 	"tock/internal/apptest"
+	"tock/internal/bar"
 	"tock/internal/focus"
 )
 
@@ -322,5 +323,46 @@ func TestRunnerAutoOpen(t *testing.T) {
 	r.tick()
 	if len(u.urls) != 0 || len(u.posts) != 1 {
 		t.Fatalf("auto_open off: urls %q posts %q", u.urls, u.posts)
+	}
+}
+
+func TestRunnerMenuJoin(t *testing.T) {
+	e := seededEnv(t)
+	e.WriteConfig(t, apptest.NoRoutines)
+	e.EventLink(t, "14:30", "15:00", "Standup", testMeetLink)
+	e.Clock = time.Date(2026, 10, 10, 14, 25, 0, 0, apptest.Zone)
+	r, u, logb := testRunner(t, e)
+	r.handle(event{kind: evReady})
+	r.tick()
+	menu := last(u.menus)
+	var id string
+	for _, line := range strings.Split(menu, "\n") {
+		if strings.HasSuffix(line, "\tJoin Standup") {
+			id = strings.TrimSuffix(line, "\tJoin Standup")
+		}
+	}
+	if id == "" || !strings.HasPrefix(id, bar.IDJoin) {
+		t.Fatalf("menu has no Join Standup line:\n%s", menu)
+	}
+	if !strings.Contains(menu, "\tNext: 14:30 Standup (in 5 min)") {
+		t.Errorf("menu has no Next row:\n%s", menu)
+	}
+	r.handle(event{kind: evMenu, id: id})
+	if len(u.urls) != 1 || u.urls[0] != testMeetLink {
+		t.Fatalf("urls = %q, want the link once", u.urls)
+	}
+	if strings.Contains(logb.String(), "unknown action") || strings.Contains(logb.String(), "meet.google") || strings.Contains(logb.String(), "abc-defg") {
+		t.Fatalf("log:\n%s", logb.String())
+	}
+	if !strings.Contains(logb.String(), "opened the meeting link") {
+		t.Errorf("log has no join result:\n%s", logb.String())
+	}
+	// A stale id (a slot that is no longer offered) opens nothing.
+	r.handle(event{kind: evMenu, id: "join:1"})
+	if len(u.urls) != 1 {
+		t.Fatalf("stale id opened %q", u.urls)
+	}
+	if !strings.Contains(logb.String(), "that meeting is no longer offered") || strings.Contains(logb.String(), "unknown action") {
+		t.Errorf("log:\n%s", logb.String())
 	}
 }
