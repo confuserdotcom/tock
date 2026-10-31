@@ -107,12 +107,54 @@ type Undo struct {
 const MaxUndo = 200
 
 // PushUndo appends u and trims the journal to MaxUndo entries.
-func (s *Store) PushUndo(u Undo) error {
-	if _, err := s.db.Exec(`INSERT INTO undo(at_ms, what, data) VALUES(?, ?, ?)`, u.AtMS, u.What, u.Data); err != nil {
+func (s *Store) PushUndo(u Undo) error { return pushUndo(s.db, u) }
+
+type execer interface {
+	Exec(query string, args ...any) (sql.Result, error)
+}
+
+func pushUndo(x execer, u Undo) error {
+	if _, err := x.Exec(`INSERT INTO undo(at_ms, what, data) VALUES(?, ?, ?)`, u.AtMS, u.What, u.Data); err != nil {
 		return fmt.Errorf("store: push undo: %w", err)
 	}
-	_, err := s.db.Exec(`DELETE FROM undo WHERE id <= (SELECT MAX(id) FROM undo) - ?`, MaxUndo)
+	_, err := x.Exec(`DELETE FROM undo WHERE id <= (SELECT MAX(id) FROM undo) - ?`, MaxUndo)
 	return err
+}
+
+// AddEditsWithUndo inserts es and the undo entry that reverts them in one
+// transaction, so the edits never exist without their undo. undo gets the new
+// edit ids, in the order of es, and returns the entry to push; its error
+// aborts and rolls everything back.
+func (s *Store) AddEditsWithUndo(es []Edit, undo func(ids []int64) (Undo, error)) ([]int64, error) {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return nil, fmt.Errorf("store: add edits: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	ids := make([]int64, 0, len(es))
+	for _, e := range es {
+		res, err := tx.Exec(`INSERT INTO edit(kind, start_ms, end_ms, category, project, note, at_ms) VALUES(?, ?, ?, ?, ?, ?, ?)`,
+			e.Kind, e.StartMS, e.EndMS, e.Category, e.Project, e.Note, e.AtMS)
+		if err != nil {
+			return nil, fmt.Errorf("store: add edit: %w", err)
+		}
+		id, err := res.LastInsertId()
+		if err != nil {
+			return nil, fmt.Errorf("store: add edit: %w", err)
+		}
+		ids = append(ids, id)
+	}
+	u, err := undo(ids)
+	if err != nil {
+		return nil, err
+	}
+	if err := pushUndo(tx, u); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("store: add edits: %w", err)
+	}
+	return ids, nil
 }
 
 // Undos returns up to n entries, newest first.

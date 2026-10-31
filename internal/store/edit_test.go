@@ -1,6 +1,8 @@
 package store
 
 import (
+	"errors"
+	"fmt"
 	"path/filepath"
 	"testing"
 )
@@ -75,5 +77,48 @@ func TestSummaries(t *testing.T) {
 	m, at, err := st.Summaries("2026-10-10")
 	if err != nil || len(m) != 1 || m[0] != "day2" || at != 10 {
 		t.Fatalf("summaries = %v %d %v", m, at, err)
+	}
+}
+
+func TestAddEditsWithUndo(t *testing.T) {
+	st, err := Open(filepath.Join(t.TempDir(), "tock.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	es := []Edit{
+		{Kind: "label", StartMS: 10, EndMS: 20, Project: "p", AtMS: 1},
+		{Kind: "label", StartMS: 30, EndMS: 40, Project: "p", AtMS: 1},
+	}
+	ids, err := st.AddEditsWithUndo(es, func(ids []int64) (Undo, error) {
+		return Undo{AtMS: 1, What: fmt.Sprint(ids), Data: "{}"}, nil
+	})
+	if err != nil || len(ids) != 2 {
+		t.Fatalf("AddEditsWithUndo = %v, %v", ids, err)
+	}
+	if got, _ := st.Edits(0, 100); len(got) != 2 {
+		t.Fatalf("edits = %+v", got)
+	}
+	if us, _ := st.Undos(5); len(us) != 1 || us[0].What != fmt.Sprint(ids) {
+		t.Fatalf("undo = %+v", us)
+	}
+	// An error from the undo builder leaves neither edits nor an entry.
+	boom := errors.New("boom")
+	if _, err := st.AddEditsWithUndo(es, func([]int64) (Undo, error) { return Undo{}, boom }); !errors.Is(err, boom) {
+		t.Fatalf("err = %v, want boom", err)
+	}
+	if got, _ := st.Edits(0, 100); len(got) != 2 {
+		t.Fatalf("a refused undo left edits behind: %+v", got)
+	}
+	if us, _ := st.Undos(5); len(us) != 1 {
+		t.Fatalf("undo = %+v", us)
+	}
+	// A bad edit rolls back the ones before it.
+	bad := []Edit{es[0], {Kind: "bogus", StartMS: 1, EndMS: 2}}
+	if _, err := st.AddEditsWithUndo(bad, func([]int64) (Undo, error) { return Undo{What: "x", Data: "{}"}, nil }); err == nil {
+		t.Fatal("bad edit accepted")
+	}
+	if got, _ := st.Edits(0, 100); len(got) != 2 {
+		t.Fatalf("edits = %+v", got)
 	}
 }

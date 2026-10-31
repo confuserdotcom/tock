@@ -50,11 +50,20 @@ func (a *App) journal(what string, d undoData) error {
 	if d.empty() {
 		return nil
 	}
-	b, err := json.Marshal(d)
+	u, err := a.undoEntry(what, d)
 	if err != nil {
 		return err
 	}
-	return a.st.PushUndo(store.Undo{AtMS: a.nowMS(), What: what, Data: string(b)})
+	return a.st.PushUndo(u)
+}
+
+// undoEntry is the journal entry for d, not yet pushed.
+func (a *App) undoEntry(what string, d undoData) (store.Undo, error) {
+	b, err := json.Marshal(d)
+	if err != nil {
+		return store.Undo{}, err
+	}
+	return store.Undo{AtMS: a.nowMS(), What: what, Data: string(b)}, nil
 }
 
 // UndoEntry is one change tock undo can reverse.

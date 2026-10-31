@@ -53,20 +53,21 @@ func (a *App) RefileSession(id int64, project string) (s focus.Session, canonica
 			return focus.Session{}, "", fmt.Errorf("refile session: %w", err)
 		}
 	}
-	ids := make([]int64, 0, len(runs))
-	for _, r := range runs {
-		eid, err := a.st.AddEdit(store.Edit{Kind: classify.EditLabel, StartMS: r.From, EndMS: r.To,
-			Category: want.Category, Project: want.Project, Note: note, AtMS: now})
-		if err != nil {
-			for _, done := range ids {
-				a.st.DeleteEdit(done) // best effort: the error that matters is the one returned
-			}
-			return focus.Session{}, "", fmt.Errorf("refile session: %w", err)
-		}
-		ids = append(ids, eid)
+	edits := make([]store.Edit, len(runs))
+	for i, r := range runs {
+		edits[i] = store.Edit{Kind: classify.EditLabel, StartMS: r.From, EndMS: r.To,
+			Category: want.Category, Project: want.Project, Note: note, AtMS: now}
 	}
 	what := fmt.Sprintf("refile session #%d %s", id, report.LabelText(want.Category, want.Project))
-	return s, p, a.journal(what, undoData{EditsAdded: ids})
+	// The edits and their undo entry are written together: either both exist
+	// or neither does.
+	_, err = a.st.AddEditsWithUndo(edits, func(ids []int64) (store.Undo, error) {
+		return a.undoEntry(what, undoData{EditsAdded: ids})
+	})
+	if err != nil {
+		return focus.Session{}, "", fmt.Errorf("refile session: %w", err)
+	}
+	return s, p, nil
 }
 
 // refilePrefix starts the journal text of a refile of session id; the

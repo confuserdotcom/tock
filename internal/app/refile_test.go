@@ -197,3 +197,18 @@ func TestRefileUndoable(t *testing.T) {
 		t.Fatalf("edits left: %+v", es)
 	}
 }
+
+// A refile whose undo entry cannot be written changes nothing, instead of
+// leaving edits that no undo can revert.
+func TestRefileWithoutJournalChangesNothing(t *testing.T) {
+	e, a, x := refileEnv(t)
+	if _, err := e.RawDB(t).Exec(`DROP TABLE undo`); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := a.RefileSession(x.ID, "ATLAS"); err == nil {
+		t.Fatal("RefileSession succeeded without a journal")
+	}
+	if es, err := a.Edits(apptest.Now); err != nil || len(es) != 0 {
+		t.Fatalf("edits left behind = %+v, %v", es, err)
+	}
+}
