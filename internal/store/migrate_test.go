@@ -42,8 +42,8 @@ func objectExists(t *testing.T, db *sql.DB, typ, name string) bool {
 func TestMigrateFreshCreatesLatest(t *testing.T) {
 	s := openAt(t, dbPath(t))
 	defer s.Close()
-	if got := versionRows(t, s.db); !slices.Equal(got, []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}) {
-		t.Fatalf("schema_version rows = %v, want [1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16]", got)
+	if got := versionRows(t, s.db); !slices.Equal(got, []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17}) {
+		t.Fatalf("schema_version rows = %v, want [1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17]", got)
 	}
 	for _, tbl := range []string{"span", "daemon_state", "override", "inbox_ignore", "session", "suggestion"} {
 		if !objectExists(t, s.db, "table", tbl) {
@@ -65,7 +65,7 @@ func TestMigrateIdempotent(t *testing.T) {
 	}
 	s = openAt(t, path)
 	defer s.Close()
-	if got := versionRows(t, s.db); len(got) != 16 {
+	if got := versionRows(t, s.db); len(got) != 17 {
 		t.Fatalf("schema_version rows after reopen = %v, want exactly one per migration", got)
 	}
 }
@@ -113,16 +113,16 @@ func TestOpenTooNewSchema(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer raw.Close()
-	if got := versionRows(t, raw); !slices.Equal(got, []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 99}) {
-		t.Fatalf("schema_version rows = %v, want [1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 99] untouched", got)
+	if got := versionRows(t, raw); !slices.Equal(got, []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 99}) {
+		t.Fatalf("schema_version rows = %v, want [1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 99] untouched", got)
 	}
 }
 
 func TestSchemaVersion(t *testing.T) {
 	s := openAt(t, dbPath(t))
 	defer s.Close()
-	if v, err := s.SchemaVersion(); err != nil || v != 16 {
-		t.Fatalf("SchemaVersion = %d (err %v), want 16", v, err)
+	if v, err := s.SchemaVersion(); err != nil || v != 17 {
+		t.Fatalf("SchemaVersion = %d (err %v), want 17", v, err)
 	}
 }
 
@@ -242,7 +242,7 @@ func TestMigrate14LegacySessions(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, e := range entries {
-		if e.Name() == "0014_session_quality.sql" || e.Name() == "0015_session_urges.sql" || e.Name() == "0016_slot.sql" {
+		if e.Name() == "0014_session_quality.sql" || e.Name() == "0015_session_urges.sql" || e.Name() == "0016_slot.sql" || e.Name() == "0017_event_mine.sql" {
 			continue
 		}
 		b, err := fs.ReadFile(migrationFS, "migrations/"+e.Name())
@@ -288,7 +288,7 @@ func TestMigrate15Urges(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, e := range entries {
-		if e.Name() == "0015_session_urges.sql" || e.Name() == "0016_slot.sql" {
+		if e.Name() == "0015_session_urges.sql" || e.Name() == "0016_slot.sql" || e.Name() == "0017_event_mine.sql" {
 			continue
 		}
 		b, err := fs.ReadFile(migrationFS, "migrations/"+e.Name())
@@ -340,7 +340,7 @@ func TestMigrate16Slot(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, e := range entries {
-		if e.Name() == "0016_slot.sql" {
+		if e.Name() == "0016_slot.sql" || e.Name() == "0017_event_mine.sql" {
 			continue
 		}
 		b, err := fs.ReadFile(migrationFS, "migrations/"+e.Name())
@@ -371,5 +371,42 @@ func TestMigrate16Slot(t *testing.T) {
 	}
 	if _, err := db.Exec(`INSERT INTO slot_notice(slot_key, kind, at_ms) VALUES('plan:k', 'start', 6)`); err == nil {
 		t.Fatal("duplicate (slot_key, kind) accepted, want the primary key to refuse it")
+	}
+}
+
+// TestMigrate17EventMine: a schema-16 database with an event upgrades to 17;
+// the event reads back as not Mine, so it never opens its link by itself.
+func TestMigrate17EventMine(t *testing.T) {
+	old := fstest.MapFS{}
+	entries, err := fs.ReadDir(migrationFS, "migrations")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range entries {
+		if e.Name() == "0017_event_mine.sql" {
+			continue
+		}
+		b, err := fs.ReadFile(migrationFS, "migrations/"+e.Name())
+		if err != nil {
+			t.Fatal(err)
+		}
+		old["migrations/"+e.Name()] = &fstest.MapFile{Data: b}
+	}
+	db := rawMem(t)
+	if err := migrateFS(db, old, "migrations"); err != nil {
+		t.Fatal(err)
+	}
+	if got := versionRows(t, db); len(got) != 16 {
+		t.Fatalf("schema_version rows = %v, want 16", got)
+	}
+	if _, err := db.Exec(`INSERT INTO event(start_ms, end_ms, title, calendar, join_url) VALUES(1000, 2000, 'Standup', 'Work', 'https://zoom.us/j/1')`); err != nil {
+		t.Fatal(err)
+	}
+	if err := migrateFS(db, migrationFS, "migrations"); err != nil {
+		t.Fatal(err)
+	}
+	var mine bool
+	if err := db.QueryRow(`SELECT mine FROM event`).Scan(&mine); err != nil || mine {
+		t.Fatalf("mine = %v (err %v), want false", mine, err)
 	}
 }

@@ -226,7 +226,15 @@ const testMeetLink = "https://meet.google.com/abc-defg-hij"
 
 func slotNotice(topic, link string) focus.Event {
 	return focus.Event{Kind: focus.Notify, Topic: topic, Title: "Starting now", Body: "14:00–14:30 Standup",
-		Slot: focus.Slot{Key: "event:1:x", Kind: focus.SlotEvent, JoinURL: link}}
+		Slot: focus.Slot{Key: "event:1:x", Kind: focus.SlotEvent, JoinURL: link, Mine: true}}
+}
+
+// unansweredNotice is a starting notice of an invite the owner has not
+// accepted: it offers Join but never opens by itself.
+func unansweredNotice(link string) focus.Event {
+	ev := slotNotice(focus.TopicStarting, link)
+	ev.Slot.Mine = false
+	return ev
 }
 
 func TestRunnerJoinOpensLink(t *testing.T) {
@@ -306,6 +314,7 @@ func TestRunnerAutoOpen(t *testing.T) {
 		"up next":      slotNotice(focus.TopicUpcoming, testMeetLink),
 		"without link": slotNotice(focus.TopicStarting, ""),
 		"bad link":     slotNotice(focus.TopicStarting, "https://evil.example/x"),
+		"unanswered":   unansweredNotice(testMeetLink),
 	} {
 		r, u := setup(t, "[calendar]\nauto_open = true\n")
 		if err := r.a.Enqueue(ev); err != nil {
@@ -364,5 +373,25 @@ func TestRunnerMenuJoin(t *testing.T) {
 	}
 	if !strings.Contains(logb.String(), "that meeting is no longer offered") || strings.Contains(logb.String(), "unknown action") {
 		t.Errorf("log:\n%s", logb.String())
+	}
+}
+
+// An invite the owner has not accepted still offers Join, and only a click
+// opens it, even with auto_open on.
+func TestRunnerUnansweredInviteOffersJoinOnly(t *testing.T) {
+	e := seededEnv(t)
+	e.WriteConfig(t, apptest.NoRoutines+"[calendar]\nauto_open = true\n")
+	r, u, _ := testRunner(t, e)
+	r.handle(event{kind: evReady})
+	if err := r.a.Enqueue(unansweredNotice(testMeetLink)); err != nil {
+		t.Fatal(err)
+	}
+	r.tick()
+	if len(u.posts) != 1 || !strings.Contains(u.posts[0], "\tjoin\tJoin") || len(u.urls) != 0 {
+		t.Fatalf("posts %q urls %q, want a Join button and nothing opened", u.posts, u.urls)
+	}
+	r.handle(event{kind: evResponse, notice: 1, id: "join"})
+	if len(u.urls) != 1 || u.urls[0] != testMeetLink {
+		t.Fatalf("after the click: urls %q", u.urls)
 	}
 }

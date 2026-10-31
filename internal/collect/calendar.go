@@ -20,6 +20,10 @@ const (
 type CalendarEvent struct {
 	StartMS, EndMS  int64
 	Title, Calendar string
+	// Mine reports an event the owner accepted or organizes, or that has no
+	// other attendees. An invite still unanswered or tentative is not Mine,
+	// and neither is an event from a shim that does not say.
+	Mine bool
 	// Location, URL and Notes are raw text from EventKit (anyone who sends an
 	// invite writes them). trackd reads them only to find the meeting link
 	// and never stores or logs them.
@@ -40,9 +44,11 @@ func calendarStatus(s int) string {
 	return CalendarError
 }
 
-// parseEvents reads the shim's lines: "v2\tstart\tend\tcalendar\tlocation\turl\tnotes\ttitle\n"
-// (title last, so it may hold a tab) or the older
-// "start\tend\tcalendar\ttitle\n".
+// parseEvents reads the shim's lines:
+// "v3\tstart\tend\tcalendar\tmine\tlocation\turl\tnotes\ttitle\n" (title last,
+// so it may hold a tab; mine is 1 or 0), the older
+// "v2\tstart\tend\tcalendar\tlocation\turl\tnotes\ttitle\n" or the oldest
+// "start\tend\tcalendar\ttitle\n". Only v3 can say an event is Mine.
 func parseEvents(s string) ([]CalendarEvent, error) {
 	var out []CalendarEvent
 	for _, line := range strings.Split(s, "\n") {
@@ -51,7 +57,13 @@ func parseEvents(s string) ([]CalendarEvent, error) {
 		}
 		var f []string
 		var ev CalendarEvent
-		if rest, ok := strings.CutPrefix(line, "v2\t"); ok {
+		if rest, ok := strings.CutPrefix(line, "v3\t"); ok {
+			f = strings.SplitN(rest, "\t", 8)
+			if len(f) != 8 || (f[3] != "0" && f[3] != "1") {
+				return nil, fmt.Errorf("calendar: bad event line")
+			}
+			ev.Calendar, ev.Mine, ev.Location, ev.URL, ev.Notes, ev.Title = f[2], f[3] == "1", f[4], f[5], f[6], f[7]
+		} else if rest, ok := strings.CutPrefix(line, "v2\t"); ok {
 			f = strings.SplitN(rest, "\t", 7)
 			if len(f) != 7 {
 				return nil, fmt.Errorf("calendar: bad event line")

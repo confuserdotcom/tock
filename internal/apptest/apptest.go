@@ -198,13 +198,25 @@ func (e *Env) Event(t testing.TB, from, to, title string) {
 	}
 }
 
-// EventLink is like Event, with the meeting link trackd would have found.
+// EventLink is like Event, with the meeting link trackd would have found, for
+// an event the owner accepted or organizes.
 func (e *Env) EventLink(t testing.TB, from, to, title, link string) {
+	t.Helper()
+	e.eventLink(t, from, to, title, link, 1)
+}
+
+// EventLinkUnanswered is EventLink for an invite the owner has not accepted.
+func (e *Env) EventLinkUnanswered(t testing.TB, from, to, title, link string) {
+	t.Helper()
+	e.eventLink(t, from, to, title, link, 0)
+}
+
+func (e *Env) eventLink(t testing.TB, from, to, title, link string, mine int) {
 	t.Helper()
 	db := e.raw(t)
 	defer db.Close()
-	if _, err := db.Exec(`INSERT INTO event(start_ms, end_ms, title, calendar, join_url) VALUES(?, ?, ?, 'Work', ?)`,
-		At(t, from, 0), At(t, to, 0), title, link); err != nil {
+	if _, err := db.Exec(`INSERT INTO event(start_ms, end_ms, title, calendar, join_url, mine) VALUES(?, ?, ?, 'Work', ?, ?)`,
+		At(t, from, 0), At(t, to, 0), title, link, mine); err != nil {
 		t.Fatal(err)
 	}
 }

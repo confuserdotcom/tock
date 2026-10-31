@@ -68,8 +68,11 @@ static NSString *tock_field(NSString *s, NSUInteger max) {
 }
 
 // tock_calendar_events returns the timed events overlapping [from_ms, to_ms)
-// as "v2\tstart\tend\tcalendar\tlocation\turl\tnotes\ttitle\n" lines (malloc'd;
-// the caller frees it). Notes are cut to their first 16384 characters.
+// as "v3\tstart\tend\tcalendar\tmine\tlocation\turl\tnotes\ttitle\n" lines
+// (malloc'd; the caller frees it). mine is 1 for an event the user organizes,
+// has accepted or shares with no other attendee, else 0: an invite still
+// pending, tentative or unknown must never open its link by itself. Notes are
+// cut to their first 16384 characters.
 // names holds calendar titles separated by "\n"; "" means every calendar.
 // All-day, free and declined events are left out. NULL means failure.
 char *tock_calendar_events(int64_t from_ms, int64_t to_ms, const char *names) {
@@ -100,18 +103,24 @@ char *tock_calendar_events(int64_t from_ms, int64_t to_ms, const char *names) {
 				continue;
 			}
 			BOOL declined = NO;
+			BOOL accepted = NO;
 			for (EKParticipant *a in e.attendees) {
 				if (a.isCurrentUser && a.participantStatus == EKParticipantStatusDeclined) {
 					declined = YES;
+				}
+				if (a.isCurrentUser && a.participantStatus == EKParticipantStatusAccepted) {
+					accepted = YES;
 				}
 			}
 			if (declined) {
 				continue;
 			}
+			BOOL mine = accepted || e.attendees.count == 0 || e.organizer.isCurrentUser;
 			long long start = llround(e.startDate.timeIntervalSince1970 * 1000.0);
 			long long end = llround(e.endDate.timeIntervalSince1970 * 1000.0);
-			[out appendFormat:@"v2\t%lld\t%lld\t%@\t%@\t%@\t%@\t%@\n", start, end,
+			[out appendFormat:@"v3\t%lld\t%lld\t%@\t%d\t%@\t%@\t%@\t%@\n", start, end,
 				tock_field(e.calendar.title, NSUIntegerMax),
+				mine ? 1 : 0,
 				tock_field(e.location, 4096),
 				tock_field(e.URL.absoluteString, 2048),
 				tock_field(e.notes, 16384),

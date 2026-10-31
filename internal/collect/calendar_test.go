@@ -52,3 +52,27 @@ func TestCalendarStatus(t *testing.T) {
 		}
 	}
 }
+
+func TestParseEventsV3Mine(t *testing.T) {
+	got, err := parseEvents("v3\t100\t200\tWork\t1\tRoom 4\thttps://zoom.us/j/1\tnotes\tStand\tup\n" +
+		"v3\t300\t400\tWork\t0\t\t\t\tInvite\n" +
+		"v2\t500\t600\tWork\t\thttps://zoom.us/j/2\t\tOld shim\n" +
+		"700\t800\tHome\tOlder\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []CalendarEvent{
+		{StartMS: 100, EndMS: 200, Calendar: "Work", Mine: true, Location: "Room 4", URL: "https://zoom.us/j/1", Notes: "notes", Title: "Stand\tup"},
+		{StartMS: 300, EndMS: 400, Calendar: "Work", Title: "Invite"},
+		{StartMS: 500, EndMS: 600, Calendar: "Work", URL: "https://zoom.us/j/2", Title: "Old shim"}, // a shim that does not say: not mine
+		{StartMS: 700, EndMS: 800, Calendar: "Home", Title: "Older"},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("events = %+v\nwant     %+v", got, want)
+	}
+	for _, bad := range []string{"v3\t1\t2\tc\t1\tl\tu\tn\n", "v3\t1\t2\tc\tmaybe\tl\tu\tn\tt\n"} {
+		if _, err := parseEvents(bad); err == nil {
+			t.Errorf("parseEvents(%q) = nil error", bad)
+		}
+	}
+}

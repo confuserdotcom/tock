@@ -76,7 +76,7 @@ func (a *App) Slots(now time.Time) ([]focus.Slot, error) {
 		}
 		haveEvent[key] = true
 		slots = append(slots, focus.Slot{Key: key, Kind: focus.SlotEvent, StartMS: ev.StartMS,
-			EndMS: ev.EndMS, Title: ev.Title, Calendar: ev.Calendar, JoinURL: ev.JoinURL})
+			EndMS: ev.EndMS, Title: ev.Title, Calendar: ev.Calendar, JoinURL: ev.JoinURL, Mine: ev.Mine})
 	}
 	sort.SliceStable(slots, func(i, j int) bool {
 		if slots[i].StartMS != slots[j].StartMS {

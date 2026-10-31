@@ -985,7 +985,10 @@ opens it in your browser. The link must be `https` on `meet.google.com`,
 `zoom.us` (or a subdomain), `teams.microsoft.com` or `teams.live.com`;
 anything else is ignored, with no button and no log line. With
 `[calendar] auto_open = true`, tockbar opens the link itself when it shows
-the starting notice, once. trackd never opens anything, and tock never blocks.
+the starting notice, once, but only for an event you organize or accepted (or
+that has no other attendee): an invite you have not answered, or answered
+"maybe", still offers `Join` and waits for your click. trackd never opens
+anything, and tock never blocks.
 
 The menu bar menu shows `Next: 14:00 Review (in 12 min)` when a slot starts
 within the hour (`now` while it runs), and `Join Standup` when that slot is an

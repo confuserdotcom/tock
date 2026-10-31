@@ -288,10 +288,12 @@ func TestEventSlotJoinURL(t *testing.T) {
 	e := apptest.New(t, moduleRules)
 	e.WriteConfig(t, apptest.NoRoutines)
 	e.EventLink(t, "14:30", "15:00", "Standup", "https://meet.google.com/abc-defg-hij")
+	e.EventLinkUnanswered(t, "15:30", "16:00", "Invite", "https://zoom.us/j/1")
 	slotClock(e, 14, 24, 0)
 	got, err := open(t, e).Slots(e.Clock)
-	if err != nil || len(got) != 1 || got[0].JoinURL != "https://meet.google.com/abc-defg-hij" {
-		t.Fatalf("slots = %+v, %v, want the Standup slot with its link", got, err)
+	if err != nil || len(got) != 2 || got[0].JoinURL != "https://meet.google.com/abc-defg-hij" || !got[0].Mine ||
+		got[1].JoinURL != "https://zoom.us/j/1" || got[1].Mine {
+		t.Fatalf("slots = %+v, %v, want the Standup slot with its link, Mine, and the Invite one not", got, err)
 	}
 }
 

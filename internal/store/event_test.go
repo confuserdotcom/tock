@@ -90,3 +90,38 @@ func TestSyncEventsJoinURL(t *testing.T) {
 		t.Fatalf("raw row = %+v, want an empty link", evs)
 	}
 }
+
+func TestSyncEventsMine(t *testing.T) {
+	s, err := Open(filepath.Join(t.TempDir(), "tock.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	e := Event{StartMS: 1100, EndMS: 1200, Title: "standup", Calendar: "Work", JoinURL: "https://zoom.us/j/1", Mine: true}
+	if ch, err := s.SyncEvents(1000, 2000, []Event{e}); err != nil || !ch {
+		t.Fatalf("sync: %v %v", ch, err)
+	}
+	evs, err := s.Events(0, 3000)
+	if err != nil || len(evs) != 1 || !evs[0].Mine {
+		t.Fatalf("Events = %+v, %v, want Mine", evs, err)
+	}
+	if one, err := s.Event(evs[0].ID); err != nil || !one.Mine {
+		t.Fatalf("Event = %+v, %v, want Mine", one, err)
+	}
+	if ch, err := s.SyncEvents(1000, 2000, []Event{e}); err != nil || ch {
+		t.Fatalf("same events: changed %v, %v, want false", ch, err)
+	}
+	e.Mine = false // the owner declined to accept, or took the answer back
+	if ch, err := s.SyncEvents(1000, 2000, []Event{e}); err != nil || !ch {
+		t.Fatalf("other answer: changed %v, %v, want true", ch, err)
+	}
+	if evs, _ := s.Events(0, 3000); len(evs) != 1 || evs[0].Mine {
+		t.Fatalf("Events after = %+v, want not Mine", evs)
+	}
+	if _, err := s.db.Exec(`INSERT INTO event(start_ms, end_ms, title, calendar) VALUES(1500, 1600, 'raw', 'Work')`); err != nil {
+		t.Fatal(err)
+	}
+	if evs, _ := s.Events(1400, 1700); len(evs) != 1 || evs[0].Mine {
+		t.Fatalf("raw row = %+v, want not Mine", evs)
+	}
+}

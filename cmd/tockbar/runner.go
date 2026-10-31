@@ -189,7 +189,8 @@ func (r *runner) post() {
 		r.ui.Post(n.ID, n.Title, n.Body, cat, strings.Join(r.cats, "\n"))
 		r.log.Info("notification shown", "title", n.Title)
 		// TakeNotices hands each notice out once, so this opens once per notice.
-		if link := bar.JoinURL(n, d); link != "" && n.Topic == focus.TopicStarting && r.a.Config().Calendar.AutoOpen {
+		// An invite the owner has not accepted offers Join but never opens by itself.
+		if link := bar.JoinURL(n, d); link != "" && n.Topic == focus.TopicStarting && d.Mine && r.a.Config().Calendar.AutoOpen {
 			r.ui.OpenURL(link)
 			r.log.Info("meeting link opened", "notice", n.ID)
 		}

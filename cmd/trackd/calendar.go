@@ -90,7 +90,7 @@ func (c *calendarLoop) tick() {
 	rows := make([]store.Event, len(evs))
 	for i, e := range evs {
 		rows[i] = store.Event{StartMS: e.StartMS, EndMS: e.EndMS, Title: e.Title, Calendar: e.Calendar,
-			JoinURL: classify.MeetingLink(e.URL, e.Location, e.Notes)}
+			JoinURL: classify.MeetingLink(e.URL, e.Location, e.Notes), Mine: e.Mine}
 	}
 	changed, err := c.st.SyncEvents(from, to, rows)
 	if err != nil {

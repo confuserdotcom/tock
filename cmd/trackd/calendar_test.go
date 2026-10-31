@@ -156,3 +156,18 @@ func TestCalendarLoopStoresMeetingLink(t *testing.T) {
 		}
 	}
 }
+
+func TestCalendarLoopStoresMine(t *testing.T) {
+	f := &fakeCal{status: collect.CalendarGranted}
+	c, st, _, now := calLoop(t, f, false, "[calendar]\nenabled = true\n")
+	s := *now - 3600_000
+	f.evs = []collect.CalendarEvent{
+		{StartMS: s, EndMS: s + 1000, Title: "Mine", Mine: true, URL: "https://meet.google.com/abc-defg-hij"},
+		{StartMS: s + 2000, EndMS: s + 3000, Title: "Invite", URL: "https://meet.google.com/abc-defg-hij"},
+	}
+	c.tick()
+	evs, err := st.Events(0, *now)
+	if err != nil || len(evs) != 2 || !evs[0].Mine || evs[1].Mine {
+		t.Fatalf("events = %+v, %v, want Mine only on the first", evs, err)
+	}
+}

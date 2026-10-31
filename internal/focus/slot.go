@@ -66,6 +66,9 @@ type Slot struct {
 	Calendar       string // event: its calendar's name
 	Project        string // plan: module of its first resolving +tag
 	JoinURL        string // event: allowlisted meeting link, "" = none
+	// Mine: event the owner accepted or organizes (or without other
+	// attendees). Only such an event may have its link opened by itself.
+	Mine bool
 	// SeenMS is when the caller first had this slot; 0 = long ago.
 	SeenMS int64
 }
