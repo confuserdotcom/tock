@@ -267,3 +267,40 @@ func TestEventSlotJoinURL(t *testing.T) {
 		t.Fatalf("slots = %+v, %v, want the Standup slot with its link", got, err)
 	}
 }
+
+// remoteView seeds one view of machine ryuk on day with the given end.
+func remoteView(t *testing.T, a *App, from, to int64) {
+	t.Helper()
+	if err := a.st.ReplaceRemoteDay("ryuk", "2026-10-10", store.RemoteFile{MtimeMS: 1, Size: 1},
+		[]store.RemoteView{{StartMS: from, EndMS: to, Bundle: "term", App: "WezTerm"}}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestSlotOtherMachineNewer(t *testing.T) {
+	e := apptest.New(t, moduleRules)
+	todo := filepath.Join(t.TempDir(), "todo.txt")
+	writePlan(t, todo, "Review @14h00 due:2026-10-10\n")
+	e.WriteConfig(t, apptest.NoRoutines+"[plan]\nfile = '"+todo+"'\n")
+	e.Seed(t, apptest.Span{ID: 1, Start: "13:00", End: "13:45", Bundle: "term", App: "WezTerm", Title: "x"})
+	a := open(t, e)
+	remoteView(t, a, apptest.At(t, "13:50", 0), apptest.At(t, "14:00", 0)+20_000)
+	wantList(t, "14:00:30", tickAt(t, a, e, 14, 0, 30))
+	wantList(t, "rows", slotRows(t, e))
+
+	e.Seed(t, apptest.Span{ID: 2, Start: "14:00", Bundle: "term", App: "WezTerm", Title: "y"})
+	a = open(t, e)
+	wantList(t, "14:01:00", tickAt(t, a, e, 14, 1, 0), wantNote(focus.TopicStarting, "Starting now", "14:00–17:00 Review"))
+	wantList(t, "14:01:10", tickAt(t, a, e, 14, 1, 10))
+}
+
+func TestSlotOtherMachineStale(t *testing.T) {
+	e := apptest.New(t, moduleRules)
+	todo := filepath.Join(t.TempDir(), "todo.txt")
+	writePlan(t, todo, "Review @14h00 due:2026-10-10\n")
+	e.WriteConfig(t, apptest.NoRoutines+"[plan]\nfile = '"+todo+"'\n")
+	e.Seed(t, apptest.Span{ID: 1, Start: "13:30", End: "13:35", Bundle: "term", App: "WezTerm", Title: "x"})
+	a := open(t, e)
+	remoteView(t, a, apptest.At(t, "13:30", 0), apptest.At(t, "13:40", 0))
+	wantList(t, "14:00:30", tickAt(t, a, e, 14, 0, 30), wantNote(focus.TopicStarting, "Starting now", "14:00–17:00 Review"))
+}

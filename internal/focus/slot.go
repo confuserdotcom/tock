@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/charmbracelet/x/ansi"
+
+	"tock/internal/classify"
 )
 
 // Slot kinds: where a slot comes from.
@@ -39,6 +41,10 @@ const (
 	SlotTitleCells = 40
 	// SlotCalendarCells is the longest calendar name in a notice body.
 	SlotCalendarCells = 24
+	// SlotOwnerFreshMS is how far from now another machine's latest input
+	// may be, on either side, and still count against this machine owning a
+	// slot notice.
+	SlotOwnerFreshMS = 15 * 60_000
 )
 
 // Slot is a stretch of today that starts at a known time: a timed plan item
@@ -76,6 +82,37 @@ func SlotName(s Slot, cells int) string {
 		return "(no title)"
 	}
 	return ansi.Truncate(strings.Join(words, " "), cells, "…")
+}
+
+// LocalInputEnd is the end of this machine's latest own activity: the latest
+// End of a view with a positive ID whose bundle does not start with "tock."
+// (idle, away, meeting and call views, and views of other machines carry
+// negative ids or tock.* bundles). It is the rule App.exportDay uses for what
+// this machine writes to the sync folder. 0 = none.
+func LocalInputEnd(views []classify.SpanView) int64 {
+	var last int64
+	for _, v := range views {
+		if v.ID <= 0 || strings.HasPrefix(v.BundleID, "tock.") {
+			continue
+		}
+		last = max(last, v.End)
+	}
+	return last
+}
+
+// SlotOwner reports that this machine sends the slot notices: no other
+// synced machine has a latest input end (others, unix ms) later than
+// localMS within SlotOwnerFreshMS of nowMS. A machine whose latest input is
+// older than that is idle or gone, and one that claims to be further ahead
+// of now is wrong about its clock; neither silences this one. A tie
+// notifies: a duplicate is better than none.
+func SlotOwner(localMS, nowMS int64, others []int64) bool {
+	for _, ms := range others {
+		if ms > localMS && ms-nowMS <= SlotOwnerFreshMS && nowMS-ms <= SlotOwnerFreshMS {
+			return false
+		}
+	}
+	return true
 }
 
 // slotLabel is the slot as a notice body names it: its title, and for an
@@ -119,10 +156,11 @@ func SlotsDue(in Input) bool {
 }
 
 // stepSlots emits a SlotDue for each slot in its up-next or starting window
-// whose notice was not sent yet. It never looks at calls or meetings:
-// the point of the notice is to tell you.
+// whose notice was not sent yet, unless another synced machine has the latest
+// input (SlotOwner). It never looks at calls or meetings: the point of the
+// notice is to tell you.
 func stepSlots(in Input) []Event {
-	if !in.Plan.Notify {
+	if !in.Plan.Notify || !SlotOwner(LocalInputEnd(in.Views), in.Now, in.OtherInputMS) {
 		return nil
 	}
 	loc := in.Day.Location()

@@ -149,7 +149,8 @@ func (a *App) planSlotList(day time.Time) []focus.Slot {
 
 // slotInput fills in the slot part of a tick's input: the [plan] switches
 // and today's slots, and, only when a slot is in a notice window, which of
-// its notices were sent. A failure is kept as the tick's RoutineErr (when no
+// its notices were sent and the other synced machines' latest input (who
+// owns the notices). A failure is kept as the tick's RoutineErr (when no
 // other is set) and leaves the tick without slot notices.
 func (a *App) slotInput(in *focus.Input, nowT time.Time) {
 	in.Plan = a.cfg.Plan
@@ -160,7 +161,7 @@ func (a *App) slotInput(in *focus.Input, nowT time.Time) {
 		if a.routineErr == nil {
 			a.routineErr = err
 		}
-		in.Slots, in.SlotSent = nil, nil
+		in.Slots, in.SlotSent, in.OtherInputMS = nil, nil, nil
 	}
 	slots, err := a.Slots(nowT)
 	if err != nil {
@@ -183,5 +184,15 @@ func (a *App) slotInput(in *focus.Input, nowT time.Time) {
 	in.SlotSent = make(map[string]bool, len(rows))
 	for _, r := range rows {
 		in.SlotSent[focus.SlotSentKey(r.Key, r.Kind)] = true
+	}
+	machines, err := a.st.RemoteMachines()
+	if err != nil {
+		skip(fmt.Errorf("app: slot owner: %w", err))
+		return
+	}
+	for _, m := range machines {
+		if m.LastMS > 0 {
+			in.OtherInputMS = append(in.OtherInputMS, m.LastMS)
+		}
 	}
 }

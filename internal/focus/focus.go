@@ -171,6 +171,10 @@ type Input struct {
 	// SlotSent holds the SlotSentKey of the slot notices already sent; the
 	// caller fills it only when SlotsDue.
 	SlotSent map[string]bool
+	// OtherInputMS are the latest view ends of the other synced machines
+	// (RemoteMachine.LastMS); the caller fills it only when SlotsDue. Empty
+	// = no other machine, this one owns every slot notice.
+	OtherInputMS []int64
 }
 
 // IsMeeting reports a meeting view: a meeting app, or a URL whose host is a

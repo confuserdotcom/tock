@@ -4,7 +4,9 @@ import (
 	"strings"
 	"testing"
 
+	"tock/internal/classify"
 	"tock/internal/config"
+	"tock/internal/span"
 )
 
 const reviewKey = "plan:2026-10-10T14:00:x"
@@ -184,5 +186,71 @@ func TestSlotEventBodies(t *testing.T) {
 	plan.Calendar = "Ignored"
 	if got := slotBody(t, at(14, 0, 30), plan); got != "14:00–14:50 Review" {
 		t.Errorf("plan slot body = %q, want it without a calendar", got)
+	}
+}
+
+func TestSlotOwner(t *testing.T) {
+	now := at(14, 0, 0)
+	for _, tt := range []struct {
+		name   string
+		local  int64
+		others []int64
+		want   bool
+	}{
+		{"no other machine", at(13, 0, 0), nil, true},
+		{"other older", at(13, 50, 0), []int64{at(13, 40, 0)}, true},
+		{"other newer, 5 min old", at(13, 54, 0), []int64{at(13, 55, 0)}, false},
+		{"other newer but stale", at(13, 30, 0), []int64{at(13, 44, 0)}, true},
+		{"tie", at(13, 50, 0), []int64{at(13, 50, 0)}, true},
+		{"other far in the future", at(13, 50, 0), []int64{at(14, 20, 0)}, true},
+		{"other slightly ahead of now", at(13, 59, 0), []int64{at(14, 2, 0)}, false},
+		{"one stale and one older", at(13, 50, 0), []int64{at(13, 0, 0), at(13, 40, 0)}, true},
+		{"one stale and one newer", at(13, 50, 0), []int64{at(13, 0, 0), at(13, 55, 0)}, false},
+		{"no local input at all", 0, []int64{at(13, 55, 0)}, false},
+	} {
+		if got := SlotOwner(tt.local, now, tt.others); got != tt.want {
+			t.Errorf("%s: SlotOwner = %v, want %v", tt.name, got, tt.want)
+		}
+	}
+}
+
+func TestLocalInputEnd(t *testing.T) {
+	if got := LocalInputEnd(nil); got != 0 {
+		t.Errorf("no views: %d, want 0", got)
+	}
+	views := []classify.SpanView{
+		{ID: 1, Start: at(13, 0, 0), End: at(13, 40, 0), BundleID: "app"},
+		{ID: 2, Start: at(13, 40, 0), End: at(14, 0, 0), BundleID: span.IdleBundleID},
+		{ID: -(classify.RemoteIDBase + 1), Start: at(13, 40, 0), End: at(13, 59, 0), BundleID: "app"},
+		{ID: -3, Start: at(13, 41, 0), End: at(13, 50, 0), BundleID: "tock.away"},
+	}
+	if got := LocalInputEnd(views); got != at(13, 40, 0) {
+		t.Errorf("LocalInputEnd = %d, want 13:40", got)
+	}
+	if got := LocalInputEnd(views[1:]); got != 0 {
+		t.Errorf("only idle, remote and away views: %d, want 0", got)
+	}
+}
+
+func TestStepSlotsNotOwner(t *testing.T) {
+	mk := func(others ...int64) Input {
+		in := input(at(14, 0, 30), vw{from: at(13, 0, 0), to: at(13, 45, 0)})
+		in.Plan = config.DefaultPlan()
+		in.Slots = []Slot{reviewSlot()}
+		in.OtherInputMS = others
+		return in
+	}
+	newer := mk(at(14, 0, 20))
+	if got := only(Step(newer), SlotDue); len(got) != 0 {
+		t.Errorf("another machine has newer input: %+v, want no SlotDue", got)
+	}
+	if !SlotsDue(newer) {
+		t.Error("SlotsDue = false: it must stay ownership-free so the caller loads the other machines")
+	}
+	if got := only(Step(mk(at(13, 30, 0))), SlotDue); len(got) != 1 {
+		t.Errorf("another machine is older: %+v, want the event", got)
+	}
+	if got := only(Step(mk()), SlotDue); len(got) != 1 {
+		t.Errorf("no other machine: %+v, want the event", got)
 	}
 }
