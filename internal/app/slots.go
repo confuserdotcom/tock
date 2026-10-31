@@ -172,6 +172,11 @@ func (a *App) planSlotList(day time.Time) []focus.Slot {
 // other is set) and leaves the tick without slot notices.
 func (a *App) slotInput(in *focus.Input, nowT time.Time) {
 	in.Plan = a.cfg.Plan
+	if !a.cfg.Focus.Notify {
+		// No notice reaches anyone, so none is marked as sent; auto_start
+		// still starts its session (silently).
+		in.Plan.Notify = false
+	}
 	if !in.Plan.Notify && !in.Plan.AutoStart {
 		return
 	}

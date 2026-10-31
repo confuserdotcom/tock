@@ -68,3 +68,13 @@ func (s *Store) SlotNotices(keys []string) ([]SlotNotice, error) {
 	}
 	return out, rows.Err()
 }
+
+// UnmarkSlotNotice deletes the row MarkSlotNotice wrote for the kind notice
+// of slot key, so that notice is sent again: for a notice that was marked but
+// could not be handed over. A missing row is not an error.
+func (s *Store) UnmarkSlotNotice(key, kind string) error {
+	if _, err := s.db.Exec(`DELETE FROM slot_notice WHERE slot_key = ? AND kind = ?`, key, kind); err != nil {
+		return fmt.Errorf("store: unmark slot notice: %w", err)
+	}
+	return nil
+}

@@ -9,6 +9,7 @@ import (
 	"tock/internal/app"
 	"tock/internal/classify"
 	"tock/internal/config"
+	"tock/internal/focus"
 	"tock/internal/shell"
 )
 
@@ -101,6 +102,7 @@ func (f *focusLoop) tick() {
 		if bar {
 			if err := f.a.Enqueue(n); err != nil {
 				f.warn("notification queue failed", err)
+				f.release(n)
 				continue
 			}
 			f.log.Info("focus notification queued", "title", n.Title)
@@ -111,9 +113,18 @@ func (f *focusLoop) tick() {
 		}
 		if err := f.notify.Notify(n.Title, n.Body); err != nil {
 			f.warn("notification failed", err)
+			f.release(n)
 			continue
 		}
 		f.log.Info("focus notification", "title", n.Title)
+	}
+}
+
+// release lets a slot notice that could not be delivered come again on the
+// next tick of its window (it was marked as sent when the tick built it).
+func (f *focusLoop) release(n focus.Event) {
+	if err := f.a.ReleaseSlotNotice(n); err != nil {
+		f.warn("slot notice release failed", err)
 	}
 }
 

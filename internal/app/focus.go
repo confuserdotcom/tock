@@ -18,8 +18,10 @@ import (
 // going on (call is true while a camera or microphone is in use), reloads
 // changed rule and config files, applies the engine's store events and
 // returns the notifications to send. It stops at the first failed write,
-// before any notification. A session notification is dropped when tock closed that
-// session between the read and the write.
+// before any notification; the one exception is a slot notice: a failure to
+// mark or start one slot is kept in RoutineErr and the other slots go on. A
+// session notification is dropped when tock closed that session between the
+// read and the write.
 func (a *App) FocusTick(call bool) ([]focus.Event, error) {
 	notes, _, err := a.GuardTick(call)
 	return notes, err
@@ -107,7 +109,7 @@ func (a *App) GuardTick(call bool) ([]focus.Event, focus.Guard, error) {
 	}
 	guard := focus.GuardStep(in, gs)
 
-	var notes []focus.Event
+	var notes, slotEvs []focus.Event
 	stale := false
 	for _, ev := range focus.Step(in) {
 		var ok bool
@@ -128,15 +130,7 @@ func (a *App) GuardTick(call bool) ([]focus.Event, focus.Guard, error) {
 				notes = append(notes, ev)
 			}
 		case focus.SlotDue:
-			// The row is the race guard: only the writer that inserted it sends.
-			var inserted bool
-			if inserted, err = a.st.MarkSlotNotice(ev.Slot.Key, ev.SlotKind, now); err == nil && inserted {
-				// The start comes after the mark: a restart can never start a second session.
-				if err = a.startSlotSession(&ev); err == nil && !ev.Silent {
-					ev.Kind = focus.Notify
-					notes = append(notes, ev)
-				}
-			}
+			slotEvs = append(slotEvs, ev) // marked and started below, once the tick's writes are done
 		}
 		if err != nil {
 			return nil, focus.Guard{}, err
@@ -147,7 +141,50 @@ func (a *App) GuardTick(call bool) ([]focus.Event, focus.Guard, error) {
 			return nil, focus.Guard{}, err
 		}
 	}
+	// Slot notices come last: a notice is marked as sent only when nothing
+	// that follows can fail the tick and drop it. One slot's failure is kept
+	// as the tick's RoutineErr and leaves that slot for the next tick of its
+	// window; the other slots' notices go out.
+	for _, ev := range slotEvs {
+		if n, ok := a.sendSlot(ev, now); ok {
+			notes = append(notes, n)
+		}
+	}
 	return notes, guard, nil
+}
+
+// sendSlot marks the slot notice ev as sent and starts the session it asks
+// for. It reports the notice to send; false when another writer sent it, when
+// the notice is silent (auto_start with notices off) or when a step failed.
+// A failure is kept in RoutineErr; if the mark was written it is deleted again
+// so the next tick of the window retries.
+func (a *App) sendSlot(ev focus.Event, now int64) (focus.Event, bool) {
+	fail := func(err error) (focus.Event, bool) {
+		if a.routineErr == nil {
+			a.routineErr = err
+		}
+		return focus.Event{}, false
+	}
+	// The row is the race guard: only the writer that inserted it sends.
+	inserted, err := a.st.MarkSlotNotice(ev.Slot.Key, ev.SlotKind, now)
+	if err != nil {
+		return fail(fmt.Errorf("app: slot notice: %w", err))
+	}
+	if !inserted {
+		return focus.Event{}, false
+	}
+	// The start comes after the mark: a restart can never start a second session.
+	if err := a.startSlotSession(&ev); err != nil {
+		if uerr := a.st.UnmarkSlotNotice(ev.Slot.Key, ev.SlotKind); uerr != nil {
+			err = errors.Join(err, uerr)
+		}
+		return fail(err)
+	}
+	if ev.Silent {
+		return focus.Event{}, false
+	}
+	ev.Kind = focus.Notify
+	return ev, true
 }
 
 // startSlotSession starts the session a starting notice asks for (ev.AutoStart)
@@ -168,6 +205,16 @@ func (a *App) startSlotSession(ev *focus.Event) error {
 	}
 	ev.Sess = focus.Session(s)
 	return nil
+}
+
+// ReleaseSlotNotice undoes the dedupe mark of a slot notice that GuardTick
+// returned but trackd could not hand over, so the next tick of the notice's
+// window sends it again. An event that is not a slot notice is ignored.
+func (a *App) ReleaseSlotNotice(ev focus.Event) error {
+	if ev.Slot.Key == "" || ev.SlotKind == "" {
+		return nil
+	}
+	return a.st.UnmarkSlotNotice(ev.Slot.Key, ev.SlotKind)
 }
 
 func focusSessions(ss []store.Session) []focus.Session {

@@ -478,3 +478,101 @@ func TestSlotsOnDSTDay(t *testing.T) {
 		t.Errorf("planSlots starts at %s, want 14:00", h)
 	}
 }
+
+func planKey(text string, hhmm string) string {
+	h := fnv.New64a()
+	h.Write([]byte(text))
+	return fmt.Sprintf("plan:2026-10-10T%s:%016x", hhmm, h.Sum64())
+}
+
+// A slot whose mark cannot be written is skipped and reported; the notices of
+// the other slots of the tick are neither lost nor left marked-but-unsent, and
+// the skipped one comes on the next tick.
+func TestSlotMarkFailureKeepsOtherNotices(t *testing.T) {
+	e, todo := slotEnv(t, "")
+	writePlan(t, todo, "Alpha @14h00 due:2026-10-10\nReview @14h00 due:2026-10-10\n")
+	db := e.RawDB(t)
+	defer db.Close()
+	if _, err := db.Exec(`CREATE TRIGGER boom BEFORE INSERT ON slot_notice WHEN NEW.slot_key = '` + planKey("Alpha", "14:00") +
+		`' BEGIN SELECT RAISE(ABORT, 'boom'); END`); err != nil {
+		t.Fatal(err)
+	}
+	a := open(t, e)
+	slotClock(e, 14, 0, 30)
+	evs, err := a.FocusTick(false)
+	if err != nil {
+		t.Fatalf("FocusTick: %v, want the failing slot skipped", err)
+	}
+	wantList(t, "first tick", notes(evs), wantNote(focus.TopicStarting, "Starting now", "14:00–17:00 Review"))
+	if a.RoutineErr() == nil {
+		t.Error("RoutineErr = nil, want the failed mark reported")
+	}
+	wantList(t, "rows", slotRows(t, e), reviewKey()+"|start")
+	if _, err := db.Exec(`DROP TRIGGER boom`); err != nil {
+		t.Fatal(err)
+	}
+	wantList(t, "retry", tickAt(t, a, e, 14, 0, 40), wantNote(focus.TopicStarting, "Starting now", "14:00–17:00 Alpha"))
+}
+
+// A session that cannot be started leaves the starting notice unmarked, so
+// the next tick of the window tries again.
+func TestSlotAutoStartFailureRetries(t *testing.T) {
+	e := autoEnv(t, "")
+	db := e.RawDB(t)
+	defer db.Close()
+	if _, err := db.Exec(`CREATE TRIGGER boom BEFORE INSERT ON session BEGIN SELECT RAISE(ABORT, 'boom'); END`); err != nil {
+		t.Fatal(err)
+	}
+	a := open(t, e)
+	wantList(t, "14:00:30", tickAt(t, a, e, 14, 0, 30))
+	if a.RoutineErr() == nil {
+		t.Error("RoutineErr = nil, want the failed start reported")
+	}
+	wantList(t, "rows", slotRows(t, e))
+	if _, err := db.Exec(`DROP TRIGGER boom`); err != nil {
+		t.Fatal(err)
+	}
+	got := tickAt(t, a, e, 14, 0, 40)
+	if len(got) != 1 || !strings.Contains(got[0], "focus session started") {
+		t.Fatalf("retry = %q, want the started notice", got)
+	}
+	wantList(t, "sessions", sessionRows(t, a), "manual 14:00:40-14:50:00 end 0")
+}
+
+// A notice that was marked but could not be handed over is released and comes
+// again.
+func TestReleaseSlotNotice(t *testing.T) {
+	e, _ := slotEnv(t, "")
+	a := open(t, e)
+	slotClock(e, 14, 0, 30)
+	evs, err := a.FocusTick(false)
+	if err != nil || len(evs) != 1 {
+		t.Fatalf("tick: %v, %v", evs, err)
+	}
+	if err := a.ReleaseSlotNotice(evs[0]); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.ReleaseSlotNotice(focus.Event{Kind: focus.Notify}); err != nil {
+		t.Fatalf("an event without a slot: %v, want nil", err)
+	}
+	wantList(t, "rows", slotRows(t, e))
+	wantList(t, "next tick", tickAt(t, a, e, 14, 0, 40), wantNote(focus.TopicStarting, "Starting now", "14:00–14:50 Review"))
+}
+
+// With [focus] notify off no notice reaches anyone, so none is marked as sent;
+// auto_start still starts its session.
+func TestSlotFocusNotifyOffMarksNothing(t *testing.T) {
+	e, _ := slotEnv(t, "\n[focus]\nnotify = false\n")
+	a := open(t, e)
+	wantList(t, "13:55", tickAt(t, a, e, 13, 55, 0))
+	wantList(t, "14:00", tickAt(t, a, e, 14, 0, 30))
+	wantList(t, "rows", slotRows(t, e))
+
+	e2 := autoEnv(t, "\n[focus]\nnotify = false\n")
+	a2 := open(t, e2)
+	wantList(t, "auto 14:00", tickAt(t, a2, e2, 14, 0, 30))
+	wantList(t, "auto sessions", sessionRows(t, a2), "manual 14:00:30-14:50:00 end 0")
+	if rows := slotRows(t, e2); len(rows) != 1 || !strings.HasSuffix(rows[0], "|start") {
+		t.Errorf("auto rows = %v, want the one start row", rows)
+	}
+}

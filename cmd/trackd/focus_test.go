@@ -278,3 +278,36 @@ func TestFocusLoopWarnRoutineOnce(t *testing.T) {
 		t.Fatalf("logged %d times after recovery, want 2", n)
 	}
 }
+
+// flakyNotifier fails its first fails calls.
+type flakyNotifier struct {
+	fails int
+	got   []string
+}
+
+func (f *flakyNotifier) Notify(title, body string) error {
+	if f.fails > 0 {
+		f.fails--
+		return errors.New("osascript failed")
+	}
+	f.got = append(f.got, title+"|"+body)
+	return nil
+}
+
+// A slot notice that could not be delivered is not lost: it was marked as
+// sent, so the loop releases the mark and the next tick of the window sends it.
+func TestFocusLoopRetriesSlotNoticeAfterFailure(t *testing.T) {
+	e := slotEnv(t)
+	n := &flakyNotifier{fails: 1}
+	f, _ := testLoop(t, e, n, nil)
+	f.tick()
+	if len(n.got) != 0 {
+		t.Fatalf("first tick delivered %q, want the failure", n.got)
+	}
+	f.tick()
+	f.tick()
+	want := []string{"Starting now|14:00–14:50 Review"}
+	if !reflect.DeepEqual(n.got, want) {
+		t.Fatalf("notifications = %q, want %q", n.got, want)
+	}
+}
