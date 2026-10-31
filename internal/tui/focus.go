@@ -154,6 +154,15 @@ func (m Model) focusKey(k string) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		return m, m.stopSession()
+	case "z":
+		if m.focus.data.Open == nil {
+			m.setFlash("no session running · s starts one", true)
+			return m, nil
+		}
+		if m.focus.data.SnoozeUntilMS > m.now().UnixMilli() {
+			return m, m.resumeNotices()
+		}
+		return m, m.snoozeNotices()
 	}
 	return m, nil
 }
@@ -286,6 +295,40 @@ func (m Model) stopSession() tea.Cmd {
 	}
 }
 
+// snoozeNotices holds distraction notices back for [focus] snooze minutes.
+func (m Model) snoozeNotices() tea.Cmd {
+	src := m.src
+	return func() tea.Msg {
+		var msg doneMsg
+		src.do(func(a *app.App) {
+			d := time.Duration(a.Config().Focus.SnoozeMS) * time.Millisecond
+			until, err := a.SnoozeDistract(0, d)
+			if err != nil {
+				msg.err = fmt.Errorf("could not snooze: %w", err)
+				return
+			}
+			msg.text = "distraction notices snoozed until " + until.Format("15:04")
+		})
+		return msg
+	}
+}
+
+// resumeNotices ends a snooze early.
+func (m Model) resumeNotices() tea.Cmd {
+	src := m.src
+	return func() tea.Msg {
+		var msg doneMsg
+		src.do(func(a *app.App) {
+			if _, err := a.ResumeDistract(); err != nil {
+				msg.err = fmt.Errorf("could not resume notices: %w", err)
+				return
+			}
+			msg.text = "distraction notices back on"
+		})
+		return msg
+	}
+}
+
 // startDlg picks a session length: the presets, then a custom row.
 type startDlg struct {
 	presets []int
@@ -374,7 +417,15 @@ func (t focusTab) view(w, h int, now time.Time) []string {
 		}
 		body = append(body, center(sDim.Render("left of "+report.Dur(total)), inner), "",
 			center(meter(total-left, total, min(inner-4, 48), sBrand), inner),
-			center(sText.Render(report.LiveStats(*s, f.Live, nowMS)), inner), "")
+			center(sText.Render(report.LiveStats(*s, f.Live, nowMS)), inner))
+		word := "snooze notices"
+		if f.SnoozeUntilMS > nowMS {
+			body = append(body, center(sDim.Render("notices snoozed until "+
+				time.UnixMilli(f.SnoozeUntilMS).In(loc).Format("15:04")), inner))
+			word = "resume notices"
+		}
+		body = append(body, "",
+			center(keycap("x", "stop session")+"    "+keycap("z", word), inner), "")
 		body = card("Session", body, cw)
 	} else {
 		body = card("Session", []string{"",
@@ -440,8 +491,8 @@ func starsLine(rating int) string {
 }
 
 // card is the last-session card of the selected row (UI-SPEC Surface 1),
-// shortened to fit a body of h lines: below 34 the blank lines go, then the
-// apps row at 31, then the categories row.
+// shortened to fit a body of h lines: below 34 the blank lines go, below 33
+// the urges row, below 32 the apps row, below 31 the categories row.
 func (t focusTab) card(cw, h int, loc *time.Location) []string {
 	title := "Last session"
 	s := t.shown()
@@ -481,8 +532,11 @@ func (t focusTab) card(cw, h int, loc *time.Location) []string {
 	if h >= 32 {
 		lines = append(lines, cardLabel("apps")+share(d.Top.Apps))
 	}
-	lines = append(lines, cardLabel("")+sText.Render(d.RunLine()),
-		cardLabel("rating")+starsLine(d.Sess.Rating))
+	lines = append(lines, cardLabel("")+sText.Render(d.RunLine()))
+	if u := d.UrgeLine(); u != "" && h >= 33 {
+		lines = append(lines, cardLabel("urges")+qualityLine(strings.TrimPrefix(u, "urges ")))
+	}
+	lines = append(lines, cardLabel("rating")+starsLine(d.Sess.Rating))
 	if d.Sess.Note != "" {
 		lines = append(lines, cardLabel("note")+sText.Render(report.Safe(d.Sess.Note)))
 	}

@@ -12,19 +12,19 @@ tock    today    week   inbox ³   focus   rules   plan   labels          Sat 10
  │   T      tag and learn a rule   Focus                             T      pick a label          │ 
  │   s      split: label part o…     s      start a session          a      accept the suggestion │ 
  │   d      delete the row's ti…     x      stop the session         o      tag once, no rule     │ 
- │   +      add time you forgot      R      rate the session         x      ignore                │ 
- │   j/k    move                     n      note on the session      j/k    move                  │ 
- │   h      previous day             f      refile the session                                    │ 
- │   l      next day                 j/k    move                   Rules                          │ 
- │   .      back to today                                            e      edit rules.toml       │ 
- │   /      filter rows            Plan                              J/K    move rule down/up     │ 
- │   c      every window ↔ comp…     enter  done / not done          j/k    move                  │ 
- │   i      why this score           a      add a task                                            │ 
- │   g/G    first / last row         f      focus session          Labels                         │ 
- │                                   d      delete                   a      add a category        │ 
-▸│ Go                                e      edit the file            m      add a module          │ 
- │   1-7    switch tab               j/k    move                     e      rename                │ 
- │   tab    next tab                 g/G    first / last task        K      kind                  │ 
- │                                                                   w      afk window            │ 
+ │   +      add time you forgot      z      snooze or resume di…     x      ignore                │ 
+ │   j/k    move                     R      rate the session         j/k    move                  │ 
+ │   h      previous day             n      note on the session                                   │ 
+ │   l      next day                 f      refile the session     Rules                          │ 
+ │   .      back to today            j/k    move                     e      edit rules.toml       │ 
+ │   /      filter rows                                              J/K    move rule down/up     │ 
+ │   c      every window ↔ comp…   Plan                              j/k    move                  │ 
+ │   i      why this score           enter  done / not done                                       │ 
+ │   g/G    first / last row         a      add a task             Labels                         │ 
+ │                                   f      focus session            a      add a category        │ 
+▸│ Go                                d      delete                   m      add a module          │ 
+ │   1-7    switch tab               e      edit the file            e      rename                │ 
+ │   tab    next tab                 j/k    move                     K      kind                  │ 
+ │                                   g/G    first / last task        w      afk window            │ 
  │ App                                                               o      goal                  │ 
 esc close · : commands                                                                              

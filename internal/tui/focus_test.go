@@ -424,3 +424,121 @@ func TestFocusPaletteRates(t *testing.T) {
 		t.Fatalf("palette rated session %d, want the newest rated 3", got.Rating)
 	}
 }
+
+// snoozeHM is the clock the snooze tests expect: the test clock plus the
+// default 10 minute snooze.
+const snoozeHM = "15:10"
+
+func TestFocusSnoozeKey(t *testing.T) {
+	m, e := seeded(t)
+	e.Heartbeat(t, e.Clock.UnixMilli())
+	m = press(t, m, "4", "z")
+	mustContain(t, m, "no session running · s starts one")
+	m = press(t, m, "s", "enter", "z")
+	mustContain(t, m, "distraction notices snoozed until "+snoozeHM)
+	if got := m.focus.data.SnoozeUntilMS; got != e.Clock.Add(10*time.Minute).UnixMilli() {
+		t.Fatalf("SnoozeUntilMS = %d, want the clock plus 10 min", got)
+	}
+	m = press(t, m, "z")
+	mustContain(t, m, "distraction notices back on")
+	if got := m.focus.data.SnoozeUntilMS; got != 0 {
+		t.Fatalf("SnoozeUntilMS after resume = %d, want 0", got)
+	}
+}
+
+func TestFocusSnoozedCard(t *testing.T) {
+	m, e := seeded(t)
+	e.Heartbeat(t, e.Clock.UnixMilli())
+	m = press(t, m, "4", "s", "enter")
+	mustContain(t, m, "snooze notices", "stop session")
+	mustNotContain(t, m, "notices snoozed until", "resume notices")
+	m = press(t, m, "z")
+	mustContain(t, m, "notices snoozed until "+snoozeHM, "resume notices")
+	mustNotContain(t, m, "z snooze notices")
+	m = press(t, m, "z")
+	mustContain(t, m, "snooze notices")
+	mustNotContain(t, m, "notices snoozed until", "resume notices")
+}
+
+func TestFocusUrgeLine(t *testing.T) {
+	m, e := seeded(t)
+	e.Heartbeat(t, e.Clock.UnixMilli())
+	id := seedManual(t, e, "09:10", "10:00", 0, counters)
+	m = step(t, m, windowSize(100, 50))
+	m = press(t, m, "4")
+	mustNotContain(t, m, "urges")
+
+	st, err := store.Open(e.DB)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, given := range []bool{false, false, true} {
+		if err := st.AddUrge(id, given); err != nil {
+			t.Fatal(err)
+		}
+	}
+	st.Close()
+	m = press(t, m, "r")
+	want := "urges       2 resisted · 1 given in"
+	if l := line(t, m, "urges"); !strings.Contains(l, want) {
+		t.Fatalf("urges line = %q, want it to contain %q", l, want)
+	}
+	rows := strings.Split(screen(m), "\n")
+	at := func(s string) int {
+		for i, l := range rows {
+			if strings.Contains(l, s) {
+				return i
+			}
+		}
+		t.Fatalf("no line with %q", s)
+		return -1
+	}
+	if !(at("1 interruption") < at("urges") && at("urges") < at("rating")) {
+		t.Fatalf("urges must sit between the interruption line and rating:\n%s", screen(m))
+	}
+
+	cardAt := func(h int) string {
+		var out []string
+		for _, l := range m.focus.view(100, h, m.now()) {
+			out = append(out, ansi.Strip(l))
+		}
+		return strings.Join(out, "\n")
+	}
+	if !strings.Contains(cardAt(33), "urges") {
+		t.Fatal("the urges line must stay at body height 33")
+	}
+	if s := cardAt(32); strings.Contains(s, "urges") || !strings.Contains(s, "apps") {
+		t.Fatalf("at 32 the urges line goes while apps stays:\n%s", s)
+	}
+}
+
+func TestFocusNoUrgeLineWithoutUrges(t *testing.T) {
+	m, e := seeded(t)
+	e.Heartbeat(t, e.Clock.UnixMilli())
+	seedManual(t, e, "09:10", "10:00", 0, counters)
+	m = press(t, m, "4")
+	for _, l := range strings.Split(screen(m), "\n") {
+		if strings.Contains(l, "urges") {
+			t.Fatalf("a card without urges must have no urges line: %q", l)
+		}
+	}
+}
+
+func TestFocusSnoozeHelp(t *testing.T) {
+	m, e := seeded(t)
+	e.Heartbeat(t, e.Clock.UnixMilli())
+	m = press(t, m, "4", "s", "enter", "?")
+	mustContain(t, m, "z      snooze or resume di")
+	// A narrow screen has one column, wide enough for the whole name.
+	narrow := step(t, m, windowSize(60, 80))
+	mustContain(t, narrow, "snooze or resume distraction notices")
+	m = press(t, m, "esc", "1", ":")
+	m = typeText(t, m, "distraction notices")
+	mustContain(t, m, "snooze distraction notices")
+	mustNotContain(t, m, "resume distraction notices")
+	m = press(t, m, "enter")
+	m = press(t, m, ":")
+	m = typeText(t, m, "distraction notices")
+	mustContain(t, m, "resume distraction notices")
+	mustNotContain(t, m, "snooze distraction notices")
+}

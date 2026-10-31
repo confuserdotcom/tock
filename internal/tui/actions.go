@@ -204,6 +204,8 @@ func actionTable() []action {
 			when: func(m *Model) bool { return m.tab == tabFocus && m.focus.data.Open == nil }},
 		{key: "x", name: "stop the session", group: grFocus, prio: 1,
 			when: func(m *Model) bool { return m.tab == tabFocus && m.focus.data.Open != nil }},
+		{key: "z", name: "snooze or resume distraction notices", group: grFocus, prio: 2,
+			when: func(m *Model) bool { return m.tab == tabFocus && m.focus.data.Open != nil }},
 		{name: "start a 25 min session", group: grFocus, run: startN(25),
 			when: func(m *Model) bool { return m.focus.data.Open == nil }},
 		{name: "start a 50 min session", group: grFocus, run: startN(50),
@@ -213,6 +215,16 @@ func actionTable() []action {
 		{name: "stop the session", group: grFocus,
 			when: func(m *Model) bool { return m.tab != tabFocus && m.focus.data.Open != nil },
 			run:  func(m Model) (tea.Model, tea.Cmd) { return m, m.stopSession() }},
+		{name: "snooze distraction notices", group: grFocus,
+			when: func(m *Model) bool {
+				return m.tab != tabFocus && m.focus.data.Open != nil && m.focus.data.SnoozeUntilMS <= m.now().UnixMilli()
+			},
+			run: func(m Model) (tea.Model, tea.Cmd) { return m, m.snoozeNotices() }},
+		{name: "resume distraction notices", group: grFocus,
+			when: func(m *Model) bool {
+				return m.tab != tabFocus && m.focus.data.Open != nil && m.focus.data.SnoozeUntilMS > m.now().UnixMilli()
+			},
+			run: func(m Model) (tea.Model, tea.Cmd) { return m, m.resumeNotices() }},
 		{key: "R", name: "rate the session", group: grFocus, when: finishedShown},
 		{key: "n", name: "note on the session", group: grFocus, when: finishedShown},
 		{key: "f", name: "refile the session", group: grFocus, when: finishedShown},

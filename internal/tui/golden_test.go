@@ -225,6 +225,33 @@ func TestGoldenFocusCardRunning(t *testing.T) {
 	golden.RequireEqual(t, screen(m))
 }
 
+// Phase 9: the last-session card with urges resisted and given in.
+func TestGoldenFocusCardUrges(t *testing.T) {
+	m := goldenCard(t, func(e *apptest.Env) {
+		id := seedManual(t, e, "09:10", "10:00", 0, counters)
+		seedRating(t, e, id, 4, "derivation went well")
+		st, err := store.Open(e.DB)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer st.Close()
+		for _, given := range []bool{false, false, true} {
+			if err := st.AddUrge(id, given); err != nil {
+				t.Fatal(err)
+			}
+		}
+	})
+	golden.RequireEqual(t, screen(m))
+}
+
+// Phase 9: the running card while distraction notices are snoozed.
+func TestGoldenFocusCardSnoozed(t *testing.T) {
+	m := goldenCard(t, func(e *apptest.Env) {
+		seedManual(t, e, "09:10", "10:00", 0, counters)
+	}, "s", "enter", "z")
+	golden.RequireEqual(t, screen(m))
+}
+
 // Phase 8: the rate dialog over the focus tab.
 func TestGoldenFocusRateDialog(t *testing.T) {
 	m, e := seeded(t)
