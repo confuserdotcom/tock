@@ -1,8 +1,10 @@
 package report
 
 import (
+	"strings"
 	"testing"
 
+	"tock/internal/plan"
 	"tock/internal/stats"
 )
 
@@ -33,6 +35,46 @@ func TestStartBodyYesterday(t *testing.T) {
 	} {
 		if got := StartBody(tt.d, nil); got != tt.want {
 			t.Errorf("%s: StartBody = %q, want %q", tt.name, got, tt.want)
+		}
+	}
+}
+
+func TestStartBodyToday(t *testing.T) {
+	withGoals := yesterday()
+	withGoals.Goals = []GoalRow{{State: GoalMet}, {State: GoalOK}, {State: GoalShort}}
+	rows := plan.Rows([]string{
+		"Standup due:2026-10-10 @10h00",
+		"Review due:2026-10-10 @14:00",
+		"Untimed due:2026-10-10",
+		"Gym due:2026-10-11 @09h00",
+		"x 2026-10-10 Done one due:2026-10-10 @08h00",
+		"Late due:2026-10-09 @11h00",
+	}, "2026-10-10", "2026-10-11")
+	want := "Yesterday: 6h12 tracked, score 74, goals 2/3 met. Today: 10:00 Standup · 14:00 Review."
+	if got := StartBody(withGoals, rows); got != want {
+		t.Errorf("StartBody = %q, want %q", got, want)
+	}
+
+	five := plan.Rows([]string{
+		"A due:2026-10-10 @09h00", "B due:2026-10-10 @10h00", "C due:2026-10-10 @11h00",
+		"D due:2026-10-10 @12h00", "E due:2026-10-10 @13h00",
+	}, "2026-10-10", "2026-10-11")
+	want = "Yesterday: 6h12 tracked, score 74. Today: 09:00 A · 10:00 B · 11:00 C · +2 more."
+	if got := StartBody(yesterday(), five); got != want {
+		t.Errorf("five items: %q, want %q", got, want)
+	}
+
+	long := plan.Rows([]string{"Write the quarterly report for the board due:2026-10-10 @09h00"}, "2026-10-10", "2026-10-11")
+	got := StartBody(yesterday(), long)
+	item := strings.TrimSuffix(strings.TrimPrefix(got, "Yesterday: 6h12 tracked, score 74. Today: 09:00 "), ".")
+	if item != "Write the quarterly rep…" {
+		t.Errorf("long item = %q", item)
+	}
+
+	untimed := plan.Rows([]string{"Untimed due:2026-10-10", "Gym due:2026-10-11 @09h00"}, "2026-10-10", "2026-10-11")
+	for _, rs := range [][]plan.Row{nil, untimed} {
+		if got := StartBody(yesterday(), rs); got != "Yesterday: 6h12 tracked, score 74." {
+			t.Errorf("no timed item today: %q", got)
 		}
 	}
 }

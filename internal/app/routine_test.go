@@ -1,6 +1,8 @@
 package app
 
 import (
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -79,5 +81,25 @@ func TestStartOfDayOff(t *testing.T) {
 	a := open(t, e)
 	if notes, err := a.FocusTick(false); err != nil || len(notes) != 0 {
 		t.Fatalf("notes = %+v, %v", notes, err)
+	}
+}
+
+func TestStartOfDayPlan(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "todo.txt")
+	if err := os.WriteFile(file, []byte("Standup due:2026-10-10 @10h00\nReview due:2026-10-10 @14:00\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	e := startEnv(t, "[plan]\nfile = \""+file+"\"\n")
+	a := open(t, e)
+	notes, err := a.FocusTick(false)
+	if err != nil || len(notes) != 1 || !strings.HasSuffix(notes[0].Body, "Today: 10:00 Standup · 14:00 Review.") {
+		t.Fatalf("notes = %+v, %v", notes, err)
+	}
+
+	e = startEnv(t, "[plan]\nfile = \""+filepath.Join(t.TempDir(), "missing", "todo.txt")+"\"\n")
+	a = open(t, e)
+	notes, err = a.FocusTick(false)
+	if err != nil || len(notes) != 1 || strings.Contains(notes[0].Body, "Today") {
+		t.Fatalf("missing plan: notes = %+v, %v", notes, err)
 	}
 }

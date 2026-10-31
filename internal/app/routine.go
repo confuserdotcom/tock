@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"tock/internal/focus"
+	"tock/internal/plan"
 	"tock/internal/report"
 )
 
@@ -28,5 +29,20 @@ func (a *App) StartBody(now time.Time) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return report.StartBody(y, nil), nil
+	return report.StartBody(y, a.planRows(now)), nil
+}
+
+// planRows is the [plan] file's rows for the calendar day of now, or nil
+// when there is no file or it cannot be read: a broken plan file never
+// blocks a notice.
+func (a *App) planRows(now time.Time) []plan.Row {
+	if a.cfg.Plan.File == "" {
+		return nil
+	}
+	lines, err := plan.Read(a.cfg.Plan.File)
+	if err != nil {
+		return nil
+	}
+	day := a.midnight(now)
+	return plan.Rows(lines, day.Format("2006-01-02"), day.AddDate(0, 0, 1).Format("2006-01-02"))
 }
