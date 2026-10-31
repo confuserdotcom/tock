@@ -295,3 +295,28 @@ func TestOverDueMidnightRollover(t *testing.T) {
 		t.Error("overwork notice after midnight, before the new day's work end")
 	}
 }
+
+// TestMiddayDueScoredWindow: the check-in counts activity inside [hours]
+// like its body does, so it never reads "0m tracked".
+func TestMiddayDueScoredWindow(t *testing.T) {
+	deep := func(h1, m1, h2, m2 int) vw { return vw{at(h1, m1, 0), at(h2, m2, 0), classify.KindDeep, "", ""} }
+	for _, tt := range []struct {
+		name string
+		in   Input
+		want bool
+	}{
+		{"activity only before the window", middayInput(at(8, 40, 0), deep(7, 0, 8, 40)), false},
+		{"under a minute inside the window", middayInput(at(9, 0, 30), deep(7, 0, 9, 0)), false},
+		{"a minute inside the window", middayInput(at(9, 1, 0), deep(7, 0, 9, 1)), true},
+		{"activity inside the window", middayInput(at(10, 0, 0), deep(9, 0, 10, 0)), true},
+		{"no schedule counts the whole day", middayInput(at(8, 40, 0), deep(7, 0, 8, 40)), true},
+	} {
+		tt.in.Routine.MiddayAt = 8*60 + 30
+		if tt.name != "no schedule counts the whole day" {
+			tt.in.Hours = allDays(9*60, 18*60)
+		}
+		if got := MiddayDue(tt.in); got != tt.want {
+			t.Errorf("%s: MiddayDue = %v, want %v", tt.name, got, tt.want)
+		}
+	}
+}

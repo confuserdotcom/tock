@@ -53,8 +53,9 @@ func stepStart(in Input, st *State) (Event, bool) {
 // MiddayDue reports whether this tick should send the midday check-in: it
 // is on, today is a work day, today's check-in has not gone out, its time
 // of day has come, the work day has not ended, no call is going on and today
-// has at least RecapMinActiveMS of activity. The cheap conditions come first
-// so an idle tick scans no views.
+// has at least RecapMinActiveMS of activity inside the work window (the
+// whole day without a schedule). The cheap conditions come first so an idle
+// tick scans no views.
 func MiddayDue(in Input) bool {
 	if in.Routine.MiddayAt < 0 || in.State.MiddayDay == dayKey(in.Day) || in.Hours.Off(in.Day) {
 		return false
@@ -71,7 +72,14 @@ func MiddayDue(in Input) bool {
 	if inMeeting(in) {
 		return false
 	}
-	return activeSince(in, in.Day.UnixMilli()) >= RecapMinActiveMS
+	// The check-in text reports the scored time, the work window on a set
+	// schedule, so the due-check measures the same.
+	from, to := in.Day.UnixMilli(), in.Now
+	if in.Hours.Set {
+		wf, wt := in.Hours.Window(in.Day)
+		from, to = wf, min(wt, in.Now)
+	}
+	return activeBetween(in, from, to) >= RecapMinActiveMS
 }
 
 // stepMidday sends the midday check-in once a day. The caller fills
@@ -131,4 +139,15 @@ func stepOver(in Input, st *State) (Event, bool) {
 	st.OverDay = dayKey(in.Day)
 	st.OverAt = in.Now
 	return note(TopicOver, TitleOver, in.OverBody, false), true
+}
+
+// activeBetween is the non-idle time of the views inside [from, to).
+func activeBetween(in Input, from, to int64) int64 {
+	var ms int64
+	for _, v := range in.Views {
+		if !isIdle(v) {
+			ms += max(min(v.End, to)-max(v.Start, from), 0)
+		}
+	}
+	return ms
 }
