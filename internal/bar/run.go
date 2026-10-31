@@ -4,10 +4,14 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strconv"
+	"strings"
 
 	"tock/internal/app"
 	"tock/internal/classify"
+	"tock/internal/focus"
 	"tock/internal/report"
+	"tock/internal/store"
 )
 
 // ErrUnknown means a click named no known item or action.
@@ -33,6 +37,34 @@ func Menu(a *app.App, id string) (string, error) {
 	return "", fmt.Errorf("menu %q: %w", id, ErrUnknown)
 }
 
+// goneMsg answers a click on a session that was deleted since.
+const goneMsg = "that session is gone"
+
+// sessionMin is a finished session's length in whole minutes, rounded.
+func sessionMin(s focus.Session) int64 { return (s.EndMS - s.StartMS + 30_000) / 60_000 }
+
+// rateMsg turns the result of RateSession into the log line.
+func rateMsg(s focus.Session, _ int, err error) (string, error) {
+	switch {
+	case errors.Is(err, store.ErrSessionGone):
+		return goneMsg, nil
+	case err != nil:
+		return "", err
+	}
+	return fmt.Sprintf("rated the %d min session ★%d", sessionMin(s), s.Rating), nil
+}
+
+// refileMsg turns the result of RefileSession into the log line.
+func refileMsg(s focus.Session, project string, err error) (string, error) {
+	switch {
+	case errors.Is(err, store.ErrSessionGone):
+		return goneMsg, nil
+	case err != nil:
+		return "", err
+	}
+	return fmt.Sprintf("refiled %d min to %s", sessionMin(s), project), nil
+}
+
 // Respond runs the button action of notice id. Dismissing a notification
 // or clicking its body (an action that is not one of its buttons) does
 // nothing.
@@ -56,6 +88,13 @@ func Respond(a *app.App, id int64, action string) (string, error) {
 		return fmt.Sprintf("break reminders snoozed for %d min", int(SnoozeFor.Minutes())), nil
 	case ActIdle:
 		return "left away time idle", a.Answer(classify.Interval{From: d.From, To: d.To}, classify.Want{})
+	}
+	if v, ok := strings.CutPrefix(action, ActRate); ok {
+		n, _ := strconv.Atoi(v) // Buttons only offers 1..5
+		return rateMsg(a.RateSession(d.Session, n, nil))
+	}
+	if action == ActRefile {
+		return refileMsg(a.RefileSession(d.Session, d.Project))
 	}
 	i, _ := awayIndex(action) // Buttons only offers valid indexes
 	if err := a.Answer(classify.Interval{From: d.From, To: d.To}, d.Labels[i]); err != nil {

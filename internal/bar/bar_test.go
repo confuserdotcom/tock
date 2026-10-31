@@ -209,3 +209,133 @@ func TestRespond(t *testing.T) {
 		t.Fatalf("absence still pending: %+v, %v", d.Away, err)
 	}
 }
+
+// finished runs a 50 minute manual session from 10:00 to 10:50 over the
+// seeded day (40 min of tock, 10 of ATLAS) and leaves the clock at 10:50.
+func finished(t *testing.T, e *apptest.Env, a *app.App) focus.Session {
+	t.Helper()
+	e.Clock = time.UnixMilli(apptest.At(t, "10:00", 0)).In(apptest.Zone)
+	if _, err := a.StartSession(50); err != nil {
+		t.Fatal(err)
+	}
+	e.Clock = e.Clock.Add(50 * time.Minute)
+	s, err := a.StopSession()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return s
+}
+
+func doneEvent(s focus.Session, project string, refile bool) focus.Event {
+	return focus.Event{Topic: focus.TopicDone, Title: focus.TitleDone, Body: "b", Minutes: 50, Sess: s, Project: project, Refile: refile}
+}
+
+func TestDoneButtons(t *testing.T) {
+	done := store.Notice{ID: 3, Topic: focus.TopicDone}
+	d := app.NoticeData{Session: 42, Minutes: 50, Project: "Analyse 1", Refile: true}
+	want := []Button{
+		{"rate:5", "Rate ★5"}, {"rate:4", "Rate ★4"}, {"rate:3", "Rate ★3"}, {"rate:2", "Rate ★2"}, {"rate:1", "Rate ★1"},
+		{"refile:", "Refile → Analyse 1"}, {"again", "Start again (50 min)"},
+	}
+	if got := Buttons(done, d); !reflect.DeepEqual(got, want) {
+		t.Fatalf("done buttons = %+v", got)
+	}
+	if Category(done, d) != "done-3" {
+		t.Fatalf("category = %q", Category(done, d))
+	}
+	for name, d := range map[string]app.NoticeData{
+		"refile off": {Session: 42, Minutes: 50, Project: "Analyse 1"},
+		"no project": {Session: 42, Minutes: 50, Refile: true},
+	} {
+		got := Buttons(done, d)
+		if len(got) != 6 || got[5].ID != ActAgain {
+			t.Fatalf("%s: %+v", name, got)
+		}
+	}
+	old := Buttons(done, app.NoticeData{Minutes: 50})
+	if !reflect.DeepEqual(old, []Button{{ActAgain, "Start again (50 min)"}}) {
+		t.Fatalf("old notice buttons = %+v", old)
+	}
+	long := Buttons(done, app.NoticeData{Session: 1, Project: strings.Repeat("p", 30), Refile: true})
+	if r := []rune(long[5].Title); string(r[len(r)-1]) != "…" || len(r) != len([]rune("Refile → "))+24 {
+		t.Fatalf("long project button = %q", long[5].Title)
+	}
+	if got := Buttons(done, app.NoticeData{}); got != nil || Category(done, app.NoticeData{}) != "" {
+		t.Fatalf("empty done = %+v", got)
+	}
+}
+
+func TestRespondRate(t *testing.T) {
+	e, a := seeded(t)
+	s := finished(t, e, a)
+	id := enqueue(t, a, doneEvent(s, "ATLAS", true))
+	if msg, err := Respond(a, id, "rate:4"); err != nil || msg != "rated the 50 min session ★4" {
+		t.Fatalf("rate = %q, %v", msg, err)
+	}
+	got, err := a.SessionByID(s.ID)
+	if err != nil || got.Rating != 4 {
+		t.Fatalf("stored = %+v, %v", got, err)
+	}
+	// An action the notice does not offer stores nothing.
+	if msg, err := Respond(a, id, "rate:7"); err != nil || msg != "" {
+		t.Fatalf("rate:7 = %q, %v", msg, err)
+	}
+	old := enqueue(t, a, focus.Event{Topic: focus.TopicDone, Title: focus.TitleDone, Body: "b", Minutes: 50})
+	if msg, err := Respond(a, old, "rate:2"); err != nil || msg != "" {
+		t.Fatalf("rate on old notice = %q, %v", msg, err)
+	}
+	if got, _ := a.SessionByID(s.ID); got.Rating != 4 {
+		t.Fatalf("rating changed to %d", got.Rating)
+	}
+}
+
+func TestRespondRefile(t *testing.T) {
+	e, a := seeded(t)
+	s := finished(t, e, a)
+	id := enqueue(t, a, doneEvent(s, "ATLAS", true))
+	if msg, err := Respond(a, id, "refile:"); err != nil || msg != "refiled 50 min to ATLAS" {
+		t.Fatalf("refile = %q, %v", msg, err)
+	}
+	if ok, err := a.RefileUndoable(s.ID); err != nil || !ok {
+		t.Fatalf("undoable = %v, %v", ok, err)
+	}
+	if _, err := a.Undo(); err != nil {
+		t.Fatal(err)
+	}
+	if ok, _ := a.RefileUndoable(s.ID); ok {
+		t.Fatal("still undoable after undo")
+	}
+	// Not offered (no refile flag): nothing happens.
+	id2 := enqueue(t, a, doneEvent(s, "ATLAS", false))
+	if msg, err := Respond(a, id2, "refile:"); err != nil || msg != "" {
+		t.Fatalf("refile not offered = %q, %v", msg, err)
+	}
+}
+
+func TestRespondGone(t *testing.T) {
+	_, a := seeded(t)
+	id := enqueue(t, a, doneEvent(focus.Session{ID: 9999}, "ATLAS", true))
+	for _, act := range []string{"rate:3", "refile:"} {
+		if msg, err := Respond(a, id, act); err != nil || msg != "that session is gone" {
+			t.Fatalf("%s = %q, %v", act, msg, err)
+		}
+	}
+}
+
+func TestRespondDismiss(t *testing.T) {
+	e, a := seeded(t)
+	s := finished(t, e, a)
+	id := enqueue(t, a, doneEvent(s, "ATLAS", true))
+	for _, act := range []string{"com.apple.UNNotificationDefaultActionIdentifier", "com.apple.UNNotificationDismissActionIdentifier", ""} {
+		if msg, err := Respond(a, id, act); err != nil || msg != "" {
+			t.Fatalf("%q = %q, %v", act, msg, err)
+		}
+	}
+	got, err := a.SessionByID(s.ID)
+	if err != nil || got.Rating != 0 || got.RatedMS != 0 {
+		t.Fatalf("session changed: %+v, %v", got, err)
+	}
+	if es, _ := a.UndoList(5); len(es) != 0 {
+		t.Fatalf("undo journal = %+v", es)
+	}
+}

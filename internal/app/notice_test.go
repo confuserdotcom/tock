@@ -1,6 +1,7 @@
 package app
 
 import (
+	"encoding/json"
 	"reflect"
 	"testing"
 	"time"
@@ -82,5 +83,31 @@ func TestBarReady(t *testing.T) {
 	e.Clock = e.Clock.Add(BarFreshMS*time.Millisecond + time.Second)
 	if running, _, _ := a.BarState(); running || a.BarReady() {
 		t.Fatal("a stale heartbeat must not be ready")
+	}
+}
+
+func TestNoticeDoneData(t *testing.T) {
+	e := apptest.New(t, apptest.Rules)
+	e.Seed(t, apptest.Span{ID: 1, Start: "09:00", End: "09:10", Bundle: "term", App: "WezTerm", Title: "x"})
+	a := open(t, e)
+	ev := focus.Event{Kind: focus.Notify, Topic: focus.TopicDone, Title: focus.TitleDone, Body: "done", Minutes: 50,
+		Sess: focus.Session{ID: 42}, Project: "Analyse 1", Refile: true}
+	if err := a.Enqueue(ev); err != nil {
+		t.Fatal(err)
+	}
+	ns, err := a.TakeNotices()
+	if err != nil || len(ns) != 1 {
+		t.Fatalf("TakeNotices = %+v, %v", ns, err)
+	}
+	_, d, err := a.Notice(ns[0].ID)
+	want := NoticeData{Minutes: 50, Session: 42, Project: "Analyse 1", Refile: true}
+	if err != nil || !reflect.DeepEqual(d, want) {
+		t.Fatalf("data = %+v, %v; want %+v", d, err, want)
+	}
+
+	// A notice queued by an older trackd has none of the new keys.
+	var old NoticeData
+	if err := json.Unmarshal([]byte(`{"minutes":25}`), &old); err != nil || !reflect.DeepEqual(old, NoticeData{Minutes: 25}) {
+		t.Fatalf("old data = %+v, %v", old, err)
 	}
 }

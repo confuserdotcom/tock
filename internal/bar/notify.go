@@ -9,6 +9,7 @@ import (
 	"tock/internal/app"
 	"tock/internal/classify"
 	"tock/internal/focus"
+	"tock/internal/report"
 	"tock/internal/store"
 )
 
@@ -17,9 +18,14 @@ const (
 	ActStop   = "stop"
 	ActAgain  = "again"
 	ActSnooze = "snooze"
-	ActAway   = "away:" // + index into the notice's labels
+	ActAway   = "away:"   // + index into the notice's labels
+	ActRate   = "rate:"   // + rating 1..5, on a done notice
+	ActRefile = "refile:" // refile the finished session to the notice's top project
 	ActIdle   = "idle"
 )
+
+// ProjectCells is how wide a project name may be in a button or menu item.
+const ProjectCells = 24
 
 // SnoozeFor is how long Snooze holds break reminders back.
 const SnoozeFor = 30 * time.Minute
@@ -35,9 +41,20 @@ func Buttons(n store.Notice, d app.NoticeData) []Button {
 	case focus.TopicFocus:
 		return []Button{{ActStop, "Stop session"}}
 	case focus.TopicDone:
-		if d.Minutes > 0 {
-			return []Button{{ActAgain, fmt.Sprintf("Start again (%d min)", d.Minutes)}}
+		// The first action is the one macOS shows as the button.
+		var out []Button
+		if d.Session > 0 {
+			for r := 5; r >= 1; r-- {
+				out = append(out, Button{ActRate + strconv.Itoa(r), fmt.Sprintf("Rate ★%d", r)})
+			}
+			if d.Project != "" && d.Refile {
+				out = append(out, Button{ActRefile, "Refile → " + report.Cut(d.Project, ProjectCells)})
+			}
 		}
+		if d.Minutes > 0 {
+			out = append(out, Button{ActAgain, fmt.Sprintf("Start again (%d min)", d.Minutes)})
+		}
+		return out
 	case focus.TopicBreak:
 		return []Button{{ActSnooze, fmt.Sprintf("Snooze %d min", int(SnoozeFor.Minutes()))}}
 	case focus.TopicAway:
