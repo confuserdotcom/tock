@@ -23,7 +23,9 @@ const (
 	KeyFocusRecapDay = "focus_recap_day"
 	// KeyFocusStartDay is the YYYY-MM-DD of the last start-of-day notice sent.
 	KeyFocusStartDay = "focus_start_day"
-	KeyFocusAwayAt   = "focus_away_at"
+	// KeyFocusMiddayDay is the YYYY-MM-DD of the last midday check-in sent.
+	KeyFocusMiddayDay = "focus_midday_day"
+	KeyFocusAwayAt    = "focus_away_at"
 	// KeyFocusBreakSnooze is when (ms) snoozed break reminders resume.
 	KeyFocusBreakSnooze = "focus_break_snooze"
 	// KeyFocusDistractSnooze is when (ms) snoozed distraction notices of the

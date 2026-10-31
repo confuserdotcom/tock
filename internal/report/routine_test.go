@@ -78,3 +78,39 @@ func TestStartBodyToday(t *testing.T) {
 		}
 	}
 }
+
+func TestMiddayBody(t *testing.T) {
+	d := Day{Categories: []CatRow{{Name: "Coding", MS: 2 * 3_600_000}, {Name: "Mail", MS: 3_600_000}}}
+	d.Stats.ActiveMS = 3*3_600_000 + 5*60_000
+	d.Stats.FocusMS = 3_600_000 + 40*60_000
+	d.Score.Target.MS = 4*3_600_000 + 50*60_000
+	noTarget := d
+	noTarget.Score.Target.MS = 0
+	noCat := d
+	noCat.Categories = nil
+	onlyUnclassified := d
+	onlyUnclassified.Categories = []CatRow{{Name: Unclassified, MS: 3_600_000}}
+	skipUnclassified := d
+	skipUnclassified.Categories = []CatRow{{Name: Unclassified, MS: 3_600_000}, {Name: "Mail", MS: 600_000}}
+	long := d
+	long.Categories = []CatRow{{Name: strings.Repeat("x", 30), MS: 3_600_000}}
+	for _, tt := range []struct {
+		name string
+		d    Day
+		want string
+	}{
+		{"full", d, "3h05 tracked, 64% of 4h50 target · top: Coding · focus 1h40."},
+		{"no target", noTarget, "3h05 tracked · top: Coding · focus 1h40."},
+		{"no categories", noCat, "3h05 tracked, 64% of 4h50 target · focus 1h40."},
+		{"only unclassified", onlyUnclassified, "3h05 tracked, 64% of 4h50 target · focus 1h40."},
+		{"skips unclassified", skipUnclassified, "3h05 tracked, 64% of 4h50 target · top: Mail · focus 1h40."},
+		{"cut", long, "3h05 tracked, 64% of 4h50 target · top: " + Cut(strings.Repeat("x", 30), RoutineItemCells) + " · focus 1h40."},
+	} {
+		if got := MiddayBody(tt.d); got != tt.want {
+			t.Errorf("%s: got %q, want %q", tt.name, got, tt.want)
+		}
+	}
+	if got := Cut(strings.Repeat("x", 30), RoutineItemCells); len([]rune(got)) > RoutineItemCells {
+		t.Errorf("cut name %q too long", got)
+	}
+}

@@ -103,3 +103,56 @@ func TestStartOfDayPlan(t *testing.T) {
 		t.Fatalf("missing plan: notes = %+v, %v", notes, err)
 	}
 }
+
+// middayEnv seeds an open span from 12:30 with the clock at 13:00, so the
+// midday check-in is due.
+func middayEnv(t *testing.T, config string) *apptest.Env {
+	t.Helper()
+	e := apptest.New(t, apptest.Rules)
+	e.Seed(t, apptest.Span{ID: 1, Start: "12:30", Bundle: "term", App: "WezTerm", Title: "secret-today-title"})
+	e.WriteConfig(t, config)
+	e.Clock = time.Date(2026, 10, 10, 13, 0, 0, 0, apptest.Zone)
+	return e
+}
+
+func TestMiddayCheckIn(t *testing.T) {
+	e := middayEnv(t, "[routine]\nstart = false\n")
+	a := open(t, e)
+	d, err := a.Day(e.Clock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := report.MiddayBody(d)
+	notes, err := a.FocusTick(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []focus.Event{{Kind: focus.Notify, Topic: focus.TopicMidday, Title: focus.TitleMidday, Body: body}}
+	if !reflect.DeepEqual(notes, want) {
+		t.Fatalf("notes = %+v, want %+v", notes, want)
+	}
+	if strings.Contains(body, "secret") {
+		t.Fatalf("body = %q", body)
+	}
+	if notes, err := a.FocusTick(false); err != nil || len(notes) != 0 {
+		t.Fatalf("second tick = %+v, %v", notes, err)
+	}
+	b := open(t, e)
+	if notes, err := b.FocusTick(false); err != nil || len(notes) != 0 {
+		t.Fatalf("tick after restart = %+v, %v", notes, err)
+	}
+	if v, _, _ := a.st.State(store.KeyFocusMiddayDay); v != "2026-10-10" {
+		t.Fatalf("focus_midday_day = %q", v)
+	}
+	if got, err := a.MiddayBody(e.Clock); err != nil || got != body {
+		t.Fatalf("MiddayBody = %q, %v", got, err)
+	}
+}
+
+func TestMiddaySkippedAfterHours(t *testing.T) {
+	e := middayEnv(t, "[focus]\nrecap = \"\"\n[hours]\ndays = [\"mon\",\"tue\",\"wed\",\"thu\",\"fri\",\"sat\",\"sun\"]\nstart = \"09:00\"\nend = \"12:00\"\n[routine]\nstart = false\n")
+	a := open(t, e)
+	if notes, err := a.FocusTick(false); err != nil || len(notes) != 0 {
+		t.Fatalf("notes = %+v, %v", notes, err)
+	}
+}

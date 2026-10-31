@@ -37,6 +37,10 @@ func Step(in Input) []Event {
 		notes = append(notes, n)
 		stateChanged = true
 	}
+	if n, ok := stepMidday(in, &st); ok {
+		notes = append(notes, n)
+		stateChanged = true
+	}
 	if n, ok := stepRecap(in, &st); ok {
 		notes = append(notes, n)
 		stateChanged = true

@@ -11,7 +11,8 @@ import (
 // routineBodies fills in the text of every routine notice that is due on
 // this tick. It builds a text only behind the pure core's due-ness check, so
 // an idle tick reads neither yesterday's report nor the plan file.
-func (a *App) routineBodies(in *focus.Input, nowT time.Time) error {
+// today builds today's report on first use and returns it again after.
+func (a *App) routineBodies(in *focus.Input, nowT time.Time, today func() (report.Day, error)) error {
 	if focus.StartDue(*in) {
 		body, err := a.StartBody(nowT)
 		if err != nil {
@@ -19,7 +20,24 @@ func (a *App) routineBodies(in *focus.Input, nowT time.Time) error {
 		}
 		in.StartBody = body
 	}
+	if focus.MiddayDue(*in) {
+		d, err := today()
+		if err != nil {
+			return err
+		}
+		in.MiddayBody = report.MiddayBody(d)
+	}
 	return nil
+}
+
+// MiddayBody is the midday check-in text at that moment, shared by the
+// notice and tock recap midday.
+func (a *App) MiddayBody(now time.Time) (string, error) {
+	d, err := a.Day(now)
+	if err != nil {
+		return "", err
+	}
+	return report.MiddayBody(d), nil
 }
 
 // StartBody is the start-of-day text for the calendar day of now, shared by

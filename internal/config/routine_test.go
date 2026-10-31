@@ -25,3 +25,23 @@ func TestLoadRoutineStart(t *testing.T) {
 		t.Fatalf("unknown key: err = %v, want unknown key routine.bogus", err)
 	}
 }
+
+func TestLoadRoutineMidday(t *testing.T) {
+	c, err := Load(write(t, ""))
+	if err != nil || c.Routine.MiddayAt != 780 {
+		t.Fatalf("default: MiddayAt = %d, err = %v, want 780", c.Routine.MiddayAt, err)
+	}
+	for body, want := range map[string]int{"12:30": 750, "off": -1} {
+		c, err := Load(write(t, "[routine]\nmidday = \""+body+"\"\n"))
+		if err != nil || c.Routine.MiddayAt != want {
+			t.Fatalf("midday = %q: MiddayAt = %d, err = %v, want %d", body, c.Routine.MiddayAt, err, want)
+		}
+	}
+	for _, bad := range []string{"", "25:00", "1pm"} {
+		_, err := Load(write(t, "[routine]\nmidday = \""+bad+"\"\n"))
+		want := `[routine] midday = "` + bad + `", want "HH:MM" or "off"`
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Fatalf("midday = %q: err = %v, want %s", bad, err, want)
+		}
+	}
+}

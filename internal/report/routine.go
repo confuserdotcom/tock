@@ -57,3 +57,22 @@ func yesterdayText(y Day) string {
 	}
 	return s + "."
 }
+
+// MiddayBody is the midday check-in text: tracked time so far, its share of
+// the day's target, the top category and focus time.
+// "3h05 tracked, 64% of 4h50 target · top: Coding · focus 1h40."
+// The share is left out without a target, the top part when no category
+// other than Unclassified has time.
+func MiddayBody(d Day) string {
+	s := Dur(d.Stats.ActiveMS) + " tracked"
+	if t := d.Score.Target.MS; t > 0 {
+		s += fmt.Sprintf(", %d%% of %s target", (d.Stats.ActiveMS*100+t/2)/t, Dur(t))
+	}
+	for _, c := range d.Categories {
+		if c.Name != Unclassified {
+			s += " · top: " + Cut(c.Name, RoutineItemCells)
+			break
+		}
+	}
+	return s + " · focus " + Dur(d.Stats.FocusMS) + "."
+}

@@ -37,17 +37,20 @@ const (
 	TitleAway  = "tock · away"
 	// TitleStart is the start-of-day notice.
 	TitleStart = "Start of day"
+	// TitleMidday is the midday check-in notice.
+	TitleMidday = "Midday check-in"
 )
 
 // Notification topics: what a note is about, so a notifier can offer the
 // right buttons.
 const (
-	TopicFocus = "focus"
-	TopicDone  = "done"
-	TopicBreak = "break"
-	TopicRecap = "recap"
-	TopicAway  = "away"
-	TopicStart = "start"
+	TopicFocus  = "focus"
+	TopicDone   = "done"
+	TopicBreak  = "break"
+	TopicRecap  = "recap"
+	TopicAway   = "away"
+	TopicStart  = "start"
+	TopicMidday = "midday"
 )
 
 // AwayNotifyMS is how soon after coming back the away question is sent; an
@@ -81,6 +84,7 @@ type State struct {
 	BreakAt   int64  // when the last break reminder or session end fired
 	RecapDay  string // YYYY-MM-DD of the last recap
 	StartDay  string // YYYY-MM-DD of the last start-of-day notice
+	MiddayDay string // YYYY-MM-DD of the last midday check-in
 	AwayAt    int64  // end of the last absence asked about
 	// SnoozeUntil holds break reminders back until this time (ms).
 	SnoozeUntil int64
@@ -137,6 +141,8 @@ type Input struct {
 	Hours stats.Hours
 	// StartBody is the start-of-day text; the caller fills it when StartDue.
 	StartBody string
+	// MiddayBody is the midday check-in text; the caller fills it when MiddayDue.
+	MiddayBody string
 	// Absence is the latest absence today that has no answer yet, or nil.
 	Absence *classify.Interval
 	// AbsenceBefore is the label of what Absence follows; zero when none.
