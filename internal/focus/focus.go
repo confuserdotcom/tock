@@ -60,7 +60,7 @@ type Session struct {
 	PlannedMS     int64 // 0 for auto sessions
 	EndMS         int64 // 0 while running
 	Interruptions int
-	AlertedMS     int64 // distraction total at the last alert
+	AlertedMS     int64 // alertable distraction total at the last alert
 	DeepMS        int64
 	DistractMS    int64
 	LongestMS     int64
@@ -106,8 +106,11 @@ type Event struct {
 	Refile      bool              // TopicDone: a refile of the session's time to Project is offered
 	Away        classify.Interval // TopicAway: the absence asked about
 	Before      classify.Want     // TopicAway: the label of what it follows, if any
-	Sess        Session
-	State       State
+	// Category and RuleRef (TopicFocus): the category the notice offers to
+	// mark quiet, and the rule that set it ("" = none).
+	Category, RuleRef string
+	Sess              Session
+	State             State
 }
 
 // Input is one tick's view of the world.
@@ -178,6 +181,7 @@ func inMeeting(in Input) bool {
 type Stats struct {
 	DeepMS     int64 // deep time outside meetings
 	DistractMS int64 // distraction time outside meetings
+	AlertMS    int64 // the part of DistractMS that may alert: Quiet labels left out
 	LongestMS  int64 // longest deep stretch; non-deep gaps under stats.ToleranceMS do not break it, idle does
 }
 
@@ -213,6 +217,9 @@ func WindowStats(views []classify.SpanView, labels []classify.Label, from, to in
 			st.LongestMS = max(st.LongestMS, run)
 		case classify.KindDistract:
 			st.DistractMS += e - s
+			if !labels[i].Quiet {
+				st.AlertMS += e - s
+			}
 		}
 	}
 	return st

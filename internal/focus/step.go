@@ -124,14 +124,19 @@ func stepSession(in Input, s Session) (writes, notes []Event, ended bool) {
 	if s.Interruptions > 0 {
 		step = in.Cfg.DistractRepeatMS
 	}
-	if !inMeeting(in) && ws.DistractMS >= s.AlertedMS+step {
+	// Marking a category quiet lowers the alertable total; the baseline
+	// follows it down so a later notice is a repeat away from there.
+	alerted := min(s.AlertedMS, ws.AlertMS)
+	next.AlertedMS = alerted
+	if !inMeeting(in) && ws.AlertMS >= alerted+step {
 		next.Interruptions++
-		next.AlertedMS = ws.DistractMS
+		next.AlertedMS = ws.AlertMS
 		// A snooze mutes the notice only: the counters above advance as
 		// without it, so the next notice comes at the next threshold.
 		if in.Now >= in.State.DistractSnoozeUntil {
 			n := note(TopicFocus, TitleFocus, distractBody(next, in.Now), true)
 			n.Sess = next
+			n.Category, n.RuleRef = distractTarget(in, next)
 			notes = append(notes, n)
 		}
 	}

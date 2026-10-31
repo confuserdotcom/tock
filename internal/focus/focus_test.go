@@ -48,8 +48,8 @@ func TestWindowStats(t *testing.T) {
 		from, to int64
 		want     Stats
 	}{
-		{at(10, 0, 0), at(11, 0, 0), Stats{DeepMS: 27*minute + 30_000, DistractMS: 2*minute + 30_000, LongestMS: 19*minute + 30_000}},
-		{at(10, 5, 0), at(10, 15, 0), Stats{DeepMS: 9*minute + 30_000, DistractMS: 30_000, LongestMS: 9*minute + 30_000}},
+		{at(10, 0, 0), at(11, 0, 0), Stats{DeepMS: 27*minute + 30_000, DistractMS: 2*minute + 30_000, AlertMS: 2*minute + 30_000, LongestMS: 19*minute + 30_000}},
+		{at(10, 5, 0), at(10, 15, 0), Stats{DeepMS: 9*minute + 30_000, DistractMS: 30_000, AlertMS: 30_000, LongestMS: 9*minute + 30_000}},
 		{at(12, 0, 0), at(13, 0, 0), Stats{}},
 	}
 	for _, tt := range tests {
