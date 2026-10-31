@@ -22,8 +22,8 @@ type CategorySpec struct {
 }
 
 // rewriteRules reads both rule files, lets edit rewrite them, keeps
-// rules.toml as rules.toml.bak, writes learned.toml (when it changed) then
-// rules.toml, and reloads.
+// each file that changed as <file>.bak, writes learned.toml (when it
+// changed) then rules.toml, and reloads.
 func (a *App) rewriteRules(edit func(rules, learned []byte) ([]byte, []byte, error)) error {
 	rules, err := os.ReadFile(a.paths.Rules)
 	if err != nil {
@@ -40,10 +40,17 @@ func (a *App) rewriteRules(edit func(rules, learned []byte) ([]byte, []byte, err
 	if _, err := classify.Parse(newRules, newLearned); err != nil {
 		return fmt.Errorf("the rewritten rules do not parse (%v); nothing changed", err)
 	}
-	if err := os.WriteFile(a.paths.Rules+".bak", rules, 0o600); err != nil {
-		return err
+	if string(newRules) != string(rules) {
+		if err := os.WriteFile(a.paths.Rules+".bak", rules, 0o600); err != nil {
+			return err
+		}
 	}
 	if string(newLearned) != string(learned) {
+		if learned != nil {
+			if err := os.WriteFile(a.paths.Learned+".bak", learned, 0o600); err != nil {
+				return err
+			}
+		}
 		if err := classify.WriteFile(a.paths.Learned, newLearned); err != nil {
 			return err
 		}

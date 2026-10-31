@@ -228,6 +228,12 @@ func TestMarkRuleQuietStale(t *testing.T) {
 		if got := slurp(t, e.Learned); strings.Count(got, "interrupt = false") != 1 || slurp(t, e.Rules) != rules {
 			t.Fatalf("learned.toml:\n%s", got)
 		}
+		if slurp(t, e.Learned+".bak") != learned {
+			t.Fatal("learned.toml.bak is not the previous learned.toml")
+		}
+		if _, err := os.Stat(e.Rules + ".bak"); err == nil {
+			t.Fatal("rules.toml.bak written for an unchanged rules.toml")
+		}
 	})
 	t.Run("recategorised", func(t *testing.T) {
 		e := distracted(t)
