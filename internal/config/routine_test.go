@@ -108,3 +108,16 @@ func TestLoadHoursOver(t *testing.T) {
 		t.Fatalf("over_repeat alone: Hours.Set = %v, %+v, %v", c.Hours.Set, c.Routine, err)
 	}
 }
+
+// TestRoutineDocDefaults pins the values shown in the README to DefaultRoutine.
+func TestRoutineDocDefaults(t *testing.T) {
+	doc := "[hours]\nstart = \"09:00\"\nend = \"18:00\"\nover_grace = 30\nover_repeat = 60\n" +
+		"[routine]\nstart = true\nmidday = \"13:00\"\nend = true\noverwork = true\n"
+	c, err := Load(write(t, doc))
+	if err != nil {
+		t.Fatalf("documented config: %v", err)
+	}
+	if !reflect.DeepEqual(c.Routine, DefaultRoutine()) {
+		t.Fatalf("documented values = %+v, want DefaultRoutine() %+v", c.Routine, DefaultRoutine())
+	}
+}

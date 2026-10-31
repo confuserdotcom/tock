@@ -194,7 +194,7 @@ tock rules merge [--project] <from> <into>
                                        fold one name into another everywhere
 tock session [start [MIN] | stop]      focus session: show, start (default 25), stop
 tock session snooze [MIN|off]          hold distraction notices back (default [focus] snooze), or resume them
-tock recap [YYYY-MM-DD]                the daily recap
+tock recap [YYYY-MM-DD|start|midday]   the daily recap, or a routine notice now
 tock trends [--month YYYY-MM]          a month against the one before
 tock top [--days N | --week | --month] [--by category|app|site|project] [--limit N]
                                        where the time went: top categories, apps and sites
@@ -265,6 +265,14 @@ focus_off = ""           # ... and when it ends
 days = ["mon", "tue", "wed", "thu", "fri"]
 start = "09:00"          # start and end are both required
 end = "18:00"
+over_grace = 30          # minutes of work past end before the overworking notice (5 to 240)
+over_repeat = 60         # minutes between overworking notices while you keep going (15 to 480)
+
+[routine]                # notices that mark the day; see Routines
+start = true             # start of day notice on the first activity of a work day
+midday = "13:00"         # midday check-in time, "off" to disable
+end = true               # false turns the recap notice off whatever [focus] recap says
+overwork = true          # overworking notice past the end of the work hours
 
 [privacy]
 keep_titles = 30         # off unless set: days window titles are kept
@@ -481,6 +489,50 @@ and the today tab and dashboard show the same.
 
 The recap closes the day: it goes out when the hours end, unless
 `[focus] recap` sets its own time, and is skipped on days off.
+
+The overworking notice (see Routines) uses `end`. `over_grace` and
+`over_repeat` alone do not turn the schedule on.
+
+## Routines
+
+trackd marks the day with up to four notices.
+
+**Start of day** comes with the first activity of a work day, once a day,
+even if trackd restarts. It looks back and ahead:
+
+```
+Yesterday: 6h12 tracked, score 74, goals 2/3 met. Today: 10:00 Standup.
+```
+
+The "Today" part lists the timed items of your plan file.
+
+**Midday check-in** comes at `[routine] midday` (13:00 by default). It is
+skipped once the work hours have ended.
+
+```
+3h05 tracked, 64% of 4h50 target · top: Coding · focus 1h40.
+```
+
+**The recap** is unchanged: it comes at `[focus] recap`, or when the hours
+end.
+
+**Overworking** needs `[hours]`. It comes once you have worked `over_grace`
+minutes past `end` and are still active, and repeats at most every
+`over_repeat` minutes while you keep going. If you stopped before the grace
+ran out, it never comes.
+
+```
+Past work hours: 9h40 tracked today, 1h05 after 18:00. Time to stop.
+```
+
+Switch each one off in `[routine]`: `start = false`, `midday = "off"`,
+`end = false` (the recap notice), `overwork = false`. The notices wait until
+a call or meeting ends, and they have no buttons. `[focus] notify = false`
+silences all of them. Days off (outside `[hours] days`) get no start of day,
+midday check-in or overworking notice.
+
+`tock recap start` and `tock recap midday` print what the notice would say
+now.
 
 ## Time away
 
@@ -905,6 +957,9 @@ tock with buttons:
 | session done | Start again |
 | break due | Snooze 30 min |
 | time away | your recent away labels, then Leave idle |
+
+Routine notices (start of day, midday check-in, recap, overworking) come
+without buttons.
 
 Without the app, or with its notifications turned off, trackd sends plain
 notifications as before. `tock doctor` says which is in use. **Quit tock
