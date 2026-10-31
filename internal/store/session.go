@@ -24,6 +24,9 @@ const (
 	KeyFocusAwayAt   = "focus_away_at"
 	// KeyFocusBreakSnooze is when (ms) snoozed break reminders resume.
 	KeyFocusBreakSnooze = "focus_break_snooze"
+	// KeyFocusDistractSnooze is when (ms) snoozed distraction notices of the
+	// running session resume.
+	KeyFocusDistractSnooze = "focus_distract_snooze"
 	// KeyGuardSession is the id of the session whose start hooks ran.
 	KeyGuardSession = "guard_session"
 	// KeyGuardBlockAt is when (ms) the focus guard last blocked something.
@@ -96,6 +99,10 @@ func (s *Store) StartSession(startMS, plannedMS int64) (Session, error) {
 	}
 	id, err := res.LastInsertId()
 	if err != nil {
+		return Session{}, fmt.Errorf("store: start session: %w", err)
+	}
+	// A new session starts with distraction notices on.
+	if _, err := tx.Exec(`DELETE FROM daemon_state WHERE key=?`, KeyFocusDistractSnooze); err != nil {
 		return Session{}, fmt.Errorf("store: start session: %w", err)
 	}
 	if err := tx.Commit(); err != nil {

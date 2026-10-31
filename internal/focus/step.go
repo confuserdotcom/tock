@@ -127,7 +127,13 @@ func stepSession(in Input, s Session) (writes, notes []Event, ended bool) {
 	if !inMeeting(in) && ws.DistractMS >= s.AlertedMS+step {
 		next.Interruptions++
 		next.AlertedMS = ws.DistractMS
-		notes = append(notes, note(TopicFocus, TitleFocus, distractBody(next, in.Now), true))
+		// A snooze mutes the notice only: the counters above advance as
+		// without it, so the next notice comes at the next threshold.
+		if in.Now >= in.State.DistractSnoozeUntil {
+			n := note(TopicFocus, TitleFocus, distractBody(next, in.Now), true)
+			n.Sess = next
+			notes = append(notes, n)
+		}
 	}
 	if next != s {
 		writes = append(writes, Event{Kind: SessionUpdate, Sess: next})

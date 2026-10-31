@@ -582,3 +582,101 @@ func TestLoadSurvivesLastSessionFailure(t *testing.T) {
 		t.Fatalf("snapshot lost the day: %+v", s)
 	}
 }
+
+// distractedSession starts a 25 min session at 14:50 in an env whose last 5
+// minutes are YouTube, so a distraction notice is due at 15:00.
+func distractedSession(t *testing.T) (*apptest.Env, *app.App, focus.Session) {
+	t.Helper()
+	e := apptest.New(t, apptest.Rules)
+	e.Seed(t,
+		apptest.Span{ID: 1, Start: "14:50", End: "14:55", Bundle: "term", App: "WezTerm", Title: "tock │ a"},
+		apptest.Span{ID: 2, Start: "14:55", Bundle: "arc", App: "Arc", Title: "Video", URL: "www.youtube.com/watch"},
+	)
+	a := openApp(t, e)
+	e.Clock = time.UnixMilli(apptest.At(t, "14:50", 0)).In(apptest.Zone)
+	s, err := a.StartSession(25)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return e, a, s
+}
+
+// at moves the env clock to hh:mm today.
+func at(t *testing.T, e *apptest.Env, hhmm string) {
+	t.Helper()
+	e.Clock = time.UnixMilli(apptest.At(t, hhmm, 0)).In(apptest.Zone)
+}
+
+// focusNotes are the distraction notices among the tick's events.
+func focusNotes(t *testing.T, a *app.App) []focus.Event {
+	t.Helper()
+	notes, err := a.FocusTick(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out []focus.Event
+	for _, n := range notes {
+		if n.Topic == focus.TopicFocus {
+			out = append(out, n)
+		}
+	}
+	return out
+}
+
+func TestDistractSnoozeEndToEnd(t *testing.T) {
+	e, a, s := distractedSession(t)
+	at(t, e, "15:00")
+	notes := focusNotes(t, a)
+	if len(notes) != 1 || notes[0].Sess.ID != s.ID {
+		t.Fatalf("first tick notes = %+v, want one for session %d", notes, s.ID)
+	}
+	id := enqueue(t, a, notes[0])
+	n, d, err := a.Notice(id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []Button{{ActSnoozeDistract, "Snooze 10 min"}, {ActStop, "Stop session"}}
+	if got := Buttons(n, d); !reflect.DeepEqual(got, want) {
+		t.Fatalf("buttons = %+v, want %+v", got, want)
+	}
+	if msg, err := Respond(a, id, ActSnoozeDistract); err != nil || msg != "distraction notices snoozed until 15:10" {
+		t.Fatalf("respond = %q, %v", msg, err)
+	}
+
+	at(t, e, "15:03")
+	if notes := focusNotes(t, a); len(notes) != 0 {
+		t.Fatalf("tick while snoozed notified: %+v", notes)
+	}
+	f, err := a.Focus(e.Clock)
+	if err != nil || f.Open == nil || f.Open.Interruptions != 2 {
+		t.Fatalf("while snoozed: %+v, %v; want 2 interruptions", f.Open, err)
+	}
+
+	at(t, e, "15:11")
+	if notes := focusNotes(t, a); len(notes) != 1 {
+		t.Fatalf("tick after the snooze notified %d times, want once", len(notes))
+	}
+	f, err = a.Focus(e.Clock)
+	if err != nil || f.Open == nil || f.Open.Interruptions != 3 {
+		t.Fatalf("after snooze: %+v, %v; want 3 interruptions", f.Open, err)
+	}
+}
+
+func TestSnoozeIgnoresStaleNotice(t *testing.T) {
+	e, a, s := distractedSession(t)
+	at(t, e, "15:00")
+	id := enqueue(t, a, focusNotes(t, a)[0])
+	if _, err := a.StopSession(); err != nil {
+		t.Fatal(err)
+	}
+	s2, err := a.StartSession(25)
+	if err != nil || s2.ID == s.ID {
+		t.Fatalf("second session = %+v, %v", s2, err)
+	}
+	if msg, err := Respond(a, id, ActSnoozeDistract); err != nil || msg != "no session running, nothing snoozed" {
+		t.Fatalf("late click = %q, %v", msg, err)
+	}
+	if was, err := a.ResumeDistract(); err != nil || was {
+		t.Fatalf("late click snoozed the new session: was = %v, %v", was, err)
+	}
+}

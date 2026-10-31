@@ -22,6 +22,8 @@ const (
 	ActRate   = "rate:"   // + rating 1..5, on a done notice
 	ActRefile = "refile:" // refile the finished session to the notice's top project
 	ActIdle   = "idle"
+	// ActSnoozeDistract snoozes distraction notices for the notice's minutes.
+	ActSnoozeDistract = "snooze:distract"
 )
 
 // ProjectCells is how wide a project name may be in a button or menu item.
@@ -39,7 +41,11 @@ type Button struct {
 func Buttons(n store.Notice, d app.NoticeData) []Button {
 	switch n.Topic {
 	case focus.TopicFocus:
-		return []Button{{ActStop, "Stop session"}}
+		var out []Button
+		if d.SnoozeMin > 0 {
+			out = append(out, Button{ActSnoozeDistract, fmt.Sprintf("Snooze %d min", d.SnoozeMin)})
+		}
+		return append(out, Button{ActStop, "Stop session"})
 	case focus.TopicDone:
 		// The first action is the one macOS shows as the button.
 		var out []Button

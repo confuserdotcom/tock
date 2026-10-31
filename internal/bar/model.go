@@ -66,6 +66,7 @@ type LastSession struct {
 
 // Load reads today's snapshot. access is the app's notification access.
 func Load(a *app.App, now time.Time, access string) (Snapshot, error) {
+	a.Reload() // tockbar is long-running: pick up config and rules edits
 	s := Snapshot{OK: true, Access: access, Presets: a.Config().Focus.Presets}
 	h, err := a.Health()
 	if err != nil {

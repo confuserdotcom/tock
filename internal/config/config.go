@@ -182,6 +182,9 @@ func DefaultShell() Shell {
 // MaxSessionMin is the longest focus session, in minutes.
 const MaxSessionMin = 240
 
+// MaxSnoozeMin is the longest distraction snooze, in minutes.
+const MaxSnoozeMin = 240
+
 // Focus is the [focus] section: session presets, break and distraction
 // timing, the daily recap and meeting detection.
 type Focus struct {
@@ -190,11 +193,13 @@ type Focus struct {
 	BreakRepeatMS    int64
 	DistractGraceMS  int64
 	DistractRepeatMS int64
-	AutoMinMS        int64
-	RecapAt          int // minutes after local midnight; -1 = off
-	Notify           bool
-	MeetingApps      []string // bundle ids
-	MeetingHosts     []string // URL hosts; subdomains match too
+	// SnoozeMS is how long a snooze holds distraction notices back.
+	SnoozeMS     int64
+	AutoMinMS    int64
+	RecapAt      int // minutes after local midnight; -1 = off
+	Notify       bool
+	MeetingApps  []string // bundle ids
+	MeetingHosts []string // URL hosts; subdomains match too
 	// Block removes distractions during a manual session: the front tab is
 	// closed or the app hidden once it has been in front BlockGraceMS.
 	Block        bool
@@ -212,7 +217,7 @@ func DefaultFocus() Focus {
 	return Focus{
 		Presets:      []int{25, 50, 90},
 		BreakAfterMS: 50 * 60_000, BreakRepeatMS: 10 * 60_000,
-		DistractGraceMS: 60_000, DistractRepeatMS: 120_000,
+		DistractGraceMS: 60_000, DistractRepeatMS: 120_000, SnoozeMS: 10 * 60_000,
 		AutoMinMS: 25 * 60_000, RecapAt: 21 * 60, Notify: true,
 		MeetingApps: []string{"us.zoom.xos", "com.apple.FaceTime", "com.microsoft.teams2",
 			"com.microsoft.teams", "Cisco-Systems.Spark", "com.cisco.webexmeetingsapp"},
@@ -269,6 +274,7 @@ type focusTOML struct {
 	BreakRepeat    *int      `toml:"break_repeat"`
 	DistractGrace  *int      `toml:"distract_grace"`
 	DistractRepeat *int      `toml:"distract_repeat"`
+	Snooze         *int      `toml:"snooze"`
 	AutoMin        *int      `toml:"auto_min"`
 	Recap          *string   `toml:"recap"`
 	Notify         *bool     `toml:"notify"`
@@ -544,6 +550,7 @@ func decodeFocus(f focusTOML, c *Focus) error {
 	}{
 		{"break_after", f.BreakAfter, 1, 480, 60_000, &c.BreakAfterMS},
 		{"break_repeat", f.BreakRepeat, 1, 240, 60_000, &c.BreakRepeatMS},
+		{"snooze", f.Snooze, 1, MaxSnoozeMin, 60_000, &c.SnoozeMS},
 		{"distract_grace", f.DistractGrace, 1, 3600, 1000, &c.DistractGraceMS},
 		{"distract_repeat", f.DistractRepeat, 1, 3600, 1000, &c.DistractRepeatMS},
 		{"auto_min", f.AutoMin, 5, 240, 60_000, &c.AutoMinMS},

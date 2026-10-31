@@ -138,7 +138,7 @@ func TestFocusDefaults(t *testing.T) {
 	want := Focus{
 		Presets:      []int{25, 50, 90},
 		BreakAfterMS: 50 * 60_000, BreakRepeatMS: 10 * 60_000,
-		DistractGraceMS: 60_000, DistractRepeatMS: 120_000,
+		DistractGraceMS: 60_000, DistractRepeatMS: 120_000, SnoozeMS: 10 * 60_000,
 		AutoMinMS: 25 * 60_000, RecapAt: 21 * 60, Notify: true,
 		MeetingApps: []string{"us.zoom.xos", "com.apple.FaceTime", "com.microsoft.teams2",
 			"com.microsoft.teams", "Cisco-Systems.Spark", "com.cisco.webexmeetingsapp"},
@@ -172,7 +172,7 @@ meeting_hosts = []
 	}
 	want := Focus{
 		Presets: []int{30, 45}, BreakAfterMS: 40 * 60_000, BreakRepeatMS: 5 * 60_000,
-		DistractGraceMS: 30_000, DistractRepeatMS: 90_000, AutoMinMS: 20 * 60_000,
+		DistractGraceMS: 30_000, DistractRepeatMS: 90_000, SnoozeMS: 10 * 60_000, AutoMinMS: 20 * 60_000,
 		RecapAt: 8*60 + 30, Notify: false, MeetingApps: []string{"a.b"}, MeetingHosts: []string{}, BlockGraceMS: 10_000,
 	}
 	if !reflect.DeepEqual(c.Focus, want) {

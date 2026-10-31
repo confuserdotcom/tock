@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"tock/internal/app"
 	"tock/internal/classify"
@@ -20,6 +21,7 @@ var ErrUnknown = errors.New("unknown action")
 // Menu runs the menu item id and returns what happened, for the log. Quit
 // and Settings are the Cocoa side's to handle.
 func Menu(a *app.App, id string) (string, error) {
+	a.Reload() // a failure is kept in RulesErr / ConfigErr; the last good files stay
 	if m, ok := startMinutes(id); ok {
 		s, err := a.StartSession(m)
 		if err != nil {
@@ -74,6 +76,17 @@ func Menu(a *app.App, id string) (string, error) {
 	return "", fmt.Errorf("menu %q: %w", id, ErrUnknown)
 }
 
+// snoozedMsg turns the result of SnoozeDistract into the log line.
+func snoozedMsg(until time.Time, err error) (string, error) {
+	switch {
+	case errors.Is(err, store.ErrNoSession):
+		return "no session running, nothing snoozed", nil
+	case err != nil:
+		return "", err
+	}
+	return "distraction notices snoozed until " + until.Format("15:04"), nil
+}
+
 // sessionID parses the session id of a menu item id.
 func sessionID(v string) (int64, bool) {
 	n, err := strconv.ParseInt(v, 10, 64)
@@ -112,6 +125,7 @@ func refileMsg(s focus.Session, project string, err error) (string, error) {
 // or clicking its body (an action that is not one of its buttons) does
 // nothing.
 func Respond(a *app.App, id int64, action string) (string, error) {
+	a.Reload()
 	n, d, err := a.Notice(id)
 	if err != nil {
 		return "", err
@@ -129,6 +143,8 @@ func Respond(a *app.App, id int64, action string) (string, error) {
 			return "", err
 		}
 		return fmt.Sprintf("break reminders snoozed for %d min", int(SnoozeFor.Minutes())), nil
+	case ActSnoozeDistract:
+		return snoozedMsg(a.SnoozeDistract(d.Session, time.Duration(d.SnoozeMin)*time.Minute))
 	case ActIdle:
 		return "left away time idle", a.Answer(classify.Interval{From: d.From, To: d.To}, classify.Want{})
 	}

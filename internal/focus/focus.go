@@ -78,6 +78,10 @@ type State struct {
 	AwayAt    int64  // end of the last absence asked about
 	// SnoozeUntil holds break reminders back until this time (ms).
 	SnoozeUntil int64
+	// DistractSnoozeUntil holds the running session's distraction notices
+	// back until this time (ms); read from daemon_state, never saved by a
+	// StateUpdate.
+	DistractSnoozeUntil int64
 }
 
 // EventKind says what an Event asks the caller to do.

@@ -141,11 +141,13 @@ func (a *App) focusState() (focus.State, error) {
 	at, _ := strconv.ParseInt(m[store.KeyFocusBreakAt], 10, 64)
 	away, _ := strconv.ParseInt(m[store.KeyFocusAwayAt], 10, 64)
 	snooze, _ := strconv.ParseInt(m[store.KeyFocusBreakSnooze], 10, 64)
+	distract, _ := strconv.ParseInt(m[store.KeyFocusDistractSnooze], 10, 64)
 	return focus.State{BreakFrom: from, BreakAt: at, RecapDay: m[store.KeyFocusRecapDay], AwayAt: away,
-		SnoozeUntil: snooze}, nil
+		SnoozeUntil: snooze, DistractSnoozeUntil: distract}, nil
 }
 
 func (a *App) setFocusState(s focus.State, nowMS int64) error {
+	// store.KeyFocusDistractSnooze is not saved here: tock owns it and Step never changes it.
 	for _, kv := range [][2]string{
 		{store.KeyFocusBreakFrom, strconv.FormatInt(s.BreakFrom, 10)},
 		{store.KeyFocusBreakAt, strconv.FormatInt(s.BreakAt, 10)},

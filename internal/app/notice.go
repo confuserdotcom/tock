@@ -32,13 +32,14 @@ const (
 // length, id and top project, or the absence and the labels offered for it.
 // Every key is optional so notices queued by an older trackd still decode.
 type NoticeData struct {
-	Minutes int             `json:"minutes,omitempty"`
-	Session int64           `json:"session,omitempty"` // done: the finished session's id, 0 = none
-	Project string          `json:"project,omitempty"` // done: its top project
-	Refile  bool            `json:"refile,omitempty"`  // done: refiling to Project is offered
-	From    int64           `json:"from,omitempty"`
-	To      int64           `json:"to,omitempty"`
-	Labels  []classify.Want `json:"labels,omitempty"`
+	Minutes   int             `json:"minutes,omitempty"`
+	Session   int64           `json:"session,omitempty"`    // done or focus: the session's id, 0 = none
+	Project   string          `json:"project,omitempty"`    // done: its top project
+	Refile    bool            `json:"refile,omitempty"`     // done: refiling to Project is offered
+	SnoozeMin int             `json:"snooze_min,omitempty"` // focus: the minutes the Snooze button offers
+	From      int64           `json:"from,omitempty"`
+	To        int64           `json:"to,omitempty"`
+	Labels    []classify.Want `json:"labels,omitempty"`
 }
 
 // Enqueue queues the notification ev for the menu bar app.
@@ -46,6 +47,9 @@ func (a *App) Enqueue(ev focus.Event) error {
 	d := NoticeData{Minutes: ev.Minutes}
 	if ev.Topic == focus.TopicDone {
 		d.Session, d.Project, d.Refile = ev.Sess.ID, ev.Project, ev.Refile
+	}
+	if ev.Topic == focus.TopicFocus {
+		d.Session, d.SnoozeMin = ev.Sess.ID, int(a.cfg.Focus.SnoozeMS/60_000)
 	}
 	if ev.Topic == focus.TopicAway {
 		d.From, d.To = ev.Away.From, ev.Away.To
