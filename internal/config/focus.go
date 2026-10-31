@@ -36,6 +36,9 @@ type Focus struct {
 	// FocusOn and FocusOff name Shortcuts run when a session starts and
 	// ends; "" = none.
 	FocusOn, FocusOff string
+	// UrgeSurf turns the distraction notice into an urge-surfing prompt with
+	// counted answers.
+	UrgeSurf bool
 }
 
 // DefaultFocus is the [focus] section used when the file does not set it.
@@ -71,6 +74,7 @@ type focusTOML struct {
 	BlockGrace     *int      `toml:"block_grace"`
 	FocusOn        *string   `toml:"focus_on"`
 	FocusOff       *string   `toml:"focus_off"`
+	UrgeSurf       *bool     `toml:"urge_surf"`
 }
 
 // decodeFocus applies the keys present in f to c and validates them.
@@ -115,6 +119,9 @@ func decodeFocus(f focusTOML, c *Focus) error {
 			return fmt.Errorf(`[focus] recap = %q, want "HH:MM" or ""`, *f.Recap)
 		}
 		c.RecapAt = at
+	}
+	if f.UrgeSurf != nil {
+		c.UrgeSurf = *f.UrgeSurf
 	}
 	if f.Notify != nil {
 		c.Notify = *f.Notify

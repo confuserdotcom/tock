@@ -111,6 +111,7 @@ type Event struct {
 	// Category and RuleRef (TopicFocus): the category the notice offers to
 	// mark quiet, and the rule that set it ("" = none).
 	Category, RuleRef string
+	Urge              bool // TopicFocus: the notice is an urge-surfing prompt
 	Sess              Session
 	State             State
 }

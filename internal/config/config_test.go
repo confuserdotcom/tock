@@ -461,3 +461,17 @@ func TestLoadPlan(t *testing.T) {
 		t.Errorf("default plan = %+v", c.Plan)
 	}
 }
+
+func TestFocusUrgeSurf(t *testing.T) {
+	c, err := Load(write(t, "[focus]\nbreak_after = 40\n"))
+	if err != nil || c.Focus.UrgeSurf {
+		t.Fatalf("default urge_surf = %v, %v; want false", c.Focus.UrgeSurf, err)
+	}
+	c, err = Load(write(t, "[focus]\nurge_surf = true\n"))
+	if err != nil || !c.Focus.UrgeSurf {
+		t.Fatalf("urge_surf = true: %v, %v; want true", c.Focus.UrgeSurf, err)
+	}
+	if _, err := Load(write(t, "[focus]\nurge_surf = \"yes\"\n")); err == nil {
+		t.Fatal(`urge_surf = "yes" loaded, want a decode error`)
+	}
+}

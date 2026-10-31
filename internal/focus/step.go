@@ -134,7 +134,8 @@ func stepSession(in Input, s Session) (writes, notes []Event, ended bool) {
 		// A snooze mutes the notice only: the counters above advance as
 		// without it, so the next notice comes at the next threshold.
 		if in.Now >= in.State.DistractSnoozeUntil {
-			n := note(TopicFocus, TitleFocus, distractBody(next, in.Now), true)
+			n := note(TopicFocus, TitleFocus, distractBody(next, in.Now, in.Cfg.UrgeSurf), true)
+			n.Urge = in.Cfg.UrgeSurf
 			n.Sess = next
 			n.Category, n.RuleRef = distractTarget(in, next)
 			notes = append(notes, n)
@@ -146,9 +147,18 @@ func stepSession(in Input, s Session) (writes, notes []Event, ended bool) {
 	return writes, notes, false
 }
 
-func distractBody(s Session, now int64) string {
-	return fmt.Sprintf("%d min distracted in your %d min session, %d min left.",
+// UrgePrompt opens the distraction notice when urge surfing is on.
+const UrgePrompt = "Pause. Breathe. Name the urge."
+
+// distractBody is the distraction notice: the minutes line, led by UrgePrompt
+// and a newline in urge-surfing mode.
+func distractBody(s Session, now int64, urge bool) string {
+	line := fmt.Sprintf("%d min distracted in your %d min session, %d min left.",
 		minutes(s.DistractMS), minutes(s.PlannedMS-s.StartMS), minutes(s.PlannedMS-now))
+	if urge {
+		return UrgePrompt + "\n" + line
+	}
+	return line
 }
 
 // doneNameCells is the widest a category name gets in the done notice.

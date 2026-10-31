@@ -300,3 +300,28 @@ func TestEditCategoryInterrupt(t *testing.T) {
 		t.Fatalf("Interrupt true did not unmark:\n%s", slurp(t, e.Rules))
 	}
 }
+
+func TestAppAddUrge(t *testing.T) {
+	e := distracted(t)
+	a := open(t, e)
+	s := startAt(t, e, a, "14:50", 25)
+	if err := a.AddUrge(s.ID, false); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.AddUrge(s.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.AddUrge(s.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	got, err := a.st.SessionByID(s.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.UrgesResisted != 1 || got.UrgesGiven != 2 {
+		t.Fatalf("urges = %d resisted, %d given, want 1, 2", got.UrgesResisted, got.UrgesGiven)
+	}
+	if err := a.AddUrge(s.ID+100, false); !errors.Is(err, store.ErrSessionGone) {
+		t.Fatalf("unknown session: %v, want store.ErrSessionGone", err)
+	}
+}

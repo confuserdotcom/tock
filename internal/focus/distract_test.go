@@ -122,3 +122,59 @@ func TestGuardBlocksQuiet(t *testing.T) {
 		t.Fatal("GuardStep did not block a quiet distraction with block = true")
 	}
 }
+
+func urgeRun(now int64, snoozeUntil int64, s Session) Input {
+	in := snoozedRun(now, snoozeUntil, s)
+	in.Cfg.UrgeSurf = true
+	return in
+}
+
+func TestStepUrgeBody(t *testing.T) {
+	now := at(14, 10, 0)
+	const plain = "5 min distracted in your 25 min session, 15 min left."
+	evs := Step(urgeRun(now, 0, running()))
+	n := only(evs, Notify)
+	if len(n) != 1 || n[0].Topic != TopicFocus {
+		t.Fatalf("events = %+v, want one TopicFocus notice", evs)
+	}
+	if want := "Pause. Breathe. Name the urge.\n" + plain; n[0].Body != want || !n[0].Urge {
+		t.Fatalf("urge notice = (%q, urge %v), want (%q, true)", n[0].Body, n[0].Urge, want)
+	}
+	if UrgePrompt != "Pause. Breathe. Name the urge." {
+		t.Fatalf("UrgePrompt = %q", UrgePrompt)
+	}
+	off := only(Step(snoozedRun(now, 0, running())), Notify)
+	if len(off) != 1 || off[0].Body != plain || off[0].Urge {
+		t.Fatalf("plain notice = %+v, want body %q and Urge false", off, plain)
+	}
+}
+
+func TestStepUrgeSameTrigger(t *testing.T) {
+	// Grace: 50 s of distraction is silent, 70 s alerts.
+	if n := only(Step(urgeRun(at(14, 5, 50), 0, running())), Notify); len(n) != 0 {
+		t.Fatalf("50 s: %+v, want no notice", n)
+	}
+	evs := Step(urgeRun(at(14, 6, 10), 0, running()))
+	if n := only(evs, Notify); len(n) != 1 || !n[0].Urge {
+		t.Fatalf("70 s: %+v, want one urge notice", evs)
+	}
+	// Repeat: after the first alert the next one comes two minutes later.
+	s := sessionUpdate(t, evs)
+	if n := only(Step(urgeRun(at(14, 7, 10), 0, s)), Notify); len(n) != 0 {
+		t.Fatalf("1 min after the alert: %+v, want none", n)
+	}
+	if n := only(Step(urgeRun(at(14, 8, 10), 0, s)), Notify); len(n) != 1 || !n[0].Urge {
+		t.Fatalf("2 min after the alert: %+v, want one urge notice", n)
+	}
+	// Snoozed: no notice, as in plain mode.
+	now := at(14, 6, 10)
+	if n := only(Step(urgeRun(now, now+1, running())), Notify); len(n) != 0 {
+		t.Fatalf("snoozed: %+v, want none", n)
+	}
+	// Quiet: a marked distraction never alerts.
+	in := urgeRun(at(14, 14, 0), 0, running())
+	mark(&in, 1, "Entertainment", classify.SourceRule, "rules.toml#3", true)
+	if n := only(Step(in), Notify); len(n) != 0 {
+		t.Fatalf("quiet: %+v, want none", n)
+	}
+}

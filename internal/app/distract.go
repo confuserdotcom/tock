@@ -118,3 +118,10 @@ func (a *App) distractSnooze() (int64, error) {
 	until, _ := strconv.ParseInt(m[store.KeyFocusDistractSnooze], 10, 64)
 	return until, nil
 }
+
+// AddUrge counts an answer to an urge-surfing notice on that session, given
+// in when given is true and resisted otherwise, even after the session ended.
+// It fails with store.ErrSessionGone when the session no longer exists.
+func (a *App) AddUrge(session int64, given bool) error {
+	return a.st.AddUrge(session, given)
+}

@@ -41,6 +41,7 @@ type NoticeData struct {
 	Category  string          `json:"category,omitempty"`   // focus: the category the notice offers to mark non-interrupting
 	Rule      string          `json:"rule,omitempty"`       // focus: the rule ref that set Category, "" = none offered
 	RuleFP    string          `json:"rule_fp,omitempty"`    // focus: that rule's Fingerprint() when the notice was queued
+	Urge      bool            `json:"urge,omitempty"`       // focus: the notice is an urge-surfing prompt
 	From      int64           `json:"from,omitempty"`
 	To        int64           `json:"to,omitempty"`
 	Labels    []classify.Want `json:"labels,omitempty"`
@@ -54,7 +55,7 @@ func (a *App) Enqueue(ev focus.Event) error {
 	}
 	if ev.Topic == focus.TopicFocus {
 		d.Session, d.SnoozeMin = ev.Sess.ID, int(a.cfg.Focus.SnoozeMS/60_000)
-		d.Category = ev.Category
+		d.Category, d.Urge = ev.Category, ev.Urge
 		if r, ok := a.rs.RuleByRef(ev.RuleRef); ok && ev.RuleRef != "" && strings.EqualFold(r.Category, ev.Category) {
 			d.Rule, d.RuleFP = r.Ref(), r.Fingerprint()
 		}

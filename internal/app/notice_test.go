@@ -154,3 +154,32 @@ func TestNoticeFocusData(t *testing.T) {
 		t.Fatalf("old data = %+v, %v", old, err)
 	}
 }
+
+func TestNoticeUrgeData(t *testing.T) {
+	e := distracted(t)
+	a := open(t, e)
+	take := func(ev focus.Event) NoticeData {
+		t.Helper()
+		if err := a.Enqueue(ev); err != nil {
+			t.Fatal(err)
+		}
+		ns, err := a.TakeNotices()
+		if err != nil || len(ns) != 1 {
+			t.Fatalf("TakeNotices = %+v, %v", ns, err)
+		}
+		_, d, err := a.Notice(ns[0].ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return d
+	}
+	ev := focus.Event{Kind: focus.Notify, Topic: focus.TopicFocus, Title: focus.TitleFocus, Body: "x",
+		Sess: focus.Session{ID: 5}, Urge: true}
+	if d := take(ev); !d.Urge || d.Session != 5 {
+		t.Fatalf("urge data = %+v, want Urge true on session 5", d)
+	}
+	ev.Urge = false
+	if d := take(ev); d.Urge || d.Session != 5 {
+		t.Fatalf("plain data = %+v, want Urge false", d)
+	}
+}
