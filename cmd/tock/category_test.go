@@ -74,3 +74,15 @@ func TestCategorySetInterrupt(t *testing.T) {
 		t.Fatal("category set with no flag is not a usage error")
 	}
 }
+
+func TestCategorySetInterruptPrefix(t *testing.T) {
+	te := newTestEnv(t, testRules)
+	te.seed(t, daySpans()...)
+	if code, out := te.run(t, "", "category", "add", "Reading", "neutral", "--afk", "10m"); code != 0 {
+		t.Fatalf("add: %d %q %s", code, out, te.errb)
+	}
+	if code, out := te.run(t, "", "category", "set", "read", "--interrupt", "off"); code != 0 ||
+		out != "Reading: neutral, afk 10m, no distraction notices\n" {
+		t.Fatalf("prefix off: %d %q %s", code, out, te.errb)
+	}
+}
