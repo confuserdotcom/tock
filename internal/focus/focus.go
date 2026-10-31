@@ -68,6 +68,8 @@ type Session struct {
 	Rating        int    // 1..5, 0 = unrated
 	Note          string // the user's one line about the session
 	RatedMS       int64  // when it was rated, 0 = unrated
+	UrgesResisted int    // distraction notices answered Back to work
+	UrgesGiven    int    // distraction notices answered Open anyway
 }
 
 // State is the engine's memory between ticks, kept in daemon_state.

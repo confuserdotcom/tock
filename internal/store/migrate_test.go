@@ -42,8 +42,8 @@ func objectExists(t *testing.T, db *sql.DB, typ, name string) bool {
 func TestMigrateFreshCreatesLatest(t *testing.T) {
 	s := openAt(t, dbPath(t))
 	defer s.Close()
-	if got := versionRows(t, s.db); !slices.Equal(got, []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14}) {
-		t.Fatalf("schema_version rows = %v, want [1 2 3 4 5 6 7 8 9 10 11 12 13 14]", got)
+	if got := versionRows(t, s.db); !slices.Equal(got, []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}) {
+		t.Fatalf("schema_version rows = %v, want [1 2 3 4 5 6 7 8 9 10 11 12 13 14 15]", got)
 	}
 	for _, tbl := range []string{"span", "daemon_state", "override", "inbox_ignore", "session", "suggestion"} {
 		if !objectExists(t, s.db, "table", tbl) {
@@ -65,7 +65,7 @@ func TestMigrateIdempotent(t *testing.T) {
 	}
 	s = openAt(t, path)
 	defer s.Close()
-	if got := versionRows(t, s.db); len(got) != 14 {
+	if got := versionRows(t, s.db); len(got) != 15 {
 		t.Fatalf("schema_version rows after reopen = %v, want exactly one per migration", got)
 	}
 }
@@ -113,16 +113,16 @@ func TestOpenTooNewSchema(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer raw.Close()
-	if got := versionRows(t, raw); !slices.Equal(got, []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 99}) {
-		t.Fatalf("schema_version rows = %v, want [1 2 3 4 5 6 7 8 9 10 11 12 13 14 99] untouched", got)
+	if got := versionRows(t, raw); !slices.Equal(got, []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 99}) {
+		t.Fatalf("schema_version rows = %v, want [1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 99] untouched", got)
 	}
 }
 
 func TestSchemaVersion(t *testing.T) {
 	s := openAt(t, dbPath(t))
 	defer s.Close()
-	if v, err := s.SchemaVersion(); err != nil || v != 14 {
-		t.Fatalf("SchemaVersion = %d (err %v), want 14", v, err)
+	if v, err := s.SchemaVersion(); err != nil || v != 15 {
+		t.Fatalf("SchemaVersion = %d (err %v), want 15", v, err)
 	}
 }
 
@@ -242,7 +242,7 @@ func TestMigrate14LegacySessions(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, e := range entries {
-		if e.Name() == "0014_session_quality.sql" {
+		if e.Name() == "0014_session_quality.sql" || e.Name() == "0015_session_urges.sql" {
 			continue
 		}
 		b, err := fs.ReadFile(migrationFS, "migrations/"+e.Name())
@@ -276,5 +276,57 @@ func TestMigrate14LegacySessions(t *testing.T) {
 	}
 	if _, err := db.Exec(`UPDATE session SET rating = 5, note = 'good', rated_ms = 70000`); err != nil {
 		t.Fatalf("rating 5: %v", err)
+	}
+}
+
+// TestMigrate15Urges: a schema-14 database upgrades to 15 with both urge
+// counts 0 on every existing session.
+func TestMigrate15Urges(t *testing.T) {
+	old := fstest.MapFS{}
+	entries, err := fs.ReadDir(migrationFS, "migrations")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range entries {
+		if e.Name() == "0015_session_urges.sql" {
+			continue
+		}
+		b, err := fs.ReadFile(migrationFS, "migrations/"+e.Name())
+		if err != nil {
+			t.Fatal(err)
+		}
+		old["migrations/"+e.Name()] = &fstest.MapFile{Data: b}
+	}
+	db := rawMem(t)
+	if err := migrateFS(db, old, "migrations"); err != nil {
+		t.Fatal(err)
+	}
+	if got := versionRows(t, db); len(got) != 14 {
+		t.Fatalf("schema_version rows = %v, want 14", got)
+	}
+	if _, err := db.Exec(`INSERT INTO session(kind, start_ms, planned_ms, end_ms) VALUES('manual', 1000, 61000, 61000), ('manual', 70000, 80000, NULL)`); err != nil {
+		t.Fatal(err)
+	}
+	if err := migrateFS(db, migrationFS, "migrations"); err != nil {
+		t.Fatal(err)
+	}
+	rows, err := db.Query(`SELECT ` + sessionCols + ` FROM session`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	n := 0
+	for rows.Next() {
+		x, err := scanSession(rows)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if x.UrgesResisted != 0 || x.UrgesGiven != 0 {
+			t.Fatalf("session %d urges = %d/%d, want 0/0", x.ID, x.UrgesResisted, x.UrgesGiven)
+		}
+		n++
+	}
+	if n != 2 {
+		t.Fatalf("sessions read = %d, want 2", n)
 	}
 }

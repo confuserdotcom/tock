@@ -62,16 +62,19 @@ type Session struct {
 	Rating        int    // 1..5, 0 = unrated
 	Note          string // the user's one line about the session
 	RatedMS       int64  // when it was rated, 0 = unrated
+	UrgesResisted int    // distraction notices answered Back to work
+	UrgesGiven    int    // distraction notices answered Open anyway
 }
 
-const sessionCols = `id, kind, start_ms, planned_ms, end_ms, interruptions, alerted_ms, deep_ms, distract_ms, longest_ms, switches, rating, note, rated_ms`
+const sessionCols = `id, kind, start_ms, planned_ms, end_ms, interruptions, alerted_ms, deep_ms, distract_ms, longest_ms, switches, rating, note, rated_ms, urges_resisted, urges_given`
 
 func scanSession(sc interface{ Scan(...any) error }) (Session, error) {
 	var x Session
 	var planned, end, rating, ratedMS sql.NullInt64
 	var note sql.NullString
 	err := sc.Scan(&x.ID, &x.Kind, &x.StartMS, &planned, &end, &x.Interruptions, &x.AlertedMS,
-		&x.DeepMS, &x.DistractMS, &x.LongestMS, &x.Switches, &rating, &note, &ratedMS)
+		&x.DeepMS, &x.DistractMS, &x.LongestMS, &x.Switches, &rating, &note, &ratedMS,
+		&x.UrgesResisted, &x.UrgesGiven)
 	x.PlannedMS, x.EndMS = planned.Int64, end.Int64
 	x.Rating, x.Note, x.RatedMS = int(rating.Int64), note.String, ratedMS.Int64
 	return x, err
