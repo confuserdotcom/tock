@@ -109,3 +109,18 @@ func TestSessionSwitchesPersist(t *testing.T) {
 		}
 	}
 }
+
+// A session from before migration 0014 reads back through Sessions() with
+// Switches -1.
+func TestSessionLegacyRowReadsMinusOne(t *testing.T) {
+	path := dbPath(t)
+	s := openAt(t, path)
+	defer s.Close()
+	if _, err := s.db.Exec(`INSERT INTO session(kind, start_ms, planned_ms, end_ms, switches) VALUES('manual', 1000, 5000, 5000, -1)`); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.Sessions(0, 10_000)
+	if err != nil || len(got) != 1 || got[0].Switches != -1 || got[0].Rating != 0 {
+		t.Fatalf("Sessions = %+v, %v", got, err)
+	}
+}

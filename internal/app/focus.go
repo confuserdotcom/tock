@@ -9,6 +9,7 @@ import (
 	"tock/internal/config"
 	"tock/internal/focus"
 	"tock/internal/report"
+	"tock/internal/stats"
 	"tock/internal/store"
 )
 
@@ -220,6 +221,7 @@ func (a *App) live(s focus.Session, nowMS int64) (focus.Session, focus.Live, err
 	}
 	ws := focus.WindowStats(vs, labels, s.StartMS, end, a.cfg.Focus)
 	s.DeepMS, s.DistractMS, s.LongestMS = ws.DeepMS, ws.DistractMS, ws.LongestMS
+	s.Switches = stats.WindowSwitches(vs, labels, s.StartMS, end)
 	return s, focus.Level(vs, labels, s.StartMS, end, a.cfg.Focus), nil
 }
 

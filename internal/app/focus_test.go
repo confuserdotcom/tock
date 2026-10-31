@@ -116,6 +116,7 @@ func TestFocusTickAutoSessionAndRecap(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// The recap is the only notice: an auto session sends no done notice.
 	want := []focus.Event{{Kind: focus.Notify, Topic: focus.TopicRecap, Title: focus.TitleRecap, Body: report.Recap(day)}}
 	if !reflect.DeepEqual(notes, want) || !strings.HasSuffix(want[0].Body, "Top project: tock.") {
 		t.Fatalf("notes = %+v, want %+v", notes, want)
@@ -128,7 +129,7 @@ func TestFocusTickAutoSessionAndRecap(t *testing.T) {
 		t.Fatalf("Focus = %+v, %v", f, err)
 	}
 	if s := f.Today[0]; s.Kind != focus.KindAuto || s.StartMS != apptest.At(t, "09:00", 0) ||
-		s.EndMS != apptest.At(t, "11:14", 0) || s.DeepMS != 134*60_000 {
+		s.EndMS != apptest.At(t, "11:14", 0) || s.DeepMS != 134*60_000 || s.Switches != 0 {
 		t.Fatalf("auto session = %+v", s)
 	}
 }
@@ -150,8 +151,11 @@ func TestStartStopSession(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if s.EndMS != apptest.Now.UnixMilli() || s.DeepMS != 5*60_000 || s.DistractMS != 5*60_000 || s.LongestMS != 5*60_000 {
+	if s.EndMS != apptest.Now.UnixMilli() || s.DeepMS != 5*60_000 || s.DistractMS != 5*60_000 || s.LongestMS != 5*60_000 || s.Switches != 1 {
 		t.Fatalf("stopped = %+v", s)
+	}
+	if f, err := a.Focus(e.Clock); err != nil || len(f.Today) != 1 || f.Today[0] != s {
+		t.Fatalf("stored session = %+v, %v; want %+v", f.Today, err, s)
 	}
 	if _, err := a.StopSession(); !errors.Is(err, store.ErrNoSession) {
 		t.Fatalf("second stop: %v", err)

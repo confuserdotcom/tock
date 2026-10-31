@@ -57,26 +57,54 @@ func Components(s Session) (x [4]float64, steadyKnown bool) {
 
 // Quality scores s with the weights w; the zero Weights value means
 // DefaultQualityWeights(). It is computed from the stored counters each time,
-// so changed weights apply to old sessions too.
+// so changed weights apply to old sessions too. A session from before
+// migration 0014 has no steady part: it is left out and the other weights are
+// scaled to fill its share.
 func Quality(s Session, w Weights) QualityScore {
 	if w == (Weights{}) {
 		w = DefaultQualityWeights()
 	}
-	x, _ := Components(s)
+	x, steadyKnown := Components(s)
 	var q QualityScore
 	for i := range x {
 		q.Parts[i].Value = int(math.Round(100 * x[i]))
+	}
+	q.Parts[2].Auto = s.Kind == KindAuto
+	if !steadyKnown {
+		q.Parts[3] = Part{NA: true}
 	}
 	if s.EndMS-s.StartMS <= 0 {
 		return q
 	}
 	ws := [4]float64{w.Share, w.Longest, w.Calm, w.Steady}
-	var sum float64
-	for i := range x {
+	n := len(x)
+	if !steadyKnown {
+		n = 3
+	}
+	var sum, total float64
+	for i := 0; i < n; i++ {
 		sum += float64(ws[i] * x[i])
+		total += ws[i]
+	}
+	if !steadyKnown && total > 0 {
+		sum /= total
 	}
 	q.Score = int(min(max(math.Round(100*sum), 0), 100))
 	return q
+}
+
+// Line is the breakdown of the score, parts in the fixed order share,
+// longest, calm, steady: "share 82 · longest 70 · calm 50 · steady 36".
+func (q QualityScore) Line() string {
+	calm := fmt.Sprintf("calm %d", q.Parts[2].Value)
+	if q.Parts[2].Auto {
+		calm = "calm n/a (auto)"
+	}
+	steady := fmt.Sprintf("steady %d", q.Parts[3].Value)
+	if q.Parts[3].NA {
+		steady = "steady n/a"
+	}
+	return fmt.Sprintf("share %d · longest %d · %s · %s", q.Parts[0].Value, q.Parts[1].Value, calm, steady)
 }
 
 // InterruptionsText is "no interruptions", "1 interruption" or "3

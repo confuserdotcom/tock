@@ -41,3 +41,79 @@ func TestQualityParts(t *testing.T) {
 		t.Fatalf("zero weights = %+v, want the defaults %+v", a, b)
 	}
 }
+
+func TestQualityLegacySteady(t *testing.T) {
+	s := q50()
+	s.Switches = -1
+	q := Quality(s, Weights{})
+	if q.Score != 73 || !q.Parts[3].NA || q.Parts[3].Value != 0 {
+		t.Fatalf("legacy = %+v, want score 73 and steady n/a", q)
+	}
+	if got := values(q); got[0] != 82 || got[1] != 70 || got[2] != 50 {
+		t.Fatalf("other parts = %v", got)
+	}
+}
+
+func TestQualityZeroLength(t *testing.T) {
+	for _, kind := range []string{KindManual, KindAuto} {
+		q := Quality(Session{Kind: kind, StartMS: 5 * minute, EndMS: 5 * minute, DeepMS: minute, Interruptions: 2, Switches: 4}, Weights{})
+		if q.Score != 0 || values(q) != [4]int{} {
+			t.Errorf("%s zero length = %+v, want all 0", kind, q)
+		}
+	}
+}
+
+func TestQualityEmptyWindow(t *testing.T) {
+	q := Quality(Session{Kind: KindManual, EndMS: 30 * minute, PlannedMS: 30 * minute}, Weights{})
+	if values(q) != [4]int{0, 0, 100, 100} || q.Score != 30 {
+		t.Fatalf("empty window = %+v, want parts 0 0 100 100 score 30", q)
+	}
+}
+
+func TestQualityAutoCalm(t *testing.T) {
+	a := Session{Kind: KindAuto, EndMS: 40 * minute, DeepMS: 40 * minute, LongestMS: 40 * minute, Interruptions: 5, Switches: 0}
+	b := a
+	b.Interruptions = 0
+	qa, qb := Quality(a, Weights{}), Quality(b, Weights{})
+	if qa != qb {
+		t.Fatalf("interruptions changed an auto score: %+v vs %+v", qa, qb)
+	}
+	if p := qa.Parts[2]; p.Value != 100 || !p.Auto || qa.Score != 100 {
+		t.Fatalf("auto calm = %+v score %d, want 100 / Auto / 100", p, qa.Score)
+	}
+}
+
+func TestQualityClamp(t *testing.T) {
+	q := Quality(Session{Kind: KindManual, EndMS: 10 * minute, DeepMS: 30 * minute, LongestMS: 30 * minute}, Weights{})
+	if q.Parts[0].Value != 100 || q.Parts[1].Value != 100 || q.Score > 100 {
+		t.Fatalf("clamp = %+v", q)
+	}
+	q = Quality(Session{Kind: KindManual, EndMS: 10 * minute}, Weights{Share: 3, Longest: 3, Calm: 3, Steady: 3})
+	if q.Score != 100 {
+		t.Fatalf("score with big weights = %d, want clamped to 100", q.Score)
+	}
+}
+
+func TestQualityLine(t *testing.T) {
+	s := q50()
+	if got, want := Quality(s, Weights{}).Line(), "share 82 · longest 70 · calm 50 · steady 36"; got != want {
+		t.Errorf("Line = %q, want %q", got, want)
+	}
+	s.Switches = -1
+	if got, want := Quality(s, Weights{}).Line(), "share 82 · longest 70 · calm 50 · steady n/a"; got != want {
+		t.Errorf("legacy Line = %q, want %q", got, want)
+	}
+	s = q50()
+	s.Kind = KindAuto
+	if got, want := Quality(s, Weights{}).Line(), "share 82 · longest 70 · calm n/a (auto) · steady 36"; got != want {
+		t.Errorf("auto Line = %q, want %q", got, want)
+	}
+}
+
+func TestInterruptionsText(t *testing.T) {
+	for n, want := range map[int]string{0: "no interruptions", 1: "1 interruption", 3: "3 interruptions"} {
+		if got := InterruptionsText(n); got != want {
+			t.Errorf("InterruptionsText(%d) = %q, want %q", n, got, want)
+		}
+	}
+}

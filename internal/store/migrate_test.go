@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"database/sql"
 	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
@@ -230,4 +231,50 @@ func rawMem(t *testing.T) *sql.DB {
 	db.SetMaxOpenConns(1)
 	t.Cleanup(func() { db.Close() })
 	return db
+}
+
+// TestMigrate14LegacySessions: a version-13 database with a finished session
+// upgrades to 14 keeping the row, marked as having no switch count.
+func TestMigrate14LegacySessions(t *testing.T) {
+	old := fstest.MapFS{}
+	entries, err := fs.ReadDir(migrationFS, "migrations")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range entries {
+		if e.Name() == "0014_session_quality.sql" {
+			continue
+		}
+		b, err := fs.ReadFile(migrationFS, "migrations/"+e.Name())
+		if err != nil {
+			t.Fatal(err)
+		}
+		old["migrations/"+e.Name()] = &fstest.MapFile{Data: b}
+	}
+	db := rawMem(t)
+	if err := migrateFS(db, old, "migrations"); err != nil {
+		t.Fatal(err)
+	}
+	if got := versionRows(t, db); len(got) != 13 {
+		t.Fatalf("schema_version rows = %v, want 13", got)
+	}
+	if _, err := db.Exec(`INSERT INTO session(kind, start_ms, planned_ms, end_ms, deep_ms) VALUES('manual', 1000, 61000, 61000, 40000)`); err != nil {
+		t.Fatal(err)
+	}
+	if err := migrateFS(db, migrationFS, "migrations"); err != nil {
+		t.Fatal(err)
+	}
+	x, err := scanSession(db.QueryRow(`SELECT ` + sessionCols + ` FROM session`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if x.Switches != -1 || x.Rating != 0 || x.Note != "" || x.RatedMS != 0 || x.DeepMS != 40000 || x.EndMS != 61000 {
+		t.Fatalf("legacy session = %+v, want switches -1, unrated, counters kept", x)
+	}
+	if _, err := db.Exec(`UPDATE session SET rating = 6`); err == nil {
+		t.Fatal("rating 6 accepted, want the CHECK constraint to refuse it")
+	}
+	if _, err := db.Exec(`UPDATE session SET rating = 5, note = 'good', rated_ms = 70000`); err != nil {
+		t.Fatalf("rating 5: %v", err)
+	}
 }

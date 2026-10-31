@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"tock/internal/classify"
+	"tock/internal/stats"
 )
 
 func TestAutoSessions(t *testing.T) {
@@ -17,6 +18,15 @@ func TestAutoSessions(t *testing.T) {
 		DeepMS: 30 * minute, LongestMS: 30 * minute}}}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("ended block = %+v, want %+v", got, want)
+	}
+
+	// A 40 s detour inside the block is tolerated by the block but is two
+	// switches, which the auto row keeps.
+	sw := input(at(9, 35, 0), vw{at(9, 0, 0), at(9, 20, 0), deep, "", ""},
+		vw{at(9, 20, 0), at(9, 20, 40), classify.KindShallow, "", ""}, vw{at(9, 20, 40), at(9, 31, 0), deep, "", ""})
+	if got := only(Step(sw), AutoSession); len(got) != 1 || got[0].Sess.Switches != 2 ||
+		got[0].Sess.Switches != stats.WindowSwitches(sw.Views, sw.Labels, at(9, 0, 0), got[0].Sess.EndMS) {
+		t.Fatalf("auto session with a detour = %+v, want 2 switches", got)
 	}
 
 	short := input(at(9, 35, 0), vw{at(9, 0, 0), at(9, 24, 0), deep, "", ""}, vw{at(9, 24, 0), at(9, 35, 0), dis, "", ""})

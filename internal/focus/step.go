@@ -158,7 +158,8 @@ func autoSessions(in Input) []Event {
 		}
 		ws := WindowStats(in.Views, in.Labels, b.Start, b.End, in.Cfg)
 		out = append(out, Event{Kind: AutoSession, Sess: Session{Kind: KindAuto, StartMS: b.Start, EndMS: b.End,
-			DeepMS: ws.DeepMS, DistractMS: ws.DistractMS, LongestMS: ws.LongestMS}})
+			DeepMS: ws.DeepMS, DistractMS: ws.DistractMS, LongestMS: ws.LongestMS,
+			Switches: stats.WindowSwitches(in.Views, in.Labels, b.Start, b.End)}})
 	}
 	return out
 }
