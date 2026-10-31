@@ -263,3 +263,35 @@ func TestStepOver(t *testing.T) {
 		t.Fatalf("no body, got %+v", evs)
 	}
 }
+
+// TestStartDueCarryOver: work that began before local midnight and goes on
+// is no start of day; a fresh run after an idle reset is. The app clips
+// views to midnight, so a carried-over run starts at Day.
+func TestStartDueCarryOver(t *testing.T) {
+	deep := func(h1, m1, h2, m2 int) vw { return vw{at(h1, m1, 0), at(h2, m2, 0), classify.KindDeep, "", ""} }
+	idle := func(h1, m1, h2, m2 int) vw { return vw{at(h1, m1, 0), at(h2, m2, 0), "idle", "", ""} }
+	for _, tt := range []struct {
+		name string
+		in   Input
+		want bool
+	}{
+		{"overnight run", startInput(at(0, 40, 0), deep(0, 0, 0, 40)), false},
+		{"overnight run, short pause", startInput(at(1, 0, 0), deep(0, 0, 0, 30), idle(0, 30, 0, 33), deep(0, 33, 1, 0)), false},
+		{"overnight run, idle now", startInput(at(1, 30, 0), deep(0, 0, 0, 30), idle(0, 30, 1, 30)), false},
+		{"fresh run after idle reset", startInput(at(1, 35, 0), deep(0, 0, 0, 30), idle(0, 30, 1, 30), deep(1, 30, 1, 35)), true},
+		{"fresh run after a gap", startInput(at(8, 5, 0), deep(0, 0, 0, 30), deep(8, 0, 8, 5)), true},
+	} {
+		if got := StartDue(tt.in); got != tt.want {
+			t.Errorf("%s: StartDue = %v, want %v", tt.name, got, tt.want)
+		}
+	}
+}
+
+// TestOverDueMidnightRollover pins that the overworking notice goes quiet at
+// local midnight: the new day's work end has not come.
+func TestOverDueMidnightRollover(t *testing.T) {
+	in := overInput(at(0, 40, 0), vw{at(0, 0, 0), at(0, 40, 0), classify.KindDeep, "", ""})
+	if OverDue(in) || OverMS(in) != 0 {
+		t.Error("overwork notice after midnight, before the new day's work end")
+	}
+}

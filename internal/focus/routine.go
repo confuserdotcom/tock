@@ -4,13 +4,40 @@ import "time"
 
 // StartDue reports whether this tick should send the start-of-day notice:
 // it is on, today is a work day, today's notice has not gone out, no call is
-// going on and today has at least RecapMinActiveMS of activity. The cheap
-// conditions come first so an idle tick scans no views.
+// going on, the latest activity run began after today's midnight (work that
+// carries on from yesterday is no start of day) and today has at least
+// RecapMinActiveMS of activity. The cheap conditions come first so an idle
+// tick scans no views.
 func StartDue(in Input) bool {
 	if !in.Routine.Start || in.State.StartDay == dayKey(in.Day) || in.Hours.Off(in.Day) || inMeeting(in) {
 		return false
 	}
+	// The views are clipped to midnight, so a run carried over from
+	// yesterday starts at Day exactly.
+	if from, ok := activeRunStart(in); !ok || from <= in.Day.UnixMilli() {
+		return false
+	}
 	return activeSince(in, in.Day.UnixMilli()) >= RecapMinActiveMS
+}
+
+// activeRunStart is where the latest run of non-idle activity began: after an
+// idle view of at least IdleResetMS or a gap of that length the run starts
+// over. ok is false when there is no activity at all.
+func activeRunStart(in Input) (from int64, ok bool) {
+	var lastEnd int64
+	reset := false
+	for _, v := range in.Views {
+		if isIdle(v) {
+			reset = reset || v.DurMS() >= IdleResetMS
+		} else {
+			if !ok || reset || v.Start-lastEnd >= IdleResetMS {
+				from = v.Start
+			}
+			ok, reset = true, false
+		}
+		lastEnd = max(lastEnd, v.End)
+	}
+	return from, ok
 }
 
 // stepStart sends the start-of-day notice once a day. The caller fills

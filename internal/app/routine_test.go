@@ -339,3 +339,21 @@ func TestRoutineWorkDay(t *testing.T) {
 		}
 	}
 }
+
+// TestStartOfDayOvernight: work that began yesterday evening and goes on past
+// midnight is no start of day, and the notice does not come at 00:01.
+func TestStartOfDayOvernight(t *testing.T) {
+	e := apptest.New(t, apptest.Rules)
+	e.Seed(t, apptest.Span{ID: 1, Start: "22:00", Bundle: "term", App: "WezTerm", Title: "night", Day: -1})
+	e.Clock = time.Date(2026, 10, 10, 0, 30, 0, 0, apptest.Zone)
+	a := open(t, e)
+	notes, err := a.FocusTick(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, n := range notes {
+		if n.Topic == focus.TopicStart {
+			t.Fatalf("start notice on overnight work: %+v", n)
+		}
+	}
+}
