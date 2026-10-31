@@ -277,3 +277,65 @@ func TestOverworkingCustomTiming(t *testing.T) {
 		}
 	}
 }
+
+// TestRoutineWorkDay runs one work day through the focus tick and checks that
+// the four routine notices come in order, once each, even across a restart.
+func TestRoutineWorkDay(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "todo.txt")
+	if err := os.WriteFile(file, []byte("Standup due:2026-10-10 @10h00\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	e := apptest.New(t, apptest.Rules)
+	e.Seed(t,
+		apptest.Span{ID: 1, Start: "09:00", End: "12:00", Bundle: "term", App: "WezTerm", Title: "yesterday", Day: -1},
+		apptest.Span{ID: 2, Start: "09:00", End: "12:00", Bundle: "term", App: "WezTerm", Title: "morning"},
+		apptest.Span{ID: 3, Start: "12:00", End: "12:30", Bundle: "tock.idle", App: "Idle"},
+		apptest.Span{ID: 4, Start: "12:30", Bundle: "term", App: "WezTerm", Title: "afternoon"},
+	)
+	e.WriteConfig(t, "[focus]\nbreak_after = 480\n[hours]\ndays = [\"mon\",\"tue\",\"wed\",\"thu\",\"fri\",\"sat\",\"sun\"]\nstart = \"09:00\"\nend = \"17:00\"\n"+
+		"[plan]\nfile = \""+file+"\"\n")
+	a := open(t, e)
+	tick := func(a *App, h, m int) []string {
+		t.Helper()
+		e.Clock = time.Date(2026, 10, 10, h, m, 0, 0, apptest.Zone)
+		notes, err := a.FocusTick(false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		topics := []string{}
+		for _, n := range notes {
+			topics = append(topics, n.Topic)
+		}
+		if h == 9 && m == 5 && (len(notes) != 1 || !strings.HasSuffix(notes[0].Body, "Today: 10:00 Standup.")) {
+			t.Fatalf("start notice = %+v", notes)
+		}
+		return topics
+	}
+	steps := []struct {
+		h, m int
+		want []string
+	}{
+		{9, 5, []string{focus.TopicStart}},
+		{12, 59, []string{}},
+		{13, 0, []string{focus.TopicMidday}},
+		{16, 59, []string{}},
+		{17, 0, []string{focus.TopicRecap}},
+		{17, 29, []string{}},
+		{17, 30, []string{focus.TopicOver}},
+		{18, 29, []string{}},
+	}
+	for _, s := range steps {
+		if got := tick(a, s.h, s.m); !reflect.DeepEqual(got, s.want) {
+			t.Fatalf("%02d:%02d topics = %v, want %v", s.h, s.m, got, s.want)
+		}
+	}
+	b := open(t, e) // trackd restarts
+	for _, s := range []struct {
+		h, m int
+		want []string
+	}{{18, 30, []string{focus.TopicOver}}, {18, 31, []string{}}} {
+		if got := tick(b, s.h, s.m); !reflect.DeepEqual(got, s.want) {
+			t.Fatalf("after restart %02d:%02d topics = %v, want %v", s.h, s.m, got, s.want)
+		}
+	}
+}

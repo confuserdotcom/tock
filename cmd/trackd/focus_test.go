@@ -214,3 +214,17 @@ func TestFocusLoopFallsBackWhenBarDenied(t *testing.T) {
 		t.Fatalf("denied bar: notifier got %q", n.got)
 	}
 }
+
+func TestFocusLoopRoutinesNotifyOff(t *testing.T) {
+	e := apptest.New(t, apptest.Rules)
+	e.Seed(t, apptest.Span{ID: 1, Start: "09:00", Bundle: "term", App: "WezTerm", Title: "tock │ a"})
+	e.WriteConfig(t, "[focus]\nnotify = false\n[hours]\ndays = [\"mon\",\"tue\",\"wed\",\"thu\",\"fri\",\"sat\",\"sun\"]\nstart = \"09:00\"\nend = \"09:10\"\n")
+	e.Clock = time.Date(2026, 10, 10, 9, 45, 0, 0, apptest.Zone)
+	n := &recNotifier{}
+	f, _ := testLoop(t, e, n, nil)
+	f.tick()
+	f.tick()
+	if len(n.got) != 0 {
+		t.Fatalf("notify off: %q", n.got)
+	}
+}
