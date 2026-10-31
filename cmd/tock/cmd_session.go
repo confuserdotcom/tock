@@ -43,6 +43,8 @@ func cmdSession(env Env, args []string) error {
 		return sessionNote(env, args[1:])
 	case "refile":
 		return sessionRefile(env, args[1:])
+	case "snooze":
+		return sessionSnooze(env, args[1:])
 	case "weights":
 		if len(args) > 1 {
 			return usagef("session weights takes no arguments")
@@ -113,6 +115,59 @@ func sessionStop(env Env) error {
 		return err
 	}
 	fmt.Fprintln(env.Stdout, "stopped: "+report.SessionLine(s, env.Now().Location(), false))
+	return nil
+}
+
+// sessionSnooze snoozes the running session's distraction notices for MIN
+// minutes (default [focus] snooze), or with "off" resumes them.
+func sessionSnooze(env Env, args []string) error {
+	if len(args) > 1 {
+		return usagef("session snooze takes minutes or off")
+	}
+	mins, off := 0, false
+	if len(args) == 1 {
+		if args[0] == "off" {
+			off = true
+		} else {
+			n, err := strconv.Atoi(args[0])
+			switch {
+			case err != nil:
+				return usagef("session snooze: %q, want minutes or off", args[0])
+			case n < 1 || n > config.MaxSnoozeMin:
+				return usagef("session snooze: %d min is out of range, want 1 to %d", n, config.MaxSnoozeMin)
+			}
+			mins = n
+		}
+	}
+	a, err := openApp(env)
+	if err != nil {
+		return err
+	}
+	defer a.Close()
+	if off {
+		was, err := a.ResumeDistract()
+		if err != nil {
+			return err
+		}
+		if was {
+			fmt.Fprintln(env.Stdout, "distraction notices back on")
+		} else {
+			fmt.Fprintln(env.Stdout, "distraction notices were not snoozed")
+		}
+		return nil
+	}
+	d := time.Duration(mins) * time.Minute
+	if mins == 0 {
+		d = time.Duration(a.Config().Focus.SnoozeMS) * time.Millisecond
+	}
+	until, err := a.SnoozeDistract(0, d)
+	if errors.Is(err, store.ErrNoSession) {
+		return errors.New("session snooze: no session running (tock session start 50)")
+	}
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(env.Stdout, "distraction notices snoozed for %d min, until %s\n", int(d.Minutes()), until.Format("15:04"))
 	return nil
 }
 

@@ -22,6 +22,10 @@ const (
 	IDStop     = "stop"
 	IDSettings = "settings"
 	IDQuit     = "quit"
+	// IDSnoozeDistract snoozes the running session's distraction notices
+	// for [focus] snooze minutes; IDSnoozeOff resumes them.
+	IDSnoozeDistract = "snooze:distract"
+	IDSnoozeOff      = "snooze:off"
 	// The last session's items carry its id, because the menu is drawn from
 	// a snapshot up to reloadEvery old: a click must act on the session the
 	// menu showed, not on one that finished since.
@@ -50,6 +54,8 @@ type Snapshot struct {
 	TrackdUp     bool
 	Session      *focus.Session // the running session, or nil
 	Live         focus.Live     // its focus level; Level -1 when unknown
+	SnoozeUntil  time.Time      // distraction notices are snoozed until then; zero = not snoozed
+	SnoozeMin    int            // the minutes the snooze item offers
 	Presets      []int
 	Access       string       // notification access the app last saw
 	Last         *LastSession // the newest finished session if it ended within 24 hours, else nil
@@ -83,7 +89,10 @@ func Load(a *app.App, now time.Time, access string) (Snapshot, error) {
 	if err != nil {
 		return s, err
 	}
-	s.Session, s.Live = f.Open, f.Live
+	s.Session, s.Live, s.SnoozeMin = f.Open, f.Live, f.SnoozeMin
+	if f.SnoozeUntilMS > 0 {
+		s.SnoozeUntil = time.UnixMilli(f.SnoozeUntilMS).In(now.Location())
+	}
 	s.Last, s.LastErr = loadLast(a, now)
 	return s, nil
 }
@@ -162,6 +171,12 @@ func (s Snapshot) Items(nowMS int64) []Item {
 			lv = report.LevelText(s.Live) + " · "
 		}
 		out = append(out, label("Session · %s left · %s%d %s", report.Countdown(ss.PlannedMS-nowMS), lv, ss.Interruptions, word))
+		if !s.SnoozeUntil.IsZero() && s.SnoozeUntil.UnixMilli() > nowMS {
+			out = append(out, label("Notices snoozed until %s", s.SnoozeUntil.Format("15:04")),
+				Item{Title: "Resume notices", ID: IDSnoozeOff})
+		} else {
+			out = append(out, Item{Title: fmt.Sprintf("Snooze distraction notices (%d min)", s.SnoozeMin), ID: IDSnoozeDistract})
+		}
 	}
 	if s.Last != nil {
 		out = append(out, s.Last.item())

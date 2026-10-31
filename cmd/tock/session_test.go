@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -484,5 +486,57 @@ func TestSessionLeadingNumberIsNotAnID(t *testing.T) {
 		if code, _ := te.run(t, "", args...); code != 2 {
 			t.Errorf("%q: code %d, want 2 (%q)", args, code, te.errb.String())
 		}
+	}
+}
+
+func TestSessionSnooze(t *testing.T) {
+	te := newTestEnv(t, testRules)
+	te.seed(t, daySpans()...)
+
+	if code, _ := te.run(t, "", "session", "snooze"); code != 1 || te.errb.String() != "tock: session snooze: no session running (tock session start 50)\n" {
+		t.Fatalf("no session: %d %q", code, te.errb.String())
+	}
+	if code, _ := te.run(t, "", "session", "start", "50"); code != 0 {
+		t.Fatalf("start: %d %q", code, te.errb.String())
+	}
+	for _, c := range []struct {
+		args []string
+		code int
+		out  string
+	}{
+		{[]string{"snooze"}, 0, "distraction notices snoozed for 10 min, until 15:10\n"},
+		{[]string{"snooze", "25"}, 0, "distraction notices snoozed for 25 min, until 15:25\n"},
+		{[]string{"snooze", "off"}, 0, "distraction notices back on\n"},
+		{[]string{"snooze", "off"}, 0, "distraction notices were not snoozed\n"},
+	} {
+		if code, out := te.run(t, "", append([]string{"session"}, c.args...)...); code != c.code || out != c.out {
+			t.Errorf("%q: %d %q, want %d %q (stderr %q)", c.args, code, out, c.code, c.out, te.errb.String())
+		}
+	}
+	for _, c := range []struct {
+		args []string
+		want string
+	}{
+		{[]string{"snooze", "300"}, "tock: session snooze: 300 min is out of range, want 1 to 240\n"},
+		{[]string{"snooze", "0"}, "tock: session snooze: 0 min is out of range, want 1 to 240\n"},
+		{[]string{"snooze", "abc"}, "tock: session snooze: \"abc\", want minutes or off\n"},
+		{[]string{"snooze", "5", "6"}, "tock: session snooze takes minutes or off\n"},
+	} {
+		code, out := te.run(t, "", append([]string{"session"}, c.args...)...)
+		if code != 2 || out != "" || !strings.HasPrefix(te.errb.String(), c.want) {
+			t.Errorf("%q: %d %q stderr %q, want exit 2 and %q", c.args, code, out, te.errb.String(), c.want)
+		}
+	}
+}
+
+func TestSessionSnoozeUsesConfig(t *testing.T) {
+	te := newTestEnv(t, testRules)
+	te.seed(t, daySpans()...)
+	if err := os.WriteFile(filepath.Join(te.ConfigDir, "config.toml"), []byte("[focus]\nsnooze = 20\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	te.run(t, "", "session", "start", "50")
+	if code, out := te.run(t, "", "session", "snooze"); code != 0 || out != "distraction notices snoozed for 20 min, until 15:20\n" {
+		t.Fatalf("snooze: %d %q %q", code, out, te.errb.String())
 	}
 }

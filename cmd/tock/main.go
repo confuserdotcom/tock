@@ -53,6 +53,7 @@ const usage = `usage:
   tock goal [set <label> <time>[/week] [--max] | rm <label> [week] [--max]]
                                          goals per day or week, on a category or module
   tock session [start [MIN] | stop]      focus session: show, start (default 25), stop
+  tock session snooze [MIN|off]          snooze distraction notices of the running session (default [focus] snooze), or resume them
   tock session list | weights            this week's finished sessions with quality and rating | the quality weights
   tock session rate [#ID|last] N [note...]  rate a finished session 1 to 5, with a one-line note
   tock session note [#ID] [text...]      set or (no text) clear a session's note

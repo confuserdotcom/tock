@@ -29,6 +29,15 @@ func Menu(a *app.App, id string) (string, error) {
 		}
 		return fmt.Sprintf("started %d min session", (s.PlannedMS-s.StartMS)/60_000), nil
 	}
+	switch id {
+	case IDSnoozeDistract:
+		return snoozedMsg(a.SnoozeDistract(0, time.Duration(a.Config().Focus.SnoozeMS)*time.Millisecond))
+	case IDSnoozeOff:
+		if _, err := a.ResumeDistract(); err != nil {
+			return "", err
+		}
+		return "distraction notices back on", nil
+	}
 	if id == IDStop {
 		s, err := a.StopSession()
 		if err != nil {

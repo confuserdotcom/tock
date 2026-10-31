@@ -680,3 +680,88 @@ func TestSnoozeIgnoresStaleNotice(t *testing.T) {
 		t.Fatalf("late click snoozed the new session: was = %v, %v", was, err)
 	}
 }
+
+func TestSnapshotSnooze(t *testing.T) {
+	e, a := seeded(t)
+	load := func() string {
+		t.Helper()
+		s, err := Load(a, e.Clock, app.NotifyGranted)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return titles(s.Items(e.Clock.UnixMilli()))
+	}
+	got := load()
+	for _, row := range []string{"Snooze distraction notices", "Notices snoozed until", "Resume notices"} {
+		if strings.Contains(got, row) {
+			t.Fatalf("no session menu has %q:\n%s", row, got)
+		}
+	}
+
+	if _, err := Menu(a, "start:25"); err != nil {
+		t.Fatal(err)
+	}
+	got = load()
+	i := strings.Index(got, "Session · ")
+	rest := got[i:]
+	rest = rest[strings.Index(rest, "\n")+1:]
+	if !strings.HasPrefix(rest, "Snooze distraction notices (10 min) [snooze:distract]\n") ||
+		strings.Contains(got, "Resume notices") {
+		t.Fatalf("running menu:\n%s", got)
+	}
+
+	if _, err := Menu(a, IDSnoozeDistract); err != nil {
+		t.Fatal(err)
+	}
+	got = load()
+	i = strings.Index(got, "Session · ")
+	rest = got[i:]
+	rest = rest[strings.Index(rest, "\n")+1:]
+	if !strings.HasPrefix(rest, "Notices snoozed until 15:10\nResume notices [snooze:off]\n") ||
+		strings.Contains(got, "Snooze distraction notices") {
+		t.Fatalf("snoozed menu:\n%s", got)
+	}
+
+	e.Clock = e.Clock.Add(11 * time.Minute)
+	if got = load(); !strings.Contains(got, "Snooze distraction notices (10 min) [snooze:distract]") || strings.Contains(got, "Resume notices") {
+		t.Fatalf("expired snooze menu:\n%s", got)
+	}
+}
+
+func TestMenuSnooze(t *testing.T) {
+	_, a := seeded(t)
+	if msg, err := Menu(a, IDSnoozeDistract); err != nil || msg != "no session running, nothing snoozed" {
+		t.Fatalf("snooze with no session = %q, %v", msg, err)
+	}
+	if _, err := Menu(a, "start:25"); err != nil {
+		t.Fatal(err)
+	}
+	if msg, err := Menu(a, IDSnoozeDistract); err != nil || msg != "distraction notices snoozed until 15:10" {
+		t.Fatalf("snooze = %q, %v", msg, err)
+	}
+	if msg, err := Menu(a, IDSnoozeOff); err != nil || msg != "distraction notices back on" {
+		t.Fatalf("resume = %q, %v", msg, err)
+	}
+}
+
+func TestLoadFollowsConfig(t *testing.T) {
+	e, a := seeded(t)
+	if _, err := Menu(a, "start:25"); err != nil {
+		t.Fatal(err)
+	}
+	row := func() string {
+		t.Helper()
+		s, err := Load(a, e.Clock, app.NotifyGranted)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return titles(s.Items(e.Clock.UnixMilli()))
+	}
+	if got := row(); !strings.Contains(got, "Snooze distraction notices (10 min)") {
+		t.Fatalf("before the edit:\n%s", got)
+	}
+	e.WriteConfig(t, "[focus]\nsnooze = 20\n")
+	if got := row(); !strings.Contains(got, "Snooze distraction notices (20 min)") {
+		t.Fatalf("after the edit:\n%s", got)
+	}
+}
