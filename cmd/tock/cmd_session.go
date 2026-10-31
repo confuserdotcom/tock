@@ -130,6 +130,35 @@ func allDigits(s string) bool {
 	return true
 }
 
+// splitSessionRef takes the session a command is about off the front of
+// args. Only unambiguous forms name one: `#42`, `--id 42` and `--id=42`, and
+// the word `last` when allowLast is set. A bare number is never an id, so a
+// rating or the first word of a note cannot land on another session. With no
+// such form the session is "last".
+func splitSessionRef(what string, args []string, allowLast bool) (ref string, rest []string, err error) {
+	if len(args) == 0 {
+		return "last", args, nil
+	}
+	first := args[0]
+	switch {
+	case allowLast && first == "last":
+		return "last", args[1:], nil
+	case strings.HasPrefix(first, "#") && allDigits(first[1:]):
+		return first[1:], args[1:], nil
+	case first == "--id":
+		if len(args) < 2 || !allDigits(args[1]) {
+			return "", nil, usagef("%s: --id needs a session number", what)
+		}
+		return args[1], args[2:], nil
+	case strings.HasPrefix(first, "--id="):
+		if !allDigits(first[len("--id="):]) {
+			return "", nil, usagef("%s: --id needs a session number", what)
+		}
+		return first[len("--id="):], args[1:], nil
+	}
+	return "last", args, nil
+}
+
 // sessionTarget resolves "last" or a numeric id to a finished-or-not session.
 // Errors read "no finished session yet ..." or "no session N ...".
 func sessionTarget(a *app.App, ref string) (focus.Session, error) {
@@ -164,18 +193,14 @@ func checkNote(what string, words []string) (string, error) {
 	return note, nil
 }
 
-// sessionRate is `session rate [ID|last] N [note words...]`. The first
-// argument is the id when it is `last`, or when it is all digits and the
-// second argument is also all digits (`rate 42 4 words`); otherwise the id is
-// `last` and the first argument is the rating (`rate 4 good run`). Without
-// note words the stored note is kept; `session note` clears it.
+// sessionRate is `session rate [#ID|--id ID|last] N [note words...]`. A
+// leading number is the rating, never an id: `rate 4 2 hours deep` rates the
+// last session 4 stars with the note "2 hours deep". Without note words the
+// stored note is kept; `session note` clears it.
 func sessionRate(env Env, args []string) error {
-	ref := "last"
-	switch {
-	case len(args) > 0 && args[0] == "last":
-		args = args[1:]
-	case len(args) > 1 && allDigits(args[0]) && allDigits(args[1]):
-		ref, args = args[0], args[1:]
+	ref, args, err := splitSessionRef("session rate", args, true)
+	if err != nil {
+		return err
 	}
 	if len(args) == 0 {
 		return usagef("session rate: give a rating 1 to 5")
@@ -218,12 +243,13 @@ func sessionRate(env Env, args []string) error {
 	return nil
 }
 
-// sessionNote is `session note [ID|last] text...`; the first argument is the
-// id when it is `last` or all digits. No text clears the note.
+// sessionNote is `session note [#ID|--id ID] text...`. The words are the
+// note, so a leading number or the word last is text; only #ID and --id name
+// another session than the last. No text clears the note.
 func sessionNote(env Env, args []string) error {
-	ref := "last"
-	if len(args) > 0 && (args[0] == "last" || allDigits(args[0])) {
-		ref, args = args[0], args[1:]
+	ref, args, err := splitSessionRef("session note", args, false)
+	if err != nil {
+		return err
 	}
 	note, err := checkNote("session note", args)
 	if err != nil {
@@ -249,13 +275,12 @@ func sessionNote(env Env, args []string) error {
 	return nil
 }
 
-// sessionRefile is `session refile [ID|last] PROJECT`. The first argument is
-// the id when it is `last`, or when it is all digits and more arguments
-// follow; the rest joined by a space is the project (names may hold spaces).
+// sessionRefile is `session refile [#ID|--id ID|last] PROJECT`; the rest
+// joined by a space is the project (names may hold spaces or digits).
 func sessionRefile(env Env, args []string) error {
-	ref := "last"
-	if len(args) > 0 && (args[0] == "last" || (allDigits(args[0]) && len(args) > 1)) {
-		ref, args = args[0], args[1:]
+	ref, args, err := splitSessionRef("session refile", args, true)
+	if err != nil {
+		return err
 	}
 	project := strings.TrimSpace(strings.Join(args, " "))
 	if project == "" {

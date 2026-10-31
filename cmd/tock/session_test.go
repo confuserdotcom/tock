@@ -162,7 +162,7 @@ func TestSessionRate(t *testing.T) {
 		t.Fatalf("stored = %+v", r)
 	}
 	// by id, no note: the stored note is kept
-	code, out = te.run(t, "", "session", "rate", strconv.FormatInt(last.ID, 10), "5")
+	code, out = te.run(t, "", "session", "rate", "#"+strconv.FormatInt(last.ID, 10), "5")
 	want = fmt.Sprintf("rated session %d (%s, 50m, q%d) ★5\n", last.ID, whenOf(last), qOf(last))
 	if code != 0 || out != want {
 		t.Fatalf("rate by id: %d %q, want %q", code, out, want)
@@ -191,7 +191,7 @@ func TestSessionRate(t *testing.T) {
 			t.Errorf("%q: code %d, want 2", args, code)
 		}
 	}
-	if code, _ := te.run(t, "", "session", "rate", "999", "3"); code != 1 || te.errb.String() != "tock: session rate: no session 999 (tock session list shows ids)\n" {
+	if code, _ := te.run(t, "", "session", "rate", "#999", "3"); code != 1 || te.errb.String() != "tock: session rate: no session 999 (tock session list shows ids)\n" {
 		t.Fatalf("rate 999: %d %q", code, te.errb.String())
 	}
 	long := strings.Repeat("x", 212)
@@ -223,7 +223,7 @@ func TestSessionRateNoFinished(t *testing.T) {
 	}
 	open, _ := st.OpenSession()
 	st.Close()
-	id := strconv.FormatInt(open.ID, 10)
+	id := "#" + strconv.FormatInt(open.ID, 10)
 	if code, _ := te.run(t, "", "session", "rate", id, "4"); code != 1 || te.errb.String() != "tock: session rate: session still running\n" {
 		t.Fatalf("rate running: %d %q", code, te.errb.String())
 	}
@@ -237,31 +237,31 @@ func TestSessionNote(t *testing.T) {
 	te.seed(t, daySpans()...)
 	x := addSession(t, te, "10:00", 0, 50, 40, 1, store.SessionManual)
 	id := strconv.FormatInt(x.ID, 10)
-	if code, out := te.run(t, "", "session", "note", "last", "derivation", "went", "well"); code != 0 || out != "noted session "+id+": derivation went well\n" {
-		t.Fatalf("note last: %d %q", code, out)
+	if code, out := te.run(t, "", "session", "note", "#"+id, "derivation", "went", "well"); code != 0 || out != "noted session "+id+": derivation went well\n" {
+		t.Fatalf("note by id: %d %q", code, out)
 	}
-	if code, out := te.run(t, "", "session", "note", id, "two\nwords"); code != 0 || out != "noted session "+id+": two words\n" {
+	if code, out := te.run(t, "", "session", "note", "--id", id, "two\nwords"); code != 0 || out != "noted session "+id+": two words\n" {
 		t.Fatalf("note newline: %d %q", code, out)
 	}
 	if code, out := te.run(t, "", "session", "note", "no", "id", "given"); code != 0 || out != "noted session "+id+": no id given\n" {
 		t.Fatalf("note default last: %d %q", code, out)
 	}
-	if code, out := te.run(t, "", "session", "note", id); code != 0 || out != "cleared the note on session "+id+"\n" {
+	if code, out := te.run(t, "", "session", "note", "#"+id); code != 0 || out != "cleared the note on session "+id+"\n" {
 		t.Fatalf("clear: %d %q", code, out)
 	}
 	if r := sessionRow(t, te, x.ID); r.Note != "" {
 		t.Fatalf("note = %q", r.Note)
 	}
-	if code, out := te.run(t, "", "session", "note", id, "a\x1b[2Jb"); code != 0 || out != "noted session "+id+": a?[2Jb\n" {
+	if code, out := te.run(t, "", "session", "note", "#"+id, "a\x1b[2Jb"); code != 0 || out != "noted session "+id+": a?[2Jb\n" {
 		t.Fatalf("escape: %d %q", code, out)
 	}
-	if code, _ := te.run(t, "", "session", "note", id, strings.Repeat("y", 201)); code != 1 || te.errb.String() != "tock: session note: note is 201 characters, max 200\n" {
+	if code, _ := te.run(t, "", "session", "note", "#"+id, strings.Repeat("y", 201)); code != 1 || te.errb.String() != "tock: session note: note is 201 characters, max 200\n" {
 		t.Fatalf("long: %d %q", code, te.errb.String())
 	}
-	if code, _ := te.run(t, "", "session", "note", "999", "x"); code != 1 || te.errb.String() != "tock: session note: no session 999 (tock session list shows ids)\n" {
+	if code, _ := te.run(t, "", "session", "note", "#999", "x"); code != 1 || te.errb.String() != "tock: session note: no session 999 (tock session list shows ids)\n" {
 		t.Fatalf("unknown: %d %q", code, te.errb.String())
 	}
-	te.run(t, "", "session", "note", id, "again")
+	te.run(t, "", "session", "note", "#"+id, "again")
 	if code, out := te.run(t, "", "session", "note"); code != 0 || out != "cleared the note on session "+id+"\n" {
 		t.Fatalf("bare note clears last: %d %q", code, out)
 	}
@@ -276,7 +276,7 @@ func TestSessionList(t *testing.T) {
 	a := addSession(t, te, "08:30", 0, 25, 15, 2, store.SessionManual)
 	b := addSession(t, te, "10:00", 0, 50, 42, 1, store.SessionManual)
 	c := addSession(t, te, "09:00", 1, 40, 38, 0, store.SessionAuto) // Friday... testNow is Saturday
-	if code, _ := te.run(t, "", "session", "rate", strconv.FormatInt(b.ID, 10), "4", "derivation went well"); code != 0 {
+	if code, _ := te.run(t, "", "session", "rate", "#"+strconv.FormatInt(b.ID, 10), "4", "derivation went well"); code != 0 {
 		t.Fatal(code, te.errb.String())
 	}
 	code, out := te.run(t, "", "session", "list")
@@ -311,7 +311,7 @@ func TestSessionList(t *testing.T) {
 	}
 
 	// a long note is cut to 80 cells
-	if code, _ := te.run(t, "", "session", "note", strconv.FormatInt(b.ID, 10), strings.Repeat("wide note ", 20)); code != 0 {
+	if code, _ := te.run(t, "", "session", "note", "#"+strconv.FormatInt(b.ID, 10), strings.Repeat("wide note ", 20)); code != 0 {
 		t.Fatal(code, te.errb.String())
 	}
 	_, out = te.run(t, "", "session", "list")
@@ -343,7 +343,7 @@ func TestSessionWeights(t *testing.T) {
 		ids = append(ids, strconv.FormatInt(x.ID, 10))
 	}
 	for i := 0; i < 6; i++ {
-		if code, _ := te.run(t, "", "session", "rate", ids[i], strconv.Itoa(1+i%5)); code != 0 {
+		if code, _ := te.run(t, "", "session", "rate", "#"+ids[i], strconv.Itoa(1+i%5)); code != 0 {
 			t.Fatal(code, te.errb.String())
 		}
 	}
@@ -358,7 +358,7 @@ func TestSessionWeights(t *testing.T) {
 		t.Fatalf("below 10: %d\n%s\nwant\n%s", code, out, want)
 	}
 	for i := 6; i < 10; i++ {
-		if code, _ := te.run(t, "", "session", "rate", ids[i], strconv.Itoa(1+i%5)); code != 0 {
+		if code, _ := te.run(t, "", "session", "rate", "#"+ids[i], strconv.Itoa(1+i%5)); code != 0 {
 			t.Fatal(code, te.errb.String())
 		}
 	}
@@ -401,7 +401,7 @@ func TestSessionRefile(t *testing.T) {
 	}
 	// by id and by last, with a project that is not a module
 	id := strconv.FormatInt(x.ID, 10)
-	for _, ref := range [][]string{{id, "ATLAS"}, {"last", "ATLAS"}} {
+	for _, ref := range [][]string{{"#" + id, "ATLAS"}, {"--id", id, "ATLAS"}, {"--id=" + id, "ATLAS"}, {"last", "ATLAS"}} {
 		args := append([]string{"session", "refile"}, ref...)
 		want = fmt.Sprintf("refiled session %d (50m) to ATLAS · tock undo reverts it\n", x.ID)
 		if code, out := te.run(t, "", args...); code != 0 || out != want {
@@ -419,14 +419,70 @@ func TestSessionRefile(t *testing.T) {
 	if code, _ := te.run(t, "", "session", "refile", "Foo"); code != 1 || te.errb.String() != "tock: session refile: no project \"Foo\" (the labels tab lists them)\n" {
 		t.Fatalf("unknown project: %d %q", code, te.errb.String())
 	}
-	if code, _ := te.run(t, "", "session", "refile", "999", "ATLAS"); code != 1 || te.errb.String() != "tock: session refile: no session 999 (tock session list shows ids)\n" {
+	if code, _ := te.run(t, "", "session", "refile", "#999", "ATLAS"); code != 1 || te.errb.String() != "tock: session refile: no session 999 (tock session list shows ids)\n" {
 		t.Fatalf("unknown id: %d %q", code, te.errb.String())
 	}
 	te.now = testNow.Add(time.Hour)
 	if code, _ := te.run(t, "", "session", "start", "25"); code != 0 {
 		t.Fatalf("start: %d %q", code, te.errb.String())
 	}
-	if code, _ := te.run(t, "", "session", "refile", strconv.FormatInt(x.ID+1, 10), "ATLAS"); code != 1 || te.errb.String() != "tock: session refile: session still running\n" {
+	if code, _ := te.run(t, "", "session", "refile", "#"+strconv.FormatInt(x.ID+1, 10), "ATLAS"); code != 1 || te.errb.String() != "tock: session refile: session still running\n" {
 		t.Fatalf("running: %d %q", code, te.errb.String())
+	}
+}
+
+// A leading number is never a session id: only #N and --id N name one, so a
+// rating or the first word of a note cannot land on another session.
+func TestSessionLeadingNumberIsNotAnID(t *testing.T) {
+	te := newTestEnv(t, testRules)
+	te.seed(t, daySpans()...)
+	old := addSession(t, te, "08:00", 0, 25, 10, 1, store.SessionManual)
+	last := addSession(t, te, "10:00", 0, 50, 40, 1, store.SessionManual)
+	oldRef := "#" + strconv.FormatInt(old.ID, 10)
+
+	// `rate 4 2 hours deep` rates the last session ★4, not session 4 ★2
+	if code, out := te.run(t, "", "session", "rate", "4", "2", "hours", "deep"); code != 0 || !strings.Contains(out, fmt.Sprintf("rated session %d ", last.ID)) {
+		t.Fatalf("rate 4 2: %d %q %q", code, out, te.errb.String())
+	}
+	if r := sessionRow(t, te, last.ID); r.Rating != 4 || r.Note != "2 hours deep" {
+		t.Fatalf("stored = %+v", r)
+	}
+	// `note 25 min of reading` is a note on the last session
+	if code, out := te.run(t, "", "session", "note", "25", "min", "of", "reading"); code != 0 || out != fmt.Sprintf("noted session %d: 25 min of reading\n", last.ID) {
+		t.Fatalf("note 25: %d %q %q", code, out, te.errb.String())
+	}
+	if r := sessionRow(t, te, last.ID); r.Note != "25 min of reading" {
+		t.Fatalf("stored = %+v", r)
+	}
+	// `note 42` alone is the note "42", it does not clear session 42
+	if code, out := te.run(t, "", "session", "note", "42"); code != 0 || out != fmt.Sprintf("noted session %d: 42\n", last.ID) {
+		t.Fatalf("note 42: %d %q", code, out)
+	}
+	// the word "last" in a note is text, not a target
+	if code, out := te.run(t, "", "session", "note", "last", "night", "ran", "long"); code != 0 || out != fmt.Sprintf("noted session %d: last night ran long\n", last.ID) {
+		t.Fatalf("note last night: %d %q", code, out)
+	}
+	// both unambiguous id forms still pick the older session
+	if code, out := te.run(t, "", "session", "rate", oldRef, "3"); code != 0 || !strings.Contains(out, fmt.Sprintf("rated session %d ", old.ID)) {
+		t.Fatalf("rate by #id: %d %q", code, out)
+	}
+	if code, out := te.run(t, "", "session", "note", "--id", strconv.FormatInt(old.ID, 10), "25", "min"); code != 0 || out != fmt.Sprintf("noted session %d: 25 min\n", old.ID) {
+		t.Fatalf("note by --id: %d %q", code, out)
+	}
+	if r := sessionRow(t, te, old.ID); r.Rating != 3 || r.Note != "25 min" {
+		t.Fatalf("older = %+v", r)
+	}
+	if r := sessionRow(t, te, last.ID); r.Rating != 4 || r.Note != "last night ran long" {
+		t.Fatalf("last changed: %+v", r)
+	}
+	// a project made of digits is a project, not an id
+	if code, _ := te.run(t, "", "session", "refile", "2024"); code != 1 || te.errb.String() != "tock: session refile: no project \"2024\" (the labels tab lists them)\n" {
+		t.Fatalf("refile 2024: %d %q", code, te.errb.String())
+	}
+	// --id needs a number
+	for _, args := range [][]string{{"session", "note", "--id"}, {"session", "note", "--id", "x", "hi"}, {"session", "rate", "--id=", "4"}} {
+		if code, _ := te.run(t, "", args...); code != 2 {
+			t.Errorf("%q: code %d, want 2 (%q)", args, code, te.errb.String())
+		}
 	}
 }
