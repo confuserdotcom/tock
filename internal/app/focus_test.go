@@ -87,7 +87,8 @@ func TestFocusTickEndsSession(t *testing.T) {
 		t.Fatalf("quality = %d, want 36", q.Score)
 	}
 	want := []focus.Event{{Kind: focus.Notify, Topic: focus.TopicDone, Title: focus.TitleDone,
-		Body: "25 min · quality 36 · 20% deep · no interruptions", OfSession: true, Minutes: 25, Sess: ended}}
+		Body:      "25 min · quality 36 · 20% deep · no interruptions · top: Entertainment, Code",
+		OfSession: true, Minutes: 25, Project: "tock", Refile: true, Sess: ended}}
 	if !reflect.DeepEqual(notes, want) {
 		t.Fatalf("notes = %+v, want %+v", notes, want)
 	}

@@ -2,7 +2,10 @@ package focus
 
 import (
 	"fmt"
+	"strings"
 	"time"
+
+	"github.com/charmbracelet/x/ansi"
 
 	"tock/internal/classify"
 	"tock/internal/stats"
@@ -110,8 +113,10 @@ func stepSession(in Input, s Session) (writes, notes []Event, ended bool) {
 	if in.Now >= s.PlannedMS {
 		next.EndMS = s.PlannedMS
 		next.Switches = stats.WindowSwitches(in.Views, in.Labels, s.StartMS, s.PlannedMS)
-		done := note(TopicDone, TitleDone, doneBody(next, Quality(next, in.Weights)), true)
+		b := Window(in.Views, in.Labels, s.StartMS, s.PlannedMS, in.Cfg)
+		done := note(TopicDone, TitleDone, doneBody(next, Quality(next, in.Weights), b), true)
 		done.Minutes = int(minutes(s.PlannedMS - s.StartMS))
+		done.Project, done.Refile = b.Project, b.Refile()
 		done.Sess = next
 		return []Event{{Kind: SessionEnd, Sess: next}}, []Event{done}, true
 	}
@@ -135,16 +140,27 @@ func distractBody(s Session, now int64) string {
 		minutes(s.DistractMS), minutes(s.PlannedMS-s.StartMS), minutes(s.PlannedMS-now))
 }
 
-// doneBody is the done notice: length, quality, deep share and
-// interruptions.
-func doneBody(s Session, q QualityScore) string {
+// doneNameCells is the widest a category name gets in the done notice.
+const doneNameCells = 20
+
+// doneBody is the done notice: length, quality, deep share, interruptions
+// and the two top categories, left out when the window has none.
+func doneBody(s Session, q QualityScore, b Breakdown) string {
 	length := s.EndMS - s.StartMS
 	pct := int64(0)
 	if length > 0 {
 		pct = (s.DeepMS*100 + length/2) / length
 	}
-	return fmt.Sprintf("%d min · quality %d · %d%% deep · %s",
+	body := fmt.Sprintf("%d min · quality %d · %d%% deep · %s",
 		minutes(length), q.Score, pct, InterruptionsText(s.Interruptions))
+	var names []string
+	for _, c := range b.Categories[:min(len(b.Categories), 2)] {
+		names = append(names, ansi.Truncate(c.Name, doneNameCells, "…"))
+	}
+	if len(names) > 0 {
+		body += " · top: " + strings.Join(names, ", ")
+	}
+	return body
 }
 
 // autoSessions records each ended focus block of at least AutoMinMS that no

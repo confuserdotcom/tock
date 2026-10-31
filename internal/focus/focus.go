@@ -98,6 +98,8 @@ type Event struct {
 	Topic       string            // a Notify's topic: TopicFocus, TopicDone, …
 	OfSession   bool              // a Notify about the running session; drop it when that session was closed meanwhile
 	Minutes     int               // TopicDone: the finished session's planned length
+	Project     string            // TopicDone: the finished session's top project, "" = none
+	Refile      bool              // TopicDone: a refile of the session's time to Project is offered
 	Away        classify.Interval // TopicAway: the absence asked about
 	Before      classify.Want     // TopicAway: the label of what it follows, if any
 	Sess        Session

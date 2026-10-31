@@ -3,7 +3,10 @@ package focus
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
+
+	"github.com/charmbracelet/x/ansi"
 
 	"tock/internal/classify"
 	"tock/internal/stats"
@@ -98,15 +101,24 @@ func TestSessionMeetingMutes(t *testing.T) {
 	}
 }
 
-func TestSessionEnd(t *testing.T) {
+// endFixture is a 25 min session whose first 20 min are deep and last 5 min
+// distracted, with the given category names and a project on the deep part.
+func endFixture(deepCat, distractCat, project string) (Input, Session) {
 	in := input(at(14, 26, 0),
 		vw{at(14, 0, 0), at(14, 20, 0), classify.KindDeep, "", ""},
 		vw{at(14, 20, 0), at(14, 26, 0), classify.KindDistract, "", ""})
+	in.Labels[0].Category, in.Labels[0].Project = deepCat, project
+	in.Labels[1].Category = distractCat
 	in.Sessions = []Session{running()}
 	end := running()
 	end.EndMS = at(14, 25, 0)
 	end.DeepMS, end.DistractMS, end.LongestMS = 20*minute, 5*minute, 20*minute
 	end.Switches = stats.WindowSwitches(in.Views, in.Labels, end.StartMS, end.PlannedMS)
+	return in, end
+}
+
+func TestSessionEnd(t *testing.T) {
+	in, end := endFixture("Code", "Video", "tock")
 	if end.Switches != 1 {
 		t.Fatalf("fixture switches = %d, want 1", end.Switches)
 	}
@@ -115,9 +127,42 @@ func TestSessionEnd(t *testing.T) {
 		{Kind: SessionEnd, Sess: end},
 		{Kind: StateUpdate, State: State{BreakFrom: at(14, 0, 0), BreakAt: at(14, 26, 0)}},
 		{Kind: Notify, Topic: TopicDone, Title: TitleDone, OfSession: true, Minutes: 25, Sess: end,
-			Body: fmt.Sprintf("25 min · quality %d · 80%% deep · no interruptions", q.Score)},
+			Project: "tock", Refile: true,
+			Body: fmt.Sprintf("25 min · quality %d · 80%% deep · no interruptions · top: Code, Video", q.Score)},
 	}
 	if got := Step(in); !reflect.DeepEqual(got, want) {
 		t.Fatalf("Step =\n%+v\nwant\n%+v", got, want)
+	}
+	b := Window(in.Views, in.Labels, end.StartMS, end.PlannedMS, in.Cfg)
+	if b.Project != "tock" || !b.Refile() {
+		t.Fatalf("Window = %+v, want project tock with a refile", b)
+	}
+}
+
+func TestSessionEndNoTop(t *testing.T) {
+	in, end := endFixture("", "", "")
+	q := Quality(end, Weights{})
+	done := only(Step(in), Notify)[0]
+	if want := fmt.Sprintf("25 min · quality %d · 80%% deep · no interruptions", q.Score); done.Body != want {
+		t.Fatalf("Body = %q, want %q", done.Body, want)
+	}
+	if done.Project != "" || done.Refile {
+		t.Fatalf("Project = %q Refile = %v, want none", done.Project, done.Refile)
+	}
+}
+
+func TestSessionEndLongNames(t *testing.T) {
+	long := strings.Repeat("é", 25)
+	wide := strings.Repeat("漢", 15) // 30 cells
+	in, _ := endFixture(long, wide, "")
+	body := only(Step(in), Notify)[0].Body
+	want := " · top: " + strings.Repeat("é", 19) + "…, " + strings.Repeat("漢", 9) + "…"
+	if !strings.HasSuffix(body, want) {
+		t.Fatalf("Body = %q, want the suffix %q", body, want)
+	}
+	for _, name := range strings.Split(strings.TrimPrefix(body[strings.Index(body, " · top: "):], " · top: "), ", ") {
+		if w := ansi.StringWidth(name); w > 20 {
+			t.Fatalf("name %q is %d cells wide, want at most 20", name, w)
+		}
 	}
 }
