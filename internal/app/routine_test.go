@@ -357,3 +357,42 @@ func TestStartOfDayOvernight(t *testing.T) {
 		}
 	}
 }
+
+// TestRoutineBodyFailure: a routine body that cannot be built skips that
+// notice for the tick, is reported through RoutineErr and neither stops the
+// focus engine nor marks the notice as sent.
+func TestRoutineBodyFailure(t *testing.T) {
+	e := startEnv(t, "")
+	a := open(t, e)
+	db := e.RawDB(t)
+	defer db.Close()
+	// Yesterday's report reads the summary table.
+	if _, err := db.Exec(`ALTER TABLE summary RENAME TO summary_gone`); err != nil {
+		t.Fatal(err)
+	}
+	notes, err := a.FocusTick(false)
+	if err != nil {
+		t.Fatalf("tick failed over a routine body: %v", err)
+	}
+	for _, n := range notes {
+		if n.Topic == focus.TopicStart {
+			t.Fatalf("start notice without a body: %+v", n)
+		}
+	}
+	if a.RoutineErr() == nil {
+		t.Fatal("RoutineErr = nil after a failed body")
+	}
+	if v, _, _ := a.st.State(store.KeyFocusStartDay); v != "" {
+		t.Fatalf("focus_start_day = %q, want unset", v)
+	}
+	if _, err := db.Exec(`ALTER TABLE summary_gone RENAME TO summary`); err != nil {
+		t.Fatal(err)
+	}
+	notes, err = a.FocusTick(false)
+	if err != nil || len(notes) != 1 || notes[0].Topic != focus.TopicStart {
+		t.Fatalf("tick after the failure = %+v, %v", notes, err)
+	}
+	if a.RoutineErr() != nil {
+		t.Fatalf("RoutineErr = %v after a good tick", a.RoutineErr())
+	}
+}

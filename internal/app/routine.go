@@ -1,6 +1,7 @@
 package app
 
 import (
+	"fmt"
 	"time"
 
 	"tock/internal/focus"
@@ -12,30 +13,42 @@ import (
 // this tick. It builds a text only behind the pure core's due-ness check, so
 // an idle tick reads neither yesterday's report nor the plan file.
 // today builds today's report on first use and returns it again after.
-func (a *App) routineBodies(in *focus.Input, nowT time.Time, today func() (report.Day, error)) error {
-	if focus.StartDue(*in) {
-		body, err := a.StartBody(nowT)
-		if err != nil {
-			return err
+// A text that cannot be built is not fatal: that notice is skipped for this
+// tick (an empty body is never sent or marked as sent, so it is tried again
+// on the next one) and the first failure is kept in RoutineErr.
+func (a *App) routineBodies(in *focus.Input, nowT time.Time, today func() (report.Day, error)) {
+	a.routineErr = nil
+	skip := func(err error) {
+		if a.routineErr == nil {
+			a.routineErr = err
 		}
-		in.StartBody = body
+	}
+	if focus.StartDue(*in) {
+		if body, err := a.StartBody(nowT); err != nil {
+			skip(fmt.Errorf("app: start-of-day notice: %w", err))
+		} else {
+			in.StartBody = body
+		}
 	}
 	if focus.MiddayDue(*in) {
-		d, err := today()
-		if err != nil {
-			return err
+		if d, err := today(); err != nil {
+			skip(fmt.Errorf("app: midday notice: %w", err))
+		} else {
+			in.MiddayBody = report.MiddayBody(d)
 		}
-		in.MiddayBody = report.MiddayBody(d)
 	}
 	if focus.OverDue(*in) {
-		d, err := today()
-		if err != nil {
-			return err
+		if d, err := today(); err != nil {
+			skip(fmt.Errorf("app: overworking notice: %w", err))
+		} else {
+			in.OverBody = report.OverBody(d, focus.OverMS(*in))
 		}
-		in.OverBody = report.OverBody(d, focus.OverMS(*in))
 	}
-	return nil
 }
+
+// RoutineErr is the error that kept a routine notice from being built on the
+// last focus tick, nil after a tick where all were built.
+func (a *App) RoutineErr() error { return a.routineErr }
 
 // MiddayBody is the midday check-in text at that moment, shared by the
 // notice and tock recap midday.

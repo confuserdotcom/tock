@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"log/slog"
 	"reflect"
 	"strings"
@@ -226,5 +227,23 @@ func TestFocusLoopRoutinesNotifyOff(t *testing.T) {
 	f.tick()
 	if len(n.got) != 0 {
 		t.Fatalf("notify off: %q", n.got)
+	}
+}
+
+// TestFocusLoopWarnRoutineOnce: a routine notice that cannot be built is
+// logged once while it lasts and again after it recovered.
+func TestFocusLoopWarnRoutineOnce(t *testing.T) {
+	var logb bytes.Buffer
+	f := &focusLoop{log: slog.New(slog.NewTextHandler(&logb, nil))}
+	bad := errors.New("app: start-of-day notice: boom")
+	f.warnRoutine(bad)
+	f.warnRoutine(bad)
+	if n := strings.Count(logb.String(), "routine notice skipped"); n != 1 {
+		t.Fatalf("logged %d times, want 1: %q", n, logb.String())
+	}
+	f.warnRoutine(nil)
+	f.warnRoutine(bad)
+	if n := strings.Count(logb.String(), "routine notice skipped"); n != 2 {
+		t.Fatalf("logged %d times after recovery, want 2", n)
 	}
 }

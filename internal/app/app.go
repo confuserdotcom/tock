@@ -54,6 +54,8 @@ type App struct {
 
 	cut report.Uncounted // what the last labelled() did not count
 
+	routineErr error // why a routine notice was not built on the last focus tick
+
 	model   *classify.Model   // the local classifier (see labelModel)
 	modelRS *classify.Ruleset // the rules it was trained with
 	modelFP uint64            // pastKey it was trained with

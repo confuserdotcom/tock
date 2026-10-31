@@ -30,6 +30,9 @@ type focusLoop struct {
 	log     *slog.Logger
 	a       *app.App
 	lastErr string
+	// lastRoutineErr is the last routine-notice failure logged, so a failure
+	// that lasts is logged once.
+	lastRoutineErr string
 }
 
 func newFocusLoop(o daemonOpts, log *slog.Logger) *focusLoop {
@@ -69,6 +72,7 @@ func (f *focusLoop) tick() {
 		return
 	}
 	f.lastErr = ""
+	f.warnRoutine(f.a.RoutineErr())
 	if f.hooks != nil {
 		cfg := f.a.Config()
 		if g.Stop {
@@ -117,6 +121,19 @@ func (f *focusLoop) warn(msg string, err error) {
 	if s := msg + ": " + err.Error(); s != f.lastErr {
 		f.lastErr = s
 		f.log.Warn(msg, "err", err)
+	}
+}
+
+// warnRoutine logs why a routine notice was skipped, once per distinct
+// message; the focus engine goes on.
+func (f *focusLoop) warnRoutine(err error) {
+	if err == nil {
+		f.lastRoutineErr = ""
+		return
+	}
+	if s := err.Error(); s != f.lastRoutineErr {
+		f.lastRoutineErr = s
+		f.log.Warn("routine notice skipped", "err", err)
 	}
 }
 

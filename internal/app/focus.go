@@ -97,9 +97,7 @@ func (a *App) GuardTick(call bool) ([]focus.Event, focus.Guard, error) {
 		}
 		in.RecapBody = report.Recap(d)
 	}
-	if err := a.routineBodies(&in, nowT, todayDay); err != nil {
-		return nil, focus.Guard{}, err
-	}
+	a.routineBodies(&in, nowT, todayDay)
 
 	gs, err := a.guardState()
 	if err != nil {
