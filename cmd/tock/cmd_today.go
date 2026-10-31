@@ -98,7 +98,7 @@ func projectSummary(p []report.NameMS) string {
 }
 
 // cutNote says what recorded time did not count, when a minute or more.
-func cutNote(c report.Cut) string {
+func cutNote(c report.Uncounted) string {
 	var s string
 	if c.StaleMS >= 60_000 {
 		s += " · " + report.Dur(c.StaleMS) + " cut (no input)"

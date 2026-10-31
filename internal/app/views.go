@@ -90,7 +90,7 @@ func (a *App) spans(from, to int64) ([]store.SpanRow, map[int64]classify.Overrid
 // labels, the local model's included (see labelModel). The open span ends at nowMS; callers pass the same nowMS to the
 // report so it can tell which row is open.
 func (a *App) labelled(from, to, nowMS int64) ([]classify.SpanView, []classify.Label, error) {
-	a.cut = report.Cut{}
+	a.cut = report.Uncounted{}
 	rows, ovs, err := a.spans(from, to)
 	if err != nil {
 		return nil, nil, err

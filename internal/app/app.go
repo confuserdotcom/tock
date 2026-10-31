@@ -52,7 +52,7 @@ type App struct {
 	past    map[string]pastDay // days before today, by date
 	pastKey uint64             // overrides fingerprint the cache was built with
 
-	cut report.Cut // what the last labelled() did not count
+	cut report.Uncounted // what the last labelled() did not count
 
 	model   *classify.Model   // the local classifier (see labelModel)
 	modelRS *classify.Ruleset // the rules it was trained with

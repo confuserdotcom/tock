@@ -35,6 +35,11 @@ var (
 	ErrSessionRunning = errors.New("session already running")
 	// ErrNoSession means no manual session is open.
 	ErrNoSession = errors.New("no session")
+	// ErrSessionGone means no session has the id asked for.
+	ErrSessionGone = errors.New("no such session")
+	// ErrSessionOpen means the session is still running, so it cannot be rated
+	// or noted yet.
+	ErrSessionOpen = errors.New("session still running")
 )
 
 // Session is one focus session. focus.Session has the same fields in the
@@ -162,6 +167,88 @@ func (s *Store) Sessions(from, to int64) ([]Session, error) {
 		x, err := scanSession(rows)
 		if err != nil {
 			return nil, fmt.Errorf("store: sessions: %w", err)
+		}
+		out = append(out, x)
+	}
+	return out, rows.Err()
+}
+
+// SessionByID returns the session with the id, or ErrSessionGone.
+func (s *Store) SessionByID(id int64) (Session, error) {
+	x, err := scanSession(s.db.QueryRow(`SELECT `+sessionCols+` FROM session WHERE id=?`, id))
+	if errors.Is(err, sql.ErrNoRows) {
+		return Session{}, ErrSessionGone
+	}
+	if err != nil {
+		return Session{}, fmt.Errorf("store: session by id: %w", err)
+	}
+	return x, nil
+}
+
+// LastFinishedSession returns the session that ended last, or nil when none
+// has. A running session is never the last one.
+func (s *Store) LastFinishedSession() (*Session, error) {
+	x, err := scanSession(s.db.QueryRow(`SELECT ` + sessionCols + ` FROM session
+		WHERE end_ms IS NOT NULL ORDER BY end_ms DESC, id DESC LIMIT 1`))
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("store: last finished session: %w", err)
+	}
+	return &x, nil
+}
+
+// RateSession stores a 1..5 rating on a finished session; the last rating
+// wins. A nil note keeps the stored note, otherwise note replaces it. It only
+// writes rating, rated_ms and note, never the counters trackd owns.
+func (s *Store) RateSession(id int64, rating int, note *string, nowMS int64) error {
+	var n any // a nil interface is SQL NULL, which COALESCE skips
+	if note != nil {
+		n = *note
+	}
+	res, err := s.db.Exec(`UPDATE session SET rating=?, rated_ms=?, note=COALESCE(?, note)
+		WHERE id=? AND end_ms IS NOT NULL`, rating, nowMS, n, id)
+	return s.finishedWrite(res, err, id, "rate session")
+}
+
+// SetNote stores the note of a finished session; "" clears it.
+func (s *Store) SetNote(id int64, note string) error {
+	res, err := s.db.Exec(`UPDATE session SET note=NULLIF(?, '') WHERE id=? AND end_ms IS NOT NULL`, note, id)
+	return s.finishedWrite(res, err, id, "set session note")
+}
+
+// finishedWrite turns a guarded update that changed no row into
+// ErrSessionGone or ErrSessionOpen.
+func (s *Store) finishedWrite(res sql.Result, err error, id int64, what string) error {
+	ok, err := changedOne(res, err, what)
+	if err != nil || ok {
+		return err
+	}
+	x, err := s.SessionByID(id)
+	if err != nil {
+		return err
+	}
+	if x.EndMS == 0 {
+		return ErrSessionOpen
+	}
+	return fmt.Errorf("store: %s: no row changed", what)
+}
+
+// RatedSessions returns the finished, rated sessions in id order. The order
+// is part of the weight fit's determinism contract.
+func (s *Store) RatedSessions() ([]Session, error) {
+	rows, err := s.db.Query(`SELECT ` + sessionCols + ` FROM session
+		WHERE rating IS NOT NULL AND end_ms IS NOT NULL ORDER BY id`)
+	if err != nil {
+		return nil, fmt.Errorf("store: rated sessions: %w", err)
+	}
+	defer rows.Close()
+	var out []Session
+	for rows.Next() {
+		x, err := scanSession(rows)
+		if err != nil {
+			return nil, fmt.Errorf("store: rated sessions: %w", err)
 		}
 		out = append(out, x)
 	}

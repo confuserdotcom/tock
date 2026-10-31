@@ -34,7 +34,7 @@ type Day struct {
 	TrackedMS int64
 	IdleMS    int64
 	// Cut is the recorded time that did not count, filled by the caller.
-	Cut    Cut
+	Cut    Uncounted
 	ByKind map[string]int64 // kind ("" = unlabelled) -> ms; idle excluded
 	// Categories: by time desc, then name; Unclassified last.
 	Categories []CatRow
@@ -96,10 +96,10 @@ type Row struct {
 // MinHours is the narrowest heatmap range.
 const MinHours = 8
 
-// Cut is the recorded time that did not count, and why: StaleMS sat in
+// Uncounted is the recorded time that did not count, and why: StaleMS sat in
 // one window with no input to show for it (see [afk] stale and trust),
 // OtherMS went to another machine you switched to.
-type Cut struct {
+type Uncounted struct {
 	StaleMS, OtherMS int64
 }
 
