@@ -13,6 +13,9 @@ type Event struct {
 	StartMS, EndMS int64
 	Title          string
 	Calendar       string
+	// JoinURL is the event's allowlisted meeting link, "" = none; trackd
+	// fills it.
+	JoinURL string
 }
 
 func eventLess(a, b Event) bool {
@@ -25,7 +28,10 @@ func eventLess(a, b Event) bool {
 	if a.Title != b.Title {
 		return a.Title < b.Title
 	}
-	return a.Calendar < b.Calendar
+	if a.Calendar != b.Calendar {
+		return a.Calendar < b.Calendar
+	}
+	return a.JoinURL < b.JoinURL
 }
 
 // SyncEvents makes the rows that start in [from, to) equal to evs (whose
@@ -47,15 +53,15 @@ func (s *Store) SyncEvents(from, to int64, evs []Event) (changed bool, err error
 		return false, err
 	}
 	defer tx.Rollback()
-	rows, err := tx.Query(`SELECT start_ms, end_ms, title, calendar FROM event
-		WHERE start_ms >= ? AND start_ms < ? ORDER BY start_ms, end_ms, title, calendar`, from, to)
+	rows, err := tx.Query(`SELECT start_ms, end_ms, title, calendar, join_url FROM event
+		WHERE start_ms >= ? AND start_ms < ? ORDER BY start_ms, end_ms, title, calendar, join_url`, from, to)
 	if err != nil {
 		return false, err
 	}
 	var have []Event
 	for rows.Next() {
 		var e Event
-		if err := rows.Scan(&e.StartMS, &e.EndMS, &e.Title, &e.Calendar); err != nil {
+		if err := rows.Scan(&e.StartMS, &e.EndMS, &e.Title, &e.Calendar, &e.JoinURL); err != nil {
 			rows.Close()
 			return false, err
 		}
@@ -78,8 +84,8 @@ func (s *Store) SyncEvents(from, to int64, evs []Event) (changed bool, err error
 		return false, fmt.Errorf("store: sync events: %w", err)
 	}
 	for _, e := range want {
-		if _, err := tx.Exec(`INSERT INTO event(start_ms, end_ms, title, calendar) VALUES(?, ?, ?, ?)`,
-			e.StartMS, e.EndMS, e.Title, e.Calendar); err != nil {
+		if _, err := tx.Exec(`INSERT INTO event(start_ms, end_ms, title, calendar, join_url) VALUES(?, ?, ?, ?, ?)`,
+			e.StartMS, e.EndMS, e.Title, e.Calendar, e.JoinURL); err != nil {
 			return false, fmt.Errorf("store: sync events: %w", err)
 		}
 	}
@@ -92,8 +98,8 @@ var ErrNoEvent = errors.New("store: no such calendar event")
 // Event returns row id.
 func (s *Store) Event(id int64) (Event, error) {
 	var e Event
-	err := s.db.QueryRow(`SELECT id, start_ms, end_ms, title, calendar FROM event WHERE id = ?`, id).
-		Scan(&e.ID, &e.StartMS, &e.EndMS, &e.Title, &e.Calendar)
+	err := s.db.QueryRow(`SELECT id, start_ms, end_ms, title, calendar, join_url FROM event WHERE id = ?`, id).
+		Scan(&e.ID, &e.StartMS, &e.EndMS, &e.Title, &e.Calendar, &e.JoinURL)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Event{}, ErrNoEvent
 	}
@@ -102,7 +108,7 @@ func (s *Store) Event(id int64) (Event, error) {
 
 // Events returns the rows overlapping [from, to), in start order.
 func (s *Store) Events(from, to int64) ([]Event, error) {
-	rows, err := s.db.Query(`SELECT id, start_ms, end_ms, title, calendar FROM event
+	rows, err := s.db.Query(`SELECT id, start_ms, end_ms, title, calendar, join_url FROM event
 		WHERE end_ms > ? AND start_ms < ? ORDER BY start_ms, end_ms, id`, from, to)
 	if err != nil {
 		return nil, err
@@ -111,7 +117,7 @@ func (s *Store) Events(from, to int64) ([]Event, error) {
 	var out []Event
 	for rows.Next() {
 		var e Event
-		if err := rows.Scan(&e.ID, &e.StartMS, &e.EndMS, &e.Title, &e.Calendar); err != nil {
+		if err := rows.Scan(&e.ID, &e.StartMS, &e.EndMS, &e.Title, &e.Calendar, &e.JoinURL); err != nil {
 			return nil, err
 		}
 		out = append(out, e)
