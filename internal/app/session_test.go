@@ -2,6 +2,7 @@ package app
 
 import (
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -114,5 +115,53 @@ func TestSessionWeightsApp(t *testing.T) {
 				t.Fatalf("after 10: %v %d %v, want %v", w, n, fitted, want)
 			}
 		}
+	}
+}
+
+func TestSessionDetail(t *testing.T) {
+	_, a, x := refileEnv(t)
+	d, err := a.SessionDetail(x.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, err := a.SessionByID(x.ID)
+	if err != nil || d.Sess != s {
+		t.Fatalf("Sess = %+v, want %+v (%v)", d.Sess, s, err)
+	}
+	w, _, _, _ := a.Weights()
+	if want := focus.Quality(s, w); d.Q != want {
+		t.Fatalf("Q = %+v, want %+v", d.Q, want)
+	}
+	vs, labels, err := a.labelled(s.StartMS, s.EndMS, a.nowMS())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := focus.Window(vs, labels, s.StartMS, s.EndMS, a.cfg.Focus); !reflect.DeepEqual(d.Top, want) || d.Top.ActiveMS != 40*60_000 {
+		t.Fatalf("Top = %+v, want %+v", d.Top, want)
+	}
+	run, err := a.st.StartSession(apptest.At(t, "13:00", 0), 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.SessionDetail(run.ID); !errors.Is(err, store.ErrSessionOpen) {
+		t.Fatalf("running: %v", err)
+	}
+	if _, err := a.SessionDetail(999); !errors.Is(err, store.ErrSessionGone) {
+		t.Fatalf("unknown: %v", err)
+	}
+}
+
+func TestSessionDetailAfterRefile(t *testing.T) {
+	_, a, x := refileEnv(t)
+	d, err := a.SessionDetail(x.ID)
+	if err != nil || d.Top.Project != "tock" {
+		t.Fatalf("before: %+v, %v", d.Top, err)
+	}
+	if _, _, err := a.RefileSession(x.ID, "Analyse 1"); err != nil {
+		t.Fatal(err)
+	}
+	d, err = a.SessionDetail(x.ID)
+	if err != nil || d.Top.Project != "Analyse 1" || d.Top.Refile() {
+		t.Fatalf("after: %+v, %v", d.Top, err)
 	}
 }

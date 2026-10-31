@@ -73,3 +73,28 @@ func (a *App) Weights() (w focus.Weights, rated int, fitted bool, err error) {
 	w, rated = focus.FitWeights(focusSessions(ss))
 	return w, rated, rated >= focus.MinRated, nil
 }
+
+// SessionDetail is the card model of a finished session: its quality with the
+// current weights and the breakdown of its window. It reads one small window,
+// so callers ask for the one session on screen, never the whole week. A
+// running session fails with store.ErrSessionOpen, an unknown id with
+// store.ErrSessionGone.
+func (a *App) SessionDetail(id int64) (report.SessionDetail, error) {
+	s, err := a.SessionByID(id)
+	if err != nil {
+		return report.SessionDetail{}, err
+	}
+	if s.EndMS == 0 {
+		return report.SessionDetail{}, store.ErrSessionOpen
+	}
+	vs, labels, err := a.labelled(s.StartMS, s.EndMS, a.nowMS())
+	if err != nil {
+		return report.SessionDetail{}, err
+	}
+	top := focus.Window(vs, labels, s.StartMS, s.EndMS, a.cfg.Focus)
+	w, _, _, err := a.Weights()
+	if err != nil {
+		return report.SessionDetail{}, err
+	}
+	return report.SessionDetail{Sess: s, Q: focus.Quality(s, w), Top: top}, nil
+}
