@@ -98,6 +98,7 @@ func (a *App) GuardTick(call bool) ([]focus.Event, focus.Guard, error) {
 		in.RecapBody = report.Recap(d)
 	}
 	a.routineBodies(&in, nowT, todayDay)
+	a.slotInput(&in, nowT)
 
 	gs, err := a.guardState()
 	if err != nil {
@@ -123,6 +124,13 @@ func (a *App) GuardTick(call bool) ([]focus.Event, focus.Guard, error) {
 			err = a.setFocusState(ev.State, now)
 		case focus.Notify:
 			if !(stale && ev.OfSession) {
+				notes = append(notes, ev)
+			}
+		case focus.SlotDue:
+			// The row is the race guard: only the writer that inserted it sends.
+			var inserted bool
+			if inserted, err = a.st.MarkSlotNotice(ev.Slot.Key, ev.SlotKind, now); err == nil && inserted {
+				ev.Kind = focus.Notify
 				notes = append(notes, ev)
 			}
 		}

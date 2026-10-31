@@ -139,7 +139,9 @@ func TestButtons(t *testing.T) {
 		Category(store.Notice{ID: 9, Topic: focus.TopicRecap}, d) != "" ||
 		Category(store.Notice{ID: 10, Topic: focus.TopicStart}, d) != "" ||
 		Category(store.Notice{ID: 11, Topic: focus.TopicMidday}, d) != "" ||
-		Category(store.Notice{ID: 12, Topic: focus.TopicOver}, d) != "" {
+		Category(store.Notice{ID: 12, Topic: focus.TopicOver}, d) != "" ||
+		Category(store.Notice{ID: 13, Topic: focus.TopicStarting}, d) != "" ||
+		Category(store.Notice{ID: 14, Topic: focus.TopicUpcoming}, d) != "" {
 		t.Fatal("categories")
 	}
 	for topic, want := range map[string]string{
@@ -161,6 +163,11 @@ func TestButtons(t *testing.T) {
 	}
 	if b := Buttons(store.Notice{Topic: focus.TopicOver}, app.NoticeData{}); b != nil {
 		t.Fatalf("overwork buttons = %+v", b)
+	}
+	for _, topic := range []string{focus.TopicStarting, focus.TopicUpcoming} {
+		if b := Buttons(store.Notice{Topic: topic}, app.NoticeData{}); b != nil {
+			t.Fatalf("%s buttons = %+v", topic, b)
+		}
 	}
 }
 

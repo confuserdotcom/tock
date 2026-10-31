@@ -457,7 +457,7 @@ func TestLoadPlan(t *testing.T) {
 	if _, err := Load(write(t, "[plan]\nfile = \"todo.txt\"\n")); err == nil || !strings.Contains(err.Error(), "[plan] file") {
 		t.Errorf("relative file: %v", err)
 	}
-	if c, _ := Load(write(t, "")); c.Plan != (Plan{}) {
+	if c, _ := Load(write(t, "")); c.Plan != DefaultPlan() {
 		t.Errorf("default plan = %+v", c.Plan)
 	}
 }

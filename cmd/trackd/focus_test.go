@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"errors"
 	"log/slog"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -88,6 +90,35 @@ func TestFocusLoopSendsStartOfDay(t *testing.T) {
 	g, _ := testLoop(t, e, n, nil) // trackd restarted
 	g.tick()
 	want := []string{"Start of day|Yesterday: no activity."}
+	if !reflect.DeepEqual(n.got, want) {
+		t.Fatalf("notifications = %q, want %q", n.got, want)
+	}
+}
+
+// slotEnv: a plan file with Review at 14:00 and Break at 14:50, a span open
+// since 13:50 and the clock at 14:00:30.
+func slotEnv(t *testing.T) *apptest.Env {
+	t.Helper()
+	e := apptest.New(t, apptest.Rules)
+	todo := filepath.Join(t.TempDir(), "todo.txt")
+	if err := os.WriteFile(todo, []byte("Review @14h00 due:2026-10-10\nBreak @14h50 due:2026-10-10\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	e.WriteConfig(t, apptest.NoRoutines+"[plan]\nfile = '"+todo+"'\n")
+	e.Seed(t, apptest.Span{ID: 1, Start: "13:50", Bundle: "term", App: "WezTerm", Title: "x"})
+	e.Clock = time.Date(2026, 10, 10, 14, 0, 30, 0, apptest.Zone)
+	return e
+}
+
+func TestFocusLoopSendsSlotStartOnce(t *testing.T) {
+	e := slotEnv(t)
+	n := &recNotifier{}
+	f, _ := testLoop(t, e, n, nil)
+	f.tick()
+	f.tick()
+	g, _ := testLoop(t, e, n, nil) // trackd restarted
+	g.tick()
+	want := []string{"Starting now|14:00–14:50 Review"}
 	if !reflect.DeepEqual(n.got, want) {
 		t.Fatalf("notifications = %q, want %q", n.got, want)
 	}

@@ -109,6 +109,9 @@ const (
 	SessionEnd                         // close Sess at Sess.EndMS
 	AutoSession                        // insert Sess as an auto session
 	StateUpdate                        // save State
+	// SlotDue is a slot notice; the caller marks Slot.Key and SlotKind sent
+	// and sends it as a Notify only when the mark is new.
+	SlotDue
 )
 
 // Event is one thing a tick decided.
@@ -128,6 +131,9 @@ type Event struct {
 	Urge              bool // TopicFocus: the notice is an urge-surfing prompt
 	Sess              Session
 	State             State
+	// Slot and SlotKind (SlotDue): the slot and the notice kind it is due for.
+	Slot     Slot
+	SlotKind string
 }
 
 // Input is one tick's view of the world.
@@ -158,6 +164,13 @@ type Input struct {
 	// Weights are the quality weights of the done notice; the zero value
 	// means DefaultQualityWeights().
 	Weights Weights
+	// Plan holds the [plan] notice switches; the app passes cfg.Plan.
+	Plan config.Plan
+	// Slots are today's slots in start order.
+	Slots []Slot
+	// SlotSent holds the SlotSentKey of the slot notices already sent; the
+	// caller fills it only when SlotsDue.
+	SlotSent map[string]bool
 }
 
 // IsMeeting reports a meeting view: a meeting app, or a URL whose host is a

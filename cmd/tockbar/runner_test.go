@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"log/slog"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -117,6 +119,31 @@ func TestRunnerPostsAndResponds(t *testing.T) {
 	r.tick()
 	if len(u.posts) != 1 {
 		t.Fatal("a notice is shown once")
+	}
+}
+
+func TestRunnerPostsSlotNotice(t *testing.T) {
+	e := apptest.New(t, apptest.Rules)
+	todo := filepath.Join(t.TempDir(), "todo.txt")
+	if err := os.WriteFile(todo, []byte("Review @14h00 due:2026-10-10\nBreak @14h50 due:2026-10-10\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	e.WriteConfig(t, apptest.NoRoutines+"[plan]\nfile = '"+todo+"'\n")
+	e.Seed(t, apptest.Span{ID: 1, Start: "13:50", Bundle: "term", App: "WezTerm", Title: "x"})
+	e.Clock = time.Date(2026, 10, 10, 14, 0, 30, 0, apptest.Zone)
+	e.Heartbeat(t, e.Clock.UnixMilli())
+	r, u, _ := testRunner(t, e)
+	r.handle(event{kind: evReady})
+	evs, err := r.a.FocusTick(false)
+	if err != nil || len(evs) != 1 {
+		t.Fatalf("FocusTick = %+v, %v, want the one slot notice", evs, err)
+	}
+	if err := r.a.Enqueue(evs[0]); err != nil {
+		t.Fatal(err)
+	}
+	r.tick()
+	if len(u.posts) != 1 || u.posts[0] != "Starting now|14:00–14:50 Review||" {
+		t.Fatalf("posts = %q, want one starting notice without a category", u.posts)
 	}
 }
 

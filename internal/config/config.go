@@ -60,6 +60,11 @@ type Privacy struct {
 type Plan struct {
 	File    string // absolute; "" = no plan tab content
 	Command string // run with sh -c; "" = none
+	// Notify turns the up-next and starting-now notices of timed plan items
+	// and calendar events on.
+	Notify bool
+	// NotifyBeforeMS is how far ahead the up-next notice comes; 0 = none.
+	NotifyBeforeMS int64
 }
 
 // MaxKeepTitles is the longest keep_titles, in days.
@@ -212,7 +217,7 @@ func DefaultLLM() LLM {
 // Default is the configuration used when there is no file.
 func Default() Config {
 	return Config{Score: stats.DefaultWeights, Focus: DefaultFocus(), LLM: DefaultLLM(), Shell: DefaultShell(), Away: DefaultAway(), AFK: DefaultAFK(), Slack: DefaultSlack(), Routine: DefaultRoutine(),
-		Model: Model{Enabled: true}}
+		Plan: DefaultPlan(), Model: Model{Enabled: true}}
 }
 
 type scoreTOML struct {
@@ -291,8 +296,10 @@ type privacyTOML struct {
 }
 
 type planTOML struct {
-	File    *string `toml:"file"`
-	Command *string `toml:"command"`
+	File         *string `toml:"file"`
+	Command      *string `toml:"command"`
+	Notify       *bool   `toml:"notify"`
+	NotifyBefore *int    `toml:"notify_before"`
 }
 
 type fileTOML struct {
@@ -457,6 +464,9 @@ func Load(path string) (Config, error) {
 	}
 	if f.Plan.Command != nil {
 		c.Plan.Command = strings.TrimSpace(*f.Plan.Command)
+	}
+	if err := decodePlanNotices(f.Plan, &c.Plan); err != nil {
+		return Default(), fmt.Errorf("%s: %w", name, err)
 	}
 	if f.Sync.Machine != nil {
 		if !machineRE.MatchString(*f.Sync.Machine) {

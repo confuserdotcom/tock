@@ -56,6 +56,7 @@ func Step(in Input) []Event {
 	if stateChanged {
 		writes = append(writes, Event{Kind: StateUpdate, State: st})
 	}
+	notes = append(notes, stepSlots(in)...)
 	return append(writes, notes...)
 }
 

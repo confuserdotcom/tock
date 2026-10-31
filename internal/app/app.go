@@ -56,6 +56,9 @@ type App struct {
 
 	routineErr error // why a routine notice was not built on the last focus tick
 
+	slotCache slotCache        // today's slots (see Slots)
+	slotSeen  map[string]int64 // slot key -> tick time (ms) it first appeared in the slot list
+
 	model   *classify.Model   // the local classifier (see labelModel)
 	modelRS *classify.Ruleset // the rules it was trained with
 	modelFP uint64            // pastKey it was trained with

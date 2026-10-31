@@ -22,6 +22,12 @@ var Zone = time.FixedZone("T", 2*3600)
 // notices off, for tests that assert exact notice lists.
 const NoRoutines = "[routine]\nstart = false\nmidday = \"off\"\noverwork = false\n"
 
+// NoPlanNotices is the [plan] config lines that turn the plan and calendar
+// notices off, for tests that assert exact notice lists. A test that already
+// writes a [plan] table adds `notify = false` to it instead, since TOML
+// refuses a second [plan] table.
+const NoPlanNotices = "[plan]\nnotify = false\n"
+
 // Now is the default test clock: Saturday 2026-10-10 15:00 local.
 var Now = time.Date(2026, 10, 10, 15, 0, 0, 0, Zone)
 
