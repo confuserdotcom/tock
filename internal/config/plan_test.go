@@ -60,3 +60,19 @@ func TestLoadPlanAutoStart(t *testing.T) {
 		t.Fatal("a non-bool auto_start loaded")
 	}
 }
+
+// TestPlanDocDefaults pins the values shown in the README to DefaultPlan and
+// the [calendar] auto_open default.
+func TestPlanDocDefaults(t *testing.T) {
+	doc := "[plan]\nnotify = true\nnotify_before = 5\nauto_start = false\n[calendar]\nauto_open = false\n"
+	c, err := Load(write(t, doc))
+	if err != nil {
+		t.Fatalf("documented config: %v", err)
+	}
+	if !reflect.DeepEqual(c.Plan, DefaultPlan()) {
+		t.Fatalf("documented [plan] = %+v, want DefaultPlan() %+v", c.Plan, DefaultPlan())
+	}
+	if c.Calendar.AutoOpen != Default().Calendar.AutoOpen || c.Calendar.AutoOpen {
+		t.Fatalf("documented auto_open = %v, want false (the default)", c.Calendar.AutoOpen)
+	}
+}

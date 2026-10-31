@@ -312,6 +312,7 @@ trust = 180                   # minutes; the longest unchanged window hypridle i
 [calendar]                    # meetings from macOS Calendar, see Calendar
 enabled = false               # true: trackd asks for calendar access once
 calendars = []                # calendar names to read; empty = all
+auto_open = false              # open a Meet/Zoom/Teams link by itself when its event starts
 
 [score]                       # weights of the focus score; they sum to 1
 depth = 0.5
@@ -334,7 +335,13 @@ plan` prints the open tasks.
 file = "~/todo.txt"
 # optional: run when the tab opens, after each change and once a minute
 command = "my-planner --tock"
+notify = true        # upcoming and starting-now notices for timed plan items and calendar events
+notify_before = 5    # minutes ahead; 0 = no upcoming notice (0..60)
+auto_start = false   # a module-tagged plan item starts a focus session of its slot length
 ```
+
+The last three keys make timed tasks announce themselves, see Planned
+sessions and meetings.
 
 The command gets `TOCK_PLAN_FILE` and may rewrite the file (a planner that
 rolls missed tasks over, imports ticks). Its output shows above the list:
@@ -935,6 +942,55 @@ project = "ATLAS"
 `t` on a meeting row relabels it. Answered time away wins over an event,
 and tock does not ask about time an event explains.
 
+## Planned sessions and meetings
+
+A slot is a timed plan item for today (a time context such as `@14h00`
+and a `due:` of today, not yet ticked) or, with `[calendar]` on, a timed
+calendar event. A plan item ends at the next timed item of that day, at
+most 3 hours later. tock tells you about each slot twice:
+
+| Notice | When | Title | Body |
+|---|---|---|---|
+| up next | `notify_before` minutes ahead (5 by default) | `Up next` | `14:00 Review · in 5 min` |
+| starting now | at the start | `Starting now` | `14:00–14:50 Review` |
+
+An event reads `14:00 Standup (Work) · in 5 min`, with its calendar name in
+parentheses. `notify_before = 0` leaves out the up-next notice. A slot that
+trackd first knows less than a minute before its start gets only the
+starting notice, and a trackd that starts more than 2 minutes after a start
+sends nothing for it. Calls and meetings do not delay these notices: telling
+you is their point. `[focus] notify = false` silences them, and so does
+`[plan] notify = false`.
+
+Each notice comes once. trackd keeps what it sent, so a restart repeats
+nothing, and a slot keeps its notice when the calendar is synced again.
+When several machines share a sync folder, only the one with the latest
+input sends the notices; a machine that has been quiet for more than 15
+minutes is not counted. Nothing about slots is synced.
+
+**Starting a session.** With `auto_start = true`, the starting notice of a
+plan item tagged with a module (`+ana1`) starts a focus session as long as
+the slot, never below 5 minutes. It starts none while a session already
+runs or during a call or meeting, and the notice carries a `Stop session`
+button. It reads `14:00–14:50 Review · focus session started · 50 min ·
+Analyse 1`, naming the module (the session itself has no project; its time
+is classified as usual). With `[plan] notify = false` the session still
+starts, without a notice. With `auto_start` off, that same
+notice offers `Start focus (50 min)`, which starts the session when you
+press it. Events never start a session.
+
+**Joining.** When the URL, location or notes of an event hold a Google Meet,
+Zoom or Microsoft Teams link, both notices offer `Join` (first button), which
+opens it in your browser. The link must be `https` on `meet.google.com`,
+`zoom.us` (or a subdomain), `teams.microsoft.com` or `teams.live.com`;
+anything else is ignored, with no button and no log line. With
+`[calendar] auto_open = true`, tockbar opens the link itself when it shows
+the starting notice, once. trackd never opens anything, and tock never blocks.
+
+The menu bar menu shows `Next: 14:00 Review (in 12 min)` when a slot starts
+within the hour (`now` while it runs), and `Join Standup` when that slot is an
+event with a link starting within 10 minutes or running.
+
 ## Menu bar and notifications
 
 `make install` also installs `tock.app`, a small menu bar app that runs at
@@ -946,6 +1002,9 @@ a focus session runs (`◉ 18:42`). A `!` means trackd is not running. The
 menu has:
 
 - the day at a glance: focus, score and unlabelled time;
+- the next slot, `Next: 14:00 Review (in 12 min)`, when one starts within
+  the hour, and `Join <title>` for a meeting with a link that starts within
+  10 minutes or is running;
 - items to start a session (your presets) or stop the running one.
 
 With the app running and allowed to notify, focus notifications come from
@@ -957,9 +1016,12 @@ tock with buttons:
 | session done | Start again |
 | break due | Snooze 30 min |
 | time away | your recent away labels, then Leave idle |
+| up next | Join (meetings with a link) |
+| starting now | Join, then Start focus (N min) or Stop session |
 
 Routine notices (start of day, midday check-in, recap, overworking) come
 without buttons.
+Up-next notices of plan items come without buttons too.
 
 Without the app, or with its notifications turned off, trackd sends plain
 notifications as before. `tock doctor` says which is in use. **Quit tock
@@ -1054,6 +1116,10 @@ those two lines does not have that problem.
 - **Notifications** go through `notify-send`.
 - **Not on Linux:** browser URLs, the calendar, call detection and the menu
   bar app.
+- **Plan notices.** `Up next` and `Starting now` for plan items come through
+  `notify-send` without buttons, so there is no `Start focus` button; with
+  `[plan] auto_start = true` the session still starts. Calendar events, and
+  with them Join, are macOS only.
 
 ## Sync between machines
 
