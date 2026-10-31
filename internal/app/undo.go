@@ -86,7 +86,13 @@ func (a *App) UndoList(n int) ([]UndoEntry, error) {
 }
 
 // Undo reverses the newest change in the journal and returns what it was.
-func (a *App) Undo() (string, error) {
+func (a *App) Undo() (string, error) { return a.undo(nil) }
+
+// undo is Undo with a check: accept sees the newest entry and may refuse it,
+// in which case nothing changes. The entry accept saw is the one reverted
+// and dropped, even if another change is journaled meanwhile, so a caller that
+// only undoes a certain kind of change cannot revert a different one.
+func (a *App) undo(accept func(store.Undo) error) (string, error) {
 	us, err := a.st.Undos(1)
 	if err != nil {
 		return "", err
@@ -95,6 +101,11 @@ func (a *App) Undo() (string, error) {
 		return "", ErrNothingToUndo
 	}
 	u := us[0]
+	if accept != nil {
+		if err := accept(u); err != nil {
+			return "", err
+		}
+	}
 	var d undoData
 	if err := json.Unmarshal([]byte(u.Data), &d); err != nil {
 		return "", fmt.Errorf("undo journal: %w", err)

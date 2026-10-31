@@ -75,7 +75,7 @@ func (a *App) RefileSession(id int64, project string) (s focus.Session, canonica
 func refilePrefix(id int64) string { return fmt.Sprintf("refile session #%d ", id) }
 
 // RefileUndoable reports whether the newest undo entry is the refile of
-// session id, that is whether Undo would revert exactly that refile.
+// session id, that is whether UndoRefile would revert exactly that refile.
 func (a *App) RefileUndoable(id int64) (bool, error) {
 	es, err := a.UndoList(1)
 	if err != nil {
@@ -84,15 +84,20 @@ func (a *App) RefileUndoable(id int64) (bool, error) {
 	return len(es) == 1 && strings.HasPrefix(es[0].What, refilePrefix(id)), nil
 }
 
-// UndoRefile reverts the refile of session id, but only while it is still
-// the newest change; otherwise it changes nothing and says so.
+// UndoRefile reverts the refile of session id, but only while it is still the
+// newest change; otherwise it changes nothing and says so. The entry checked
+// is the entry reverted, so a change journaled in between is never undone.
 func (a *App) UndoRefile(id int64) (string, error) {
-	ok, err := a.RefileUndoable(id)
-	if err != nil {
-		return "", err
+	what, err := a.undo(func(u store.Undo) error {
+		if !strings.HasPrefix(u.What, refilePrefix(id)) {
+			return errNotThatRefile
+		}
+		return nil
+	})
+	if errors.Is(err, ErrNothingToUndo) {
+		return "", errNotThatRefile
 	}
-	if !ok {
-		return "", errors.New("the latest change is not that refile")
-	}
-	return a.Undo()
+	return what, err
 }
+
+var errNotThatRefile = errors.New("the latest change is not that refile")
