@@ -57,7 +57,7 @@ func stepStart(in Input, st *State) (Event, bool) {
 // whole day without a schedule). The cheap conditions come first so an idle
 // tick scans no views.
 func MiddayDue(in Input) bool {
-	if in.Routine.MiddayAt < 0 || in.State.MiddayDay == dayKey(in.Day) || in.Hours.Off(in.Day) {
+	if !in.Routine.Midday || in.State.MiddayDay == dayKey(in.Day) || in.Hours.Off(in.Day) {
 		return false
 	}
 	t := time.UnixMilli(in.Now).In(in.Day.Location())

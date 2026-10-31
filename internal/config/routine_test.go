@@ -28,14 +28,19 @@ func TestLoadRoutineStart(t *testing.T) {
 
 func TestLoadRoutineMidday(t *testing.T) {
 	c, err := Load(write(t, ""))
-	if err != nil || c.Routine.MiddayAt != 780 {
-		t.Fatalf("default: MiddayAt = %d, err = %v, want 780", c.Routine.MiddayAt, err)
+	if err != nil || !c.Routine.Midday || c.Routine.MiddayAt != 780 {
+		t.Fatalf("default: Midday = %v, MiddayAt = %d, err = %v, want on at 780", c.Routine.Midday, c.Routine.MiddayAt, err)
 	}
-	for body, want := range map[string]int{"12:30": 750, "off": -1} {
-		c, err := Load(write(t, "[routine]\nmidday = \""+body+"\"\n"))
-		if err != nil || c.Routine.MiddayAt != want {
-			t.Fatalf("midday = %q: MiddayAt = %d, err = %v, want %d", body, c.Routine.MiddayAt, err, want)
-		}
+	c, err = Load(write(t, "[routine]\nmidday = \"12:30\"\n"))
+	if err != nil || !c.Routine.Midday || c.Routine.MiddayAt != 750 {
+		t.Fatalf("12:30: Midday = %v, MiddayAt = %d, err = %v", c.Routine.Midday, c.Routine.MiddayAt, err)
+	}
+	c, err = Load(write(t, "[routine]\nmidday = \"off\"\n"))
+	if err != nil || c.Routine.Midday {
+		t.Fatalf("off: Midday = %v, err = %v, want off", c.Routine.Midday, err)
+	}
+	if (Routine{}).Midday {
+		t.Error("the zero Routine has the midday check-in on")
 	}
 	for _, bad := range []string{"", "25:00", "1pm"} {
 		_, err := Load(write(t, "[routine]\nmidday = \""+bad+"\"\n"))

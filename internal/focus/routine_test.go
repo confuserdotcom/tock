@@ -110,7 +110,7 @@ func TestMiddayDue(t *testing.T) {
 		t.Error("not due before the work end")
 	}
 	off := middayInput(at(13, 0, 0), morning)
-	off.Routine.MiddayAt = -1
+	off.Routine.Midday = false
 	if MiddayDue(off) {
 		t.Error("due when switched off")
 	}
@@ -318,5 +318,14 @@ func TestMiddayDueScoredWindow(t *testing.T) {
 		if got := MiddayDue(tt.in); got != tt.want {
 			t.Errorf("%s: MiddayDue = %v, want %v", tt.name, got, tt.want)
 		}
+	}
+}
+
+// TestZeroRoutineIsOff: an Input built without Routine sends no routine
+// notice.
+func TestZeroRoutineIsOff(t *testing.T) {
+	in := input(at(13, 0, 0), vw{at(12, 0, 0), at(13, 0, 0), classify.KindDeep, "", ""})
+	if StartDue(in) || MiddayDue(in) || OverDue(in) {
+		t.Errorf("zero Routine: start %v midday %v over %v", StartDue(in), MiddayDue(in), OverDue(in))
 	}
 }

@@ -7,8 +7,9 @@ import "fmt"
 type Routine struct {
 	// Start turns the start-of-day notice on.
 	Start bool
-	// MiddayAt is the midday check-in time, minutes after local midnight;
-	// -1 = off.
+	// Midday turns the midday check-in on; MiddayAt is its time, minutes
+	// after local midnight.
+	Midday   bool
 	MiddayAt int
 	// End turns the end-of-day recap notice on; false turns it off whatever
 	// [focus] recap says.
@@ -24,7 +25,7 @@ type Routine struct {
 
 // DefaultRoutine is the [routine] section used when the file does not set it.
 func DefaultRoutine() Routine {
-	return Routine{Start: true, MiddayAt: 13 * 60, End: true, Overwork: true,
+	return Routine{Start: true, Midday: true, MiddayAt: 13 * 60, End: true, Overwork: true,
 		OverGraceMS: 30 * 60_000, OverRepeatMS: 60 * 60_000}
 }
 
@@ -50,9 +51,9 @@ func decodeRoutine(f routineTOML, c *Routine) error {
 	if f.Midday != nil {
 		v := *f.Midday
 		if v == "off" {
-			c.MiddayAt = -1
+			c.Midday = false
 		} else if m, ok := parseClock(v); ok && m >= 0 {
-			c.MiddayAt = m
+			c.Midday, c.MiddayAt = true, m
 		} else {
 			return fmt.Errorf("[routine] midday = %q, want \"HH:MM\" or \"off\"", v)
 		}
