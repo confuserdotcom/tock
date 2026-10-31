@@ -59,3 +59,25 @@ func decodeRoutine(f routineTOML, c *Routine) error {
 	}
 	return nil
 }
+
+// decodeOver reads [hours] over_grace and over_repeat (minutes) into c.
+func decodeOver(f hoursTOML, c *Routine) error {
+	for _, k := range []struct {
+		key    string
+		v      *int
+		lo, hi int
+		dst    *int64
+	}{
+		{"over_grace", f.OverGrace, 5, 240, &c.OverGraceMS},
+		{"over_repeat", f.OverRepeat, 15, 480, &c.OverRepeatMS},
+	} {
+		if k.v == nil {
+			continue
+		}
+		if *k.v < k.lo || *k.v > k.hi {
+			return fmt.Errorf("[hours] %s = %d, want %d to %d", k.key, *k.v, k.lo, k.hi)
+		}
+		*k.dst = int64(*k.v) * 60_000
+	}
+	return nil
+}

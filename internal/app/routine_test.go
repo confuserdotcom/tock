@@ -264,3 +264,16 @@ func TestOverworkingOff(t *testing.T) {
 		t.Fatalf("notes = %+v", notes)
 	}
 }
+
+func TestOverworkingCustomTiming(t *testing.T) {
+	e := overEnv(t, "over_grace = 10\nover_repeat = 15\n")
+	a := open(t, e)
+	for _, tt := range []struct {
+		h, m int
+		want int
+	}{{14, 9, 0}, {14, 10, 1}, {14, 24, 0}, {14, 25, 1}} {
+		if notes := overTick(t, a, e, tt.h, tt.m); len(notes) != tt.want {
+			t.Fatalf("%02d:%02d notes = %+v, want %d", tt.h, tt.m, notes, tt.want)
+		}
+	}
+}

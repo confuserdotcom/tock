@@ -269,6 +269,10 @@ type hoursTOML struct {
 	Days  *[]string `toml:"days"`
 	Start *string   `toml:"start"`
 	End   *string   `toml:"end"`
+	// OverGrace and OverRepeat tune the overworking notice (minutes); alone
+	// they do not turn the schedule on.
+	OverGrace  *int `toml:"over_grace"`
+	OverRepeat *int `toml:"over_repeat"`
 }
 
 type invoiceTOML struct {
@@ -387,6 +391,9 @@ func Load(path string) (Config, error) {
 		c.AFK.TrustMS = int64(*f.AFK.Trust) * 60_000
 	}
 	if err := decodeHours(f.Hours, &c.Hours); err != nil {
+		return Default(), fmt.Errorf("%s: %w", name, err)
+	}
+	if err := decodeOver(f.Hours, &c.Routine); err != nil {
 		return Default(), fmt.Errorf("%s: %w", name, err)
 	}
 	if err := decodeRoutine(f.Routine, &c.Routine); err != nil {

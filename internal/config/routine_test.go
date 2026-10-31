@@ -81,3 +81,30 @@ func TestLoadRoutineOverwork(t *testing.T) {
 		t.Fatalf("overwork = true: Overwork = %v, err = %v", c.Routine.Overwork, err)
 	}
 }
+
+func TestLoadHoursOver(t *testing.T) {
+	c, err := Load(write(t, "[hours]\nstart = \"09:00\"\nend = \"18:00\"\nover_grace = 45\nover_repeat = 90\n"))
+	if err != nil || c.Routine.OverGraceMS != 2_700_000 || c.Routine.OverRepeatMS != 5_400_000 {
+		t.Fatalf("got %+v, %v", c.Routine, err)
+	}
+	for _, tt := range []struct{ body, want string }{
+		{"over_grace = 4", "[hours] over_grace = 4, want 5 to 240"},
+		{"over_grace = 241", "[hours] over_grace = 241, want 5 to 240"},
+		{"over_repeat = 14", "[hours] over_repeat = 14, want 15 to 480"},
+		{"over_repeat = 481", "[hours] over_repeat = 481, want 15 to 480"},
+		{"over_soon = 1", "unknown key hours.over_soon"},
+	} {
+		_, err := Load(write(t, "[hours]\nstart = \"09:00\"\nend = \"18:00\"\n"+tt.body+"\n"))
+		if err == nil || !strings.Contains(err.Error(), tt.want) {
+			t.Errorf("%s: err = %v, want %q", tt.body, err, tt.want)
+		}
+	}
+	c, err = Load(write(t, "[hours]\nover_grace = 45\n"))
+	if err != nil || c.Hours.Set || c.Routine.OverGraceMS != 2_700_000 || c.Routine.OverRepeatMS != 3_600_000 {
+		t.Fatalf("over_grace alone: Hours.Set = %v, %+v, %v", c.Hours.Set, c.Routine, err)
+	}
+	c, err = Load(write(t, "[hours]\nover_repeat = 20\n"))
+	if err != nil || c.Hours.Set || c.Routine.OverRepeatMS != 1_200_000 {
+		t.Fatalf("over_repeat alone: Hours.Set = %v, %+v, %v", c.Hours.Set, c.Routine, err)
+	}
+}
