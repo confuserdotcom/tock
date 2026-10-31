@@ -39,6 +39,10 @@ type Label struct {
 	Category, Kind, Project       string
 	CategorySource, ProjectSource Source
 	CategoryRule, ProjectRule     string
+	// Quiet means its distraction time never triggers a distraction notice:
+	// the category, or the rule that set it, is marked interrupt = false.
+	// It changes nothing else about the label.
+	Quiet bool
 }
 
 type memoKey struct {
@@ -92,6 +96,7 @@ func (rs *Ruleset) Label(v SpanView, o *Override) Label {
 			l.CategorySource, l.CategoryRule = SourceProject, ""
 		}
 	}
+	l.Quiet = rs.quiet(l.Category, l.CategoryRule)
 	return l
 }
 

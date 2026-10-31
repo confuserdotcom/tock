@@ -456,6 +456,7 @@ func (rs *Ruleset) ApplyModel(m *Model, views []SpanView, labels []Label) {
 			continue
 		}
 		l.Category, l.Kind, l.CategorySource, l.CategoryRule = c, rs.Kind(c), SourceModel, ""
+		l.Quiet = rs.quiet(c, "")
 		if pc := rs.ProjectCategory(l.Project); l.Project != "" && pc != "" && !strings.EqualFold(pc, c) {
 			l.Project, l.ProjectSource, l.ProjectRule = "", SourceNone, ""
 		}

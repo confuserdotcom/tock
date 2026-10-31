@@ -53,6 +53,9 @@ type Category struct {
 	// AFKMS is how long time in this category may go without input before
 	// it is AFK (all of it idle); 0 = DefaultAFKMS.
 	AFKMS int64
+	// Quiet is interrupt = false: this category's time never triggers a
+	// distraction notice (it still counts as distraction everywhere else).
+	Quiet bool
 }
 
 // DefaultAFKMS is a category's AFK window when it sets none: trackd's idle
@@ -93,12 +96,20 @@ type Rule struct {
 	App, Title, URL, Dir string // patterns as written
 	Category             string
 	Project              string
+	// Quiet is interrupt = false: the category this rule sets never triggers
+	// a distraction notice for views the rule labelled.
+	Quiet bool
 
 	app, title, url, dir *regexp.Regexp
 }
 
 // Ref returns "rules.toml#12".
 func (r Rule) Ref() string { return fmt.Sprintf("%s#%d", r.File, r.Index) }
+
+// Fingerprint identifies a rule across renumbering: its match fields and its
+// category. A notice stores it beside the rule ref, so a click on a rule that
+// moved or was edited since is refused instead of marking the wrong rule.
+func (r Rule) Fingerprint() string { return r.Describe() + " -> " + r.Category }
 
 // Describe returns the rule's match fields, e.g. `bundle=[a] url='^x'`.
 func (r Rule) Describe() string {
@@ -185,6 +196,7 @@ type Ruleset struct {
 	moduleKeys  []moduleKey // every name and alias of a module, for ModuleOf
 	catByLower  map[string]Category
 	projByLower map[string]Project
+	quietRules  map[string]bool // Rule.Ref() of every rule marked interrupt = false
 
 	mu   sync.Mutex
 	memo map[memoKey]Label
@@ -198,6 +210,8 @@ type ruleTOML struct {
 	Dir      string   `toml:"dir"`
 	Category string   `toml:"category"`
 	Project  string   `toml:"project"`
+	// Interrupt is interrupt = false (quiet) or true (the default).
+	Interrupt *bool `toml:"interrupt"`
 }
 
 type rulesTOML struct {
@@ -205,6 +219,8 @@ type rulesTOML struct {
 		Name string `toml:"name"`
 		Kind string `toml:"kind"`
 		AFK  string `toml:"afk"`
+		// Interrupt is interrupt = false (quiet) or true (the default).
+		Interrupt *bool `toml:"interrupt"`
 	} `toml:"category"`
 	Project []struct {
 		Name     string   `toml:"name"`
@@ -273,6 +289,7 @@ func Parse(rulesData, learnedData []byte) (*Ruleset, error) {
 	rs := &Ruleset{
 		catByLower:  map[string]Category{},
 		projByLower: map[string]Project{},
+		quietRules:  map[string]bool{},
 		memo:        map[memoKey]Label{},
 	}
 	for i, c := range rf.Category {
@@ -288,7 +305,7 @@ func Parse(rulesData, learnedData []byte) (*Ruleset, error) {
 		if _, dup := rs.catByLower[lower]; dup {
 			return nil, fmt.Errorf("%s: duplicate category %q", RulesFile, c.Name)
 		}
-		cat := Category{Name: c.Name, Kind: c.Kind}
+		cat := Category{Name: c.Name, Kind: c.Kind, Quiet: c.Interrupt != nil && !*c.Interrupt}
 		if c.AFK != "" {
 			ms, err := ParseDur(c.AFK)
 			if err != nil || ms < MinAFKMS || ms > MaxAFKMS {
@@ -392,7 +409,7 @@ func (rs *Ruleset) buildRules(file string, in []ruleTOML) ([]Rule, error) {
 	out := make([]Rule, 0, len(in))
 	for i, t := range in {
 		r := Rule{
-			File: file, Index: i + 1,
+			File: file, Index: i + 1, Quiet: t.Interrupt != nil && !*t.Interrupt,
 			Bundle: t.Bundle, App: t.App, Title: t.Title, URL: t.URL, Dir: t.Dir,
 		}
 		fail := func(format string, a ...any) error {
@@ -421,9 +438,31 @@ func (rs *Ruleset) buildRules(file string, in []ruleTOML) ([]Rule, error) {
 		if err := r.compile(); err != nil {
 			return nil, fail("%v", err)
 		}
+		if r.Quiet {
+			rs.quietRules[r.Ref()] = true
+		}
 		out = append(out, r)
 	}
 	return out, nil
+}
+
+// quiet reports whether a label with this category, set by the rule ref
+// ("" when no rule set it), never triggers a distraction notice: the category
+// is marked interrupt = false, or the rule that set it is.
+func (rs *Ruleset) quiet(category, ref string) bool {
+	return category != "" && (rs.catByLower[nameKey(category)].Quiet || rs.quietRules[ref])
+}
+
+// RuleByRef finds the rule a Rule.Ref() names ("rules.toml#3").
+func (rs *Ruleset) RuleByRef(ref string) (Rule, bool) {
+	for _, set := range [][]Rule{rs.Learned, rs.Rules} {
+		for _, r := range set {
+			if r.Ref() == ref {
+				return r, true
+			}
+		}
+	}
+	return Rule{}, false
 }
 
 // Kind returns the kind of a declared category, or "" when undeclared.
