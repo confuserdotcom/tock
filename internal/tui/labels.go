@@ -133,6 +133,9 @@ func (t labelsTab) line(i int, r labelRow, w int, maxMS int64) string {
 		if n := len(c.Projects); n > 0 {
 			extra = sFaint.Render(" · ") + sDim.Render(plural(n, "module"))
 		}
+		if c.Quiet {
+			extra += sFaint.Render(" · ") + sDim.Render("quiet")
+		}
 		line = mark + sFaint.Render(fold) + dot(c.Kind) + " " + st.Bold(true).Render(fit(report.Safe(c.Name), nameW-2)) + "  " +
 			kind + "  " + sBright.Render(fitRight(dashDur(c.MS), 6)) + "  " + meter(c.MS, maxMS, barW, st) + "  " +
 			z("lab:afk:"+id, afk) + "  " + goalChip(id, c.Goals) + extra

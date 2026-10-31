@@ -164,3 +164,25 @@ func TestModuleGoals(t *testing.T) {
 		t.Fatalf("goal left:\n%s", b)
 	}
 }
+
+func TestLabelsQuietFlag(t *testing.T) {
+	m, _ := seeded(t)
+	m = press(t, m, "7")
+	mustNotContain(t, m, "quiet")
+
+	e := apptest.New(t, strings.Replace(apptest.Rules, `name = "Entertainment"
+kind = "distract"`, `name = "Entertainment"
+kind = "distract"
+interrupt = false`, 1))
+	e.Seed(t, apptest.DaySpans()...)
+	m = press(t, newModel(t, e), "7")
+	if l := line(t, m, "Entertainment"); !strings.Contains(l, "quiet") {
+		t.Fatalf("a marked category row must show quiet: %q", l)
+	}
+	for _, l := range strings.Split(screen(m), "\n") {
+		if strings.Contains(l, "quiet") && !strings.Contains(l, "Entertainment") {
+			t.Fatalf("an unmarked row says quiet: %q", l)
+		}
+	}
+	mustNotContain(t, m, "Quiet", "non-interrupting")
+}

@@ -93,3 +93,35 @@ func TestRulesTabFailedMoveKeepsCursor(t *testing.T) {
 		t.Fatalf("cursor = %d after a failed move, want 1", m.rules.cursor)
 	}
 }
+
+// quietRules is apptest.Rules with the youtube rule (the third) marked
+// interrupt = false.
+func quietRules(t *testing.T) string {
+	t.Helper()
+	out, err := classify.SetRuleField(classify.RulesFile, []byte(apptest.Rules), 2, "interrupt", "false")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(out)
+}
+
+func TestRulesQuietFlag(t *testing.T) {
+	e := apptest.New(t, quietRules(t))
+	e.Seed(t, apptest.DaySpans()...)
+	m := press(t, newModel(t, e), "5")
+	if l := line(t, m, "youtube"); !strings.HasSuffix(strings.TrimRight(l, " "), "quiet") {
+		t.Fatalf("a marked rule row must end with quiet: %q", l)
+	}
+	for _, l := range strings.Split(screen(m), "\n") {
+		if strings.Contains(l, "quiet") && !strings.Contains(l, "youtube") {
+			t.Fatalf("an unmarked row says quiet: %q", l)
+		}
+	}
+	mustNotContain(t, m, "Quiet", "non-interrupting")
+
+	// On a narrow screen the flag goes first: the rule text stays whole.
+	narrow := step(t, m, windowSize(70, 30))
+	if l := line(t, narrow, "youtube"); strings.Contains(l, "quiet") || !strings.Contains(l, "youtube") {
+		t.Fatalf("at 70 wide the flag must be dropped before the rule text is cut: %q", l)
+	}
+}

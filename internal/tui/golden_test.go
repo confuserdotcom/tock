@@ -139,6 +139,16 @@ func TestGoldenRules(t *testing.T) {
 	golden.RequireEqual(t, screen(m))
 }
 
+// Phase 9: the rules tab with a rule marked interrupt = false.
+func TestGoldenRulesQuiet(t *testing.T) {
+	e := apptest.New(t, quietRules(t))
+	e.Seed(t, apptest.DaySpans()...)
+	m := newModel(t, e)
+	e.Heartbeat(t, e.Clock.UnixMilli())
+	m = press(t, m, "5")
+	golden.RequireEqual(t, screen(m))
+}
+
 func TestGoldenHelp(t *testing.T) {
 	m, e := seeded(t)
 	e.Heartbeat(t, e.Clock.UnixMilli())

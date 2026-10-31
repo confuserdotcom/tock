@@ -143,6 +143,9 @@ func (t *rulesTab) rowAt(line int) (int, bool) {
 	return 0, false
 }
 
+// quietW is the width of the "  quiet" flag on a rule row.
+const quietW = 7
+
 func (t rulesTab) view(w, h int) []string {
 	var lines []string
 	if len(t.rows) == 0 {
@@ -185,7 +188,14 @@ func (t rulesTab) view(w, h int) []string {
 		}
 		var l string
 		lw := max(w-ansi.StringWidth(right)-3, 10)
-		left := fit(mark+sDim.Render(fmt.Sprintf("%-4s ", ref))+sText.Render(r.Describe()), lw) + "  "
+		head := mark + sDim.Render(fmt.Sprintf("%-4s ", ref)) + sText.Render(r.Describe())
+		// The quiet flag takes its cells from the rule text, so it only shows
+		// when the whole text still fits beside it.
+		flag := ""
+		if r.Quiet && ansi.StringWidth(head) <= lw-quietW {
+			flag, lw = "  "+sDim.Render("quiet"), lw-quietW
+		}
+		left := fit(head, lw) + "  "
 		statS := sBright.Render(stat)
 		switch strings.TrimSpace(stat) {
 		case classify.StatusUnused:
@@ -203,6 +213,7 @@ func (t rulesTab) view(w, h int) []string {
 		} else {
 			l = left + label + pad
 		}
+		l += flag
 		if i == t.cursor {
 			l = selRow(l, w-1)
 		}
