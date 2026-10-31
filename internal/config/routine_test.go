@@ -45,3 +45,24 @@ func TestLoadRoutineMidday(t *testing.T) {
 		}
 	}
 }
+
+func TestLoadRoutineEnd(t *testing.T) {
+	if d := Default(); !d.Routine.End || d.Focus.RecapAt != 1260 {
+		t.Fatalf("Default: End = %v, RecapAt = %d, want true, 1260", d.Routine.End, d.Focus.RecapAt)
+	}
+	for _, tt := range []struct {
+		name, body string
+		want       int
+	}{
+		{"end off", "[routine]\nend = false\n", -1},
+		{"end off with hours", "[hours]\nstart = \"09:00\"\nend = \"18:00\"\n[routine]\nend = false\n", -1},
+		{"end off with recap time", "[focus]\nrecap = \"20:00\"\n[routine]\nend = false\n", -1},
+		{"hours recap default", "[hours]\nstart = \"09:00\"\nend = \"18:00\"\n", 1080},
+		{"end on", "[routine]\nend = true\n", 1260},
+	} {
+		c, err := Load(write(t, tt.body))
+		if err != nil || c.Focus.RecapAt != tt.want {
+			t.Errorf("%s: RecapAt = %d, err = %v, want %d", tt.name, c.Focus.RecapAt, err, tt.want)
+		}
+	}
+}

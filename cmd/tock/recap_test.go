@@ -39,3 +39,15 @@ func TestRecapMidday(t *testing.T) {
 		t.Fatalf("recap midday x: exit %d, want 2", code)
 	}
 }
+
+func TestRecapEndOff(t *testing.T) {
+	te := newTestEnv(t, testRules)
+	te.seed(t, daySpans()...)
+	if err := os.WriteFile(filepath.Join(te.ConfigDir, "config.toml"), []byte("[routine]\nend = false\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	code, out := te.run(t, "", "recap")
+	if code != 0 || out != "2h14 focus, score 74 (target 4h00). Top project: tock.\n" {
+		t.Fatalf("recap with end = false: %d %q", code, out)
+	}
+}

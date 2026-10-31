@@ -395,6 +395,9 @@ func Load(path string) (Config, error) {
 	if c.Hours.Set && f.Focus.Recap == nil {
 		c.Focus.RecapAt = c.Hours.EndMin // the recap closes the work day
 	}
+	if !c.Routine.End {
+		c.Focus.RecapAt = -1 // [routine] end = false: no end-of-day notice, RecapDue is never true
+	}
 	if f.Model.Enabled != nil {
 		c.Model.Enabled = *f.Model.Enabled
 	}

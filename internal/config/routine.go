@@ -10,20 +10,27 @@ type Routine struct {
 	// MiddayAt is the midday check-in time, minutes after local midnight;
 	// -1 = off.
 	MiddayAt int
+	// End turns the end-of-day recap notice on; false turns it off whatever
+	// [focus] recap says.
+	End bool
 }
 
 // DefaultRoutine is the [routine] section used when the file does not set it.
-func DefaultRoutine() Routine { return Routine{Start: true, MiddayAt: 13 * 60} }
+func DefaultRoutine() Routine { return Routine{Start: true, MiddayAt: 13 * 60, End: true} }
 
 type routineTOML struct {
 	Start  *bool   `toml:"start"`
 	Midday *string `toml:"midday"`
+	End    *bool   `toml:"end"`
 }
 
 // decodeRoutine applies the keys present in f to c.
 func decodeRoutine(f routineTOML, c *Routine) error {
 	if f.Start != nil {
 		c.Start = *f.Start
+	}
+	if f.End != nil {
+		c.End = *f.End
 	}
 	if f.Midday != nil {
 		v := *f.Midday

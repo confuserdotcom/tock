@@ -156,3 +156,26 @@ func TestMiddaySkippedAfterHours(t *testing.T) {
 		t.Fatalf("notes = %+v, %v", notes, err)
 	}
 }
+
+func TestRoutineEndOff(t *testing.T) {
+	e := apptest.New(t, apptest.Rules)
+	e.Seed(t, apptest.DaySpans()...)
+	e.WriteConfig(t, "[focus]\nrecap = \"14:00\"\n[routine]\nstart = false\nmidday = \"off\"\nend = false\n")
+	a := open(t, e)
+	day, err := a.Day(e.Clock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	notes, err := a.FocusTick(false)
+	if err != nil || len(notes) != 0 {
+		t.Fatalf("notes = %+v, %v", notes, err)
+	}
+	f, err := a.Focus(e.Clock)
+	if err != nil || len(f.Today) != 1 {
+		t.Fatalf("auto session not recorded: %+v, %v", f, err)
+	}
+	text, err := a.Recap(e.Clock)
+	if err != nil || text != report.Recap(day) || !strings.HasSuffix(text, "Top project: tock.") {
+		t.Fatalf("Recap = %q, %v", text, err)
+	}
+}
