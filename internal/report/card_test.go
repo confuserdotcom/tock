@@ -60,3 +60,21 @@ func TestSessionCardText(t *testing.T) {
 		t.Errorf("zero length = %d", got)
 	}
 }
+
+func TestUrgeLine(t *testing.T) {
+	cases := []struct {
+		resisted, given int
+		want            string
+	}{
+		{0, 0, ""},
+		{2, 1, "urges 2 resisted · 1 given in"},
+		{3, 0, "urges 3 resisted · 0 given in"},
+		{0, 3, "urges 0 resisted · 3 given in"},
+	}
+	for _, c := range cases {
+		d := SessionDetail{Sess: focus.Session{UrgesResisted: c.resisted, UrgesGiven: c.given}}
+		if got := d.UrgeLine(); got != c.want {
+			t.Errorf("UrgeLine(%d, %d) = %q, want %q", c.resisted, c.given, got, c.want)
+		}
+	}
+}

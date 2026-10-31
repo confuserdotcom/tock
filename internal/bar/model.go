@@ -213,6 +213,9 @@ func (l *LastSession) item() Item {
 		title += fmt.Sprintf(" · ★%d", d.Sess.Rating)
 	}
 	sub := []Item{label("%s", d.Summary(l.Loc)), label("%s", d.Q.Line())}
+	if line := d.UrgeLine(); line != "" {
+		sub = append(sub, label("%s", line))
+	}
 	if d.Sess.Note != "" {
 		sub = append(sub, label("Note: %s", report.Cut(d.Sess.Note, noteCells)))
 	}

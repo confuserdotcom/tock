@@ -158,6 +158,18 @@ func Respond(a *app.App, id int64, action string) (string, error) {
 		return "left away time idle", a.Answer(classify.Interval{From: d.From, To: d.To}, classify.Want{})
 	}
 	switch {
+	case strings.HasPrefix(action, ActUrgeResisted), strings.HasPrefix(action, ActUrgeGiven):
+		// Only counts: nothing is opened, closed, focused or blocked.
+		given := strings.HasPrefix(action, ActUrgeGiven)
+		switch err := a.AddUrge(d.Session, given); {
+		case errors.Is(err, store.ErrSessionGone):
+			return goneMsg, nil
+		case err != nil:
+			return "", err
+		case given:
+			return "counted: gave in", nil
+		}
+		return "counted: resisted", nil
 	case strings.HasPrefix(action, ActQuietCat):
 		switch err := a.SetCategoryInterrupt(d.Category, false); {
 		case errors.Is(err, app.ErrCategoryGone):

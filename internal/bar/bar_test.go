@@ -1,6 +1,7 @@
 package bar
 
 import (
+	"database/sql"
 	"errors"
 	"fmt"
 	"os"
@@ -893,5 +894,119 @@ func TestRespondQuietCategoryGone(t *testing.T) {
 	}
 	if after, _ := os.ReadFile(e.Rules); string(after) != string(before) {
 		t.Fatal("a click on a gone category changed rules.toml")
+	}
+}
+
+func TestUrgeButtons(t *testing.T) {
+	n := store.Notice{ID: 3, Topic: focus.TopicFocus}
+	d := app.NoticeData{Session: 7, Urge: true, SnoozeMin: 10, Category: "Entertainment", Rule: "rules.toml#3", RuleFP: "x"}
+	want := []Button{{"urge:resisted:7", "Back to work"}, {"urge:given:7", "Open anyway (counted)"},
+		{"snooze:distract", "Snooze 10 min"}, {"quiet:cat:7", "Don't interrupt for Entertainment"},
+		{"quiet:rule:7", "Don't interrupt for this rule"}, {"stop", "Stop session"}}
+	if got := Buttons(n, d); !reflect.DeepEqual(got, want) {
+		t.Fatalf("buttons = %+v, want %+v", got, want)
+	}
+	d.Urge = false
+	if got := Buttons(n, d); !reflect.DeepEqual(got, want[2:]) {
+		t.Fatalf("urge off: buttons = %+v, want %+v", got, want[2:])
+	}
+	d.Urge, d.Session = true, 0
+	for _, b := range Buttons(n, d) {
+		if strings.HasPrefix(b.ID, "urge:") {
+			t.Fatalf("session 0 offers %+v, want no urge buttons", b)
+		}
+	}
+}
+
+// urgeEnv is a distracted session with urge surfing on, and the id of the
+// notice enqueued at 15:00.
+func urgeEnv(t *testing.T) (*apptest.Env, *app.App, focus.Session, int64) {
+	t.Helper()
+	e, a, s := distractedSession(t)
+	e.WriteConfig(t, "[focus]\nurge_surf = true\n")
+	a = openApp(t, e)
+	at(t, e, "15:00")
+	notes := focusNotes(t, a)
+	if len(notes) != 1 {
+		t.Fatalf("tick notes = %+v, want one", notes)
+	}
+	if !strings.HasPrefix(notes[0].Body, "Pause. Breathe. Name the urge.\n") {
+		t.Fatalf("body = %q, want the urge prompt first", notes[0].Body)
+	}
+	return e, a, s, enqueue(t, a, notes[0])
+}
+
+func TestUrgeEndToEnd(t *testing.T) {
+	e, a, s, id := urgeEnv(t)
+	sid := strconv.FormatInt(s.ID, 10)
+	if msg, err := Respond(a, id, ActUrgeResisted+sid); err != nil || msg != "counted: resisted" {
+		t.Fatalf("resisted = %q, %v", msg, err)
+	}
+	if msg, err := Respond(a, id, ActStop); err != nil || !strings.HasPrefix(msg, "stopped session") {
+		t.Fatalf("stop = %q, %v", msg, err)
+	}
+	// Late answer: the session has ended but still counts.
+	before, err := a.SessionDetail(s.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if msg, err := Respond(a, id, ActUrgeGiven+sid); err != nil || msg != "counted: gave in" {
+		t.Fatalf("late given = %q, %v", msg, err)
+	}
+	after, err := a.SessionDetail(s.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after.Sess.UrgesResisted != 1 || after.Sess.UrgesGiven != 1 {
+		t.Fatalf("session urges = %d resisted, %d given, want 1, 1", after.Sess.UrgesResisted, after.Sess.UrgesGiven)
+	}
+	if before.Q != after.Q {
+		t.Fatalf("quality changed by an urge answer: %+v -> %+v", before.Q, after.Q)
+	}
+	row, _ := lastRow(t, a, e)
+	var got []string
+	for _, it := range row.Sub {
+		got = append(got, it.Title)
+	}
+	if len(got) < 3 || got[1] != after.Q.Line() || got[2] != "urges 1 resisted · 1 given in" {
+		t.Fatalf("last session submenu = %q, want the urges line right after the breakdown", got)
+	}
+}
+
+func TestUrgeUnanswered(t *testing.T) {
+	e, a, s, id := urgeEnv(t)
+	for _, action := range []string{"", "dismiss", "click", "urge:resisted:" + strconv.FormatInt(s.ID+1, 10), "urge:given"} {
+		if msg, err := Respond(a, id, action); err != nil || msg != "" {
+			t.Fatalf("Respond(%q) = %q, %v; want no effect", action, msg, err)
+		}
+	}
+	if _, err := a.StopSession(); err != nil {
+		t.Fatal(err)
+	}
+	d, err := a.SessionDetail(s.ID)
+	if err != nil || d.Sess.UrgesResisted != 0 || d.Sess.UrgesGiven != 0 {
+		t.Fatalf("unanswered: %+v, %v; want 0 and 0", d.Sess, err)
+	}
+	row, _ := lastRow(t, a, e)
+	for _, it := range row.Sub {
+		if strings.HasPrefix(it.Title, "urges") {
+			t.Fatalf("submenu has %q with no answers", it.Title)
+		}
+	}
+}
+
+func TestUrgeGone(t *testing.T) {
+	e, a, s, id := urgeEnv(t)
+	db, err := sql.Open("sqlite", "file:"+e.DB)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if _, err := db.Exec(`DELETE FROM session WHERE id=?`, s.ID); err != nil {
+		t.Fatal(err)
+	}
+	sid := strconv.FormatInt(s.ID, 10)
+	if msg, err := Respond(a, id, ActUrgeResisted+sid); err != nil || msg != "that session is gone" {
+		t.Fatalf("respond = %q, %v; want %q", msg, err, "that session is gone")
 	}
 }

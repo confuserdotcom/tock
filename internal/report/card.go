@@ -1,6 +1,7 @@
 package report
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -30,6 +31,17 @@ func (d SessionDetail) RunLine() string {
 		lead = focus.InterruptionsText(d.Sess.Interruptions)
 	}
 	return lead + " · longest run " + Dur(d.Sess.LongestMS)
+}
+
+// UrgeLine is "urges 2 resisted · 1 given in", the card and menu line for
+// the urge-surfing answers of the session. It is "" when both counts are 0,
+// so the line is hidden; one non-zero side shows both parts.
+func (d SessionDetail) UrgeLine() string {
+	r, g := d.Sess.UrgesResisted, d.Sess.UrgesGiven
+	if r+g == 0 {
+		return ""
+	}
+	return fmt.Sprintf("urges %d resisted · %d given in", r, g)
 }
 
 // Summary is the menu bar's first submenu row:

@@ -28,6 +28,10 @@ const (
 	// category, or the rule that set it, as one that never interrupts.
 	ActQuietCat  = "quiet:cat:"
 	ActQuietRule = "quiet:rule:"
+	// ActUrgeResisted and ActUrgeGiven (+ the session id) count the urge on
+	// that session: Back to work, and Open anyway (counted).
+	ActUrgeResisted = "urge:resisted:"
+	ActUrgeGiven    = "urge:given:"
 )
 
 // ProjectCells is how wide a project name may be in a button or menu item.
@@ -46,10 +50,13 @@ func Buttons(n store.Notice, d app.NoticeData) []Button {
 	switch n.Topic {
 	case focus.TopicFocus:
 		var out []Button
+		sid := strconv.FormatInt(d.Session, 10)
+		if d.Urge && d.Session > 0 {
+			out = append(out, Button{ActUrgeResisted + sid, "Back to work"}, Button{ActUrgeGiven + sid, "Open anyway (counted)"})
+		}
 		if d.SnoozeMin > 0 {
 			out = append(out, Button{ActSnoozeDistract, fmt.Sprintf("Snooze %d min", d.SnoozeMin)})
 		}
-		sid := strconv.FormatInt(d.Session, 10)
 		if d.Category != "" {
 			out = append(out, Button{ActQuietCat + sid, "Don't interrupt for " + report.Cut(d.Category, ProjectCells)})
 			if d.Rule != "" {
