@@ -179,6 +179,18 @@ archived = true
 	if _, err := rs.ResolveProject("ol"); err == nil || !strings.Contains(err.Error(), "unknown project") || strings.Contains(err.Error(), "Old") {
 		t.Errorf("archived projects must not be offered by prefix: err = %v", err)
 	}
+	for _, err := range []error{
+		func() error { _, err := rs.ResolveProject("zzz"); return err }(),
+		func() error { _, err := rs.ResolveCategory("zzz"); return err }(),
+		func() error { _, err := rs.ResolveName(NameProject, "zzz"); return err }(),
+	} {
+		if !errors.Is(err, ErrUnknownName) {
+			t.Errorf("unknown name: errors.Is(%v, ErrUnknownName) = false", err)
+		}
+	}
+	if _, err := rs.ResolveProject("ana"); errors.Is(err, ErrUnknownName) {
+		t.Errorf("an ambiguous name is not an unknown one: %v", err)
+	}
 	if !rs.HasProject("old") {
 		t.Error("archived projects are still declared (past labels stay valid)")
 	}

@@ -45,6 +45,11 @@ func (rs *Ruleset) ResolveName(kind, s string) (string, error) {
 	return resolveName("project", s, names)
 }
 
+// ErrUnknownName is a category or project name that matches nothing. The
+// error text reads "unknown project "x" (have: ...)": this sentinel's own text
+// is the word "unknown".
+var ErrUnknownName = errors.New("unknown")
+
 func resolveName(what, s string, names []string) (string, error) {
 	low := strings.ToLower(NFC(strings.TrimSpace(s)))
 	var hits []string
@@ -61,7 +66,7 @@ func resolveName(what, s string, names []string) (string, error) {
 	case 1:
 		return hits[0], nil
 	case 0:
-		return "", fmt.Errorf("unknown %s %q (have: %s)", what, s, strings.Join(names, ", "))
+		return "", fmt.Errorf("%w %s %q (have: %s)", ErrUnknownName, what, s, strings.Join(names, ", "))
 	}
 	return "", fmt.Errorf("ambiguous %s %q: %s", what, s, strings.Join(hits, ", "))
 }

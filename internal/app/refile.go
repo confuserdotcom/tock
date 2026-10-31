@@ -32,7 +32,7 @@ func (a *App) RefileSession(id int64, project string) (s focus.Session, canonica
 	}
 	p, err := a.rs.ResolveProject(project)
 	if err != nil {
-		if strings.HasPrefix(err.Error(), "unknown project") {
+		if errors.Is(err, classify.ErrUnknownName) {
 			return focus.Session{}, "", fmt.Errorf("no project %q (the labels tab lists them)", project)
 		}
 		return focus.Session{}, "", err
