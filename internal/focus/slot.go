@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"tock/internal/classify"
+	"tock/internal/config"
 )
 
 // Slot kinds: where a slot comes from.
@@ -41,6 +42,11 @@ const (
 	SlotTitleCells = 40
 	// SlotCalendarCells is the longest calendar name in a notice body.
 	SlotCalendarCells = 24
+	// SlotSessionMinMS is the least a session started by a plan item lasts,
+	// and the least length its Start focus button offers.
+	SlotSessionMinMS = 5 * 60_000
+	// SlotProjectCells is the longest project name in a notice body, in cells.
+	SlotProjectCells = 24
 	// SlotOwnerFreshMS is how far from now another machine's latest input
 	// may be, on either side, and still count against this machine owning a
 	// slot notice.
@@ -140,43 +146,91 @@ func inUpcomingWindow(in Input, s Slot) bool {
 		s.StartMS-s.SeenMS >= SlotFreshMS
 }
 
+// startsSession reports a slot that can start a focus session: a plan item
+// tagged to a module.
+func startsSession(s Slot) bool { return s.Kind == SlotPlan && s.Project != "" }
+
 // SlotsDue reports that some slot is in a notice window now (up-next or
-// starting), so the caller
-// reads which notices it already sent before calling Step.
+// starting), so the caller reads which notices it already sent before
+// calling Step. With [plan] notify off only the starting window of a slot
+// that auto_start would start counts.
 func SlotsDue(in Input) bool {
-	if !in.Plan.Notify {
+	if !in.Plan.Notify && !in.Plan.AutoStart {
 		return false
 	}
 	for _, s := range in.Slots {
-		if inStartWindow(in, s) || inUpcomingWindow(in, s) {
+		if in.Plan.Notify && (inStartWindow(in, s) || inUpcomingWindow(in, s)) {
+			return true
+		}
+		if !in.Plan.Notify && startsSession(s) && inStartWindow(in, s) {
 			return true
 		}
 	}
 	return false
 }
 
+// startFocusMS is the planned end of a session a slot starts at Now: the
+// slot's end, at least SlotSessionMinMS and at most config.MaxSessionMin
+// from Now.
+func startFocusMS(in Input, s Slot) int64 {
+	return min(max(s.EndMS, in.Now+SlotSessionMinMS), in.Now+int64(config.MaxSessionMin)*60_000)
+}
+
+// startingEvent is the starting-now event of s: the plain notice, or, for a
+// plan slot with a module, the start of a focus session ([plan] auto_start)
+// or the minutes its Start focus button offers. No session is started or
+// offered while a manual session runs, and none is started during a call or
+// meeting.
+func startingEvent(in Input, s Slot, clock func(int64) string) Event {
+	plain := clock(s.StartMS) + "–" + clock(s.EndMS) + " " + slotLabel(s)
+	ev := Event{Kind: SlotDue, Topic: TopicStarting, Title: TitleStarting, Body: plain, Slot: s, SlotKind: SlotStarting}
+	if !startsSession(s) || openSession(in) != nil {
+		return ev
+	}
+	if !in.Plan.AutoStart {
+		ev.Minutes = int(min(max(minutes(s.EndMS-s.StartMS), SlotSessionMinMS/60_000), int64(config.MaxSessionMin)))
+		return ev
+	}
+	if inMeeting(in) {
+		return ev
+	}
+	end := startFocusMS(in, s)
+	ev.AutoStart = true
+	ev.Sess = Session{Kind: KindManual, StartMS: in.Now, PlannedMS: end}
+	ev.AltBody = plain
+	ev.Body = fmt.Sprintf("%s · focus session started · %d min · %s", plain, minutes(end-in.Now),
+		ansi.Truncate(s.Project, SlotProjectCells, "…"))
+	return ev
+}
+
 // stepSlots emits a SlotDue for each slot in its up-next or starting window
 // whose notice was not sent yet, unless another synced machine has the latest
-// input (SlotOwner). It never looks at calls or meetings: the point of the
-// notice is to tell you.
+// input (SlotOwner). It never defers a notice for a call or meeting: the
+// point of the notice is to tell you. With [plan] notify off it emits only
+// the starting events that start a session, Silent.
 func stepSlots(in Input) []Event {
-	if !in.Plan.Notify || !SlotOwner(LocalInputEnd(in.Views), in.Now, in.OtherInputMS) {
+	if (!in.Plan.Notify && !in.Plan.AutoStart) || !SlotOwner(LocalInputEnd(in.Views), in.Now, in.OtherInputMS) {
 		return nil
 	}
 	loc := in.Day.Location()
 	clock := func(ms int64) string { return time.UnixMilli(ms).In(loc).Format("15:04") }
 	var out []Event
 	for _, s := range in.Slots {
-		if inUpcomingWindow(in, s) && !in.SlotSent[SlotSentKey(s.Key, SlotUpcoming)] {
+		if in.Plan.Notify && inUpcomingWindow(in, s) && !in.SlotSent[SlotSentKey(s.Key, SlotUpcoming)] {
 			n := max((s.StartMS-in.Now+59_999)/60_000, 1)
 			out = append(out, Event{Kind: SlotDue, Topic: TopicUpcoming, Title: TitleUpcoming,
 				Body: fmt.Sprintf("%s %s · in %d min", clock(s.StartMS), slotLabel(s), n),
 				Slot: s, SlotKind: SlotUpcoming})
 		}
 		if inStartWindow(in, s) && !in.SlotSent[SlotSentKey(s.Key, SlotStarting)] {
-			out = append(out, Event{Kind: SlotDue, Topic: TopicStarting, Title: TitleStarting,
-				Body: clock(s.StartMS) + "–" + clock(s.EndMS) + " " + slotLabel(s),
-				Slot: s, SlotKind: SlotStarting})
+			ev := startingEvent(in, s, clock)
+			if !in.Plan.Notify {
+				if !ev.AutoStart {
+					continue
+				}
+				ev.Silent = true
+			}
+			out = append(out, ev)
 		}
 	}
 	return out

@@ -1,6 +1,7 @@
 package app
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
@@ -130,8 +131,11 @@ func (a *App) GuardTick(call bool) ([]focus.Event, focus.Guard, error) {
 			// The row is the race guard: only the writer that inserted it sends.
 			var inserted bool
 			if inserted, err = a.st.MarkSlotNotice(ev.Slot.Key, ev.SlotKind, now); err == nil && inserted {
-				ev.Kind = focus.Notify
-				notes = append(notes, ev)
+				// The start comes after the mark: a restart can never start a second session.
+				if err = a.startSlotSession(&ev); err == nil && !ev.Silent {
+					ev.Kind = focus.Notify
+					notes = append(notes, ev)
+				}
 			}
 		}
 		if err != nil {
@@ -144,6 +148,26 @@ func (a *App) GuardTick(call bool) ([]focus.Event, focus.Guard, error) {
 		}
 	}
 	return notes, guard, nil
+}
+
+// startSlotSession starts the session a starting notice asks for (ev.AutoStart)
+// at the times the engine chose. A session that tock started since trackd
+// read the open ones (store.ErrSessionRunning) leaves ev as the plain notice,
+// without the start; any other error is returned.
+func (a *App) startSlotSession(ev *focus.Event) error {
+	if !ev.AutoStart {
+		return nil
+	}
+	s, err := a.st.StartSession(ev.Sess.StartMS, ev.Sess.PlannedMS)
+	switch {
+	case errors.Is(err, store.ErrSessionRunning):
+		ev.AutoStart, ev.Body, ev.Sess = false, ev.AltBody, focus.Session{}
+		return nil
+	case err != nil:
+		return fmt.Errorf("app: start planned session: %w", err)
+	}
+	ev.Sess = focus.Session(s)
+	return nil
 }
 
 func focusSessions(ss []store.Session) []focus.Session {

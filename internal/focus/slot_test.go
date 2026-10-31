@@ -254,3 +254,153 @@ func TestStepSlotsNotOwner(t *testing.T) {
 		t.Errorf("no other machine: %+v, want the event", got)
 	}
 }
+
+// moduleSlot is the TD 1 slot of module Analyse 1, 14:00-14:50.
+func moduleSlot() Slot {
+	return Slot{Key: "plan:2026-10-10T14:00:t", Kind: SlotPlan, StartMS: at(14, 0, 0), EndMS: at(14, 50, 0), Title: "TD 1", Project: "Analyse 1"}
+}
+
+// autoInput is a tick at now with auto_start on and the module slot.
+func autoInput(now int64) Input {
+	in := slotInput(now)
+	in.Plan.AutoStart = true
+	in.Slots = []Slot{moduleSlot()}
+	return in
+}
+
+func onlyStart(t *testing.T, in Input) Event {
+	t.Helper()
+	evs := only(Step(in), SlotDue)
+	if len(evs) != 1 || evs[0].SlotKind != SlotStarting {
+		t.Fatalf("events = %+v, want exactly the starting SlotDue", evs)
+	}
+	return evs[0]
+}
+
+func runningManual() []Session {
+	return []Session{{ID: 3, Kind: KindManual, StartMS: at(13, 58, 0), PlannedMS: at(14, 23, 0)}}
+}
+
+func TestStepSlotAutoStart(t *testing.T) {
+	e := onlyStart(t, autoInput(at(14, 0, 30)))
+	wantSess := Session{Kind: KindManual, StartMS: at(14, 0, 30), PlannedMS: at(14, 50, 0)}
+	if !e.AutoStart || e.Sess != wantSess || e.Silent || e.Minutes != 0 ||
+		e.Body != "14:00–14:50 TD 1 · focus session started · 50 min · Analyse 1" || e.AltBody != "14:00–14:50 TD 1" {
+		t.Fatalf("event = %+v, want auto start of %+v", e, wantSess)
+	}
+
+	short := autoInput(at(14, 0, 30))
+	short.Slots[0].EndMS = at(14, 2, 0)
+	e = onlyStart(t, short)
+	if e.Sess.PlannedMS != at(14, 0, 30)+SlotSessionMinMS || !strings.Contains(e.Body, "· 5 min · Analyse 1") {
+		t.Errorf("short slot: planned %d, body %q, want 5 min", e.Sess.PlannedMS, e.Body)
+	}
+
+	long := autoInput(at(14, 0, 30))
+	long.Slots[0].EndMS = at(14, 0, 0) + 9*3_600_000
+	e = onlyStart(t, long)
+	if want := at(14, 0, 30) + int64(config.MaxSessionMin)*60_000; e.Sess.PlannedMS != want {
+		t.Errorf("long slot: planned %d, want %d (MaxSessionMin)", e.Sess.PlannedMS, want)
+	}
+
+	cut := autoInput(at(14, 0, 30))
+	cut.Slots[0].Project = strings.Repeat("p", 30)
+	if e = onlyStart(t, cut); !strings.HasSuffix(e.Body, "· "+strings.Repeat("p", 23)+"…") {
+		t.Errorf("long project: body %q, want it cut to 24 cells", e.Body)
+	}
+
+	meeting := autoInput(at(14, 0, 30))
+	meeting.Cfg.MeetingApps = []string{"us.zoom.xos"}
+	meeting.Views, meeting.Labels = world(vw{from: at(13, 50, 0), to: at(14, 0, 30), bundle: "us.zoom.xos"})
+	for name, in := range map[string]Input{
+		"running session": func() Input { in := autoInput(at(14, 0, 30)); in.Sessions = runningManual(); return in }(),
+		"call":            func() Input { in := autoInput(at(14, 0, 30)); in.Call = true; return in }(),
+		"meeting view":    meeting,
+		"no module":       func() Input { in := autoInput(at(14, 0, 30)); in.Slots[0].Project = ""; return in }(),
+		"event":           func() Input { in := autoInput(at(14, 0, 30)); in.Slots[0].Kind = SlotEvent; return in }(),
+		"off":             func() Input { in := autoInput(at(14, 0, 30)); in.Plan.AutoStart = false; return in }(),
+	} {
+		e := onlyStart(t, in)
+		if e.AutoStart || e.Sess != (Session{}) || e.Silent || e.Body != "14:00–14:50 TD 1" {
+			t.Errorf("%s: event = %+v, want the plain body and no start", name, e)
+		}
+		if e.Minutes != 0 && name != "off" {
+			t.Errorf("%s: Minutes = %d, want 0", name, e.Minutes)
+		}
+	}
+}
+
+func TestStepSlotAutoStartNotifyOff(t *testing.T) {
+	in := autoInput(at(13, 56, 0))
+	in.Plan.Notify = false
+	if got := only(Step(in), SlotDue); len(got) != 0 || SlotsDue(in) {
+		t.Errorf("13:56: events %+v, SlotsDue %v, want none (no up-next)", got, SlotsDue(in))
+	}
+	in = autoInput(at(14, 0, 30))
+	in.Plan.Notify = false
+	if !SlotsDue(in) {
+		t.Fatal("SlotsDue = false in the starting window with auto_start on")
+	}
+	e := onlyStart(t, in)
+	if !e.AutoStart || !e.Silent {
+		t.Errorf("event = %+v, want AutoStart and Silent", e)
+	}
+	// A slot that would not start a session sends nothing at all.
+	in.Slots[0].Project = ""
+	if got := only(Step(in), SlotDue); len(got) != 0 {
+		t.Errorf("no module: %+v, want none", got)
+	}
+	// A running session: the start is not made, so nothing is sent.
+	in = autoInput(at(14, 0, 30))
+	in.Plan.Notify = false
+	in.Sessions = runningManual()
+	if got := only(Step(in), SlotDue); len(got) != 0 {
+		t.Errorf("running session: %+v, want none", got)
+	}
+	in = autoInput(at(14, 0, 30))
+	in.Plan.Notify, in.Plan.AutoStart = false, false
+	if got := only(Step(in), SlotDue); len(got) != 0 || SlotsDue(in) {
+		t.Errorf("both off: events %+v, SlotsDue %v", got, SlotsDue(in))
+	}
+}
+
+func TestStepSlotStartFocusMinutes(t *testing.T) {
+	mk := func(end int64, project string) Input {
+		in := slotInput(at(14, 0, 30))
+		in.Slots = []Slot{moduleSlot()}
+		in.Slots[0].EndMS, in.Slots[0].Project = end, project
+		return in
+	}
+	for _, tt := range []struct {
+		name string
+		in   Input
+		want int
+	}{
+		{"50 min", mk(at(14, 50, 0), "Analyse 1"), 50},
+		{"3 min raised to 5", mk(at(14, 3, 0), "Analyse 1"), 5},
+		{"9 h cut to the maximum", mk(at(14, 0, 0)+9*3_600_000, "Analyse 1"), config.MaxSessionMin},
+		{"no module", mk(at(14, 50, 0), ""), 0},
+		{"running session", func() Input {
+			in := mk(at(14, 50, 0), "Analyse 1")
+			in.Sessions = runningManual()
+			return in
+		}(), 0},
+	} {
+		e := onlyStart(t, tt.in)
+		if e.Minutes != tt.want || e.AutoStart || e.Silent {
+			t.Errorf("%s: Minutes = %d AutoStart %v Silent %v, want %d", tt.name, e.Minutes, e.AutoStart, e.Silent, tt.want)
+		}
+	}
+	// Events never offer it.
+	in := mk(at(14, 50, 0), "Analyse 1")
+	in.Slots[0].Kind = SlotEvent
+	if e := onlyStart(t, in); e.Minutes != 0 {
+		t.Errorf("event: Minutes = %d, want 0", e.Minutes)
+	}
+	// The up-next notice never does.
+	in = mk(at(14, 50, 0), "Analyse 1")
+	in.Now = at(13, 56, 0)
+	if evs := only(Step(in), SlotDue); len(evs) != 1 || evs[0].Minutes != 0 || evs[0].AutoStart {
+		t.Errorf("up-next: %+v, want no minutes and no start", evs)
+	}
+}

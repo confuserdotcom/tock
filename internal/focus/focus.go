@@ -134,6 +134,13 @@ type Event struct {
 	// Slot and SlotKind (SlotDue): the slot and the notice kind it is due for.
 	Slot     Slot
 	SlotKind string
+	// AutoStart (SlotDue, starting notice of a plan slot): the caller starts
+	// Sess once the slot is marked. Body then says so; AltBody is the body to
+	// send instead when the start finds a session running.
+	AutoStart bool
+	AltBody   string
+	// Silent (SlotDue): mark and start only, send nothing ([plan] notify = false).
+	Silent bool
 }
 
 // Input is one tick's view of the world.

@@ -1111,3 +1111,90 @@ func TestJoinURL(t *testing.T) {
 		}
 	}
 }
+
+func startingEvent(session int64, minutes int, link string) focus.Event {
+	return focus.Event{Kind: focus.Notify, Topic: focus.TopicStarting, Title: "Starting now", Body: "b",
+		Minutes: minutes, AutoStart: session > 0, Sess: focus.Session{ID: session},
+		Slot: focus.Slot{Key: "plan:x", Kind: focus.SlotPlan, JoinURL: link}}
+}
+
+func TestSlotStartButtons(t *testing.T) {
+	_, a := seeded(t)
+	for _, c := range []struct {
+		name string
+		ev   focus.Event
+		want []Button
+	}{
+		{"auto-started", startingEvent(7, 0, ""), []Button{{"stop", "Stop session"}}},
+		{"auto-started with a link", startingEvent(7, 0, meetLink), []Button{{"join", "Join"}, {"stop", "Stop session"}}},
+		{"start focus", startingEvent(0, 50, ""), []Button{{"again", "Start focus (50 min)"}}},
+		{"nothing to offer", startingEvent(0, 0, ""), nil},
+		{"up next", func() focus.Event {
+			e := startingEvent(0, 50, "")
+			e.Topic = focus.TopicUpcoming
+			return e
+		}(), nil},
+	} {
+		id := enqueue(t, a, c.ev)
+		n, d, err := a.Notice(id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := Buttons(n, d); !reflect.DeepEqual(got, c.want) {
+			t.Errorf("%s: buttons = %+v, want %+v", c.name, got, c.want)
+		}
+	}
+}
+
+func TestRespondStartFocus(t *testing.T) {
+	_, a := seeded(t)
+	id := enqueue(t, a, startingEvent(0, 50, ""))
+	if msg, err := Respond(a, id, ActAgain); err != nil || msg != "started 50 min session" {
+		t.Fatalf("start focus = %q, %v", msg, err)
+	}
+	s, err := a.RunningSessionID()
+	if err != nil || s == 0 {
+		t.Fatalf("RunningSessionID = %d, %v, want the new session", s, err)
+	}
+}
+
+func TestRespondStopStale(t *testing.T) {
+	_, a := seeded(t)
+	first, err := a.StartSession(50)
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := enqueue(t, a, startingEvent(first.ID, 0, ""))
+	if _, err := a.StopSession(); err != nil {
+		t.Fatal(err)
+	}
+	second, err := a.StartSession(25)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if msg, err := Respond(a, id, ActStop); err != nil || msg != "that session is no longer running" {
+		t.Fatalf("stale stop = %q, %v", msg, err)
+	}
+	if got, _ := a.RunningSessionID(); got != second.ID {
+		t.Fatalf("running session = %d, want %d still running", got, second.ID)
+	}
+	// Nothing runs at all: also stale.
+	if _, err := a.StopSession(); err != nil {
+		t.Fatal(err)
+	}
+	if msg, err := Respond(a, id, ActStop); err != nil || msg != "that session is no longer running" {
+		t.Fatalf("stop with none running = %q, %v", msg, err)
+	}
+	// The session the notice started is running: stop it.
+	third, err := a.StartSession(50)
+	if err != nil {
+		t.Fatal(err)
+	}
+	id = enqueue(t, a, startingEvent(third.ID, 0, ""))
+	if msg, err := Respond(a, id, ActStop); err != nil || !strings.HasPrefix(msg, "stopped session") {
+		t.Fatalf("stop = %q, %v", msg, err)
+	}
+	if got, _ := a.RunningSessionID(); got != 0 {
+		t.Fatalf("running session = %d, want none", got)
+	}
+}

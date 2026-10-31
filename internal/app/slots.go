@@ -154,7 +154,7 @@ func (a *App) planSlotList(day time.Time) []focus.Slot {
 // other is set) and leaves the tick without slot notices.
 func (a *App) slotInput(in *focus.Input, nowT time.Time) {
 	in.Plan = a.cfg.Plan
-	if !in.Plan.Notify {
+	if !in.Plan.Notify && !in.Plan.AutoStart {
 		return
 	}
 	skip := func(err error) {

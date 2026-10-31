@@ -87,6 +87,14 @@ func Buttons(n store.Notice, d app.NoticeData) []Button {
 		if JoinURL(n, d) != "" {
 			out = append(out, Button{ActJoin, "Join"})
 		}
+		if n.Topic == focus.TopicStarting {
+			switch {
+			case d.Session > 0: // trackd started a session at the item's start
+				out = append(out, Button{ActStop, "Stop session"})
+			case d.Minutes > 0: // a module-tagged item with auto_start off
+				out = append(out, Button{ActAgain, fmt.Sprintf("Start focus (%d min)", d.Minutes)})
+			}
+		}
 		return out
 	case focus.TopicBreak:
 		return []Button{{ActSnooze, fmt.Sprintf("Snooze %d min", int(SnoozeFor.Minutes()))}}

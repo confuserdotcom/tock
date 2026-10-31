@@ -14,6 +14,15 @@ func (a *App) SessionByID(id int64) (focus.Session, error) {
 	return focus.Session(s), err
 }
 
+// RunningSessionID is the id of the running manual session, 0 when none runs.
+func (a *App) RunningSessionID() (int64, error) {
+	open, err := a.st.OpenSession()
+	if err != nil || open == nil {
+		return 0, err
+	}
+	return open.ID, nil
+}
+
 // LastSession returns the session that ended last, or nil when none has. A
 // running session is never the last one.
 func (a *App) LastSession() (*focus.Session, error) {

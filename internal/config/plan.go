@@ -3,7 +3,7 @@ package config
 import "fmt"
 
 // DefaultPlan is the [plan] section used when the file does not set it:
-// plan and calendar notices on, the up-next one 5 minutes ahead.
+// plan and calendar notices on, the up-next one 5 minutes ahead, no auto start.
 func DefaultPlan() Plan {
 	return Plan{Notify: true, NotifyBeforeMS: 5 * 60_000}
 }
@@ -12,6 +12,9 @@ func DefaultPlan() Plan {
 func decodePlanNotices(f planTOML, c *Plan) error {
 	if f.Notify != nil {
 		c.Notify = *f.Notify
+	}
+	if f.AutoStart != nil {
+		c.AutoStart = *f.AutoStart
 	}
 	if f.NotifyBefore != nil {
 		if *f.NotifyBefore < 0 || *f.NotifyBefore > 60 {

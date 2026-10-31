@@ -304,3 +304,120 @@ func TestSlotOtherMachineStale(t *testing.T) {
 	remoteView(t, a, apptest.At(t, "13:30", 0), apptest.At(t, "13:40", 0))
 	wantList(t, "14:00:30", tickAt(t, a, e, 14, 0, 30), wantNote(focus.TopicStarting, "Starting now", "14:00–17:00 Review"))
 }
+
+// autoEnv is slotEnv with auto_start on and a module-tagged TD 1 at 14:00
+// ended by a Lunch at 14:50.
+func autoEnv(t *testing.T, extra string) *apptest.Env {
+	t.Helper()
+	e, todo := slotEnv(t, "auto_start = true\n"+extra)
+	writePlan(t, todo, "TD 1 +ana1 @14h00 due:2026-10-10\nLunch @14h50 due:2026-10-10\n")
+	return e
+}
+
+func sessionRows(t *testing.T, a *App) []string {
+	t.Helper()
+	ss, err := a.st.Sessions(0, 1<<60)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out []string
+	for _, s := range ss {
+		out = append(out, fmt.Sprintf("%s %s-%s end %d", s.Kind, time.UnixMilli(s.StartMS).In(apptest.Zone).Format("15:04:05"),
+			time.UnixMilli(s.PlannedMS).In(apptest.Zone).Format("15:04:05"), s.EndMS))
+	}
+	return out
+}
+
+func tickEvents(t *testing.T, a *App, e *apptest.Env, call bool, h, m, s int) []focus.Event {
+	t.Helper()
+	slotClock(e, h, m, s)
+	evs, err := a.FocusTick(call)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return evs
+}
+
+func TestSlotAutoStart(t *testing.T) {
+	e := autoEnv(t, "")
+	a := open(t, e)
+	evs := tickEvents(t, a, e, false, 14, 0, 30)
+	wantList(t, "14:00:30", notes(evs), wantNote(focus.TopicStarting, "Starting now",
+		"14:00–14:50 TD 1 · focus session started · 50 min · Analyse 1"))
+	wantList(t, "sessions", sessionRows(t, a), "manual 14:00:30-14:50:00 end 0")
+	id, err := a.RunningSessionID()
+	if err != nil || id == 0 || evs[0].Sess.ID != id {
+		t.Fatalf("RunningSessionID = %d, %v; event session %d", id, err, evs[0].Sess.ID)
+	}
+	if err := a.Enqueue(evs[0]); err != nil {
+		t.Fatal(err)
+	}
+	ns, err := a.TakeNotices()
+	if err != nil || len(ns) != 1 {
+		t.Fatalf("notices = %+v, %v", ns, err)
+	}
+	if _, d, err := a.Notice(ns[0].ID); err != nil || d.Session != id {
+		t.Fatalf("notice data = %+v, %v, want session %d", d, err, id)
+	}
+	wantList(t, "second tick", tickAt(t, a, e, 14, 0, 40))
+	b := open(t, e)
+	wantList(t, "after a restart", tickAt(t, b, e, 14, 1, 0))
+	wantList(t, "sessions after the restart", sessionRows(t, b), "manual 14:00:30-14:50:00 end 0")
+}
+
+func TestSlotAutoStartBusy(t *testing.T) {
+	e := autoEnv(t, "")
+	a := open(t, e)
+	slotClock(e, 13, 58, 0)
+	if _, err := a.StartSession(25); err != nil {
+		t.Fatal(err)
+	}
+	wantList(t, "14:00:30", tickAt(t, a, e, 14, 0, 30), wantNote(focus.TopicStarting, "Starting now", "14:00–14:50 TD 1"))
+	wantList(t, "sessions", sessionRows(t, a), "manual 13:58:00-14:23:00 end 0")
+
+	e2 := autoEnv(t, "")
+	a2 := open(t, e2)
+	evs := tickEvents(t, a2, e2, true, 14, 0, 30)
+	wantList(t, "call", notes(evs), wantNote(focus.TopicStarting, "Starting now", "14:00–14:50 TD 1"))
+	wantList(t, "sessions during a call", sessionRows(t, a2))
+}
+
+func TestSlotAutoStartRace(t *testing.T) {
+	e := autoEnv(t, "")
+	a := open(t, e)
+	slotClock(e, 14, 0, 30)
+	now := e.Clock.UnixMilli()
+	// tock started a session after trackd read the open ones: the engine saw
+	// none, the store refuses a second one and the notice stays plain.
+	if _, err := a.st.StartSession(now-1000, now+600_000); err != nil {
+		t.Fatal(err)
+	}
+	ev := focus.Event{Kind: focus.Notify, Topic: focus.TopicStarting, AutoStart: true,
+		Sess: focus.Session{Kind: focus.KindManual, StartMS: now, PlannedMS: now + 3_000_000},
+		Body: "14:00–14:50 TD 1 · focus session started · 50 min · Analyse 1", AltBody: "14:00–14:50 TD 1"}
+	if err := a.startSlotSession(&ev); err != nil {
+		t.Fatalf("startSlotSession: %v, want the race to leave a plain notice", err)
+	}
+	if ev.AutoStart || ev.Sess.ID != 0 || ev.Body != "14:00–14:50 TD 1" {
+		t.Errorf("event = %+v, want the plain body and no start", ev)
+	}
+	if rows := sessionRows(t, a); len(rows) != 1 {
+		t.Errorf("sessions = %v, want only tock's", rows)
+	}
+}
+
+func TestSlotAutoStartSilent(t *testing.T) {
+	e := autoEnv(t, "notify = false\n")
+	a := open(t, e)
+	wantList(t, "13:55", tickAt(t, a, e, 13, 55, 0))
+	wantList(t, "14:00:30", tickAt(t, a, e, 14, 0, 30))
+	wantList(t, "sessions", sessionRows(t, a), "manual 14:00:30-14:50:00 end 0")
+	// The session ends; a later tick in the window starts nothing.
+	if _, err := a.StopSession(); err != nil {
+		t.Fatal(err)
+	}
+	wantList(t, "14:01:00", tickAt(t, a, e, 14, 1, 0))
+	if rows := sessionRows(t, a); len(rows) != 1 || !strings.HasPrefix(rows[0], "manual 14:00:30-14:50:00 end ") {
+		t.Errorf("sessions after = %v, want the one ended session", rows)
+	}
+}

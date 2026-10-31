@@ -65,6 +65,9 @@ type Plan struct {
 	Notify bool
 	// NotifyBeforeMS is how far ahead the up-next notice comes; 0 = none.
 	NotifyBeforeMS int64
+	// AutoStart makes a module-tagged plan item start a focus session of its
+	// slot length when it begins.
+	AutoStart bool
 }
 
 // MaxKeepTitles is the longest keep_titles, in days.
@@ -302,6 +305,7 @@ type planTOML struct {
 	Command      *string `toml:"command"`
 	Notify       *bool   `toml:"notify"`
 	NotifyBefore *int    `toml:"notify_before"`
+	AutoStart    *bool   `toml:"auto_start"`
 }
 
 type fileTOML struct {

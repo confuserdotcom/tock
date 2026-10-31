@@ -64,6 +64,9 @@ func (a *App) Enqueue(ev focus.Event) error {
 	if (ev.Topic == focus.TopicUpcoming || ev.Topic == focus.TopicStarting) && classify.IsMeetingLink(ev.Slot.JoinURL) {
 		d.Join = ev.Slot.JoinURL
 	}
+	if ev.Topic == focus.TopicStarting && ev.AutoStart {
+		d.Session = ev.Sess.ID // Stop session stops only this one
+	}
 	if ev.Topic == focus.TopicAway {
 		d.From, d.To = ev.Away.From, ev.Away.To
 		ls, err := a.RecentAwayLabels(AwayQuickLabels)

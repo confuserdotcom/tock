@@ -46,3 +46,17 @@ func TestLoadPlanNotices(t *testing.T) {
 		t.Fatalf("file + notify: %+v, err %v", c.Plan, err)
 	}
 }
+
+func TestLoadPlanAutoStart(t *testing.T) {
+	c, err := Load(write(t, ""))
+	if err != nil || c.Plan.AutoStart {
+		t.Fatalf("empty file: %+v, err %v, want auto_start off", c.Plan, err)
+	}
+	c, err = Load(write(t, "[plan]\nauto_start = true\n"))
+	if err != nil || !c.Plan.AutoStart || !c.Plan.Notify {
+		t.Fatalf("auto_start = true: %+v, err %v", c.Plan, err)
+	}
+	if _, err = Load(write(t, "[plan]\nauto_start = \"yes\"\n")); err == nil {
+		t.Fatal("a non-bool auto_start loaded")
+	}
+}

@@ -148,6 +148,15 @@ func Respond(a *app.App, id int64, action string) (string, error) {
 	}
 	switch action {
 	case ActStop:
+		if n.Topic == focus.TopicStarting {
+			// Stop only the session this notice started, never a later one.
+			switch running, err := a.RunningSessionID(); {
+			case err != nil:
+				return "", err
+			case running != d.Session:
+				return "that session is no longer running", nil
+			}
+		}
 		return Menu(a, IDStop)
 	case ActAgain:
 		return Menu(a, fmt.Sprintf("%s%d", IDStart, d.Minutes))
