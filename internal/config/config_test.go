@@ -190,6 +190,24 @@ func TestFocusRecapOff(t *testing.T) {
 	}
 }
 
+func TestFocusSnooze(t *testing.T) {
+	c, err := Load(write(t, "[focus]\nbreak_after = 40\n"))
+	if err != nil || c.Focus.SnoozeMS != 600_000 {
+		t.Fatalf("default snooze = %d, %v; want 600000", c.Focus.SnoozeMS, err)
+	}
+	c, err = Load(write(t, "[focus]\nsnooze = 25\n"))
+	if err != nil || c.Focus.SnoozeMS != 1_500_000 {
+		t.Fatalf("snooze = 25: %d, %v; want 1500000", c.Focus.SnoozeMS, err)
+	}
+	for _, n := range []string{"0", "241"} {
+		_, err := Load(write(t, "[focus]\nsnooze = "+n+"\n"))
+		want := "config.toml: [focus] snooze = " + n + ", want 1 to 240"
+		if err == nil || err.Error() != want {
+			t.Errorf("snooze = %s: error = %v, want %q", n, err, want)
+		}
+	}
+}
+
 func TestFocusErrors(t *testing.T) {
 	tests := []struct{ body, want string }{
 		{"[focus]\npresets = []\n", "config.toml: [focus] presets is empty, want at least one length"},

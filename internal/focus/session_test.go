@@ -166,3 +166,70 @@ func TestSessionEndLongNames(t *testing.T) {
 		}
 	}
 }
+
+// snoozedRun is a session with 5 min of deep work then distraction since
+// 14:05, stepped at now with the notices snoozed until snoozeUntil.
+func snoozedRun(now, snoozeUntil int64, s Session) Input {
+	in := input(now,
+		vw{at(14, 0, 0), at(14, 5, 0), classify.KindDeep, "", ""},
+		vw{at(14, 5, 0), now, classify.KindDistract, "", ""})
+	in.Sessions = []Session{s}
+	in.State.DistractSnoozeUntil = snoozeUntil
+	return in
+}
+
+func sessionUpdate(t *testing.T, evs []Event) Session {
+	t.Helper()
+	u := only(evs, SessionUpdate)
+	if len(u) != 1 {
+		t.Fatalf("events = %+v, want one SessionUpdate", evs)
+	}
+	return u[0].Sess
+}
+
+func TestStepSnoozeKeepsCounting(t *testing.T) {
+	now := at(14, 6, 10)
+	plain := Step(snoozedRun(now, 0, running()))
+	snoozed := Step(snoozedRun(now, now+1, running()))
+	if n := only(snoozed, Notify); len(n) != 0 {
+		t.Fatalf("snoozed run notified: %+v", n)
+	}
+	if len(only(plain, Notify)) != 1 {
+		t.Fatalf("unsnoozed run = %+v, want one notice", plain)
+	}
+	if a, b := sessionUpdate(t, plain), sessionUpdate(t, snoozed); a != b {
+		t.Fatalf("snoozed counters = %+v, want %+v (same as unsnoozed)", b, a)
+	}
+	if u := sessionUpdate(t, snoozed); u.Interruptions != 1 || u.AlertedMS != u.DistractMS {
+		t.Fatalf("snoozed update = %+v, want Interruptions 1 and AlertedMS = DistractMS", u)
+	}
+}
+
+func TestStepSnoozeNoBurst(t *testing.T) {
+	s := running()
+	until := at(14, 12, 0)
+	// Ticks every minute while snoozed: each crossing advances the counters
+	// and sends nothing.
+	for _, tick := range []int64{at(14, 6, 10), at(14, 8, 20), at(14, 10, 30)} {
+		in := snoozedRun(tick, until, s)
+		evs := Step(in)
+		if n := only(evs, Notify); len(n) != 0 {
+			t.Fatalf("tick %d notified while snoozed: %+v", tick, n)
+		}
+		s = sessionUpdate(t, evs)
+	}
+	if s.Interruptions != 3 {
+		t.Fatalf("interruptions after three snoozed thresholds = %d, want 3", s.Interruptions)
+	}
+	// The first tick after the snooze that crosses the next threshold sends
+	// exactly one notice.
+	evs := Step(snoozedRun(at(14, 12, 40), until, s))
+	if n := only(evs, Notify); len(n) != 1 {
+		t.Fatalf("tick after snooze notified %d times, want once", len(n))
+	}
+	s = sessionUpdate(t, evs)
+	// A tick after the snooze that crosses no threshold sends nothing.
+	if n := only(Step(snoozedRun(at(14, 12, 50), until, s)), Notify); len(n) != 0 {
+		t.Fatalf("tick between thresholds notified: %+v", n)
+	}
+}

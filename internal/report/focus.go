@@ -19,6 +19,11 @@ type Focus struct {
 	// Weights are the quality weights to score rows with: refit from the
 	// ratings, or the defaults.
 	Weights focus.Weights
+	// SnoozeUntilMS is when the running session's distraction notices
+	// resume; 0 = not snoozed or no session.
+	SnoozeUntilMS int64
+	// SnoozeMin is the [focus] snooze minutes a snooze offers.
+	SnoozeMin int
 }
 
 // Countdown renders ms as m:ss, rounding up to the second; negative is 0:00.

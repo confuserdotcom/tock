@@ -250,7 +250,7 @@ func (a *App) Focus(now time.Time) (report.Focus, error) {
 	if err != nil {
 		return report.Focus{}, err
 	}
-	f := report.Focus{NowMS: nowMS, Live: focus.Live{Level: -1}, Weights: w}
+	f := report.Focus{NowMS: nowMS, Live: focus.Live{Level: -1}, Weights: w, SnoozeMin: int(a.cfg.Focus.SnoozeMS / 60_000)}
 	for i := len(ss) - 1; i >= 0; i-- {
 		s := focus.Session(ss[i])
 		switch {
@@ -260,6 +260,13 @@ func (a *App) Focus(now time.Time) (report.Focus, error) {
 				return report.Focus{}, err
 			}
 			f.Open, f.Live = &live, lv
+			until, err := a.distractSnooze()
+			if err != nil {
+				return report.Focus{}, err
+			}
+			if until > nowMS {
+				f.SnoozeUntilMS = until
+			}
 		case s.StartMS >= today.UnixMilli():
 			f.Today = append(f.Today, s)
 		default:

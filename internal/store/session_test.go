@@ -328,3 +328,28 @@ func TestLastFinishedSession(t *testing.T) {
 		t.Fatalf("last = %+v, %v", x, err)
 	}
 }
+
+func TestStartSessionClearsDistractSnooze(t *testing.T) {
+	s := openAt(t, dbPath(t))
+	defer s.Close()
+	if err := s.SetState(KeyFocusDistractSnooze, "999999", 1); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.StartSession(1000, 2000); err != nil {
+		t.Fatal(err)
+	}
+	if v, ok, err := s.State(KeyFocusDistractSnooze); err != nil || ok {
+		t.Fatalf("snooze after StartSession = %q, %v, %v; want gone", v, ok, err)
+	}
+
+	// A start that fails leaves a snooze of the running session alone.
+	if err := s.SetState(KeyFocusDistractSnooze, "888888", 2); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.StartSession(3000, 4000); !errors.Is(err, ErrSessionRunning) {
+		t.Fatalf("second start err = %v, want ErrSessionRunning", err)
+	}
+	if v, ok, err := s.State(KeyFocusDistractSnooze); err != nil || !ok || v != "888888" {
+		t.Fatalf("snooze after failed start = %q, %v, %v; want kept", v, ok, err)
+	}
+}
