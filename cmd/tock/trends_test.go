@@ -83,7 +83,9 @@ func TestTrendsProfile(t *testing.T) {
 		want += wd + "  09–10 · 14–15\n"
 	}
 	want += "Typical session: 25 min (default, not enough sessions yet)\n" +
-		"Sustained focus: 60 min before a break\n"
+		"Sustained focus: 60 min before a break\n" +
+		"Suggestions: none answered yet\n" +
+		"Breaks: none answered yet\n"
 	if code != 0 || !strings.HasSuffix(out, want) {
 		t.Fatalf("code %d\n%s\nwant a tail of\n%s", code, out, want)
 	}
@@ -105,8 +107,44 @@ func TestTrendsProfileThin(t *testing.T) {
 	seedFocusHistory(t, te, 4)
 	code, out := te.run(t, "", "trends")
 	if code != 0 || !strings.Contains(out, "\nBest focus hours (not enough history: 4 of 7 days)\nMon  –\n") ||
-		!strings.HasSuffix(out, "Sustained focus: (not enough history)\n") {
+		!strings.HasSuffix(out, "Sustained focus: (not enough history)\nSuggestions: none answered yet\nBreaks: none answered yet\n") {
 		t.Fatalf("code %d\n%s", code, out)
+	}
+}
+
+// TestTrendsReplies: the accept rates and the muted hours come from the
+// answered recommendations of the last 30 days.
+func TestTrendsReplies(t *testing.T) {
+	te := newTestEnv(t, testRules)
+	seedFocusHistory(t, te, 21)
+	db, err := sql.Open("sqlite", "file:"+te.dbPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	add := func(kind string, hour, daysAgo int, reply string) {
+		t.Helper()
+		d := testNow.AddDate(0, 0, -daysAgo)
+		at := time.Date(d.Year(), d.Month(), d.Day(), hour, 10, 0, 0, testZone).UnixMilli()
+		if _, err := db.Exec(`INSERT INTO recommend(kind, at_ms, weekday, hour, length_ms, reply, reply_ms) VALUES(?,?,?,?,?,?,?)`,
+			kind, at, int(d.Weekday()), hour, 25*60_000, reply, at+1000); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for i := 1; i <= 3; i++ {
+		add("focus", 16, i, "dismiss")
+	}
+	add("focus", 9, 4, "accept")
+	add("focus", 9, 5, "")
+	for i := 1; i <= 3; i++ {
+		add("break", 15, i, "dismiss")
+	}
+	add("break", 11, 4, "accept")
+	add("focus", 9, 40, "dismiss") // aged out
+	code, out := te.run(t, "", "trends")
+	want := "Suggestions: 1 of 4 accepted · muted at 16–17\nBreaks: 1 of 4 taken · muted at 15–16\n"
+	if code != 0 || !strings.HasSuffix(out, want) {
+		t.Fatalf("code %d\n%s\nwant a tail of\n%s", code, out, want)
 	}
 }
 
@@ -132,5 +170,17 @@ func TestTrendsHours(t *testing.T) {
 	}
 	if code, _ := te.run(t, "", "trends", "--hours", "extra"); code != 2 {
 		t.Errorf("--hours extra: code %d, want 2", code)
+	}
+}
+
+// TestHelpTrendsAndRecommend: the usage text names --hours and tock recommend.
+func TestHelpTrendsAndRecommend(t *testing.T) {
+	te := newTestEnv(t, testRules)
+	_, out := te.run(t, "", "help")
+	all := out + te.errb.String()
+	for _, want := range []string{"tock trends [--month YYYY-MM] [--hours]", "tock recommend [accept | dismiss]"} {
+		if !strings.Contains(all, want) {
+			t.Errorf("help lacks %q:\n%s", want, all)
+		}
 	}
 }

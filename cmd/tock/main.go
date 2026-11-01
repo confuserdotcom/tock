@@ -60,8 +60,8 @@ const usage = `usage:
   tock session note [#ID] [text...]      set or (no text) clear a session's note
   tock session refile [#ID|last] PROJECT  relabel a finished session's active time to a project (tock undo reverts)
   tock recap [YYYY-MM-DD|start|midday]   the daily recap, or a routine notice now
-  tock recommend [accept | dismiss]       the pending suggestion: show it, take it, or not now
-  tock trends [--month YYYY-MM]          a month against the one before
+  tock recommend [accept | dismiss]      the pending suggestion: show it, take it, or not now
+  tock trends [--month YYYY-MM] [--hours]  a month against the one before; --hours: focus by weekday and hour
   tock top [--days N | --week | --month] [--by category|app|site|project] [--limit N]
                                          where the time went: top categories, apps and sites
   tock model [why <app> "<title>" [<label>]]

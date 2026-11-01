@@ -8,7 +8,8 @@ import (
 )
 
 // cmdTrends prints a month against the previous one and, for the current
-// month, what tock learned about your best focus hours; --hours prints the
+// month, what tock learned about your best focus hours and how often you took
+// its suggestions; --hours prints the
 // weekday x hour grid of mean focus minutes instead.
 func cmdTrends(env Env, args []string) error {
 	fs := newFlags("trends")
@@ -60,6 +61,13 @@ func cmdTrends(env Env, args []string) error {
 		return err
 	}
 	for _, l := range report.ProfileLines(p) {
+		fmt.Fprintln(env.Stdout, l)
+	}
+	learn, err := a.Learning(now)
+	if err != nil {
+		return err
+	}
+	for _, l := range report.ReplyLines(learn) {
 		fmt.Fprintln(env.Stdout, l)
 	}
 	return nil

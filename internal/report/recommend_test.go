@@ -109,3 +109,36 @@ func TestHourGrid(t *testing.T) {
 		t.Errorf("Tue = %q", got[3])
 	}
 }
+
+func TestReplyLines(t *testing.T) {
+	now := day0.UnixMilli() + 12*3600_000
+	rows := func(kind string, hour int, replies ...string) []recommend.Rec {
+		var out []recommend.Rec
+		for _, r := range replies {
+			out = append(out, recommend.Rec{Kind: kind, Hour: hour, Reply: r, AtMS: now - recommend.DayMS})
+		}
+		return out
+	}
+	dis, acc := recommend.ReplyDismiss, recommend.ReplyAccept
+	cat := func(parts ...[]recommend.Rec) []recommend.Rec {
+		var out []recommend.Rec
+		for _, p := range parts {
+			out = append(out, p...)
+		}
+		return out
+	}
+	check := func(name string, recs []recommend.Rec, want ...string) {
+		t.Helper()
+		got := ReplyLines(recommend.Learn(recs, now))
+		if strings.Join(got, "\n") != strings.Join(want, "\n") {
+			t.Errorf("%s:\n%s\nwant\n%s", name, strings.Join(got, "\n"), strings.Join(want, "\n"))
+		}
+	}
+	check("none", nil, "Suggestions: none answered yet", "Breaks: none answered yet")
+	check("rates", cat(rows("focus", 16, dis, dis, dis), rows("focus", 9, acc, acc, acc, acc, acc), rows("break", 11, acc, acc, acc, dis, dis, dis)),
+		"Suggestions: 5 of 8 accepted · muted at 16–17", "Breaks: 3 of 6 taken")
+	check("two hours", cat(rows("focus", 16, dis, dis, dis), rows("focus", 9, dis, dis, dis), rows("focus", 12, acc)),
+		"Suggestions: 1 of 7 accepted · muted at 09–10, 16–17", "Breaks: none answered yet")
+	check("break muted", rows("break", 15, dis, dis, dis), "Suggestions: none answered yet", "Breaks: 0 of 3 taken · muted at 15–16")
+	check("wrap", rows("focus", 23, dis, dis, dis), "Suggestions: 0 of 3 accepted · muted at 23–00", "Breaks: none answered yet")
+}

@@ -85,3 +85,29 @@ func HourGrid(p recommend.Profile) []string {
 	}
 	return out
 }
+
+// ReplyLines are the two lines `tock trends` ends with: how many suggestions and
+// break reminders were answered with the yes button, and the hours the replies
+// muted. Both count the last recommend.ReplyDays only.
+func ReplyLines(l recommend.Learning) []string {
+	return []string{
+		replyLine("Suggestions", "accepted", l, recommend.KindFocus),
+		replyLine("Breaks", "taken", l, recommend.KindBreak),
+	}
+}
+
+func replyLine(label, verb string, l recommend.Learning, kind string) string {
+	accepted, answered := l.Totals(kind)
+	if answered == 0 {
+		return label + ": none answered yet"
+	}
+	line := fmt.Sprintf("%s: %d of %d %s", label, accepted, answered, verb)
+	var muted []string
+	for _, h := range l.MutedHours(kind) {
+		muted = append(muted, fmt.Sprintf("%02d–%02d", h, (h+1)%24))
+	}
+	if len(muted) > 0 {
+		line += " · muted at " + strings.Join(muted, ", ")
+	}
+	return line
+}
