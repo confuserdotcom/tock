@@ -130,6 +130,7 @@ inbox            enter accept the suggestion, else learn a rule · T pick a labe
                  o tag once · x ignore
 anywhere         u undo the last change (tag, rule, ignore, time away, edit)
 focus            s start a session · x stop · z snooze or resume distraction notices
+                 enter take the pending suggestion · d not now
 rules            e edit rules.toml · J/K move a rule down/up
 plan             enter/space/x done ↔ not done · a add · d delete · e edit the file
                  f focus session · u undo the tab's last edit
@@ -195,7 +196,9 @@ tock rules merge [--project] <from> <into>
 tock session [start [MIN] | stop]      focus session: show, start (default 25), stop
 tock session snooze [MIN|off]          hold distraction notices back (default [focus] snooze), or resume them
 tock recap [YYYY-MM-DD|start|midday]   the daily recap, or a routine notice now
-tock trends [--month YYYY-MM]          a month against the one before
+tock recommend [accept | dismiss]      the pending suggestion: show it, take it, or not now
+tock trends [--month YYYY-MM] [--hours]  a month against the one before, your best focus hours and
+                                       how you answered the suggestions; --hours: focus by weekday and hour
 tock top [--days N | --week | --month] [--by category|app|site|project] [--limit N]
                                        where the time went: top categories, apps and sites
 tock model [why <app> "<title>" [<label>]]
@@ -273,6 +276,12 @@ start = true             # start of day notice on the first activity of a work d
 midday = "13:00"         # midday check-in time, "off" to disable
 end = true               # false turns the recap notice off whatever [focus] recap says
 overwork = true          # overworking notice past the end of the work hours
+
+[recommend]              # focus suggestions and the adaptive break; see Recommendations
+enabled = true           # false: no suggestions, and the break reminder is the plain one
+max_per_day = 2          # focus suggestions a day (0 to 10, 0 = none)
+adaptive_break = true    # break reminder after your usual focus stretch
+min_days = 7             # active days of the last 28 the profile needs (3 to 28)
 
 [privacy]
 keep_titles = 30         # off unless set: days window titles are kept
@@ -761,7 +770,9 @@ Privacy for what they send.
 `tock trends` (and `m` on the week tab) compares a month with the previous
 one: the whole month for a past month, the same days so far for the
 current one. It shows tracked and focus time, the average workday score
-with a daily sparkline, switches per hour and each category's change.
+with a daily sparkline, switches per hour and each category's change. For
+the current month it ends with what tock learned about you: see
+Recommendations.
 
 `tock review` recaps a week (this week on a weekend, else last week):
 totals, each goal, the top distractions and the best day. It then asks
@@ -994,6 +1005,120 @@ The menu bar menu shows `Next: 14:00 Review (in 12 min)` when a slot starts
 within the hour (`now` while it runs), and `Join Standup` when that slot is an
 event with a link starting within 10 minutes or running.
 
+## Recommendations
+
+tock learns from your own history when you focus best and for how long, and
+uses it for two things: a suggestion to start a focus session at a good
+moment, and a break reminder that follows how long you usually keep focus.
+Everything is computed on this machine from your own data, with no network
+and no AI. It only ever notifies: nothing is blocked or covered.
+
+**What it learns.** The profile is built once a day from the days before
+today.
+
+- *Best focus hours.* For each weekday and hour, the mean focus time (deep
+  work) over the last 28 days of that weekday that had any activity in that
+  hour. An hour needs 3 such days and a mean of 15 minutes to count, and
+  each weekday keeps its best 3. With fewer than `min_days` active days in
+  the last 28, the profile is thin and has no best hours, so nothing is
+  suggested.
+- *Typical session.* The median planned length of your finished focus
+  sessions of the last 60 days that had quality 70 or more, or a rating of
+  4 or 5; it needs 5 such sessions, else it is the first of `[focus]
+  presets`. Rounded to 5 minutes, between 15 and 120.
+- *Sustained focus.* The median of your longest stretch of activity without
+  a break on each of the last 28 days; it needs 7 days of activity. Rounded
+  to 5 minutes, between 15 and 120.
+
+`tock trends` shows all three after the month, then how you answered:
+
+```
+Best focus hours
+Mon  09–10 · 10–11 · 14–15
+...
+Typical session: 45 min (from 12 good sessions)
+Sustained focus: 52 min before a break
+Suggestions: 5 of 8 accepted · muted at 16–17
+Breaks: 3 of 6 taken · muted at 15–16
+```
+
+With a thin profile the title says `Best focus hours (not enough history: 4
+of 7 days)` and lists no hours. `Typical session` reads `25 min (default, not enough sessions yet)` and
+`Sustained focus` reads `(not enough history)` when there is too little to
+learn from; `Suggestions: none answered yet` and `Breaks: none answered
+yet` stand until you have answered one. `tock trends --hours` prints the
+table behind it: the mean focus minutes of each weekday and hour of the last
+28 days. A past `--month` shows the month alone.
+
+**A focus suggestion** comes when all of these hold:
+
+- `[recommend] enabled` is on, `max_per_day` is above 0 and `[focus]
+  notify` is on. It needs `[hours]` (see Work hours): now is inside the work
+  hours of a work day. Without `[hours]` nothing is suggested.
+- The hour is one of the weekday's best hours, and the replies allow it
+  (below).
+- No focus session is running, no break you took is running, no call or
+  meeting is on, and distraction notices are not snoozed.
+- You are at this machine: the front window is yours and not idle, and at
+  least 5 of the last 10 minutes were your own activity. With two machines
+  that share a sync folder, only the one you are using suggests.
+- No plan item or calendar event is running, and fewer than `max_per_day`
+  suggestions went out today, the last at least an hour ago.
+
+The session is your typical session, shortened to fit before the next plan
+item or event and before the end of the work hours, rounded down to 5
+minutes. Under 15 minutes nothing is suggested. The notice is `Good time to
+focus` with `Your best focus hour · start a 45 min session now?` and the
+buttons `Start focus (45 min)` and `Not now`. Pressing the first starts a
+manual focus session of that length.
+
+**The adaptive break.** With `adaptive_break = true` and a sustained focus
+length, the break reminder comes after that much activity in a row, kept
+between 25 and 120 minutes, instead of `[focus] break_after`. The break it
+suggests is a fifth of the run so far, rounded to 5 minutes and kept between
+5 and 20: `52 min without a break. Stand up for 10 min.` The reminder repeats
+every `break_repeat` minutes, as before. Without a sustained focus length, or
+with `adaptive_break = false`, the reminder keeps `break_after` and suggests 5
+minutes. `[recommend] enabled = false` restores the earlier reminder, which
+has only the `Snooze 30 min` button.
+
+The reminder offers `Take a break (10 min)`, `Not now` and `Snooze 30 min`.
+*Take a break* holds the reminders back for the length of the break, shows
+`Break · until 10:20` in the menu bar menu, and counts as a break: the next
+run is measured from its end. When the break ends, trackd sends one `Break
+over` notice (`10 min break done. Back to it.`); a trackd that first sees the
+end more than 5 minutes late, because it was not running, sends none.
+*Not now* changes nothing about when the next reminder comes.
+
+**Answering.** Every suggestion and break reminder is kept as a row in
+`tock.db` with your answer. You can answer from the notification buttons, the
+menu bar menu (`Suggested: focus now (45 min)` with `Start focus (45 min)` and
+`Not now`), the focus tab (`enter` to take it, `d` for not now) or the shell.
+A row stays open for 30 minutes; after that it is ignored and counts for
+nothing.
+
+```
+tock recommend              # Suggested: focus now (25 min) · open until 09:55
+tock recommend accept       # start the session, or take the break
+tock recommend dismiss      # not now
+```
+
+**Learning from answers.** The answers of the last 30 days are counted
+separately for focus suggestions and break reminders, by the hour they were
+sent:
+
+- With at least 3 answers at an hour and none accepted, the hour is muted:
+  no suggestion at that hour, and no break reminder during that hour (a
+  reminder still due comes as the hour turns).
+- With at least 4 answers and fewer than 25 % accepted, a focus suggestion
+  comes at that hour only when it is the weekday's first best hour.
+- Answers older than 30 days no longer count, so a muted hour recovers. A
+  reply counts within about a minute. If the answers cannot be read, the
+  break reminder comes anyway.
+
+On Linux the notices come through `notify-send` without buttons; answer with
+`tock recommend accept` or `tock recommend dismiss`.
+
 ## Menu bar and notifications
 
 `make install` also installs `tock.app`, a small menu bar app that runs at
@@ -1008,7 +1133,11 @@ menu has:
 - the next slot, `Next: 14:00 Review (in 12 min)`, when one starts within
   the hour, and `Join <title>` for a meeting with a link that starts within
   10 minutes or is running;
-- items to start a session (your presets) or stop the running one.
+- items to start a session (your presets) or stop the running one;
+- while a suggestion is open (30 minutes, no session running), `Suggested:
+  focus now (45 min)` with `Start focus (45 min)` and `Not now` (a break
+  reminder shows `Suggested: break (10 min)` with `Take a break (10 min)`);
+  while a break you took runs, `Break · until 10:20`.
 
 With the app running and allowed to notify, focus notifications come from
 tock with buttons:
@@ -1017,13 +1146,14 @@ tock with buttons:
 |---|---|
 | distracted in a session | Stop session |
 | session done | Start again |
-| break due | Snooze 30 min |
+| good time to focus | Start focus (N min), Not now |
+| break due | Take a break (N min), Not now, Snooze 30 min |
 | time away | your recent away labels, then Leave idle |
 | up next | Join (meetings with a link) |
 | starting now | Join, then Start focus (N min) or Stop session |
 
-Routine notices (start of day, midday check-in, recap, overworking) come
-without buttons.
+Routine notices (start of day, midday check-in, recap, overworking) and
+`Break over` come without buttons.
 Up-next notices of plan items come without buttons too.
 
 Without the app, or with its notifications turned off, trackd sends plain

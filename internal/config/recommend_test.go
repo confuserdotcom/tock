@@ -1,6 +1,7 @@
 package config
 
 import (
+	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -49,5 +50,49 @@ func TestLoadRecommend(t *testing.T) {
 	c, err = Load(write(t, "[recommend]\nenabled = false\nadaptive_break = false\n"))
 	if err != nil || c.Recommend.Enabled || c.Recommend.AdaptiveBreak || c.Recommend.MaxPerDay != 2 {
 		t.Fatalf("enabled/adaptive_break false: %+v, err = %v", c.Recommend, err)
+	}
+}
+
+// TestRecommendDocDefaults pins the [recommend] block in the README to
+// DefaultRecommend: the documented lines, comments and all, are loaded as a
+// config file.
+func TestRecommendDocDefaults(t *testing.T) {
+	readme, err := os.ReadFile("../../README.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var block []string
+	in := false
+	for _, l := range strings.Split(string(readme), "\n") {
+		switch {
+		case l == "[recommend]" || strings.HasPrefix(l, "[recommend] "):
+			in = true
+			block = append(block, "[recommend]")
+		case in && strings.TrimSpace(l) == "":
+			in = false
+		case in:
+			block = append(block, l)
+		}
+	}
+	if len(block) < 5 {
+		t.Fatalf("README documents %d lines of [recommend], want the table and its four keys", len(block))
+	}
+	doc := strings.Join(block, "\n") + "\n"
+	c, err := Load(write(t, doc))
+	if err != nil {
+		t.Fatalf("documented config:\n%s\n%v", doc, err)
+	}
+	if !reflect.DeepEqual(c.Recommend, DefaultRecommend()) {
+		t.Fatalf("documented [recommend] = %+v, want DefaultRecommend() %+v", c.Recommend, DefaultRecommend())
+	}
+	// The same four lines without comments, as the plan wrote them.
+	plain := "[recommend]\nenabled = true\nmax_per_day = 2\nadaptive_break = true\nmin_days = 7\n"
+	if c, err := Load(write(t, plain)); err != nil || !reflect.DeepEqual(c.Recommend, DefaultRecommend()) {
+		t.Fatalf("plain lines: %+v, %v", c.Recommend, err)
+	}
+	for _, key := range []string{"enabled", "max_per_day", "adaptive_break", "min_days"} {
+		if !strings.Contains(doc, key+" =") {
+			t.Errorf("README block lacks %s", key)
+		}
 	}
 }
