@@ -166,6 +166,8 @@ type Event struct {
 	RecKind     string
 	RecLengthMS int64
 	RecID       int64
+	// RecAtMS is the send time (ms) of that row.
+	RecAtMS int64
 }
 
 // Input is one tick's view of the world.

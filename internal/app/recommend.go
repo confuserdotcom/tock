@@ -136,7 +136,7 @@ func (a *App) sendRec(ev focus.Event, now int64) (focus.Event, bool) {
 	if a.recCache.ok {
 		a.recCache.rows = append(a.recCache.rows, recommend.Rec(r))
 	}
-	ev.RecID = id
+	ev.RecID, ev.RecAtMS = id, now
 	ev.Kind = focus.Notify
 	return ev, true
 }

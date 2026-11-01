@@ -389,3 +389,37 @@ func TestSnapshotBreak(t *testing.T) {
 		t.Fatalf("Load after the break: BreakUntil %v, %v, want zero", s2.BreakUntil, err)
 	}
 }
+
+// TestRespondRecommendSendTime: the notice carries the send time of its row,
+// like the menu and the screen do, so a notice that outlived its row cannot
+// answer a newer row that took the same id.
+func TestRespondRecommendSendTime(t *testing.T) {
+	e, a, ev := recApp(t)
+	id := enqueue(t, a, ev)
+	_, d, err := a.Notice(id)
+	if err != nil || d.Rec != ev.RecID || d.RecAt != e.Clock.UnixMilli() {
+		t.Fatalf("notice data = %+v, %v, want rec %d sent at %d", d, err, ev.RecID, e.Clock.UnixMilli())
+	}
+
+	db := e.RawDB(t)
+	defer db.Close()
+	stale := func(recAt int64) int64 {
+		t.Helper()
+		res, err := db.Exec(`INSERT INTO notice(at_ms, topic, title, body, data) VALUES(?, 'recommend', 'x', 'y', ?)`,
+			e.Clock.UnixMilli(), `{"rec": `+strconv.FormatInt(ev.RecID, 10)+`, "rec_at": `+strconv.FormatInt(recAt, 10)+`, "minutes": 25}`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		n, _ := res.LastInsertId()
+		return n
+	}
+	if msg, err := Respond(a, stale(e.Clock.UnixMilli()-3_600_000), ActRecAccept); err != nil || msg != "that suggestion is no longer open" {
+		t.Fatalf("notice of another send time: %q, %v", msg, err)
+	}
+	if running, _ := a.RunningSessionID(); running != 0 {
+		t.Fatal("a notice of another send time started a session")
+	}
+	if msg, err := Respond(a, id, ActRecAccept); err != nil || msg != "started 25 min session" {
+		t.Fatalf("own notice: %q, %v", msg, err)
+	}
+}

@@ -213,7 +213,9 @@ func Respond(a *app.App, id int64, action string) (string, error) {
 		if n.Topic == focus.TopicBreak {
 			kind = recommend.KindBreak
 		}
-		return answerMsg(a.AnswerRecommend(d.Rec, kind, reply))
+		// Row ids can be reused, so the send time the notice was queued with
+		// must match the row's, as for the menu and the screen.
+		return answerMsg(a.AnswerRecommendAt(d.Rec, d.RecAt, kind, reply))
 	}
 	switch {
 	case strings.HasPrefix(action, ActUrgeResisted), strings.HasPrefix(action, ActUrgeGiven):
