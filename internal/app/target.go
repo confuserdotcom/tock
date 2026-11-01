@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"tock/internal/classify"
+	"tock/internal/focus"
 	"tock/internal/report"
 	"tock/internal/stats"
 	"tock/internal/store"
@@ -61,6 +62,8 @@ type pastDay struct {
 	// ActiveHours and DeepHours are the active and the deep-kind time per
 	// wall-clock hour of the whole day (report.HourMS), for the profile.
 	ActiveHours, DeepHours [24]int64
+	// RunMS is the day's longest activity run (focus.LongestRunMS).
+	RunMS int64
 }
 
 // fillPast computes and caches every day in [from, to) that is
@@ -97,6 +100,7 @@ func (a *App) fillPast(from, to time.Time) error {
 		wFrom, wTo := a.cfg.Hours.Window(d)
 		p := pastDay{Stats: stats.Compute(stats.Clip(vs, ls, wFrom, wTo)), Active: report.Active(vs)}
 		p.ActiveHours, p.DeepHours = report.HourMS(vs, ls, d.Location())
+		p.RunMS = focus.LongestRunMS(vs)
 		if len(a.rs.Goals) > 0 {
 			p.GoalMS = report.GoalTimes(a.rs.Goals, vs, ls)
 		}

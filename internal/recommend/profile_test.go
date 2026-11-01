@@ -115,3 +115,93 @@ func TestBuildRules(t *testing.T) {
 		t.Errorf("ActiveDays = %d, want %d", p.ActiveDays, want)
 	}
 }
+
+// sess is a finished manual session on day0 that started daysAgo days before
+// NowMS, with the planned length in minutes.
+func sess(nowMS int64, daysAgo int, plannedMin int64, quality, rating int) Session {
+	start := nowMS - int64(daysAgo)*DayMS
+	return Session{StartMS: start, EndMS: start + plannedMin*min1, PlannedMS: start + plannedMin*min1, Quality: quality, Rating: rating}
+}
+
+func TestBuildSessions(t *testing.T) {
+	now := day0.Add(12 * time.Hour).UnixMilli()
+	good := func(lens ...int64) []Session {
+		var out []Session
+		for i, l := range lens {
+			out = append(out, sess(now, i+1, l, 80, 0))
+		}
+		return out
+	}
+	build := func(ss []Session) Profile {
+		return Build(Input{NowMS: now, MinDays: 7, DefaultSessionMS: 25 * min1, Sessions: ss})
+	}
+	poor := []Session{sess(now, 2, 25, 50, 0), sess(now, 3, 25, 50, 0), sess(now, 4, 25, 50, 0)}
+	cases := []struct {
+		name      string
+		ss        []Session
+		want      int64
+		goodCount int
+	}{
+		{"lower median of 6 is the 3rd", append(good(40, 45, 45, 50, 60, 90), poor...), 45, 6},
+		{"44 rounds up to 45", good(43, 43, 44, 47, 47), 45, 5},
+		{"clamped up to 15", good(10, 10, 10, 10, 10), 15, 5},
+		{"clamped down to 120", good(150, 150, 150, 150, 150), 120, 5},
+		{"4 good sessions are not enough", good(60, 60, 60, 60), 25, 0},
+		{"unsorted input", good(90, 40, 60, 45, 50, 45), 45, 6},
+		{"rating 4 with quality 30 counts", []Session{
+			sess(now, 1, 30, 30, 4), sess(now, 2, 30, 30, 4), sess(now, 3, 30, 30, 5),
+			sess(now, 4, 30, 30, 4), sess(now, 5, 30, 30, 4)}, 30, 5},
+		{"quality 70 counts", []Session{
+			sess(now, 1, 50, 70, 0), sess(now, 2, 50, 70, 0), sess(now, 3, 50, 70, 0),
+			sess(now, 4, 50, 70, 0), sess(now, 5, 50, 70, 0)}, 50, 5},
+		{"quality 69 unrated does not", []Session{
+			sess(now, 1, 50, 69, 0), sess(now, 2, 50, 69, 0), sess(now, 3, 50, 69, 0),
+			sess(now, 4, 50, 69, 0), sess(now, 5, 50, 69, 3)}, 25, 0},
+	}
+	for _, c := range cases {
+		p := build(c.ss)
+		if p.SessionMS != c.want*min1 || p.GoodSessions != c.goodCount {
+			t.Errorf("%s: SessionMS %d min, GoodSessions %d; want %d, %d", c.name, p.SessionMS/min1, p.GoodSessions, c.want, c.goodCount)
+		}
+	}
+
+	// A session that started 61 days before NowMS and a running one are left out.
+	ss := good(40, 40, 40, 40)
+	old := sess(now, 61, 40, 90, 0)
+	run := sess(now, 1, 40, 90, 0)
+	run.EndMS = 0
+	if p := build(append(append([]Session{}, ss...), old)); p.GoodSessions != 0 {
+		t.Errorf("61-day-old session counted: GoodSessions %d", p.GoodSessions)
+	}
+	if p := build(append(append([]Session{}, ss...), run)); p.GoodSessions != 0 {
+		t.Errorf("running session counted: GoodSessions %d", p.GoodSessions)
+	}
+	edge := sess(now, 60, 40, 90, 0)
+	if p := build(append(append([]Session{}, ss...), edge)); p.GoodSessions != 5 {
+		t.Errorf("60-day-old session left out: GoodSessions %d", p.GoodSessions)
+	}
+}
+
+func TestBuildSustained(t *testing.T) {
+	runs := []int64{30, 40, 52, 52, 55, 60, 61, 70, 80, 0}
+	i := 0
+	days := history(10, func(d *Day) {
+		d.RunMS = runs[i] * min1
+		i++
+	})
+	p := Build(Input{Days: days, MinDays: 7, DefaultSessionMS: 25 * min1})
+	if p.SustainedMS != 55*min1 || p.SustainedDays != 9 {
+		t.Errorf("SustainedMS %d min, SustainedDays %d; want 55, 9", p.SustainedMS/min1, p.SustainedDays)
+	}
+	i = 0
+	days = history(10, func(d *Day) {
+		if i < 6 {
+			d.RunMS = 50 * min1
+		}
+		i++
+	})
+	p = Build(Input{Days: days, MinDays: 7, DefaultSessionMS: 25 * min1})
+	if p.SustainedMS != 0 || p.SustainedDays != 6 {
+		t.Errorf("6 days: SustainedMS %d, SustainedDays %d; want 0, 6", p.SustainedMS, p.SustainedDays)
+	}
+}

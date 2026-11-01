@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"tock/internal/focus"
 	"tock/internal/recommend"
 )
 
@@ -41,7 +42,7 @@ func (a *App) Profile(now time.Time) (recommend.Profile, error) {
 				complete = false
 				break
 			}
-			days = append(days, recommend.Day{Date: d, ActiveMS: p.ActiveHours, FocusMS: p.DeepHours})
+			days = append(days, recommend.Day{Date: d, ActiveMS: p.ActiveHours, FocusMS: p.DeepHours, RunMS: p.RunMS})
 		}
 		if complete {
 			break
@@ -50,8 +51,41 @@ func (a *App) Profile(now time.Time) (recommend.Profile, error) {
 	if !complete {
 		return recommend.Profile{}, fmt.Errorf("app: profile: history changed while it was read")
 	}
+	sessions, err := a.profileSessions(day)
+	if err != nil {
+		return recommend.Profile{}, fmt.Errorf("app: profile: %w", err)
+	}
 	p := recommend.Build(recommend.Input{Days: days, MinDays: a.cfg.Recommend.MinDays,
-		DefaultSessionMS: int64(a.cfg.Focus.Presets[0]) * 60_000})
+		DefaultSessionMS: int64(a.cfg.Focus.Presets[0]) * 60_000,
+		NowMS:            day.UnixMilli(), Sessions: sessions})
 	a.profile = profileCache{p: &p, day: key}
 	return p, nil
+}
+
+// profileSessions are the finished manual sessions of the recommend.SessionDays
+// days before the day starting at local midnight day, with their quality under
+// the current weights: one query and one weights read.
+func (a *App) profileSessions(day time.Time) ([]recommend.Session, error) {
+	from := day.AddDate(0, 0, -recommend.SessionDays)
+	ss, err := a.st.Sessions(from.UnixMilli(), day.UnixMilli())
+	if err != nil {
+		return nil, err
+	}
+	var out []recommend.Session
+	var w focus.Weights
+	haveW := false
+	for _, s := range ss {
+		if s.Kind != focus.KindManual || s.EndMS == 0 {
+			continue
+		}
+		if !haveW {
+			if w, _, _, err = a.Weights(); err != nil {
+				return nil, err
+			}
+			haveW = true
+		}
+		out = append(out, recommend.Session{StartMS: s.StartMS, EndMS: s.EndMS, PlannedMS: s.PlannedMS,
+			Quality: focus.Quality(focus.Session(s), w).Score, Rating: s.Rating})
+	}
+	return out, nil
 }
