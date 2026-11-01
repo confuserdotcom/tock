@@ -189,6 +189,9 @@ func TestBuildSustained(t *testing.T) {
 	i := 0
 	days := history(10, func(d *Day) {
 		d.RunMS = runs[i] * min1
+		if d.RunMS > 0 {
+			d.ActiveMS[9] = 60 * min1
+		}
 		i++
 	})
 	p := Build(Input{Days: days, MinDays: 7, DefaultSessionMS: 25 * min1})
@@ -199,6 +202,7 @@ func TestBuildSustained(t *testing.T) {
 	days = history(10, func(d *Day) {
 		if i < 6 {
 			d.RunMS = 50 * min1
+			d.ActiveMS[9] = 60 * min1
 		}
 		i++
 	})
@@ -249,9 +253,40 @@ func TestBuildSustainedRoundedAndClamped(t *testing.T) {
 	for _, c := range []struct{ run, want int64 }{
 		{7, 15}, {14, 15}, {52, 50}, {53, 55}, {118, 120}, {183, 120},
 	} {
-		p := Build(Input{Days: history(10, func(d *Day) { d.RunMS = c.run * min1 }), MinDays: 7, DefaultSessionMS: 25 * min1})
+		p := Build(Input{Days: history(10, func(d *Day) { d.RunMS, d.ActiveMS[9] = c.run*min1, 60*min1 }), MinDays: 7, DefaultSessionMS: 25 * min1})
 		if p.SustainedMS != c.want*min1 || p.SustainedDays != 10 {
 			t.Errorf("runs of %d min: SustainedMS %d min, SustainedDays %d; want %d, 10", c.run, p.SustainedMS/min1, p.SustainedDays, c.want)
 		}
+	}
+}
+
+// TestBuildSustainedSkipsQuietDays: a day with under 30 min of activity, such
+// as a quick weekend check, is not a day with data for the sustained length.
+func TestBuildSustainedSkipsQuietDays(t *testing.T) {
+	i := 0
+	// Six real days of 90 min runs, then four quick checks of 3 min.
+	days := history(10, func(d *Day) {
+		if i < 6 {
+			d.RunMS, d.ActiveMS[9] = 90*min1, 100*min1
+		} else {
+			d.RunMS, d.ActiveMS[9] = 3*min1, 3*min1
+		}
+		i++
+	})
+	p := Build(Input{Days: days, MinDays: 7, DefaultSessionMS: 25 * min1})
+	if p.SustainedMS != 0 || p.SustainedDays != 6 {
+		t.Errorf("6 real days: SustainedMS %d min, SustainedDays %d; want 0, 6", p.SustainedMS/min1, p.SustainedDays)
+	}
+	// The same days with a seventh real one: the quiet days do not drag the median down.
+	days = append(days, Day{Date: day0.AddDate(0, 0, -11), RunMS: 90 * min1, ActiveMS: [24]int64{9: 100 * min1}})
+	p = Build(Input{Days: days, MinDays: 7, DefaultSessionMS: 25 * min1})
+	if p.SustainedMS != 90*min1 || p.SustainedDays != 7 {
+		t.Errorf("7 real days: SustainedMS %d min, SustainedDays %d; want 90, 7", p.SustainedMS/min1, p.SustainedDays)
+	}
+	// Activity spread over hours adds up: exactly 30 min counts.
+	spread := Day{Date: day0.AddDate(0, 0, -12), RunMS: 20 * min1, ActiveMS: [24]int64{9: 10 * min1, 14: 20 * min1}}
+	p = Build(Input{Days: append(days, spread), MinDays: 7, DefaultSessionMS: 25 * min1})
+	if p.SustainedDays != 8 {
+		t.Errorf("a day of exactly 30 min active left out: SustainedDays %d, want 8", p.SustainedDays)
 	}
 }

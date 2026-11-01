@@ -1027,7 +1027,8 @@ today.
   4 or 5; it needs 5 such sessions, else it is the first of `[focus]
   presets`. Rounded to 5 minutes, between 15 and 120.
 - *Sustained focus.* The median of your longest stretch of activity without
-  a break on each of the last 28 days; it needs 7 days of activity. Rounded
+  a break on each of the last 28 days that had at least 30 minutes of
+  activity; it needs 7 such days. Rounded
   to 5 minutes, between 15 and 120. The break reminder itself uses it kept
   between 25 and 120 (see The adaptive break).
 

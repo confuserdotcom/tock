@@ -26,6 +26,9 @@ const (
 	SessionMaxMS     = 120 * 60_000
 	RoundMS          = 5 * 60_000
 	MinSustainedDays = 7 // days with activity the sustained length needs
+	// MinSustainedActiveMS is the active time a day needs for its longest run to
+	// count: a quick check of the machine is not a working day.
+	MinSustainedActiveMS = 30 * 60_000
 )
 
 // Session is a finished manual session as Build reads it.
@@ -91,12 +94,11 @@ func Build(in Input) Profile {
 	var sum [7][24]int64
 	var runs []int64
 	for _, d := range in.Days {
-		if d.RunMS > 0 {
-			runs = append(runs, d.RunMS)
-		}
 		wd := d.Date.Weekday()
 		active := false
+		var total int64
 		for h := 0; h < 24; h++ {
+			total += max(d.ActiveMS[h], 0)
 			if d.ActiveMS[h] <= 0 {
 				continue
 			}
@@ -106,6 +108,9 @@ func Build(in Input) Profile {
 		}
 		if active {
 			p.ActiveDays++
+		}
+		if d.RunMS > 0 && total >= MinSustainedActiveMS {
+			runs = append(runs, d.RunMS)
 		}
 	}
 	for wd := range p.Hours {
