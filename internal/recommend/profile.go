@@ -173,7 +173,8 @@ func sessionLength(in Input) (int64, int) {
 		if s.EndMS <= 0 || s.StartMS < in.NowMS-SessionDays*DayMS {
 			continue
 		}
-		if s.Quality >= GoodQuality || s.Rating >= GoodRating {
+		// An explicit rating beats the computed quality: rated low, it is not good.
+		if (s.Rating == 0 && s.Quality >= GoodQuality) || s.Rating >= GoodRating {
 			lens = append(lens, s.PlannedMS-s.StartMS)
 		}
 	}

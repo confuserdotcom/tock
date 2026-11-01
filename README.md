@@ -1023,8 +1023,8 @@ today.
   the last 28, the profile is thin and has no best hours, so nothing is
   suggested.
 - *Typical session.* The median planned length of your finished focus
-  sessions of the last 60 days that had quality 70 or more, or a rating of
-  4 or 5; it needs 5 such sessions, else it is the first of `[focus]
+  sessions of the last 60 days that were rated 4 or 5, or that you did not
+  rate and had quality 70 or more; it needs 5 such sessions, else it is the first of `[focus]
   presets`. Rounded to 5 minutes, between 15 and 120; the preset is kept
   between 15 and 120 too.
 - *Sustained focus.* The median of your longest stretch of activity without

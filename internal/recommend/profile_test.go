@@ -302,3 +302,21 @@ func TestBuildDefaultSessionClamped(t *testing.T) {
 		}
 	}
 }
+
+// TestBuildLowRatingOverridesQuality: a session the user rated 1 to 3 stars was
+// not a good one, whatever its computed quality.
+func TestBuildLowRatingOverridesQuality(t *testing.T) {
+	now := day0.Add(12 * time.Hour).UnixMilli()
+	ss := []Session{
+		sess(now, 1, 50, 90, 0), sess(now, 2, 50, 90, 0), sess(now, 3, 50, 90, 0), sess(now, 4, 50, 90, 0),
+		sess(now, 5, 50, 90, 2), sess(now, 6, 50, 90, 1), sess(now, 7, 50, 90, 3),
+	}
+	p := Build(Input{NowMS: now, MinDays: 7, DefaultSessionMS: 25 * min1, Sessions: ss})
+	if p.GoodSessions != 0 || p.SessionMS != 25*min1 {
+		t.Errorf("GoodSessions %d, SessionMS %d min; want 0 and the default 25", p.GoodSessions, p.SessionMS/min1)
+	}
+	ss = append(ss, sess(now, 8, 50, 90, 0))
+	if p := Build(Input{NowMS: now, MinDays: 7, DefaultSessionMS: 25 * min1, Sessions: ss}); p.GoodSessions != 5 {
+		t.Errorf("with a fifth unrated good session: GoodSessions %d, want 5", p.GoodSessions)
+	}
+}
