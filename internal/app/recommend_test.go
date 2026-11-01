@@ -532,3 +532,46 @@ func TestLearning(t *testing.T) {
 		t.Errorf("muted break hours = %v, want [15]", got)
 	}
 }
+
+// TestProfileBuiltOnlyWhenUsed: with no suggestions and no adaptive break (or
+// with no [hours], so no suggestion can come) nothing reads the profile, so
+// trackd does not build it.
+func TestProfileBuiltOnlyWhenUsed(t *testing.T) {
+	base := apptest.NoRoutines + apptest.NoPlanNotices
+	for _, c := range []struct {
+		name  string
+		cfg   string
+		built bool
+	}{
+		{"nothing uses it", base + apptest.AllHours + "[recommend]\nmax_per_day = 0\nadaptive_break = false\n", false},
+		{"no hours and no adaptive break", base + "[recommend]\nadaptive_break = false\n", false},
+		{"notices off and no adaptive break", base + apptest.AllHours + "[focus]\nnotify = false\n[recommend]\nadaptive_break = false\n", false},
+		{"adaptive break only", base + "[recommend]\nmax_per_day = 0\n", true},
+		{"suggestions only", base + apptest.AllHours + "[recommend]\nadaptive_break = false\n", true},
+	} {
+		e := recEnvCfg(t, c.cfg)
+		a := open(t, e)
+		tickAt(t, a, e, 9, 30, 0)
+		if got := a.profile.p != nil; got != c.built {
+			t.Errorf("%s: profile built = %v, want %v", c.name, got, c.built)
+		}
+	}
+}
+
+// TestProfileFailureBacksOff: after a failed build the next one waits
+// profileRetry, not the next tick.
+func TestProfileFailureBacksOff(t *testing.T) {
+	e := recEnv(t, "")
+	a := open(t, e)
+	slotClock(e, 9, 30, 0)
+	a.recCache.failedMS = e.Clock.UnixMilli() - 9*60_000
+	tickAt(t, a, e, 9, 30, 0)
+	if a.profile.p != nil {
+		t.Fatal("profile rebuilt 9 min after a failed build")
+	}
+	a.recCache.failedMS = e.Clock.UnixMilli() - 10*60_000
+	tickAt(t, a, e, 9, 30, 0)
+	if a.profile.p == nil || a.recCache.failedMS != 0 {
+		t.Errorf("10 min after a failed build: profile %v, failedMS %d; want built and cleared", a.profile.p != nil, a.recCache.failedMS)
+	}
+}

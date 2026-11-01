@@ -21,8 +21,10 @@ var ErrNoRecommend = errors.New("no pending recommendation")
 // and the daily count hold within the minute.
 const recRefresh = time.Minute
 
-// profileRetry is how soon a failed profile build is tried again.
-const profileRetry = time.Minute
+// profileRetry is how soon a failed profile build is tried again: a full
+// 28-day recompute every tick would eat the idle budget of trackd and repeat the
+// same warning for as long as the cause lasts.
+const profileRetry = 10 * time.Minute
 
 // recCache holds the recommendation rows of the last recommend.ReplyDays.
 type recCache struct {
@@ -53,10 +55,19 @@ func (a *App) recRows(now time.Time) ([]recommend.Rec, error) {
 	return slices.Clone(out), nil
 }
 
+// profileUsed reports that a tick reads the profile: focus suggestions can come
+// (max_per_day above 0, [focus] notify on and [hours] set) or the break reminder
+// follows it (adaptive_break). Otherwise trackd does not build it.
+func (a *App) profileUsed() bool {
+	rc := a.cfg.Recommend
+	return rc.Enabled && (rc.AdaptiveBreak || rc.MaxPerDay > 0 && a.cfg.Focus.Notify && a.cfg.Hours.Set)
+}
+
 // recInput fills in the recommendation part of a tick's input. The profile
-// comes from the daily cache; the rows are read only when focus.RecsDue says a
-// suggestion could be due. A failure is kept as the tick's RoutineErr (when no
-// other is set) and leaves the tick without a suggestion.
+// comes from the daily cache, and is not built when profileUsed says nothing
+// reads it; the rows are read only when focus.RecsDue says a suggestion could
+// be due. A failure is kept as the tick's RoutineErr (when no other is set) and
+// leaves the tick without a suggestion.
 func (a *App) recInput(in *focus.Input, nowT time.Time) {
 	in.Rec = a.cfg.Recommend
 	if !in.Rec.Enabled {
@@ -68,18 +79,20 @@ func (a *App) recInput(in *focus.Input, nowT time.Time) {
 		}
 	}
 	nowMS := nowT.UnixMilli()
-	if a.profile.p == nil || a.profile.day != dateKey(in.Day) {
-		if f := a.recCache.failedMS; f != 0 && nowMS-f >= 0 && nowMS-f < profileRetry.Milliseconds() {
-			return
+	if a.profileUsed() {
+		if a.profile.p == nil || a.profile.day != dateKey(in.Day) {
+			if f := a.recCache.failedMS; f != 0 && nowMS-f >= 0 && nowMS-f < profileRetry.Milliseconds() {
+				return
+			}
+			if _, err := a.Profile(nowT); err != nil {
+				a.recCache.failedMS = nowMS
+				fail(err)
+				return
+			}
+			a.recCache.failedMS = 0
 		}
-		if _, err := a.Profile(nowT); err != nil {
-			a.recCache.failedMS = nowMS
-			fail(err)
-			return
-		}
-		a.recCache.failedMS = 0
+		in.Profile = *a.profile.p
 	}
-	in.Profile = *a.profile.p
 	if !focus.RecsDue(*in) {
 		return
 	}
