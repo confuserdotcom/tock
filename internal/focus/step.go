@@ -113,9 +113,12 @@ func runStart(in Input) (from int64, ok bool) {
 // last reminder of this run is a repeat interval old.
 func breakDue(in Input, st State) (from int64, ok bool) {
 	from, ok = runStart(in)
-	if !ok || in.Now < st.SnoozeUntil || inMeeting(in) {
+	if !ok || in.Now < st.SnoozeUntil || in.Now < st.BreakUntil || inMeeting(in) {
 		return 0, false
 	}
+	// A break the user took counts as a break even when the screen stayed busy:
+	// the run is measured from its end.
+	from = max(from, st.BreakUntil)
 	if in.Now-from < recommend.BreakAfterMS(in.Profile, in.Rec, in.Cfg.BreakAfterMS) {
 		return 0, false
 	}
@@ -135,7 +138,13 @@ func stepBreak(in Input, st *State) (Event, bool) {
 	}
 	st.BreakFrom, st.BreakAt = from, in.Now
 	mins := recommend.BreakMinutes(in.Now-from, recommend.Adaptive(in.Profile, in.Rec))
-	return note(TopicBreak, TitleBreak, fmt.Sprintf("%d min without a break. Stand up for %d min.", minutes(in.Now-from), mins), false), true
+	n := note(TopicBreak, TitleBreak, fmt.Sprintf("%d min without a break. Stand up for %d min.", minutes(in.Now-from), mins), false)
+	if in.Rec.Enabled && in.Cfg.Notify {
+		// A recommendation the user can take: the caller writes the row.
+		n.Kind, n.Minutes = RecDue, int(mins)
+		n.RecKind, n.RecLengthMS = recommend.KindBreak, mins*60_000
+	}
+	return n, true
 }
 
 // stepSession measures the running session, alerts on distraction and ends

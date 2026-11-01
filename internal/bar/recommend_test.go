@@ -258,3 +258,107 @@ func openRaw(t *testing.T, e *apptest.Env) *store.Store {
 	}
 	return s
 }
+
+// breakApp is a Saturday 09:52 after 10 days of 52 min runs and a run since
+// 09:00: the break reminder is pending and its notice is returned.
+func breakApp(t *testing.T) (*apptest.Env, *app.App, focus.Event) {
+	t.Helper()
+	e := apptest.New(t, apptest.Rules)
+	for i := 1; i <= 10; i++ {
+		e.Seed(t, apptest.Span{ID: int64(2000 + i), Start: "08:00", End: "08:52", Bundle: "term", App: "WezTerm", Title: "tock │ h", Day: -i})
+	}
+	e.Seed(t, apptest.Span{ID: 1, Start: "09:00", Bundle: "term", App: "WezTerm", Title: "tock │ x"})
+	e.WriteConfig(t, apptest.NoRoutines+apptest.NoPlanNotices)
+	e.Clock = time.Date(2026, 10, 10, 9, 52, 0, 0, apptest.Zone)
+	a := openApp(t, e)
+	evs, err := a.FocusTick(false)
+	if err != nil || len(evs) != 1 || evs[0].Topic != focus.TopicBreak || evs[0].RecID == 0 {
+		t.Fatalf("FocusTick = %+v, %v, want one break note with a row", evs, err)
+	}
+	e.Clock = time.Date(2026, 10, 10, 9, 53, 0, 0, apptest.Zone)
+	return e, a, evs[0]
+}
+
+func TestButtonsBreakRec(t *testing.T) {
+	n := store.Notice{ID: 5, Topic: focus.TopicBreak}
+	want := []Button{{"rec:accept", "Take a break (10 min)"}, {"rec:dismiss", "Not now"}, {"snooze", "Snooze 30 min"}}
+	if got := Buttons(n, app.NoticeData{Rec: 7, Minutes: 10}); !reflect.DeepEqual(got, want) {
+		t.Fatalf("buttons = %+v", got)
+	}
+	snooze := []Button{{"snooze", "Snooze 30 min"}}
+	for _, d := range []app.NoticeData{{Minutes: 50}, {Rec: 7}, {}} {
+		if got := Buttons(n, d); !reflect.DeepEqual(got, snooze) {
+			t.Errorf("Buttons(%+v) = %+v, want the Snooze-only list", d, got)
+		}
+	}
+}
+
+func TestRespondBreak(t *testing.T) {
+	_, a, ev := breakApp(t)
+	id := enqueue(t, a, ev)
+	if msg, err := Respond(a, id, ActRecAccept); err != nil || msg != "break until 10:03" {
+		t.Fatalf("accept = %q, %v", msg, err)
+	}
+	if msg, err := Respond(a, id, ActRecAccept); err != nil || msg != "that suggestion is no longer open" {
+		t.Fatalf("second accept = %q, %v", msg, err)
+	}
+
+	e, a2, ev2 := breakApp(t)
+	id2 := enqueue(t, a2, ev2)
+	if msg, err := Respond(a2, id2, ActRecDismiss); err != nil || msg != "suggestion dismissed" {
+		t.Fatalf("dismiss = %q, %v", msg, err)
+	}
+	if until, _ := a2.BreakUntil(e.Clock); until != 0 {
+		t.Fatal("dismiss started a break")
+	}
+
+	// Snooze still holds the reminders back for 30 min.
+	_, a3, ev3 := breakApp(t)
+	id3 := enqueue(t, a3, ev3)
+	if msg, err := Respond(a3, id3, ActSnooze); err != nil || msg != "break reminders snoozed for 30 min" {
+		t.Fatalf("snooze = %q, %v", msg, err)
+	}
+}
+
+// A notice of one topic cannot answer a row of the other kind.
+func TestRespondBreakKindMismatch(t *testing.T) {
+	e, a, ev := breakApp(t)
+	db := e.RawDB(t)
+	defer db.Close()
+	notice := func(topic string, rec int64) int64 {
+		t.Helper()
+		res, err := db.Exec(`INSERT INTO notice(at_ms, topic, title, body, data) VALUES(?, ?, 'x', 'y', ?)`,
+			e.Clock.UnixMilli(), topic, `{"rec": `+strconv.FormatInt(rec, 10)+`, "minutes": 10}`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		id, _ := res.LastInsertId()
+		return id
+	}
+	// A recommend notice naming the break row.
+	if msg, err := Respond(a, notice("recommend", ev.RecID), ActRecAccept); err != nil || msg != "that suggestion is no longer open" {
+		t.Fatalf("recommend notice on a break row: %q, %v", msg, err)
+	}
+	// A break notice naming a focus row.
+	r, err := db.Exec(`INSERT INTO recommend(kind, at_ms, weekday, hour, length_ms) VALUES('focus', ?, 6, 9, 1500000)`, e.Clock.UnixMilli()-60_000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	focusRow, _ := r.LastInsertId()
+	if msg, err := Respond(a, notice("break", focusRow), ActRecAccept); err != nil || msg != "that suggestion is no longer open" {
+		t.Fatalf("break notice on a focus row: %q, %v", msg, err)
+	}
+	if running, _ := a.RunningSessionID(); running != 0 {
+		t.Fatal("a mismatched answer started a session")
+	}
+	if until, _ := a.BreakUntil(e.Clock); until != 0 {
+		t.Fatal("a mismatched answer started a break")
+	}
+	var reply string
+	if err := db.QueryRow(`SELECT reply FROM recommend WHERE id=?`, ev.RecID).Scan(&reply); err != nil || reply != "" {
+		t.Fatalf("break row reply = %q, %v, want unchanged", reply, err)
+	}
+	if err := db.QueryRow(`SELECT reply FROM recommend WHERE id=?`, focusRow).Scan(&reply); err != nil || reply != "" {
+		t.Fatalf("focus row reply = %q, %v, want unchanged", reply, err)
+	}
+}

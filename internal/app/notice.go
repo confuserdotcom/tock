@@ -69,7 +69,7 @@ func (a *App) Enqueue(ev focus.Event) error {
 	if ev.Topic == focus.TopicStarting && ev.AutoStart {
 		d.Session = ev.Sess.ID // Stop session stops only this one
 	}
-	if ev.Topic == focus.TopicRecommend && ev.RecID != 0 {
+	if (ev.Topic == focus.TopicRecommend || ev.Topic == focus.TopicBreak) && ev.RecID != 0 {
 		d.Rec = ev.RecID
 	}
 	if ev.Topic == focus.TopicAway {

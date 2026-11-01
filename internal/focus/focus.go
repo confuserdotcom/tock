@@ -99,6 +99,10 @@ type State struct {
 	// back until this time (ms); read from daemon_state, never saved by a
 	// StateUpdate.
 	DistractSnoozeUntil int64
+	// BreakTakenAt and BreakUntil are the break the user took from a break
+	// reminder: when they took it and when it ends (ms). Read from daemon_state
+	// and never saved by a StateUpdate: tock owns them.
+	BreakTakenAt, BreakUntil int64
 }
 
 // EventKind says what an Event asks the caller to do.

@@ -109,7 +109,13 @@ func Buttons(n store.Notice, d app.NoticeData) []Button {
 		}
 		return []Button{{ActRecAccept, RecAcceptTitle(recommend.KindFocus, d.Minutes)}, {ActRecDismiss, "Not now"}}
 	case focus.TopicBreak:
-		return []Button{{ActSnooze, fmt.Sprintf("Snooze %d min", int(SnoozeFor.Minutes()))}}
+		snooze := Button{ActSnooze, fmt.Sprintf("Snooze %d min", int(SnoozeFor.Minutes()))}
+		if d.Rec > 0 && d.Minutes > 0 {
+			// A break recommendation: Take a break and Not now come first, the
+			// banner shows the first one; Snooze stays as the later-reminder action.
+			return []Button{{ActRecAccept, RecAcceptTitle(recommend.KindBreak, d.Minutes)}, {ActRecDismiss, "Not now"}, snooze}
+		}
+		return []Button{snooze}
 	case focus.TopicAway:
 		var out []Button
 		for i, w := range d.Labels {

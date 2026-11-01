@@ -127,6 +127,8 @@ func answerMsg(res app.RecAnswer, err error) (string, error) {
 		return "a session is already running, nothing started", nil
 	case err != nil:
 		return "", err
+	case res.BreakUntilMS > 0:
+		return "break until " + res.BreakUntil.Format("15:04"), nil
 	case res.Session != nil:
 		return fmt.Sprintf("started %d min session", (res.Session.PlannedMS-res.Session.StartMS)/60_000), nil
 	}
@@ -207,7 +209,11 @@ func Respond(a *app.App, id int64, action string) (string, error) {
 		if action == ActRecDismiss {
 			reply = recommend.ReplyDismiss
 		}
-		return answerMsg(a.AnswerRecommend(d.Rec, recommend.KindFocus, reply))
+		kind := recommend.KindFocus
+		if n.Topic == focus.TopicBreak {
+			kind = recommend.KindBreak
+		}
+		return answerMsg(a.AnswerRecommend(d.Rec, kind, reply))
 	}
 	switch {
 	case strings.HasPrefix(action, ActUrgeResisted), strings.HasPrefix(action, ActUrgeGiven):

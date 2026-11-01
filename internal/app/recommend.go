@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strconv"
 	"time"
 
 	"tock/internal/focus"
@@ -99,9 +100,11 @@ func (a *App) recInput(in *focus.Input, nowT time.Time) {
 }
 
 // sendRec writes the recommend row of the RecDue event ev and returns the
-// notice to send, carrying the row's id. It reports false, and sends nothing,
-// when the row could not be written; the error is kept in RoutineErr and the
-// next tick suggests again.
+// notice to send, carrying the row's id. For a focus suggestion it reports
+// false, and sends nothing, when the row could not be written; the error is
+// kept in RoutineErr and the next tick suggests again. A break reminder is
+// sent anyway, as the plain reminder without a row (and without the Take a
+// break button): the reminder is already marked sent in the focus state.
 func (a *App) sendRec(ev focus.Event, now int64) (focus.Event, bool) {
 	t := time.UnixMilli(now).In(a.now().Location())
 	r := store.Recommend{Kind: ev.RecKind, AtMS: now, Weekday: int(t.Weekday()), Hour: t.Hour(), LengthMS: ev.RecLengthMS}
@@ -109,6 +112,10 @@ func (a *App) sendRec(ev focus.Event, now int64) (focus.Event, bool) {
 	if err != nil {
 		if a.routineErr == nil {
 			a.routineErr = fmt.Errorf("app: recommendation: %w", err)
+		}
+		if ev.RecKind == recommend.KindBreak {
+			ev.Kind, ev.Minutes, ev.RecKind, ev.RecLengthMS = focus.Notify, 0, "", 0
+			return ev, true
 		}
 		return focus.Event{}, false
 	}
@@ -161,6 +168,10 @@ func (a *App) PendingRecommend(now time.Time) (*recommend.Rec, error) {
 type RecAnswer struct {
 	Rec     recommend.Rec
 	Session *focus.Session
+	// BreakUntilMS (and BreakUntil, in the App clock's zone) is when the break
+	// ends, for an accepted break; 0 otherwise.
+	BreakUntilMS int64
+	BreakUntil   time.Time
 }
 
 // AnswerRecommend records reply (recommend.ReplyAccept or ReplyDismiss) to the
@@ -195,7 +206,7 @@ func (a *App) AnswerRecommendAt(id, atMS int64, kind, reply string) (RecAnswer, 
 	if (kind != "" && rec.Kind != kind) || (atMS > 0 && rec.AtMS != atMS) || !rec.Open(now) {
 		return RecAnswer{}, ErrNoRecommend
 	}
-	if reply == recommend.ReplyAccept && rec.Kind != recommend.KindFocus {
+	if reply == recommend.ReplyAccept && rec.Kind != recommend.KindFocus && rec.Kind != recommend.KindBreak {
 		return RecAnswer{}, fmt.Errorf("app: recommend: accepting a %s recommendation is not supported", rec.Kind)
 	}
 	ok, err := a.st.ReplyRecommend(id, reply, now, now-recommend.PendingMS)
@@ -208,6 +219,17 @@ func (a *App) AnswerRecommendAt(id, atMS int64, kind, reply string) (RecAnswer, 
 	a.recCache = recCache{failedMS: a.recCache.failedMS}
 	rec.Reply, rec.ReplyMS = reply, now
 	res := RecAnswer{Rec: rec}
+	if reply == recommend.ReplyAccept && rec.Kind == recommend.KindBreak {
+		until, err := a.TakeBreak(rec.LengthMS)
+		if err != nil {
+			if uerr := a.st.UnreplyRecommend(id, reply); uerr != nil {
+				err = errors.Join(err, uerr)
+			}
+			return RecAnswer{}, err
+		}
+		res.BreakUntilMS, res.BreakUntil = until, time.UnixMilli(until).In(a.now().Location())
+		return res, nil
+	}
 	if reply == recommend.ReplyAccept {
 		s, err := a.StartSession(int(rec.LengthMS / 60_000))
 		if err != nil {
@@ -219,4 +241,42 @@ func (a *App) AnswerRecommendAt(id, atMS int64, kind, reply string) (RecAnswer, 
 		res.Session = &s
 	}
 	return res, nil
+}
+
+// TakeBreak starts the break the user took from a break reminder: break
+// reminders are held back for lengthMS from now, and when the break ends
+// trackd sends one Break over notice. Nothing is locked or blocked. It
+// returns when the break ends (ms). tock owns the two keys it writes; trackd
+// only reads them, so a take between trackd's read and write is never lost.
+func (a *App) TakeBreak(lengthMS int64) (untilMS int64, err error) {
+	if lengthMS <= 0 {
+		return 0, fmt.Errorf("app: take break: length %d ms, want more than 0", lengthMS)
+	}
+	now := a.nowMS()
+	untilMS = now + lengthMS
+	// Taken first: a trackd that reads between the two writes sees the old end.
+	if err := a.st.SetState(store.KeyFocusBreakTaken, strconv.FormatInt(now, 10), now); err != nil {
+		return 0, fmt.Errorf("app: take break: %w", err)
+	}
+	if err := a.st.SetState(store.KeyFocusBreakUntil, strconv.FormatInt(untilMS, 10), now); err != nil {
+		return 0, fmt.Errorf("app: take break: %w", err)
+	}
+	return untilMS, nil
+}
+
+// BreakUntil is when the break the user took ends (ms), 0 when none runs at
+// now.
+func (a *App) BreakUntil(now time.Time) (int64, error) {
+	v, ok, err := a.st.State(store.KeyFocusBreakUntil)
+	if err != nil {
+		return 0, fmt.Errorf("app: break until: %w", err)
+	}
+	if !ok {
+		return 0, nil
+	}
+	until, _ := strconv.ParseInt(v, 10, 64)
+	if until <= now.UnixMilli() {
+		return 0, nil
+	}
+	return until, nil
 }

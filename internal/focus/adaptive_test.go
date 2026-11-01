@@ -84,3 +84,51 @@ func TestAdaptiveBreak(t *testing.T) {
 		t.Fatalf("11:00 with sustained 150: %+v", got)
 	}
 }
+
+func TestStepBreakRec(t *testing.T) {
+	evs := Step(adaptiveIn(at(9, 52, 0)))
+	got := breakEvents(evs)
+	if len(got) != 1 {
+		t.Fatalf("events = %+v", evs)
+	}
+	e := got[0]
+	if e.Kind != RecDue || e.Topic != TopicBreak || e.Title != TitleBreak || e.Body != "52 min without a break. Stand up for 10 min." ||
+		e.Minutes != 10 || e.RecKind != recommend.KindBreak || e.RecLengthMS != 10*minute {
+		t.Fatalf("event = %+v", e)
+	}
+	if evs[0].Kind != StateUpdate || evs[len(evs)-1].Kind != RecDue {
+		t.Fatalf("state must come first and the reminder last: %+v", evs)
+	}
+
+	plain := func(name string, mod func(in *Input)) {
+		t.Helper()
+		in := adaptiveIn(at(9, 52, 0))
+		mod(&in)
+		got := breakEvents(Step(in))
+		if len(got) != 1 || got[0].Kind != Notify || got[0].RecKind != "" || got[0].RecLengthMS != 0 {
+			t.Errorf("%s: %+v, want one plain Notify", name, got)
+		}
+	}
+	plain("notify off", func(in *Input) { in.Cfg.Notify = false })
+	plain("disabled", func(in *Input) { in.Rec.Enabled = false })
+
+	// A break the user took holds the reminder back until it ends.
+	in := adaptiveIn(at(9, 52, 0))
+	in.State.BreakTakenAt, in.State.BreakUntil = at(9, 45, 0), at(9, 55, 0)
+	if evs := Step(in); len(breakEvents(evs)) != 0 || len(only(evs, StateUpdate)) != 0 {
+		t.Fatalf("during the break: %+v, want nothing", evs)
+	}
+
+	// After it the run counts from the break's end although the screen stayed busy.
+	in = adaptiveIn(at(10, 31, 0))
+	in.State.BreakTakenAt, in.State.BreakUntil = at(9, 30, 0), at(9, 40, 0)
+	if got := breakEvents(Step(in)); len(got) != 0 {
+		t.Fatalf("10:31: %+v, want none", got)
+	}
+	in = adaptiveIn(at(10, 32, 0))
+	in.State.BreakTakenAt, in.State.BreakUntil = at(9, 30, 0), at(9, 40, 0)
+	got = breakEvents(Step(in))
+	if len(got) != 1 || got[0].Body != "52 min without a break. Stand up for 10 min." {
+		t.Fatalf("10:32: %+v", got)
+	}
+}

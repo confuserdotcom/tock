@@ -92,3 +92,30 @@ func TestRecommendCLI(t *testing.T) {
 		t.Fatalf("reply = %q, want dismiss", recReply(t, te, id2))
 	}
 }
+
+func TestRecommendCLIBreak(t *testing.T) {
+	te := newTestEnv(t, testRules)
+	te.seed(t, daySpans()...)
+	st, err := store.Open(te.dbPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	id, err := st.AddRecommend(store.Recommend{Kind: "break", AtMS: te.now.Add(-5 * time.Minute).UnixMilli(), Weekday: int(te.now.Weekday()), Hour: te.now.Hour(), LengthMS: 10 * 60_000})
+	st.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if code, out := te.run(t, "", "recommend"); code != 0 || out != "Suggested: break (10 min) · open until 15:25\n" {
+		t.Fatalf("show: %d %q", code, out)
+	}
+	want := "break until " + te.now.Add(10*time.Minute).Format("15:04") + "\n"
+	if code, out := te.run(t, "", "recommend", "accept"); code != 0 || out != want {
+		t.Fatalf("accept: %d %q %q, want %q", code, out, te.errb.String(), want)
+	}
+	if recReply(t, te, id) != "accept" {
+		t.Fatalf("reply = %q, want accept", recReply(t, te, id))
+	}
+	if code, out := te.run(t, "", "session"); code != 0 || out != "no session\n" {
+		t.Fatalf("session after a break: %d %q", code, out)
+	}
+}

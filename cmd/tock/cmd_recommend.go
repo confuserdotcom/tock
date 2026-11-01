@@ -58,6 +58,10 @@ func cmdRecommend(env Env, args []string) error {
 	if err != nil {
 		return err
 	}
+	if res.BreakUntilMS > 0 {
+		fmt.Fprintf(env.Stdout, "break until %s\n", res.BreakUntil.Format("15:04"))
+		return nil
+	}
 	if res.Session != nil {
 		fmt.Fprintf(env.Stdout, "started %d min session\n", (res.Session.PlannedMS-res.Session.StartMS)/60_000)
 		return nil

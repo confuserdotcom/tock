@@ -166,15 +166,16 @@ func TestAnswerRecommend(t *testing.T) {
 	}
 }
 
-func TestAnswerRecommendBreakUnsupported(t *testing.T) {
+// A row of a kind with no accept action is refused and left open.
+func TestAnswerRecommendUnknownKindUnsupported(t *testing.T) {
 	e := recEnv(t, "")
 	a := open(t, e)
-	id, err := a.st.AddRecommend(store.Recommend{Kind: "break", AtMS: e.Clock.UnixMilli() - 1000, LengthMS: 10 * 60_000})
+	id, err := a.st.AddRecommend(store.Recommend{Kind: "nap", AtMS: e.Clock.UnixMilli() - 1000, LengthMS: 10 * 60_000})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := a.AnswerRecommend(id, "break", "accept"); err == nil || errors.Is(err, ErrNoRecommend) {
-		t.Fatalf("accept of a break err = %v, want a plain error", err)
+	if _, err := a.AnswerRecommend(id, "", "accept"); err == nil || errors.Is(err, ErrNoRecommend) {
+		t.Fatalf("accept of an unknown kind err = %v, want a plain error", err)
 	}
 	if r, _ := a.st.Recommend(id); r.Reply != "" {
 		t.Fatalf("row = %+v, want unchanged", r)

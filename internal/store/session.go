@@ -32,6 +32,13 @@ const (
 	KeyFocusAwayAt = "focus_away_at"
 	// KeyFocusBreakSnooze is when (ms) snoozed break reminders resume.
 	KeyFocusBreakSnooze = "focus_break_snooze"
+	// KeyFocusBreakTaken is when (ms) the user took a break from a break
+	// reminder; tock owns it, trackd only reads it.
+	KeyFocusBreakTaken = "focus_break_taken"
+	// KeyFocusBreakUntil is when (ms) the break the user took ends; tock owns
+	// it, trackd only reads it (so a click between trackd's read and its write
+	// is never lost, as with KeyFocusDistractSnooze).
+	KeyFocusBreakUntil = "focus_break_until"
 	// KeyFocusDistractSnooze is when (ms) snoozed distraction notices of the
 	// running session resume.
 	KeyFocusDistractSnooze = "focus_distract_snooze"
