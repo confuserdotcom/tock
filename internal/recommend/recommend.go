@@ -9,6 +9,9 @@ const (
 	KindBreak    = "break"
 	ReplyAccept  = "accept"
 	ReplyDismiss = "dismiss"
+	// ReplySnooze closes a break reminder the user snoozed. It is not an answer
+	// to the suggestion: the learning ignores it.
+	ReplySnooze = "snooze"
 )
 
 // Windows and thresholds of the learning rules.

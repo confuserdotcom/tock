@@ -193,6 +193,13 @@ func Respond(a *app.App, id int64, action string) (string, error) {
 		if err := a.SnoozeBreak(SnoozeFor); err != nil {
 			return "", err
 		}
+		if d.Rec > 0 {
+			// The suggestion is closed without an answer; one already answered
+			// or expired is fine.
+			if err := a.SnoozeRecommend(d.Rec, d.RecAt); err != nil && !errors.Is(err, app.ErrNoRecommend) {
+				return "", err
+			}
+		}
 		return fmt.Sprintf("break reminders snoozed for %d min", int(SnoozeFor.Minutes())), nil
 	case ActSnoozeDistract:
 		until, err := a.SnoozeDistract(d.Session, time.Duration(d.SnoozeMin)*time.Minute)

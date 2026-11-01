@@ -25,9 +25,9 @@ type Learning struct{ Focus, Break [24]HourReplies }
 // day: rows of one hour on one day are less than an hour apart.
 const breakGapMS = 12 * 3600_000
 
-// Learn counts the replies to recs sent in the ReplyDays before nowMS, by kind
+// Learn counts the accept and dismiss replies to recs sent in the ReplyDays before nowMS, by kind
 // and the hour they were sent. Unanswered rows do not count and older rows have
-// aged out, so a muted hour recovers. A break reminder repeats during one run,
+// aged out, so a muted hour recovers. A snoozed row is no answer. A break reminder repeats during one run,
 // so all the break replies of one hour of one day make a single answer: taken
 // when any of them was accepted, else dismissed.
 func Learn(recs []Rec, nowMS int64) Learning {
@@ -35,7 +35,7 @@ func Learn(recs []Rec, nowMS int64) Learning {
 	from := nowMS - ReplyDays*DayMS
 	sorted := make([]Rec, 0, len(recs))
 	for _, r := range recs {
-		if r.Reply == "" || r.AtMS < from || r.Hour < 0 || r.Hour > 23 {
+		if (r.Reply != ReplyAccept && r.Reply != ReplyDismiss) || r.AtMS < from || r.Hour < 0 || r.Hour > 23 {
 			continue
 		}
 		sorted = append(sorted, r)

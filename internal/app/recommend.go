@@ -256,6 +256,34 @@ func (a *App) AnswerRecommendAt(id, atMS int64, kind, reply string) (RecAnswer, 
 	return res, nil
 }
 
+// SnoozeRecommend closes the break reminder row id, sent at atMS (0 = any),
+// with the reply recommend.ReplySnooze: the user snoozed the reminders, so the
+// suggestion is no longer offered, but it is no answer to count: a snooze never
+// mutes an hour. A row that is not an open break reminder is ErrNoRecommend.
+func (a *App) SnoozeRecommend(id, atMS int64) error {
+	row, err := a.st.Recommend(id)
+	if errors.Is(err, store.ErrRecommendGone) {
+		return ErrNoRecommend
+	}
+	if err != nil {
+		return fmt.Errorf("app: recommend: %w", err)
+	}
+	now := a.nowMS()
+	rec := recommend.Rec(row)
+	if rec.Kind != recommend.KindBreak || (atMS > 0 && rec.AtMS != atMS) || !rec.Open(now) {
+		return ErrNoRecommend
+	}
+	ok, err := a.st.ReplyRecommend(id, recommend.ReplySnooze, now, now-recommend.PendingMS)
+	if err != nil {
+		return fmt.Errorf("app: recommend: %w", err)
+	}
+	if !ok {
+		return ErrNoRecommend
+	}
+	a.recCache = recCache{failedMS: a.recCache.failedMS}
+	return nil
+}
+
 // TakeBreak starts the break the user took from a break reminder: break
 // reminders are held back for lengthMS from now, and when the break ends
 // trackd sends one Break over notice. Nothing is locked or blocked. It

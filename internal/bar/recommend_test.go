@@ -313,10 +313,18 @@ func TestRespondBreak(t *testing.T) {
 	}
 
 	// Snooze still holds the reminders back for 30 min.
-	_, a3, ev3 := breakApp(t)
+	e3, a3, ev3 := breakApp(t)
 	id3 := enqueue(t, a3, ev3)
 	if msg, err := Respond(a3, id3, ActSnooze); err != nil || msg != "break reminders snoozed for 30 min" {
 		t.Fatalf("snooze = %q, %v", msg, err)
+	}
+	// The snoozed suggestion is closed: the menu and the screen stop offering it,
+	// and the notice's buttons no longer answer it.
+	if r, err := a3.PendingRecommend(e3.Clock); err != nil || r != nil {
+		t.Fatalf("pending after Snooze = %+v, %v, want none", r, err)
+	}
+	if msg, err := Respond(a3, id3, ActRecAccept); err != nil || msg != "that suggestion is no longer open" {
+		t.Fatalf("accept after Snooze = %q, %v", msg, err)
 	}
 }
 

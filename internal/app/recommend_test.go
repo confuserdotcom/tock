@@ -8,6 +8,7 @@ import (
 
 	"tock/internal/apptest"
 	"tock/internal/focus"
+	"tock/internal/recommend"
 	"tock/internal/store"
 )
 
@@ -573,5 +574,47 @@ func TestProfileFailureBacksOff(t *testing.T) {
 	tickAt(t, a, e, 9, 30, 0)
 	if a.profile.p == nil || a.recCache.failedMS != 0 {
 		t.Errorf("10 min after a failed build: profile %v, failedMS %d; want built and cleared", a.profile.p != nil, a.recCache.failedMS)
+	}
+}
+
+// TestSnoozeRecommend: Snooze on a break reminder closes its row with a reply
+// that is neither accept nor dismiss.
+func TestSnoozeRecommend(t *testing.T) {
+	e := recEnv(t, "")
+	a := open(t, e)
+	nowMS := e.Clock.UnixMilli()
+	add := func(kind string) (int64, int64) {
+		id, err := a.st.AddRecommend(store.Recommend{Kind: kind, AtMS: nowMS - 60_000, LengthMS: 10 * 60_000})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return id, nowMS - 60_000
+	}
+	focusID, focusAt := add("focus")
+	if err := a.SnoozeRecommend(focusID, focusAt); !errors.Is(err, ErrNoRecommend) {
+		t.Errorf("snoozing a focus suggestion: %v, want ErrNoRecommend", err)
+	}
+	id, at := add("break")
+	if err := a.SnoozeRecommend(id, at+1); !errors.Is(err, ErrNoRecommend) {
+		t.Errorf("snoozing at another send time: %v, want ErrNoRecommend", err)
+	}
+	if err := a.SnoozeRecommend(id, at); err != nil {
+		t.Fatal(err)
+	}
+	if r, _ := a.st.Recommend(id); r.Reply != recommend.ReplySnooze || r.ReplyMS != nowMS {
+		t.Errorf("row = %+v, want reply snooze at %d", r, nowMS)
+	}
+	if err := a.SnoozeRecommend(id, at); !errors.Is(err, ErrNoRecommend) {
+		t.Errorf("second snooze: %v, want ErrNoRecommend", err)
+	}
+	if _, err := a.AnswerRecommend(id, "", "accept"); !errors.Is(err, ErrNoRecommend) {
+		t.Errorf("accept after snooze: %v, want ErrNoRecommend", err)
+	}
+	l, err := a.Learning(e.Clock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if acc, n := l.Totals(recommend.KindBreak); acc != 0 || n != 0 {
+		t.Errorf("Totals(break) = %d of %d, want none", acc, n)
 	}
 }

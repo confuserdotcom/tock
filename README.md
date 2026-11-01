@@ -1024,8 +1024,8 @@ today.
   suggested.
 - *Typical session.* The median planned length of your finished focus
   sessions of the last 60 days that were rated 4 or 5, or that you did not
-  rate and had quality 70 or more; it needs 5 such sessions, else it is the first of `[focus]
-  presets`. Rounded to 5 minutes, between 15 and 120; the preset is kept
+  rate and had quality 70 or more; it needs 5 such sessions, else it is the
+  first of `[focus] presets`. Rounded to 5 minutes, between 15 and 120; the preset is kept
   between 15 and 120 too.
 - *Sustained focus.* The median of your longest stretch of activity without
   a break on each of the last 28 days that had at least 30 minutes of
@@ -1091,7 +1091,9 @@ The reminder offers `Take a break (10 min)`, `Not now` and `Snooze 30 min`.
 run is measured from its end. When the break ends, trackd sends one `Break
 over` notice (`10 min break done. Back to it.`); a trackd that first sees the
 end more than 5 minutes late, because it was not running, sends none.
-*Not now* changes nothing about when the next reminder comes.
+*Not now* changes nothing about when the next reminder comes. *Snooze*
+closes the suggestion without an answer: it is not counted when tock learns
+which hours you refuse.
 
 **Answering.** Every suggestion and break reminder is kept as a row in
 `tock.db` with your answer. You can answer from the notification buttons, the

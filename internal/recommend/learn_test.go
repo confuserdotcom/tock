@@ -167,3 +167,22 @@ func TestLearnBreakCountsOneAnswerPerDayAndHour(t *testing.T) {
 		t.Error("focus replies were collapsed")
 	}
 }
+
+// A snoozed break reminder is not an answer: it never mutes an hour.
+func TestLearnIgnoresSnooze(t *testing.T) {
+	now := day0.UnixMilli() + 12*3600_000
+	var recs []Rec
+	for i := 1; i <= 4; i++ {
+		recs = append(recs, Rec{Kind: KindBreak, Hour: 14, Reply: ReplySnooze, AtMS: now - int64(i)*DayMS})
+	}
+	l := Learn(recs, now)
+	if l.Muted(KindBreak, 14) || l.Strict(KindBreak, 14) {
+		t.Error("snoozed reminders muted the hour")
+	}
+	if a, n := l.Totals(KindBreak); a != 0 || n != 0 {
+		t.Errorf("Totals(break) = %d of %d, want 0 of 0", a, n)
+	}
+	if recs[0].Open(now) {
+		t.Error("a snoozed row is still open")
+	}
+}
