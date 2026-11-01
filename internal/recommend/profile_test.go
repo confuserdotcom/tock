@@ -290,3 +290,15 @@ func TestBuildSustainedSkipsQuietDays(t *testing.T) {
 		t.Errorf("a day of exactly 30 min active left out: SustainedDays %d, want 8", p.SustainedDays)
 	}
 }
+
+// TestBuildDefaultSessionClamped: the default session length is kept within
+// 15..120 as the learned one is, so no preset can make every suggestion too
+// short to send or offer a three hour session.
+func TestBuildDefaultSessionClamped(t *testing.T) {
+	for _, c := range []struct{ preset, want int64 }{{10, 15}, {15, 15}, {25, 25}, {120, 120}, {180, 120}, {240, 120}} {
+		p := Build(Input{MinDays: 7, DefaultSessionMS: c.preset * min1})
+		if p.SessionMS != c.want*min1 || p.GoodSessions != 0 {
+			t.Errorf("preset %d min: SessionMS %d min, GoodSessions %d; want %d, 0", c.preset, p.SessionMS/min1, p.GoodSessions, c.want)
+		}
+	}
+}

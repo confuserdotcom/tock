@@ -1025,12 +1025,13 @@ today.
 - *Typical session.* The median planned length of your finished focus
   sessions of the last 60 days that had quality 70 or more, or a rating of
   4 or 5; it needs 5 such sessions, else it is the first of `[focus]
-  presets`. Rounded to 5 minutes, between 15 and 120.
+  presets`. Rounded to 5 minutes, between 15 and 120; the preset is kept
+  between 15 and 120 too.
 - *Sustained focus.* The median of your longest stretch of activity without
   a break on each of the last 28 days that had at least 30 minutes of
-  activity; it needs 7 such days. Rounded
-  to 5 minutes, between 15 and 120. The break reminder itself uses it kept
-  between 25 and 120 (see The adaptive break).
+  activity; it needs 7 such days. Rounded to 5 minutes, between 15 and 120.
+  The break reminder itself uses it kept between 25 and 120 (see The
+  adaptive break).
 
 `tock trends` shows all three after the month, then how you answered:
 

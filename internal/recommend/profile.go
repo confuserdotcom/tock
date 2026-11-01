@@ -90,7 +90,7 @@ type Profile struct {
 // time; a (weekday, hour) sample is an active day of that weekday with active
 // time in that hour.
 func Build(in Input) Profile {
-	p := Profile{MinDays: in.MinDays, SessionMS: in.DefaultSessionMS}
+	p := Profile{MinDays: in.MinDays}
 	var sum [7][24]int64
 	var runs []int64
 	for _, d := range in.Days {
@@ -166,7 +166,7 @@ func inWindow(hrs stats.Hours, wd time.Weekday, h int) bool {
 // sessionLength is the typical length of the good sessions of the last
 // SessionDays days (the lower median of their planned lengths, rounded to
 // RoundMS and kept within SessionMinMS..SessionMaxMS) and their count; with
-// fewer than MinGoodSessions it is the default and 0.
+// fewer than MinGoodSessions it is the default, kept within the same range, and 0.
 func sessionLength(in Input) (int64, int) {
 	var lens []int64
 	for _, s := range in.Sessions {
@@ -178,7 +178,7 @@ func sessionLength(in Input) (int64, int) {
 		}
 	}
 	if len(lens) < MinGoodSessions {
-		return in.DefaultSessionMS, 0
+		return min(max(in.DefaultSessionMS, SessionMinMS), SessionMaxMS), 0
 	}
 	return roundClamp(lowerMedian(lens)), len(lens)
 }
