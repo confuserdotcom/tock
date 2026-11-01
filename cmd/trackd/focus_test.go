@@ -372,3 +372,55 @@ func TestFocusLoopRetriesRecommendAfterFailure(t *testing.T) {
 		t.Fatalf("recommend rows = %d, want 1", c)
 	}
 }
+
+// breakOverEnv is recEnv's Saturday after 10 days of 52 min runs, at 09:52
+// with a break reminder for the run since 09:00.
+func breakOverEnv(t *testing.T) *apptest.Env {
+	t.Helper()
+	e := apptest.New(t, apptest.Rules)
+	for i := 1; i <= 10; i++ {
+		e.Seed(t, apptest.Span{ID: int64(2000 + i), Start: "08:00", End: "08:52", Bundle: "term", App: "WezTerm", Title: "tock │ h", Day: -i})
+	}
+	e.Seed(t, apptest.Span{ID: 1, Start: "09:00", Bundle: "term", App: "WezTerm", Title: "tock │ x"})
+	e.WriteConfig(t, apptest.NoRoutines+apptest.NoPlanNotices)
+	e.Clock = time.Date(2026, 10, 10, 9, 52, 0, 0, apptest.Zone)
+	return e
+}
+
+// Break over goes out once for a break the user took: not on the next tick, not
+// after a trackd restart.
+func TestFocusLoopBreakOver(t *testing.T) {
+	e := breakOverEnv(t)
+	n := &recNotifier{}
+	f, _ := testLoop(t, e, n, nil)
+	f.tick()
+	if want := []string{"tock · break|52 min without a break. Stand up for 10 min."}; !reflect.DeepEqual(n.got, want) {
+		t.Fatalf("09:52 notifications = %q, want %q", n.got, want)
+	}
+	n.got = nil
+
+	e.Clock = time.Date(2026, 10, 10, 9, 53, 0, 0, apptest.Zone)
+	st, err := app.Open(app.Paths{DB: e.DB, Rules: e.Rules, Learned: e.Learned, Config: e.Config}, e.NowFunc())
+	if err != nil {
+		t.Fatal(err)
+	}
+	pending, err := st.PendingRecommend(e.Clock)
+	if err != nil || pending == nil {
+		t.Fatalf("pending = %+v, %v", pending, err)
+	}
+	if _, err := st.AnswerRecommend(pending.ID, "break", "accept"); err != nil {
+		t.Fatal(err)
+	}
+	st.Close()
+
+	e.Clock = time.Date(2026, 10, 10, 10, 3, 2, 0, apptest.Zone)
+	f.tick()
+	e.Clock = time.Date(2026, 10, 10, 10, 3, 7, 0, apptest.Zone)
+	f.tick()
+	e.Clock = time.Date(2026, 10, 10, 10, 4, 0, 0, apptest.Zone)
+	g, _ := testLoop(t, e, n, nil) // trackd restarted
+	g.tick()
+	if want := []string{"Break over|10 min break done. Back to it."}; !reflect.DeepEqual(n.got, want) {
+		t.Fatalf("notifications = %q, want %q", n.got, want)
+	}
+}

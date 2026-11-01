@@ -84,6 +84,7 @@ type Snapshot struct {
 	Loc          *time.Location // zone for the clock times of Slots; nil = local
 	Rec          *recommend.Rec // the pending recommendation (sent under 30 min ago, no reply), or nil
 	RecErr       error          // why Rec could not be read, for the caller to log; the rest of the snapshot is still good
+	BreakUntil   time.Time      // the break the user took ends then; zero = none running
 }
 
 // LastSession is the finished session the menu offers to rate and refile.
@@ -124,6 +125,11 @@ func Load(a *app.App, now time.Time, access string) (Snapshot, error) {
 	}
 	if s.Rec, err = a.PendingRecommend(now); err != nil {
 		s.Rec, s.RecErr = nil, fmt.Errorf("bar: pending suggestion: %w", err)
+	}
+	if until, err := a.BreakUntil(now); err != nil {
+		s.RecErr = errors.Join(s.RecErr, fmt.Errorf("bar: break: %w", err))
+	} else if until > 0 {
+		s.BreakUntil = time.UnixMilli(until).In(now.Location())
 	}
 	return s, nil
 }
@@ -261,21 +267,30 @@ func (s Snapshot) slotItems(nowMS int64) []Item {
 	return out
 }
 
-// recItems are the pending suggestion's rows at nowMS: its label, the accept
-// item and Not now. None while a session runs (a focus session cannot start
+// recItems are the rows of the recommendations at nowMS: the Break row while a
+// break the user took runs, then the pending suggestion's label, accept item
+// and Not now. No suggestion rows while a session runs (a focus session cannot start
 // then), without a suggestion, or once it is no longer open: the snapshot can
 // be older than the 30 minutes the row stays open.
 func (s Snapshot) recItems(nowMS int64) []Item {
+	var out []Item
+	if !s.BreakUntil.IsZero() && s.BreakUntil.UnixMilli() > nowMS {
+		loc := s.Loc
+		if loc == nil {
+			loc = time.Local
+		}
+		out = append(out, label("Break · until %s", s.BreakUntil.In(loc).Format("15:04")))
+	}
 	r := s.Rec
 	if s.Session != nil || r == nil || !r.Open(nowMS) {
-		return nil
+		return out
 	}
 	key := strconv.FormatInt(r.ID, 10) + ":" + strconv.FormatInt(r.AtMS, 10)
-	return []Item{
+	return append(out,
 		label("Suggested: %s", report.RecText(*r)),
-		{Title: RecAcceptTitle(r.Kind, int(r.LengthMS/60_000)), ID: IDRecAccept + key},
-		{Title: "Not now", ID: IDRecDismiss + key},
-	}
+		Item{Title: RecAcceptTitle(r.Kind, int(r.LengthMS/60_000)), ID: IDRecAccept + key},
+		Item{Title: "Not now", ID: IDRecDismiss + key},
+	)
 }
 
 // recKey parses the "<recommend id>:<sent at ms>" of a suggestion item id.

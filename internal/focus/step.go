@@ -33,6 +33,12 @@ func Step(in Input) []Event {
 		notes = append(notes, n)
 		stateChanged = true
 	}
+	if n, ok := stepBreakOver(in, &st); ok {
+		notes = append(notes, n)
+	}
+	if st.BreakOverAt != in.State.BreakOverAt { // sent, or given up by a late tick
+		stateChanged = true
+	}
 	writes = append(writes, autoSessions(in)...)
 	if n, ok := stepStart(in, &st); ok {
 		notes = append(notes, n)
@@ -145,6 +151,21 @@ func stepBreak(in Input, st *State) (Event, bool) {
 		n.RecKind, n.RecLengthMS = recommend.KindBreak, mins*60_000
 	}
 	return n, true
+}
+
+// stepBreakOver says once that the break the user took has ended. A tick that
+// first sees the end more than BreakOverLateMS after it (trackd was down)
+// sends nothing but still marks it, so the notice never comes later.
+func stepBreakOver(in Input, st *State) (Event, bool) {
+	until := st.BreakUntil
+	if until <= 0 || in.Now < until || st.BreakOverAt == until {
+		return Event{}, false
+	}
+	st.BreakOverAt = until
+	if in.Now-until >= BreakOverLateMS {
+		return Event{}, false
+	}
+	return note(TopicBreakOver, TitleBreakOver, fmt.Sprintf("%d min break done. Back to it.", minutes(until-st.BreakTakenAt)), false), true
 }
 
 // stepSession measures the running session, alerts on distraction and ends

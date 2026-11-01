@@ -362,3 +362,30 @@ func TestRespondBreakKindMismatch(t *testing.T) {
 		t.Fatalf("focus row reply = %q, %v, want unchanged", reply, err)
 	}
 }
+
+func TestSnapshotBreak(t *testing.T) {
+	e, a, ev := breakApp(t)
+	if _, err := a.AnswerRecommend(ev.RecID, "break", "accept"); err != nil {
+		t.Fatal(err)
+	}
+	// e.Clock is 09:53: the break ends at 10:03.
+	s, err := Load(a, e.Clock.Add(2*time.Minute), app.NotifyGranted)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := e.Clock.Add(2 * time.Minute).UnixMilli()
+	got := titles(s.Items(now))
+	if !strings.Contains(got, "Break · until 10:03") {
+		t.Fatalf("menu lacks the break row:\n%s", got)
+	}
+	if strings.Contains(got, "Suggested") {
+		t.Errorf("a suggestion on the menu during the break:\n%s", got)
+	}
+	if got := titles(s.Items(apptest.At(t, "10:04", 0))); strings.Contains(got, "Break ·") {
+		t.Errorf("the break row stays after the break:\n%s", got)
+	}
+	s2, err := Load(a, time.UnixMilli(apptest.At(t, "10:04", 0)).In(apptest.Zone), app.NotifyGranted)
+	if err != nil || !s2.BreakUntil.IsZero() {
+		t.Fatalf("Load after the break: BreakUntil %v, %v, want zero", s2.BreakUntil, err)
+	}
+}

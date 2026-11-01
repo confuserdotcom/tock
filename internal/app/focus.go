@@ -248,7 +248,8 @@ func (a *App) focusState() (focus.State, error) {
 	overAt, _ := strconv.ParseInt(m[store.KeyFocusOverAt], 10, 64)
 	taken, _ := strconv.ParseInt(m[store.KeyFocusBreakTaken], 10, 64)
 	until, _ := strconv.ParseInt(m[store.KeyFocusBreakUntil], 10, 64)
-	return focus.State{BreakTakenAt: taken, BreakUntil: until, OverDay: m[store.KeyFocusOverDay], OverAt: overAt, BreakFrom: from, BreakAt: at, RecapDay: m[store.KeyFocusRecapDay], StartDay: m[store.KeyFocusStartDay], MiddayDay: m[store.KeyFocusMiddayDay], AwayAt: away,
+	over, _ := strconv.ParseInt(m[store.KeyFocusBreakOver], 10, 64)
+	return focus.State{BreakTakenAt: taken, BreakUntil: until, BreakOverAt: over, OverDay: m[store.KeyFocusOverDay], OverAt: overAt, BreakFrom: from, BreakAt: at, RecapDay: m[store.KeyFocusRecapDay], StartDay: m[store.KeyFocusStartDay], MiddayDay: m[store.KeyFocusMiddayDay], AwayAt: away,
 		SnoozeUntil: snooze, DistractSnoozeUntil: distract}, nil
 }
 
@@ -265,6 +266,7 @@ func (a *App) setFocusState(s focus.State, nowMS int64) error {
 		{store.KeyFocusOverAt, strconv.FormatInt(s.OverAt, 10)},
 		{store.KeyFocusAwayAt, strconv.FormatInt(s.AwayAt, 10)},
 		{store.KeyFocusBreakSnooze, strconv.FormatInt(s.SnoozeUntil, 10)},
+		{store.KeyFocusBreakOver, strconv.FormatInt(s.BreakOverAt, 10)},
 	} {
 		if err := a.st.SetState(kv[0], kv[1], nowMS); err != nil {
 			return err

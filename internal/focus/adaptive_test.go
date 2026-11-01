@@ -132,3 +132,71 @@ func TestStepBreakRec(t *testing.T) {
 		t.Fatalf("10:32: %+v", got)
 	}
 }
+
+func TestBreakOver(t *testing.T) {
+	taken := func(now int64, st State) []Event {
+		in := input(now, vw{from: at(9, 0, 0), to: now, kind: "deep"})
+		in.State = st
+		return Step(in)
+	}
+	brk := State{BreakTakenAt: at(9, 53, 0), BreakUntil: at(10, 3, 0)}
+	if evs := taken(at(10, 2, 0), brk); len(evs) != 0 {
+		t.Fatalf("10:02: %+v, want nothing", evs)
+	}
+	evs := taken(at(10, 3, 0), brk)
+	notes, states := only(evs, Notify), only(evs, StateUpdate)
+	if len(notes) != 1 || notes[0].Topic != TopicBreakOver || notes[0].Title != "Break over" ||
+		notes[0].Body != "10 min break done. Back to it." || notes[0].OfSession {
+		t.Fatalf("10:03 notes = %+v", notes)
+	}
+	if len(states) != 1 || states[0].State.BreakOverAt != at(10, 3, 0) || states[0].State.BreakUntil != at(10, 3, 0) {
+		t.Fatalf("10:03 state = %+v", states)
+	}
+	if evs[len(evs)-1].Kind != Notify || evs[0].Kind != StateUpdate {
+		t.Fatalf("state first, notice last: %+v", evs)
+	}
+
+	done := brk
+	done.BreakOverAt = at(10, 3, 0)
+	if evs := taken(at(10, 3, 5), done); len(evs) != 0 {
+		t.Fatalf("already sent: %+v, want nothing", evs)
+	}
+
+	// More than 5 min late: no notice, but never later either.
+	evs = taken(at(10, 8, 1), brk)
+	if n := only(evs, Notify); len(n) != 0 {
+		t.Fatalf("late: %+v, want no notice", n)
+	}
+	if st := only(evs, StateUpdate); len(st) != 1 || st[0].State.BreakOverAt != at(10, 3, 0) {
+		t.Fatalf("late state = %+v, want BreakOverAt set", st)
+	}
+	if n := only(taken(at(10, 7, 59), brk), Notify); len(n) != 1 {
+		t.Fatalf("10:07:59: %+v, want the notice (under 5 min late)", n)
+	}
+
+	// No break taken: no Break over notice (the 63 min run has its own reminder).
+	for _, e := range taken(at(10, 3, 0), State{}) {
+		if e.Topic == TopicBreakOver {
+			t.Fatalf("no break: %+v", e)
+		}
+	}
+
+	// A call does not delay it.
+	in := input(at(10, 3, 0), vw{from: at(9, 0, 0), to: at(10, 3, 0), kind: "deep"})
+	in.State, in.Call = brk, true
+	if n := only(Step(in), Notify); len(n) != 1 || n[0].Topic != TopicBreakOver {
+		t.Fatalf("during a call: %+v", n)
+	}
+}
+
+func TestRecommendDuringBreak(t *testing.T) {
+	in := recBase()
+	in.State.BreakUntil = at(9, 31, 0)
+	if RecommendDue(in) || len(only(Step(in), RecDue)) != 0 {
+		t.Fatal("a suggestion came during a taken break")
+	}
+	in.State.BreakUntil = at(9, 30, 0)
+	if !RecommendDue(in) || len(only(Step(in), RecDue)) != 1 {
+		t.Fatal("no suggestion once the break has ended")
+	}
+}

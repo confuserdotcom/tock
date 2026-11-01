@@ -48,6 +48,9 @@ func RecommendDue(in Input) bool {
 	if in.Profile.Rank(t.Weekday(), t.Hour()) == 0 {
 		return false
 	}
+	if in.Now < in.State.BreakUntil {
+		return false // the user is on a break they took
+	}
 	return openSession(in) == nil
 }
 

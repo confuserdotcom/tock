@@ -39,6 +39,9 @@ const (
 	// it, trackd only reads it (so a click between trackd's read and its write
 	// is never lost, as with KeyFocusDistractSnooze).
 	KeyFocusBreakUntil = "focus_break_until"
+	// KeyFocusBreakOver is the break end (ms, KeyFocusBreakUntil's value) the
+	// Break over notice was last sent for; trackd owns it.
+	KeyFocusBreakOver = "focus_break_over"
 	// KeyFocusDistractSnooze is when (ms) snoozed distraction notices of the
 	// running session resume.
 	KeyFocusDistractSnooze = "focus_distract_snooze"

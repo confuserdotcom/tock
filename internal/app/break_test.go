@@ -200,3 +200,33 @@ func TestBreakRowFailure(t *testing.T) {
 		t.Error("RoutineErr not set")
 	}
 }
+
+const breakOverNote = "10 min break done. Back to it."
+
+func TestBreakOverOnce(t *testing.T) {
+	e := breakEnv(t, 10, "")
+	a := open(t, e)
+	ev := breakTick(t, a, e, 9, 52, 0)[0]
+	slotClock(e, 9, 53, 0)
+	if _, err := a.AnswerRecommend(ev.RecID, "break", "accept"); err != nil {
+		t.Fatal(err)
+	}
+	wantList(t, "10:03:02", tickAt(t, a, e, 10, 3, 2), wantNote(focus.TopicBreakOver, "Break over", breakOverNote))
+	wantList(t, "10:03:07", tickAt(t, a, e, 10, 3, 7))
+	wantList(t, "restart 10:04", tickAt(t, open(t, e), e, 10, 4, 0))
+	if got := stateVal(t, e, store.KeyFocusBreakOver); got != strconv.FormatInt(apptest.At(t, "10:03", 0), 10) {
+		t.Fatalf("focus_break_over = %q", got)
+	}
+}
+
+func TestBreakOverLate(t *testing.T) {
+	e := breakEnv(t, 10, "")
+	a := open(t, e)
+	ev := breakTick(t, a, e, 9, 52, 0)[0]
+	slotClock(e, 9, 53, 0)
+	if _, err := a.AnswerRecommend(ev.RecID, "break", "accept"); err != nil {
+		t.Fatal(err)
+	}
+	wantList(t, "10:09", tickAt(t, a, e, 10, 9, 0))
+	wantList(t, "10:09:05", tickAt(t, a, e, 10, 9, 5))
+}

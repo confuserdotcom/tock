@@ -42,6 +42,8 @@ const (
 	TitleMidday = "Midday check-in"
 	// TitleOver is the overworking notice.
 	TitleOver = "Overworking"
+	// TitleBreakOver is the notice that the break the user took has ended.
+	TitleBreakOver = "Break over"
 )
 
 // Notification topics: what a note is about, so a notifier can offer the
@@ -56,11 +58,17 @@ const (
 	TopicMidday = "midday"
 	// TopicOver is the overworking notice's topic.
 	TopicOver = "overwork"
+	// TopicBreakOver is the Break over notice's topic; it has no buttons.
+	TopicBreakOver = "breakover"
 )
 
 // AwayNotifyMS is how soon after coming back the away question is sent; an
 // absence that ended earlier is left to the TUI and tock away.
 const AwayNotifyMS = 2 * 60_000
+
+// BreakOverLateMS is how long after a taken break's end the Break over notice
+// is still worth sending; a trackd that first ticks later sends none.
+const BreakOverLateMS = 5 * 60_000
 
 // Session is one focus session. It has the same fields in the same order as
 // store.Session, so the two convert directly; keep them in step.
@@ -103,6 +111,9 @@ type State struct {
 	// reminder: when they took it and when it ends (ms). Read from daemon_state
 	// and never saved by a StateUpdate: tock owns them.
 	BreakTakenAt, BreakUntil int64
+	// BreakOverAt is the BreakUntil the Break over notice was sent (or given up)
+	// for; trackd owns it.
+	BreakOverAt int64
 }
 
 // EventKind says what an Event asks the caller to do.
