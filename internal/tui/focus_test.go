@@ -651,3 +651,27 @@ func recRow(t *testing.T, e *apptest.Env, id int64) store.Recommend {
 	}
 	return r
 }
+
+// A suggested break is taken with enter: it says when the break ends and starts
+// no session.
+func TestFocusSuggestedBreak(t *testing.T) {
+	m, e := seeded(t)
+	e.Heartbeat(t, e.Clock.UnixMilli())
+	st, err := store.Open(e.DB)
+	if err != nil {
+		t.Fatal(err)
+	}
+	id, err := st.AddRecommend(store.Recommend{Kind: "break", AtMS: e.Clock.Add(-5 * time.Minute).UnixMilli(), Weekday: int(e.Clock.Weekday()), Hour: e.Clock.Hour(), LengthMS: 10 * 60_000})
+	st.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+	m = press(t, m, "r", "4")
+	mustContain(t, m, "Suggested: break (10 min)", "enter take it")
+	m = press(t, m, "enter")
+	mustContain(t, m, "break until "+e.Clock.Add(10*time.Minute).Format("15:04"), "No session running.")
+	mustNotContain(t, m, "Suggested:", "started")
+	if r := recRow(t, e, id); r.Reply != "accept" {
+		t.Fatalf("reply = %q, want accept", r.Reply)
+	}
+}

@@ -108,6 +108,8 @@ func (m Model) answerSuggestion(reply string) (tea.Model, tea.Cmd) {
 			return "a session is already running, nothing started", nil
 		case err != nil:
 			return "", err
+		case res.BreakUntilMS > 0:
+			return "break until " + res.BreakUntil.Format("15:04"), nil
 		case res.Session != nil:
 			return fmt.Sprintf("started %d min session", (res.Session.PlannedMS-res.Session.StartMS)/60_000), nil
 		}
