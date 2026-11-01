@@ -114,8 +114,9 @@ func TestReplyLines(t *testing.T) {
 	now := day0.UnixMilli() + 12*3600_000
 	rows := func(kind string, hour int, replies ...string) []recommend.Rec {
 		var out []recommend.Rec
-		for _, r := range replies {
-			out = append(out, recommend.Rec{Kind: kind, Hour: hour, Reply: r, AtMS: now - recommend.DayMS})
+		for i, r := range replies {
+			// One row a day: break replies of one day and hour are one answer.
+			out = append(out, recommend.Rec{Kind: kind, Hour: hour, Reply: r, AtMS: now - int64(i+1)*recommend.DayMS})
 		}
 		return out
 	}

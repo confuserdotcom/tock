@@ -1,6 +1,9 @@
 package recommend
 
-import "time"
+import (
+	"sort"
+	"time"
+)
 
 // Thresholds of the reply learning (12-CONTEXT "Replies").
 const (
@@ -18,22 +21,48 @@ type HourReplies struct{ Answered, Accepted int }
 // Learning is what the replies of the last ReplyDays say, per kind and hour.
 type Learning struct{ Focus, Break [24]HourReplies }
 
+// breakGapMS separates two days of break reminders sent in the same hour of the
+// day: rows of one hour on one day are less than an hour apart.
+const breakGapMS = 12 * 3600_000
+
 // Learn counts the replies to recs sent in the ReplyDays before nowMS, by kind
 // and the hour they were sent. Unanswered rows do not count and older rows have
-// aged out, so a muted hour recovers.
+// aged out, so a muted hour recovers. A break reminder repeats during one run,
+// so all the break replies of one hour of one day make a single answer: taken
+// when any of them was accepted, else dismissed.
 func Learn(recs []Rec, nowMS int64) Learning {
 	var l Learning
 	from := nowMS - ReplyDays*DayMS
+	sorted := make([]Rec, 0, len(recs))
 	for _, r := range recs {
 		if r.Reply == "" || r.AtMS < from || r.Hour < 0 || r.Hour > 23 {
 			continue
 		}
+		sorted = append(sorted, r)
+	}
+	sort.SliceStable(sorted, func(a, b int) bool { return sorted[a].AtMS < sorted[b].AtMS })
+	var group [24]*HourReplies // the break answer of each hour's current day
+	var groupStart [24]int64
+	for _, r := range sorted {
 		var h *HourReplies
 		switch r.Kind {
 		case KindFocus:
 			h = &l.Focus[r.Hour]
 		case KindBreak:
 			h = &l.Break[r.Hour]
+			if g := group[r.Hour]; g != nil && r.AtMS-groupStart[r.Hour] < breakGapMS {
+				// Another reminder of the same run: it can only turn the
+				// answer into a taken break.
+				if r.Reply == ReplyAccept && g.Accepted == 0 {
+					g.Accepted = 1
+					h.Accepted++
+				}
+				continue
+			}
+			group[r.Hour], groupStart[r.Hour] = &HourReplies{Answered: 1}, r.AtMS
+			if r.Reply == ReplyAccept {
+				group[r.Hour].Accepted = 1
+			}
 		default:
 			continue
 		}

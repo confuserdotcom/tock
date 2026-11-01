@@ -116,3 +116,54 @@ func TestFocusHour(t *testing.T) {
 		t.Error("another weekday: want false")
 	}
 }
+
+// Break reminders repeat during one run, so several Not now taps in one hour of
+// one day are one answer; muting needs the hour to be dismissed on 3 days.
+func TestLearnBreakCountsOneAnswerPerDayAndHour(t *testing.T) {
+	now := day0.UnixMilli() + 12*3600_000
+	dis, acc := ReplyDismiss, ReplyAccept
+	at := func(daysAgo int, minutes int64) int64 {
+		return now - int64(daysAgo)*DayMS + minutes*min1
+	}
+	brk := func(daysAgo int, minutes int64, reply string) Rec {
+		return Rec{Kind: KindBreak, Hour: 14, Reply: reply, AtMS: at(daysAgo, minutes)}
+	}
+
+	// Three taps in half an hour of one afternoon do not mute the hour.
+	busy := []Rec{brk(1, 0, dis), brk(1, 10, dis), brk(1, 20, dis)}
+	l := Learn(busy, now)
+	if l.Muted(KindBreak, 14) {
+		t.Error("three Not now in one run muted the hour")
+	}
+	if a, n := l.Totals(KindBreak); a != 0 || n != 1 {
+		t.Errorf("Totals(break) = %d of %d, want 0 of 1", a, n)
+	}
+
+	// Three different days do.
+	days := []Rec{brk(1, 0, dis), brk(1, 10, dis), brk(2, 0, dis), brk(3, 0, dis), brk(3, 10, dis)}
+	if !Learn(days, now).Muted(KindBreak, 14) {
+		t.Error("Not now on three different days did not mute the hour")
+	}
+
+	// A run that ended in taking the break counts as taken.
+	taken := []Rec{brk(1, 0, dis), brk(1, 10, acc), brk(2, 0, dis), brk(3, 0, dis)}
+	l = Learn(taken, now)
+	if l.Muted(KindBreak, 14) {
+		t.Error("an hour with a taken break is muted")
+	}
+	if a, n := l.Totals(KindBreak); a != 1 || n != 3 {
+		t.Errorf("Totals(break) = %d of %d, want 1 of 3", a, n)
+	}
+
+	// Rows given newest first are grouped the same way.
+	rev := []Rec{brk(3, 10, dis), brk(3, 0, dis), brk(2, 0, dis), brk(1, 10, dis), brk(1, 0, dis)}
+	if !Learn(rev, now).Muted(KindBreak, 14) {
+		t.Error("newest-first rows were not grouped")
+	}
+
+	// Focus suggestions are at most 2 a day and stay counted one by one.
+	f := []Rec{{Kind: KindFocus, Hour: 14, Reply: dis, AtMS: at(1, 0)}, {Kind: KindFocus, Hour: 14, Reply: dis, AtMS: at(1, 10)}, {Kind: KindFocus, Hour: 14, Reply: dis, AtMS: at(1, 20)}}
+	if !Learn(f, now).Muted(KindFocus, 14) {
+		t.Error("focus replies were collapsed")
+	}
+}
