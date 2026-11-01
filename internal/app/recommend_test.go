@@ -444,3 +444,91 @@ func TestFocusPending(t *testing.T) {
 		t.Fatalf("with a session running: Pending = %+v, %v, want nil", f.Pending, err)
 	}
 }
+
+// seedReplies stores one answered recommendation per day for the days before
+// the clock's day, sent at hour:10 and answered a second later.
+func seedReplies(t *testing.T, a *App, kind string, hour int, firstDay, n int, reply string) {
+	t.Helper()
+	day := apptest.At(t, "00:00", 0)
+	for i := 0; i < n; i++ {
+		at := day - int64(firstDay+i)*24*3600_000 + int64(hour)*3600_000 + 10*60_000
+		id, err := a.st.AddRecommend(store.Recommend{Kind: kind, AtMS: at, Weekday: 6, Hour: hour, LengthMS: 25 * 60_000})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if ok, err := a.st.ReplyRecommend(id, reply, at+1000, at-1); err != nil || !ok {
+			t.Fatalf("reply = %v, %v", ok, err)
+		}
+	}
+}
+
+// TestRecommendMutedHour: three dismissed suggestions at the best hour mute it;
+// the same replies 31 days back have aged out.
+func TestRecommendMutedHour(t *testing.T) {
+	e := recEnv(t, "")
+	a := open(t, e)
+	seedReplies(t, a, "focus", 9, 1, 3, "dismiss")
+	wantList(t, "09:30 muted", tickAt(t, a, e, 9, 30, 0))
+
+	e = recEnv(t, "")
+	a = open(t, e)
+	seedReplies(t, a, "focus", 9, 31, 3, "dismiss")
+	if got := tickAt(t, a, e, 9, 30, 0); len(got) != 1 {
+		t.Fatalf("09:30 with aged replies = %q, want the suggestion", got)
+	}
+}
+
+// TestRecommendReplyTakesEffect: dismissing the third suggestion of an hour
+// mutes the next one at once, without waiting for the row cache.
+func TestRecommendReplyTakesEffect(t *testing.T) {
+	e := recEnv(t, "")
+	a := open(t, e)
+	seedReplies(t, a, "focus", 9, 1, 2, "dismiss")
+	evs, err := a.FocusTick(false)
+	if err != nil || len(evs) != 1 {
+		t.Fatalf("tick = %v, %v", evs, err)
+	}
+	if _, err := a.AnswerRecommend(evs[0].RecID, "focus", "dismiss"); err != nil {
+		t.Fatal(err)
+	}
+	// 65 min later the hour is 10, so check the learning directly: 3 dismisses at 9.
+	l, err := a.Learning(a.now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !l.Muted("focus", 9) {
+		t.Error("the third dismissal did not mute the hour")
+	}
+}
+
+// TestBreakMutedHour: a break hour always answered Not now gets no reminder
+// that hour; the reminder comes once the hour turns.
+func TestBreakMutedHour(t *testing.T) {
+	e := recEnv(t, "")
+	a := open(t, e)
+	seedReplies(t, a, "break", 10, 1, 3, "dismiss")
+	wantList(t, "10:00 muted", tickAt(t, a, e, 10, 0, 0))
+	if got := tickAt(t, a, e, 11, 0, 0); len(got) != 1 {
+		t.Fatalf("11:00 = %q, want the break reminder", got)
+	}
+}
+
+// TestLearning: the learning is the rows of the last 30 days, learned.
+func TestLearning(t *testing.T) {
+	e := recEnv(t, "")
+	a := open(t, e)
+	seedReplies(t, a, "focus", 9, 1, 2, "dismiss")
+	seedReplies(t, a, "focus", 9, 3, 1, "accept")
+	seedReplies(t, a, "break", 15, 1, 3, "dismiss")
+	seedReplies(t, a, "focus", 9, 31, 4, "dismiss")
+	l, err := a.Learning(a.now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if acc, n := l.Totals("focus"); acc != 1 || n != 3 {
+		t.Errorf("focus totals = %d of %d, want 1 of 3", acc, n)
+	}
+	if got := l.MutedHours("break"); len(got) != 1 || got[0] != 15 {
+		t.Errorf("muted break hours = %v, want [15]", got)
+	}
+}

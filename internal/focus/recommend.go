@@ -55,9 +55,18 @@ func RecommendDue(in Input) bool {
 }
 
 // RecsDue reports that the caller must read the recommendation rows (and,
-// with them, whatever else stepRecommend needs) before calling Step.
+// with them, whatever else Step needs) before calling Step: a focus suggestion
+// could be due, or a break reminder is due and the rows tell whether its hour
+// is muted.
 func RecsDue(in Input) bool {
-	return RecommendDue(in)
+	if RecommendDue(in) {
+		return true
+	}
+	if !in.Rec.Enabled || !in.Cfg.Notify || openSession(in) != nil {
+		return false
+	}
+	_, due := breakDue(in, in.State)
+	return due
 }
 
 // stepRecommend suggests a focus session at a top focus hour (REC-02). It is
@@ -70,13 +79,19 @@ func RecsDue(in Input) bool {
 //     and at least RecActiveMS of the last RecActiveWindowMS is this machine's
 //     own activity (the rule LocalInputEnd uses, so with two synced machines
 //     only the one in use suggests);
-//   - no plan item or calendar event is running (RecSlots).
+//   - no plan item or calendar event is running (RecSlots);
+//   - the replies allow the hour (recommend.FocusHour): not one always
+//     answered Not now, and one rarely taken only when it ranks first.
 //
 // The length is the profile's typical session capped by the time to the next
 // slot and to the [hours] end, floored to 5 min; it is skipped under RecMinMS.
 func stepRecommend(in Input) (Event, bool) {
 	if !RecommendDue(in) || !in.RecsOK {
 		return Event{}, false
+	}
+	t := time.UnixMilli(in.Now).In(in.Day.Location())
+	if !recommend.FocusHour(in.Profile, recommend.Learn(in.Recs, in.Now), t.Weekday(), t.Hour()) {
+		return Event{}, false // an hour the replies muted, or one that is rarely taken and not the best
 	}
 	if recommend.CountSince(in.Recs, recommend.KindFocus, in.Day.UnixMilli()) >= in.Rec.MaxPerDay {
 		return Event{}, false

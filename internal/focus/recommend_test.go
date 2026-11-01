@@ -164,3 +164,56 @@ func TestRecommendRules(t *testing.T) {
 		}
 	}
 }
+
+// TestRecommendLearning: replies to earlier suggestions mute an hour or make
+// it need the first rank (REC-04).
+func TestRecommendLearning(t *testing.T) {
+	const day = 24 * 60 * minute
+	rows := func(ageDays int64, replies ...string) []recommend.Rec {
+		var out []recommend.Rec
+		for i, r := range replies {
+			out = append(out, recommend.Rec{ID: int64(i + 1), Kind: recommend.KindFocus, Hour: 9,
+				AtMS: at(9, 10, 0) - (ageDays+int64(i))*day, Reply: r})
+		}
+		return out
+	}
+	dis, acc := recommend.ReplyDismiss, recommend.ReplyAccept
+	suggests := func(top []int, recs []recommend.Rec) bool {
+		in := recBase()
+		in.Profile.Top[6] = top
+		in.Recs = recs
+		return len(only(Step(in), RecDue)) == 1
+	}
+	if suggests([]int{9}, rows(1, dis, dis, dis)) {
+		t.Error("three dismisses at the hour: want no suggestion")
+	}
+	if !suggests([]int{9}, rows(1, dis, dis)) {
+		t.Error("two dismisses: want the suggestion")
+	}
+	if suggests([]int{10, 9}, rows(1, dis, dis, dis, dis, acc)) {
+		t.Error("1 of 5 accepted and rank 2: want no suggestion")
+	}
+	if !suggests([]int{9, 10}, rows(1, dis, dis, dis, dis, acc)) {
+		t.Error("1 of 5 accepted and rank 1: want the suggestion")
+	}
+	if !suggests([]int{10, 9}, rows(1, dis, dis, dis, acc)) {
+		t.Error("1 of 4 accepted (25 %) and rank 2: want the suggestion")
+	}
+	if !suggests([]int{9}, rows(31, dis, dis, dis)) {
+		t.Error("replies 31 days old: want the suggestion (aged out)")
+	}
+	// A muted hour only mutes the focus kind of that hour.
+	other := rows(1, dis, dis, dis)
+	for i := range other {
+		other[i].Hour = 10
+	}
+	if !suggests([]int{9}, other) {
+		t.Error("replies of another hour muted this one")
+	}
+	// The rows are not read: no learning, no suggestion at all.
+	in := recBase()
+	in.RecsOK, in.Recs = false, rows(1, dis, dis, dis)
+	if len(only(Step(in), RecDue)) != 0 {
+		t.Error("suggested without rows read")
+	}
+}

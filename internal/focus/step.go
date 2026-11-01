@@ -142,6 +142,13 @@ func stepBreak(in Input, st *State) (Event, bool) {
 	if !ok {
 		return Event{}, false
 	}
+	// An hour whose break reminders were always answered Not now stays quiet;
+	// the state is not advanced, so a reminder still due comes as the hour
+	// turns. Without the rows the reminder fails open.
+	if in.Rec.Enabled && in.RecsOK &&
+		recommend.Learn(in.Recs, in.Now).Muted(recommend.KindBreak, time.UnixMilli(in.Now).In(in.Day.Location()).Hour()) {
+		return Event{}, false
+	}
 	st.BreakFrom, st.BreakAt = from, in.Now
 	mins := recommend.BreakMinutes(in.Now-from, recommend.Adaptive(in.Profile, in.Rec))
 	n := note(TopicBreak, TitleBreak, fmt.Sprintf("%d min without a break. Stand up for %d min.", minutes(in.Now-from), mins), false)

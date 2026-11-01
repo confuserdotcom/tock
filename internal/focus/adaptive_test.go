@@ -200,3 +200,69 @@ func TestRecommendDuringBreak(t *testing.T) {
 		t.Fatal("no suggestion once the break has ended")
 	}
 }
+
+// TestBreakMuted: a break hour always answered Not now gets no reminder in that
+// hour; the rows must be read, else the reminder fails open (T-12-22).
+func TestBreakMuted(t *testing.T) {
+	const day = 24 * 60 * minute
+	muted := func(in Input) Input {
+		in.RecsOK = true
+		for i := int64(1); i <= 3; i++ {
+			in.Recs = append(in.Recs, recommend.Rec{ID: i, Kind: recommend.KindBreak, Hour: 9,
+				AtMS: at(9, 52, 0) - i*day, Reply: recommend.ReplyDismiss})
+		}
+		return in
+	}
+	evs := Step(muted(adaptiveIn(at(9, 52, 0))))
+	if len(breakEvents(evs)) != 0 || len(only(evs, StateUpdate)) != 0 {
+		t.Fatalf("09:52 muted: %+v, want no reminder and no state change", evs)
+	}
+	// The hour turns: the reminder that is still due comes.
+	evs = Step(muted(adaptiveIn(at(10, 0, 0))))
+	if got := breakEvents(evs); len(got) != 1 || got[0].Body != "60 min without a break. Stand up for 10 min." {
+		t.Fatalf("10:00: %+v, want the reminder", got)
+	}
+	if st := only(evs, StateUpdate); len(st) != 1 {
+		t.Fatalf("10:00 state = %+v", st)
+	}
+	// Rows not read: fail open.
+	in := muted(adaptiveIn(at(9, 52, 0)))
+	in.RecsOK = false
+	if got := breakEvents(Step(in)); len(got) != 1 {
+		t.Fatalf("RecsOK false: %+v, want the reminder", got)
+	}
+	// A focus mute does not mute breaks.
+	in = muted(adaptiveIn(at(9, 52, 0)))
+	for i := range in.Recs {
+		in.Recs[i].Kind = recommend.KindFocus
+	}
+	if got := breakEvents(Step(in)); len(got) != 1 {
+		t.Fatalf("focus rows muted the break: %+v", got)
+	}
+	// Recommendations off: no learning, the old reminder.
+	in = muted(adaptiveIn(at(9, 52, 0)))
+	in.Rec.Enabled = false
+	in.Profile = recommend.Profile{}
+	in.Cfg.BreakAfterMS = 50 * minute
+	if got := breakEvents(Step(in)); len(got) != 1 {
+		t.Fatalf("disabled: %+v, want the reminder", got)
+	}
+
+	// RecsDue is true on a tick where a break is due, false the minute before.
+	if RecsDue(adaptiveIn(at(9, 51, 0))) {
+		t.Error("RecsDue at 09:51, nothing due")
+	}
+	if !RecsDue(adaptiveIn(at(9, 52, 0))) {
+		t.Error("RecsDue at 09:52, break due")
+	}
+	in = adaptiveIn(at(9, 52, 0))
+	in.Rec.Enabled = false
+	if RecsDue(in) {
+		t.Error("RecsDue with recommendations off")
+	}
+	in = adaptiveIn(at(9, 52, 0))
+	in.Cfg.Notify = false
+	if RecsDue(in) {
+		t.Error("RecsDue with notify off")
+	}
+}

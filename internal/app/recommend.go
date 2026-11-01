@@ -280,3 +280,13 @@ func (a *App) BreakUntil(now time.Time) (int64, error) {
 	}
 	return until, nil
 }
+
+// Learning is what the replies of the last recommend.ReplyDays say at now (the
+// rows are cached for a minute, and a reply drops the cache).
+func (a *App) Learning(now time.Time) (recommend.Learning, error) {
+	rows, err := a.recRows(now)
+	if err != nil {
+		return recommend.Learning{}, fmt.Errorf("app: learning: %w", err)
+	}
+	return recommend.Learn(rows, now.UnixMilli()), nil
+}
