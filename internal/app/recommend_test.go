@@ -329,3 +329,93 @@ func TestReleaseRecommend(t *testing.T) {
 		t.Fatalf("an answered row was deleted: rows = %d", n)
 	}
 }
+
+func TestPendingRecommend(t *testing.T) {
+	e := recEnv(t, "")
+	a := open(t, e)
+	now := e.Clock
+	nowMS := now.UnixMilli()
+	if r, err := a.PendingRecommend(now); err != nil || r != nil {
+		t.Fatalf("no rows: %+v, %v, want nil", r, err)
+	}
+	add := func(at int64) int64 {
+		t.Helper()
+		id, err := a.st.AddRecommend(store.Recommend{Kind: "focus", AtMS: at, Weekday: 6, Hour: 9, LengthMS: 25 * 60_000})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return id
+	}
+	old := add(nowMS - 10*60_000)
+	r, err := a.PendingRecommend(now)
+	if err != nil || r == nil || r.ID != old || r.Kind != "focus" || r.LengthMS != 25*60_000 {
+		t.Fatalf("10 min old: %+v, %v", r, err)
+	}
+	newer := add(nowMS - 5*60_000)
+	if r, err := a.PendingRecommend(now); err != nil || r == nil || r.ID != newer {
+		t.Fatalf("two open: %+v, %v, want the newer", r, err)
+	}
+	if _, err := a.AnswerRecommend(newer, "", "dismiss"); err != nil {
+		t.Fatal(err)
+	}
+	if r, err := a.PendingRecommend(now); err != nil || r == nil || r.ID != old {
+		t.Fatalf("after answering the newer: %+v, %v, want the older", r, err)
+	}
+	if _, err := a.AnswerRecommend(old, "", "accept"); err != nil {
+		t.Fatal(err)
+	}
+	if r, err := a.PendingRecommend(now); err != nil || r != nil {
+		t.Fatalf("answered: %+v, %v, want nil", r, err)
+	}
+	if r, err := a.PendingRecommend(now.Add(31 * time.Minute)); err != nil || r != nil {
+		t.Fatalf("expired: %+v, %v, want nil", r, err)
+	}
+}
+
+func TestPendingRecommendExpiry(t *testing.T) {
+	e := recEnv(t, "")
+	a := open(t, e)
+	nowMS := e.Clock.UnixMilli()
+	if _, err := a.st.AddRecommend(store.Recommend{Kind: "focus", AtMS: nowMS - 30*60_000, LengthMS: 25 * 60_000}); err != nil {
+		t.Fatal(err)
+	}
+	if r, err := a.PendingRecommend(e.Clock); err != nil || r != nil {
+		t.Fatalf("30 min old: %+v, %v, want nil", r, err)
+	}
+}
+
+// TestAnswerRecommendAt: ids are reused after a delete (no AUTOINCREMENT), so
+// a surface that showed the row names its send time too, and a newer row that
+// took the same id is not answered by the older view.
+func TestAnswerRecommendAt(t *testing.T) {
+	e := recEnv(t, "")
+	a := open(t, e)
+	nowMS := e.Clock.UnixMilli()
+	first, err := a.st.AddRecommend(store.Recommend{Kind: "focus", AtMS: nowMS - 20*60_000, LengthMS: 25 * 60_000})
+	if err != nil {
+		t.Fatal(err)
+	}
+	shownAt := nowMS - 20*60_000
+	if err := a.st.DeleteRecommend(first); err != nil {
+		t.Fatal(err)
+	}
+	second, err := a.st.AddRecommend(store.Recommend{Kind: "focus", AtMS: nowMS - 2*60_000, LengthMS: 10 * 60_000})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if second != first {
+		t.Skipf("sqlite did not reuse id %d (got %d)", first, second)
+	}
+	if _, err := a.AnswerRecommendAt(first, shownAt, "", "accept"); !errors.Is(err, ErrNoRecommend) {
+		t.Fatalf("stale view err = %v, want ErrNoRecommend", err)
+	}
+	if r, _ := a.st.Recommend(second); r.Reply != "" {
+		t.Fatalf("newer row answered by a stale view: %+v", r)
+	}
+	if s, _ := a.st.OpenSession(); s != nil {
+		t.Fatalf("a session started: %+v", s)
+	}
+	if _, err := a.AnswerRecommendAt(second, nowMS-2*60_000, "", "dismiss"); err != nil {
+		t.Fatalf("matching view err = %v", err)
+	}
+}

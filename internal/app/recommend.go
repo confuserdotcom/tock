@@ -135,6 +135,27 @@ func (a *App) ReleaseRecommend(ev focus.Event) error {
 	return nil
 }
 
+// PendingRecommend returns the newest recommendation that is still open at
+// now (unanswered, sent under recommend.PendingMS ago), nil if none. One
+// indexed read of the last 30 minutes of rows.
+func (a *App) PendingRecommend(now time.Time) (*recommend.Rec, error) {
+	nowMS := now.UnixMilli()
+	rows, err := a.st.Recommends(nowMS - recommend.PendingMS)
+	if err != nil {
+		return nil, fmt.Errorf("app: pending recommendation: %w", err)
+	}
+	recs := make([]recommend.Rec, len(rows))
+	for i, r := range rows {
+		recs[i] = recommend.Rec(r)
+	}
+	r := recommend.Pending(recs, nowMS)
+	if r == nil {
+		return nil, nil
+	}
+	out := *r
+	return &out, nil
+}
+
 // RecAnswer is what answering a recommendation did: the row as it is now and,
 // for an accepted focus suggestion, the session that was started.
 type RecAnswer struct {
@@ -150,6 +171,15 @@ type RecAnswer struct {
 // (store.ErrSessionRunning) the reply goes back to ” and the error is
 // returned, so the suggestion stays open to dismiss.
 func (a *App) AnswerRecommend(id int64, kind, reply string) (RecAnswer, error) {
+	return a.AnswerRecommendAt(id, 0, kind, reply)
+}
+
+// AnswerRecommendAt is AnswerRecommend for a surface that showed the row: atMS
+// is the send time it showed. Row ids can be reused (no AUTOINCREMENT: a
+// released row's id goes to the next one), so a stale menu or screen must not
+// answer a newer row that took the same id: with atMS > 0 a row sent at
+// another time is ErrNoRecommend. atMS 0 matches any row.
+func (a *App) AnswerRecommendAt(id, atMS int64, kind, reply string) (RecAnswer, error) {
 	if reply != recommend.ReplyAccept && reply != recommend.ReplyDismiss {
 		return RecAnswer{}, fmt.Errorf("app: recommend: reply %q, want %s or %s", reply, recommend.ReplyAccept, recommend.ReplyDismiss)
 	}
@@ -162,7 +192,7 @@ func (a *App) AnswerRecommend(id int64, kind, reply string) (RecAnswer, error) {
 	}
 	now := a.nowMS()
 	rec := recommend.Rec(row)
-	if (kind != "" && rec.Kind != kind) || !rec.Open(now) {
+	if (kind != "" && rec.Kind != kind) || (atMS > 0 && rec.AtMS != atMS) || !rec.Open(now) {
 		return RecAnswer{}, ErrNoRecommend
 	}
 	if reply == recommend.ReplyAccept && rec.Kind != recommend.KindFocus {

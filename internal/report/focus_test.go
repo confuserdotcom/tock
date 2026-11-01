@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"tock/internal/focus"
+	"tock/internal/recommend"
 	"tock/internal/stats"
 )
 
@@ -66,5 +67,19 @@ func TestRecap(t *testing.T) {
 	}
 	if got, want := Recap(Day{}), "No activity."; got != want {
 		t.Errorf("Recap(empty) = %q, want %q", got, want)
+	}
+}
+
+func TestRecText(t *testing.T) {
+	for _, c := range []struct {
+		r    recommend.Rec
+		want string
+	}{
+		{recommend.Rec{Kind: recommend.KindFocus, LengthMS: 25 * 60_000}, "focus now (25 min)"},
+		{recommend.Rec{Kind: recommend.KindBreak, LengthMS: 10 * 60_000}, "break (10 min)"},
+	} {
+		if got := RecText(c.r); got != c.want {
+			t.Errorf("RecText(%+v) = %q, want %q", c.r, got, c.want)
+		}
 	}
 }

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"tock/internal/focus"
+	"tock/internal/recommend"
 )
 
 // Focus is the focus tab: the running session and this week's history.
@@ -24,6 +25,19 @@ type Focus struct {
 	SnoozeUntilMS int64
 	// SnoozeMin is the [focus] snooze minutes a snooze offers.
 	SnoozeMin int
+	// Pending is the recommendation still open at NowMS (unanswered, under
+	// recommend.PendingMS old), nil = none.
+	Pending *recommend.Rec
+}
+
+// RecText is how every surface names a recommendation: "focus now (25 min)"
+// or "break (10 min)".
+func RecText(r recommend.Rec) string {
+	name := "focus now"
+	if r.Kind == recommend.KindBreak {
+		name = "break"
+	}
+	return fmt.Sprintf("%s (%d min)", name, r.LengthMS/60_000)
 }
 
 // Countdown renders ms as m:ss, rounding up to the second; negative is 0:00.
