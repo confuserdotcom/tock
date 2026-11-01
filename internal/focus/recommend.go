@@ -25,6 +25,10 @@ const (
 	// activity for a suggestion: the user is at the keyboard, not away.
 	RecActiveMS       = 5 * 60_000
 	RecActiveWindowMS = 10 * 60_000
+	// RecBreakGapMS is how long a focus suggestion keeps away from a break: after
+	// a break reminder or the end-of-session break prompt, and after a break
+	// the user took has ended.
+	RecBreakGapMS = 15 * 60_000
 	// recRoundMS is the unit a suggested length is floored to.
 	recRoundMS = 5 * 60_000
 )
@@ -80,13 +84,16 @@ func RecsDue(in Input) bool {
 //     own activity (the rule LocalInputEnd uses, so with two synced machines
 //     only the one in use suggests);
 //   - no plan item or calendar event is running (RecSlots);
+//   - no break is due, none was prompted in the last RecBreakGapMS and none the
+//     user took ended in that time (st is the state after this tick's break
+//     steps), so a suggestion never lands beside a break notice;
 //   - the replies allow the hour (recommend.FocusHour): not one always
 //     answered Not now, and one rarely taken only when it ranks first.
 //
 // The length is the profile's typical session capped by the time to the next
 // slot and to the [hours] end, floored to 5 min; it is skipped under RecMinMS.
-func stepRecommend(in Input) (Event, bool) {
-	if !RecommendDue(in) || !in.RecsOK {
+func stepRecommend(in Input, st State) (Event, bool) {
+	if !RecommendDue(in) || !in.RecsOK || nearBreak(in, st) {
 		return Event{}, false
 	}
 	t := time.UnixMilli(in.Now).In(in.Day.Location())
@@ -129,6 +136,19 @@ func stepRecommend(in Input) (Event, bool) {
 	ev.Minutes = int(n / 60_000)
 	ev.RecKind, ev.RecLengthMS = recommend.KindFocus, n
 	return ev, true
+}
+
+// nearBreak reports that a break reminder is due, that one (or the prompt at
+// the end of a session) went out less than RecBreakGapMS ago, or that a break
+// the user took ended less than RecBreakGapMS ago.
+func nearBreak(in Input, st State) bool {
+	if _, due := breakDue(in, st); due {
+		return true
+	}
+	if st.BreakAt > 0 && in.Now-st.BreakAt < RecBreakGapMS {
+		return true
+	}
+	return st.BreakUntil > 0 && in.Now >= st.BreakUntil && in.Now-st.BreakUntil < RecBreakGapMS
 }
 
 // ownView reports a view of this machine's own screen: a positive ID and a

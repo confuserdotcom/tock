@@ -217,3 +217,59 @@ func TestRecommendLearning(t *testing.T) {
 		t.Error("suggested without rows read")
 	}
 }
+
+// TestRecommendWaitsForBreaks: a focus suggestion does not come in the tick of
+// a break reminder, nor shortly after a break reminder, the end-of-session
+// break prompt or "Break over".
+func TestRecommendWaitsForBreaks(t *testing.T) {
+	kinds := func(in Input) (focus, brk int) {
+		for _, e := range only(Step(in), RecDue) {
+			switch e.RecKind {
+			case recommend.KindFocus:
+				focus++
+			case recommend.KindBreak:
+				brk++
+			}
+		}
+		return focus, brk
+	}
+	// A 60 min run up to 09:30 is past the 50 min break_after in the best hour.
+	long := recBase()
+	long.Views, long.Labels = world(vw{from: at(8, 30, 0), to: at(9, 30, 0), kind: "deep"})
+	if f, b := kinds(long); f != 0 || b != 1 {
+		t.Errorf("break reminder tick: %d focus, %d break suggestions; want 0 and 1", f, b)
+	}
+
+	// The reminder was sent 5 min ago and is not due again: still no suggestion.
+	again := long
+	again.State.BreakFrom, again.State.BreakAt = at(8, 30, 0), at(9, 25, 0)
+	if f, b := kinds(again); f != 0 || b != 0 {
+		t.Errorf("5 min after a break reminder: %d focus, %d break; want none", f, b)
+	}
+	// The end-of-session prompt sets the same state.
+	prompt := recBase()
+	prompt.State.BreakFrom, prompt.State.BreakAt = at(9, 0, 0), at(9, 20, 0)
+	if f, _ := kinds(prompt); f != 0 {
+		t.Errorf("10 min after the break prompt: %d focus suggestions, want 0", f)
+	}
+	// A reminder 20 min ago no longer holds a suggestion back.
+	old := recBase()
+	old.State.BreakFrom, old.State.BreakAt = at(9, 0, 0), at(9, 10, 0)
+	if f, _ := kinds(old); f != 1 {
+		t.Errorf("20 min after a break reminder: %d focus suggestions, want 1", f)
+	}
+
+	// The tick that says "Break over", and the 15 min after it.
+	over := recBase()
+	over.State.BreakTakenAt, over.State.BreakUntil = at(9, 20, 0), at(9, 29, 0)
+	if f, _ := kinds(over); f != 0 {
+		t.Errorf("tick of Break over: %d focus suggestions, want 0", f)
+	}
+	if evs := only(Step(over), Notify); len(evs) != 1 || evs[0].Topic != TopicBreakOver {
+		t.Errorf("Break over notice = %+v", evs)
+	}
+	over.State.BreakTakenAt, over.State.BreakUntil, over.State.BreakOverAt = at(9, 0, 0), at(9, 10, 0), at(9, 10, 0)
+	if f, _ := kinds(over); f != 1 {
+		t.Errorf("20 min after Break over: %d focus suggestions, want 1", f)
+	}
+}

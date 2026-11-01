@@ -195,9 +195,15 @@ func TestRecommendDuringBreak(t *testing.T) {
 	if RecommendDue(in) || len(only(Step(in), RecDue)) != 0 {
 		t.Fatal("a suggestion came during a taken break")
 	}
+	// RecommendDue only gates on the break itself; the quiet time after it
+	// ends is stepRecommend's (TestRecommendWaitsForBreaks).
 	in.State.BreakUntil = at(9, 30, 0)
+	if !RecommendDue(in) || len(only(Step(in), RecDue)) != 0 {
+		t.Fatal("a suggestion came the moment the break ended")
+	}
+	in.State.BreakUntil = at(9, 15, 0)
 	if !RecommendDue(in) || len(only(Step(in), RecDue)) != 1 {
-		t.Fatal("no suggestion once the break has ended")
+		t.Fatal("no suggestion 15 min after the break ended")
 	}
 }
 
