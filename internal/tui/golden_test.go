@@ -271,3 +271,12 @@ func TestGoldenFocusRateDialog(t *testing.T) {
 	m = press(t, m, "4", "R")
 	golden.RequireEqual(t, screen(m))
 }
+
+// Phase 12: the focus tab with a pending suggestion.
+func TestGoldenFocusSuggested(t *testing.T) {
+	m, e := seeded(t)
+	e.Heartbeat(t, e.Clock.UnixMilli())
+	addRec(t, e, 5*time.Minute)
+	m = press(t, m, "r", "4")
+	golden.RequireEqual(t, screen(m))
+}

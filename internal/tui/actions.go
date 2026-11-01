@@ -85,6 +85,11 @@ func startN(n int) func(m Model) (tea.Model, tea.Cmd) {
 	}
 }
 
+// suggestionShown reports the focus tab with a pending suggestion on show.
+func suggestionShown(m *Model) bool {
+	return m.tab == tabFocus && m.focus.suggestion(m.now().UnixMilli()) != nil
+}
+
 // finishedShown reports the focus tab with a finished session on its card.
 func finishedShown(m *Model) bool { return m.tab == tabFocus && m.focus.shown() != nil }
 
@@ -204,6 +209,8 @@ func actionTable() []action {
 			when: func(m *Model) bool { return m.tab == tabFocus && m.focus.data.Open == nil }},
 		{key: "x", name: "stop the session", group: grFocus, prio: 1,
 			when: func(m *Model) bool { return m.tab == tabFocus && m.focus.data.Open != nil }},
+		{key: "enter", name: "take the suggestion", group: grFocus, prio: 1, when: suggestionShown},
+		{key: "d", name: "not now", group: grFocus, prio: 2, when: suggestionShown},
 		{key: "z", name: "snooze or resume distraction notices", group: grFocus, prio: 2,
 			when: func(m *Model) bool { return m.tab == tabFocus && m.focus.data.Open != nil }},
 		{name: "start a 25 min session", group: grFocus, run: startN(25),

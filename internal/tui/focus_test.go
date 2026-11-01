@@ -542,3 +542,112 @@ func TestFocusSnoozeHelp(t *testing.T) {
 	mustContain(t, m, "resume distraction notices")
 	mustNotContain(t, m, "snooze distraction notices")
 }
+
+// addRec writes a focus recommendation of 25 min sent ago before the test
+// clock and returns its id.
+func addRec(t *testing.T, e *apptest.Env, ago time.Duration) int64 {
+	t.Helper()
+	st, err := store.Open(e.DB)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	id, err := st.AddRecommend(store.Recommend{Kind: "focus", AtMS: e.Clock.Add(-ago).UnixMilli(), Weekday: int(e.Clock.Weekday()), Hour: e.Clock.Hour(), LengthMS: 25 * 60_000})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return id
+}
+
+func TestFocusSuggested(t *testing.T) {
+	m, e := seeded(t)
+	e.Heartbeat(t, e.Clock.UnixMilli())
+	id := addRec(t, e, 5*time.Minute)
+	m = press(t, m, "r", "4")
+	mustContain(t, m, "Suggested: focus now (25 min)", "enter start", "d not now")
+
+	// enter takes it.
+	m = press(t, m, "enter")
+	mustContain(t, m, "started 25 min session", "left of 25m")
+	mustNotContain(t, m, "Suggested:")
+	if r := recRow(t, e, id); r.Reply != "accept" {
+		t.Fatalf("reply = %q, want accept", r.Reply)
+	}
+
+	// d says not now, on a fresh row.
+	m2, e2 := seeded(t)
+	e2.Heartbeat(t, e2.Clock.UnixMilli())
+	id2 := addRec(t, e2, 5*time.Minute)
+	m2 = press(t, m2, "r", "4", "d")
+	mustContain(t, m2, "suggestion dismissed", "No session running.")
+	mustNotContain(t, m2, "Suggested:")
+	if r := recRow(t, e2, id2); r.Reply != "dismiss" {
+		t.Fatalf("reply = %q, want dismiss", r.Reply)
+	}
+
+	// With nothing pending both keys only say so.
+	m3, e3 := seeded(t)
+	e3.Heartbeat(t, e3.Clock.UnixMilli())
+	m3 = press(t, m3, "r", "4", "enter")
+	mustContain(t, m3, "no suggestion pending")
+	m3 = press(t, m3, "d")
+	mustContain(t, m3, "no suggestion pending")
+	mustNotContain(t, m3, "Suggested:", "started")
+
+	// 30 min old: not shown.
+	m4, e4 := seeded(t)
+	e4.Heartbeat(t, e4.Clock.UnixMilli())
+	addRec(t, e4, 30*time.Minute)
+	m4 = press(t, m4, "r", "4")
+	mustNotContain(t, m4, "Suggested:")
+}
+
+// With a session running there is no line, and no key answers the row.
+func TestFocusSuggestedSessionRunning(t *testing.T) {
+	m, e := seeded(t)
+	e.Heartbeat(t, e.Clock.UnixMilli())
+	id := addRec(t, e, 5*time.Minute)
+	m = press(t, m, "4", "s", "enter")
+	mustContain(t, m, "session started")
+	mustNotContain(t, m, "Suggested:")
+	m = press(t, m, "d")
+	mustContain(t, m, "no suggestion pending")
+	if r := recRow(t, e, id); r.Reply != "" {
+		t.Fatalf("reply = %q, want open", r.Reply)
+	}
+}
+
+// A screen drawn before the row was answered elsewhere answers nothing.
+func TestFocusSuggestedStale(t *testing.T) {
+	m, e := seeded(t)
+	e.Heartbeat(t, e.Clock.UnixMilli())
+	id := addRec(t, e, 5*time.Minute)
+	m = press(t, m, "r", "4")
+	mustContain(t, m, "Suggested: focus now (25 min)")
+	st, err := store.Open(e.DB)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ok, err := st.ReplyRecommend(id, "dismiss", e.Clock.UnixMilli(), 0); err != nil || !ok {
+		t.Fatalf("answer elsewhere: %v, %v", ok, err)
+	}
+	st.Close()
+	next, cmd := m.Update(key("enter"))
+	m = runCmd(t, next.(Model), cmd)
+	mustContain(t, m, "that suggestion is no longer open")
+	mustNotContain(t, m, "left of 25m")
+}
+
+func recRow(t *testing.T, e *apptest.Env, id int64) store.Recommend {
+	t.Helper()
+	st, err := store.Open(e.DB)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	r, err := st.Recommend(id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return r
+}

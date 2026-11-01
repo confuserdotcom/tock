@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 	"strconv"
@@ -14,7 +15,9 @@ import (
 	"tock/internal/classify"
 	"tock/internal/config"
 	"tock/internal/focus"
+	"tock/internal/recommend"
 	"tock/internal/report"
+	"tock/internal/store"
 )
 
 // clockEvery is how often the countdown redraws while a session runs. The
@@ -64,6 +67,52 @@ func (t *focusTab) set(f report.Focus) {
 		t.cursor, t.detail = 0, nil
 	}
 	t.cursor = max(min(t.cursor, len(rows)-1), 0)
+}
+
+// suggestion is the recommendation the tab offers at nowMS: the pending one
+// while no session runs and it is still open. A stale screen can outlive the
+// 30 minutes, so Open is checked again here.
+func (t focusTab) suggestion(nowMS int64) *recommend.Rec {
+	if r := t.data.Pending; r != nil && t.data.Open == nil && r.Open(nowMS) {
+		return r
+	}
+	return nil
+}
+
+// suggestionLine is the line under the Session card: what is suggested and
+// the two keys that answer it.
+func suggestionLine(r recommend.Rec) string {
+	take := "start"
+	if r.Kind == recommend.KindBreak {
+		take = "take it"
+	}
+	return sText.Render("Suggested: "+report.RecText(r)) + "  " + keycap("enter", take) + sDim.Render(" · ") + keycap("d", "not now")
+}
+
+// answerSuggestion answers the suggestion the tab shows with reply. It names
+// the row's send time as well as its id, so a row that took the same id
+// meanwhile is not answered by this screen.
+func (m Model) answerSuggestion(reply string) (tea.Model, tea.Cmd) {
+	r := m.focus.suggestion(m.now().UnixMilli())
+	if r == nil {
+		m.setFlash("no suggestion pending", true)
+		return m, nil
+	}
+	id, at := r.ID, r.AtMS
+	return m, m.act(func(a *app.App) (string, error) {
+		res, err := a.AnswerRecommendAt(id, at, "", reply)
+		switch {
+		case errors.Is(err, app.ErrNoRecommend):
+			return "that suggestion is no longer open", nil
+		case errors.Is(err, store.ErrSessionRunning):
+			return "a session is already running, nothing started", nil
+		case err != nil:
+			return "", err
+		case res.Session != nil:
+			return fmt.Sprintf("started %d min session", (res.Session.PlannedMS-res.Session.StartMS)/60_000), nil
+		}
+		return "suggestion dismissed", nil
+	})
 }
 
 // detailMsg carries the card of session id.
@@ -154,6 +203,10 @@ func (m Model) focusKey(k string) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		return m, m.stopSession()
+	case "enter":
+		return m.answerSuggestion(recommend.ReplyAccept)
+	case "d":
+		return m.answerSuggestion(recommend.ReplyDismiss)
 	case "z":
 		if m.focus.data.Open == nil {
 			m.setFlash("no session running · s starts one", true)
@@ -440,6 +493,9 @@ func (t focusTab) view(w, h int, now time.Time) []string {
 		out = append(out, pad+l)
 	}
 	out = append(out, "")
+	if r := t.suggestion(nowMS); r != nil {
+		out = append(out, pad+" "+fit(suggestionLine(*r), cw-2), "")
+	}
 	for _, l := range t.card(cw, h, loc) {
 		out = append(out, pad+l)
 	}

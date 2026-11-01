@@ -419,3 +419,25 @@ func TestAnswerRecommendAt(t *testing.T) {
 		t.Fatalf("matching view err = %v", err)
 	}
 }
+
+// TestFocusPending: report.Focus carries the open recommendation only while
+// no session runs.
+func TestFocusPending(t *testing.T) {
+	e := recEnv(t, "")
+	a := open(t, e)
+	nowMS := e.Clock.UnixMilli()
+	id, err := a.st.AddRecommend(store.Recommend{Kind: "focus", AtMS: nowMS - 5*60_000, LengthMS: 25 * 60_000})
+	if err != nil {
+		t.Fatal(err)
+	}
+	f, err := a.Focus(e.Clock)
+	if err != nil || f.Pending == nil || f.Pending.ID != id {
+		t.Fatalf("Pending = %+v, %v, want row %d", f.Pending, err, id)
+	}
+	if _, err := a.StartSession(10); err != nil {
+		t.Fatal(err)
+	}
+	if f, err = a.Focus(e.Clock); err != nil || f.Pending != nil {
+		t.Fatalf("with a session running: Pending = %+v, %v, want nil", f.Pending, err)
+	}
+}

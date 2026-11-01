@@ -381,6 +381,12 @@ func (a *App) Focus(now time.Time) (report.Focus, error) {
 			f.Week = append(f.Week, s)
 		}
 	}
+	if f.Open == nil {
+		// A suggestion cannot be taken while a session runs.
+		if f.Pending, err = a.PendingRecommend(now); err != nil {
+			return report.Focus{}, err
+		}
+	}
 	return f, nil
 }
 
