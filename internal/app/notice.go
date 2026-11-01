@@ -47,6 +47,7 @@ type NoticeData struct {
 	Labels    []classify.Want `json:"labels,omitempty"`
 	Join      string          `json:"join,omitempty"` // up-next and starting: the event's meeting link, already checked
 	Mine      bool            `json:"mine,omitempty"` // with Join: the owner accepted or organizes the event, so [calendar] auto_open may open the link
+	Rec       int64           `json:"rec,omitempty"`  // recommend: the recommend row the buttons answer
 }
 
 // Enqueue queues the notification ev for the menu bar app.
@@ -67,6 +68,9 @@ func (a *App) Enqueue(ev focus.Event) error {
 	}
 	if ev.Topic == focus.TopicStarting && ev.AutoStart {
 		d.Session = ev.Sess.ID // Stop session stops only this one
+	}
+	if ev.Topic == focus.TopicRecommend && ev.RecID != 0 {
+		d.Rec = ev.RecID
 	}
 	if ev.Topic == focus.TopicAway {
 		d.From, d.To = ev.Away.From, ev.Away.To

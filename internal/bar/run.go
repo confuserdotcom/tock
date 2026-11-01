@@ -11,6 +11,7 @@ import (
 	"tock/internal/app"
 	"tock/internal/classify"
 	"tock/internal/focus"
+	"tock/internal/recommend"
 	"tock/internal/report"
 	"tock/internal/store"
 )
@@ -106,6 +107,23 @@ func sessionID(v string) (int64, bool) {
 	return n, err == nil && n > 0
 }
 
+// answerMsg turns the result of AnswerRecommend into the line a click shows. A
+// suggestion that is no longer open, or a session already running, is an
+// answer to the click, not a failure.
+func answerMsg(res app.RecAnswer, err error) (string, error) {
+	switch {
+	case errors.Is(err, app.ErrNoRecommend):
+		return "that suggestion is no longer open", nil
+	case errors.Is(err, store.ErrSessionRunning):
+		return "a session is already running, nothing started", nil
+	case err != nil:
+		return "", err
+	case res.Session != nil:
+		return fmt.Sprintf("started %d min session", (res.Session.PlannedMS-res.Session.StartMS)/60_000), nil
+	}
+	return "suggestion dismissed", nil
+}
+
 // goneMsg answers a click on a session that was deleted since.
 const goneMsg = "that session is gone"
 
@@ -173,6 +191,14 @@ func Respond(a *app.App, id int64, action string) (string, error) {
 		return "opened the meeting link", nil
 	case ActIdle:
 		return "left away time idle", a.Answer(classify.Interval{From: d.From, To: d.To}, classify.Want{})
+	case ActRecAccept, ActRecDismiss:
+		// The kind follows from the topic; the session length and the open
+		// check come from the recommend row, never from the notice data.
+		reply := recommend.ReplyAccept
+		if action == ActRecDismiss {
+			reply = recommend.ReplyDismiss
+		}
+		return answerMsg(a.AnswerRecommend(d.Rec, recommend.KindFocus, reply))
 	}
 	switch {
 	case strings.HasPrefix(action, ActUrgeResisted), strings.HasPrefix(action, ActUrgeGiven):

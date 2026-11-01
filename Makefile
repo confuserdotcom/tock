@@ -41,12 +41,12 @@ build:
 	CGO_ENABLED=1 go build -ldflags "$(LDFLAGS)" -o bin/tockbar ./cmd/tockbar
 
 test-quick:
-	CGO_ENABLED=0 go test ./internal/span/... ./internal/store/... ./internal/classify/... ./internal/stats/... ./internal/focus/... ./internal/config/... ./internal/report/... ./internal/suggest/... ./internal/claude/... ./internal/app/... ./internal/tui/... ./internal/bar/... ./internal/service/... ./internal/update/... -count=1
+	CGO_ENABLED=0 go test ./internal/span/... ./internal/store/... ./internal/classify/... ./internal/stats/... ./internal/focus/... ./internal/recommend/... ./internal/config/... ./internal/report/... ./internal/suggest/... ./internal/claude/... ./internal/app/... ./internal/tui/... ./internal/bar/... ./internal/service/... ./internal/update/... -count=1
 
 test:
 	go vet ./...
 	go build ./...
-	CGO_ENABLED=0 go test ./internal/span/... ./internal/store/... ./internal/classify/... ./internal/stats/... ./internal/focus/... ./internal/config/... ./internal/report/... ./internal/suggest/... ./internal/claude/... ./internal/app/... ./internal/tui/... ./internal/bar/... ./internal/service/... ./internal/update/... -count=1
+	CGO_ENABLED=0 go test ./internal/span/... ./internal/store/... ./internal/classify/... ./internal/stats/... ./internal/focus/... ./internal/recommend/... ./internal/config/... ./internal/report/... ./internal/suggest/... ./internal/claude/... ./internal/app/... ./internal/tui/... ./internal/bar/... ./internal/service/... ./internal/update/... -count=1
 	go test ./... -count=1
 
 vet:

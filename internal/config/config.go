@@ -22,21 +22,22 @@ const File = "config.toml"
 
 // Config is tock's settings.
 type Config struct {
-	Score    stats.Weights
-	Focus    Focus
-	LLM      LLM
-	Shell    Shell
-	Away     Away
-	AFK      AFK
-	Calendar Calendar
-	Sync     Sync
-	Slack    Slack
-	Hours    stats.Hours // the work schedule the score is limited to
-	Invoice  Invoice
-	Privacy  Privacy
-	Plan     Plan
-	Routine  Routine
-	Model    Model
+	Score     stats.Weights
+	Focus     Focus
+	LLM       LLM
+	Shell     Shell
+	Away      Away
+	AFK       AFK
+	Calendar  Calendar
+	Sync      Sync
+	Slack     Slack
+	Hours     stats.Hours // the work schedule the score is limited to
+	Invoice   Invoice
+	Privacy   Privacy
+	Plan      Plan
+	Routine   Routine
+	Recommend Recommend
+	Model     Model
 }
 
 // Model is the [model] section: the local classifier that labels what the
@@ -221,7 +222,7 @@ func DefaultLLM() LLM {
 // Default is the configuration used when there is no file.
 func Default() Config {
 	return Config{Score: stats.DefaultWeights, Focus: DefaultFocus(), LLM: DefaultLLM(), Shell: DefaultShell(), Away: DefaultAway(), AFK: DefaultAFK(), Slack: DefaultSlack(), Routine: DefaultRoutine(),
-		Plan: DefaultPlan(), Model: Model{Enabled: true}}
+		Recommend: DefaultRecommend(), Plan: DefaultPlan(), Model: Model{Enabled: true}}
 }
 
 type scoreTOML struct {
@@ -309,21 +310,22 @@ type planTOML struct {
 }
 
 type fileTOML struct {
-	Score    scoreTOML    `toml:"score"`
-	Focus    focusTOML    `toml:"focus"`
-	LLM      llmTOML      `toml:"llm"`
-	Shell    shellTOML    `toml:"shell"`
-	Away     awayTOML     `toml:"away"`
-	AFK      afkTOML      `toml:"afk"`
-	Calendar calendarTOML `toml:"calendar"`
-	Sync     syncTOML     `toml:"sync"`
-	Slack    slackTOML    `toml:"slack"`
-	Hours    hoursTOML    `toml:"hours"`
-	Invoice  invoiceTOML  `toml:"invoice"`
-	Privacy  privacyTOML  `toml:"privacy"`
-	Plan     planTOML     `toml:"plan"`
-	Routine  routineTOML  `toml:"routine"`
-	Model    modelTOML    `toml:"model"`
+	Score     scoreTOML     `toml:"score"`
+	Focus     focusTOML     `toml:"focus"`
+	LLM       llmTOML       `toml:"llm"`
+	Shell     shellTOML     `toml:"shell"`
+	Away      awayTOML      `toml:"away"`
+	AFK       afkTOML       `toml:"afk"`
+	Calendar  calendarTOML  `toml:"calendar"`
+	Sync      syncTOML      `toml:"sync"`
+	Slack     slackTOML     `toml:"slack"`
+	Hours     hoursTOML     `toml:"hours"`
+	Invoice   invoiceTOML   `toml:"invoice"`
+	Privacy   privacyTOML   `toml:"privacy"`
+	Plan      planTOML      `toml:"plan"`
+	Routine   routineTOML   `toml:"routine"`
+	Recommend recommendTOML `toml:"recommend"`
+	Model     modelTOML     `toml:"model"`
 }
 
 // Load reads path. A missing file is Default() and no error. Any other
@@ -410,6 +412,9 @@ func Load(path string) (Config, error) {
 		return Default(), fmt.Errorf("%s: %w", name, err)
 	}
 	if err := decodeRoutine(f.Routine, &c.Routine); err != nil {
+		return Default(), fmt.Errorf("%s: %w", name, err)
+	}
+	if err := decodeRecommend(f.Recommend, &c.Recommend); err != nil {
 		return Default(), fmt.Errorf("%s: %w", name, err)
 	}
 	if c.Hours.Set && f.Focus.Recap == nil {

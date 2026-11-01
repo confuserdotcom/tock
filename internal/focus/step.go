@@ -57,6 +57,9 @@ func Step(in Input) []Event {
 		writes = append(writes, Event{Kind: StateUpdate, State: st})
 	}
 	notes = append(notes, stepSlots(in)...)
+	if n, ok := stepRecommend(in); ok {
+		notes = append(notes, n)
+	}
 	return append(writes, notes...)
 }
 

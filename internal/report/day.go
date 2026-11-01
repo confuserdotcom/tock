@@ -165,6 +165,26 @@ func BuildDay(in DayInput) Day {
 	return d
 }
 
+// HourMS returns, per wall-clock hour in loc, the active (non-idle) time and
+// the deep-kind time of the labelled views: the focus-per-hour notion the
+// heatmap of BuildDay uses (same split at hour boundaries, same idle rule).
+// labels[i] belongs to views[i].
+func HourMS(views []classify.SpanView, labels []classify.Label, loc *time.Location) (active, deep [24]int64) {
+	for i, v := range views {
+		if v.BundleID == span.IdleBundleID {
+			continue
+		}
+		isDeep := labels[i].Kind == classify.KindDeep
+		eachHour(loc, v.Start, v.End, func(h time.Time, part int64) {
+			active[h.Hour()] += part
+			if isDeep {
+				deep[h.Hour()] += part
+			}
+		})
+	}
+	return active, deep
+}
+
 // eachHour splits [startMS, endMS) at local hour boundaries and calls fn with
 // each piece's hour start and length. The hour start is found by dropping the
 // local minutes and seconds, so DST changes need no special case: a repeated

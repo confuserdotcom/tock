@@ -28,6 +28,15 @@ const NoRoutines = "[routine]\nstart = false\nmidday = \"off\"\noverwork = false
 // refuses a second [plan] table.
 const NoPlanNotices = "[plan]\nnotify = false\n"
 
+// NoRecommend is the [recommend] config lines that turn recommendations off,
+// for tests that assert exact notice lists. A test that already writes a
+// [recommend] table adds `enabled = false` to it instead, since TOML refuses
+// a second [recommend] table.
+const NoRecommend = "[recommend]\nenabled = false\n"
+
+// AllHours is an [hours] table with every weekday 08:00-18:00.
+const AllHours = "[hours]\ndays = [\"mon\", \"tue\", \"wed\", \"thu\", \"fri\", \"sat\", \"sun\"]\nstart = \"08:00\"\nend = \"18:00\"\n"
+
 // Now is the default test clock: Saturday 2026-10-10 15:00 local.
 var Now = time.Date(2026, 10, 10, 15, 0, 0, 0, Zone)
 
@@ -312,4 +321,16 @@ func DaySpans() []Span {
 		{7, "12:22", "12:25", "arc", "Arc", "Proofs", "chatgpt.com/c/2", false, 0},
 		{8, "14:50", "", "mail", "Mail", "Inbox", "", false, 0},
 	}
+}
+
+// FocusHistory is days past days of one focus hour each: 09:00-10:00 in the
+// terminal on a "tock" title (Code, project tock, deep under Rules), on each of
+// the days days before the day of Now, with ids from 1001 up.
+func FocusHistory(days int) []Span {
+	out := make([]Span, 0, days)
+	for i := 1; i <= days; i++ {
+		out = append(out, Span{ID: int64(1000 + i), Start: "09:00", End: "10:00", Bundle: "term", App: "WezTerm",
+			Title: "tock │ h", Day: -i})
+	}
+	return out
 }

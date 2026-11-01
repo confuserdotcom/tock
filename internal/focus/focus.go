@@ -10,6 +10,7 @@ import (
 
 	"tock/internal/classify"
 	"tock/internal/config"
+	"tock/internal/recommend"
 	"tock/internal/span"
 	"tock/internal/stats"
 )
@@ -112,6 +113,9 @@ const (
 	// SlotDue is a slot notice; the caller marks Slot.Key and SlotKind sent
 	// and sends it as a Notify only when the mark is new.
 	SlotDue
+	// RecDue is a recommendation notice; the caller writes the recommend row
+	// and sends it as a Notify carrying RecID.
+	RecDue
 )
 
 // Event is one thing a tick decided.
@@ -141,6 +145,12 @@ type Event struct {
 	AltBody   string
 	// Silent (SlotDue): mark and start only, send nothing ([plan] notify = false).
 	Silent bool
+	// RecKind and RecLengthMS (RecDue): the recommendation's kind and the
+	// session or break length it offers. RecID is the recommend row the
+	// caller wrote for it.
+	RecKind     string
+	RecLengthMS int64
+	RecID       int64
 }
 
 // Input is one tick's view of the world.
@@ -182,6 +192,14 @@ type Input struct {
 	// (RemoteMachine.LastMS); the caller fills it only when SlotsDue. Empty
 	// = no other machine, this one owns every slot notice.
 	OtherInputMS []int64
+	// Rec holds the [recommend] switches; the app passes cfg.Recommend.
+	Rec config.Recommend
+	// Profile is today's profile; the zero value suggests nothing.
+	Profile recommend.Profile
+	// Recs are the recommendation rows of the last recommend.ReplyDays and
+	// RecsOK says they were read; the caller fills both only when RecsDue.
+	Recs   []recommend.Rec
+	RecsOK bool
 }
 
 // IsMeeting reports a meeting view: a meeting app, or a URL whose host is a

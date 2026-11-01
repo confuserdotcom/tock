@@ -58,6 +58,9 @@ type pastDay struct {
 	Stats  stats.Day // the scored window only
 	Active bool      // the whole day has active time
 	GoalMS []int64   // whole-day time per goal of a.rs.Goals
+	// ActiveHours and DeepHours are the active and the deep-kind time per
+	// wall-clock hour of the whole day (report.HourMS), for the profile.
+	ActiveHours, DeepHours [24]int64
 }
 
 // fillPast computes and caches every day in [from, to) that is
@@ -93,6 +96,7 @@ func (a *App) fillPast(from, to time.Time) error {
 		ls := a.rs.LabelAll(vs, ovs)
 		wFrom, wTo := a.cfg.Hours.Window(d)
 		p := pastDay{Stats: stats.Compute(stats.Clip(vs, ls, wFrom, wTo)), Active: report.Active(vs)}
+		p.ActiveHours, p.DeepHours = report.HourMS(vs, ls, d.Location())
 		if len(a.rs.Goals) > 0 {
 			p.GoalMS = report.GoalTimes(a.rs.Goals, vs, ls)
 		}

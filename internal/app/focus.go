@@ -102,6 +102,7 @@ func (a *App) GuardTick(call bool) ([]focus.Event, focus.Guard, error) {
 	}
 	a.routineBodies(&in, nowT, todayDay)
 	a.slotInput(&in, nowT)
+	a.recInput(&in, nowT)
 
 	gs, err := a.guardState()
 	if err != nil {
@@ -109,7 +110,7 @@ func (a *App) GuardTick(call bool) ([]focus.Event, focus.Guard, error) {
 	}
 	guard := focus.GuardStep(in, gs)
 
-	var notes, slotEvs []focus.Event
+	var notes, slotEvs, recEvs []focus.Event
 	stale := false
 	for _, ev := range focus.Step(in) {
 		var ok bool
@@ -131,6 +132,8 @@ func (a *App) GuardTick(call bool) ([]focus.Event, focus.Guard, error) {
 			}
 		case focus.SlotDue:
 			slotEvs = append(slotEvs, ev) // marked and started below, once the tick's writes are done
+		case focus.RecDue:
+			recEvs = append(recEvs, ev) // its row is written below, after the slot notices
 		}
 		if err != nil {
 			return nil, focus.Guard{}, err
@@ -147,6 +150,13 @@ func (a *App) GuardTick(call bool) ([]focus.Event, focus.Guard, error) {
 	// window; the other slots' notices go out.
 	for _, ev := range slotEvs {
 		if n, ok := a.sendSlot(ev, now); ok {
+			notes = append(notes, n)
+		}
+	}
+	// Recommendation notices follow: the row is written only now, so nothing
+	// that failed above leaves a row for a notice that was never queued.
+	for _, ev := range recEvs {
+		if n, ok := a.sendRec(ev, now); ok {
 			notes = append(notes, n)
 		}
 	}

@@ -63,6 +63,11 @@ type App struct {
 	slotSeenDay string
 	planErr     error
 
+	// profile is today's recommendation profile (see Profile); recCache the
+	// recommendation rows of the last recommend.ReplyDays (see recRows).
+	profile  profileCache
+	recCache recCache
+
 	model   *classify.Model   // the local classifier (see labelModel)
 	modelRS *classify.Ruleset // the rules it was trained with
 	modelFP uint64            // pastKey it was trained with
@@ -152,6 +157,7 @@ func (a *App) Reload() (changed bool, err error) {
 		a.stamp[2] = s[2]
 		a.loadConfig()
 		a.past = nil // [shell] terminals may have changed
+		a.profile = profileCache{}
 		changed = true
 	}
 	if s[0] == a.stamp[0] && s[1] == a.stamp[1] {
@@ -165,6 +171,7 @@ func (a *App) Reload() (changed bool, err error) {
 	}
 	a.rs, a.rulesErr = rs, nil
 	a.past, a.gitCache = nil, nil
+	a.profile = profileCache{}
 	return true, nil
 }
 

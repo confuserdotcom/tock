@@ -9,6 +9,7 @@ import (
 	"tock/internal/app"
 	"tock/internal/classify"
 	"tock/internal/focus"
+	"tock/internal/recommend"
 	"tock/internal/report"
 	"tock/internal/store"
 )
@@ -34,6 +35,10 @@ const (
 	ActUrgeGiven    = "urge:given:"
 	// ActJoin opens the meeting link of an up-next or starting event notice.
 	ActJoin = "join"
+	// ActRecAccept and ActRecDismiss answer a recommendation notice: Start
+	// focus (or Take a break), and Not now.
+	ActRecAccept  = "rec:accept"
+	ActRecDismiss = "rec:dismiss"
 )
 
 // ProjectCells is how wide a project name may be in a button or menu item.
@@ -96,6 +101,13 @@ func Buttons(n store.Notice, d app.NoticeData) []Button {
 			}
 		}
 		return out
+	case focus.TopicRecommend:
+		// The kind is the topic's: a focus suggestion. The length shown is the
+		// notice's; the session that starts takes it from the recommend row.
+		if d.Rec <= 0 || d.Minutes <= 0 {
+			return nil
+		}
+		return []Button{{ActRecAccept, RecAcceptTitle(recommend.KindFocus, d.Minutes)}, {ActRecDismiss, "Not now"}}
 	case focus.TopicBreak:
 		return []Button{{ActSnooze, fmt.Sprintf("Snooze %d min", int(SnoozeFor.Minutes()))}}
 	case focus.TopicAway:
@@ -106,6 +118,15 @@ func Buttons(n store.Notice, d app.NoticeData) []Button {
 		return append(out, Button{ActIdle, "Leave idle"})
 	}
 	return nil
+}
+
+// RecAcceptTitle is the accept button of a recommendation of kind lasting
+// minutes: "Start focus (45 min)" or "Take a break (10 min)".
+func RecAcceptTitle(kind string, minutes int) string {
+	if kind == recommend.KindBreak {
+		return fmt.Sprintf("Take a break (%d min)", minutes)
+	}
+	return fmt.Sprintf("Start focus (%d min)", minutes)
 }
 
 // JoinURL is the link the Join action of a notice opens: the meeting link

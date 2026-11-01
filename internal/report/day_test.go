@@ -140,3 +140,31 @@ func TestRowTextSanitisesAndFallsBackToURL(t *testing.T) {
 		t.Fatalf("texts %q %q", rows[0].Text, rows[1].Text)
 	}
 }
+
+// TestHourMS: active time and deep time per wall-clock hour; idle is left out.
+func TestHourMS(t *testing.T) {
+	vs, ls := build(t,
+		sv{1, "08:30", "10:15", "term", "x", "", "Code", "deep", "", false},
+		sv{2, "10:15", "10:45", "", "", "", "", "idle", "", false},
+		sv{3, "10:45", "11:10", "arc", "y", "", "Mail", "shallow", "", false},
+	)
+	active, deep := HourMS(vs, ls, zone)
+	m := int64(60_000)
+	wantA := map[int]int64{8: 30 * m, 9: 60 * m, 10: 30 * m, 11: 10 * m}
+	wantD := map[int]int64{8: 30 * m, 9: 60 * m, 10: 15 * m}
+	for h := 0; h < 24; h++ {
+		if active[h] != wantA[h] || deep[h] != wantD[h] {
+			t.Errorf("hour %d: active %d deep %d, want %d and %d", h, active[h], deep[h], wantA[h], wantD[h])
+		}
+	}
+	d := BuildDay(DayInput{Date: day0, NowMS: hm(t, "23:00"), Views: vs, Labels: ls})
+	for h := 0; h < 24; h++ {
+		var sum int64
+		for _, kind := range d.Hours.MS {
+			sum += kind[h]
+		}
+		if sum != active[h] || d.Hours.MS["deep"][h] != deep[h] {
+			t.Errorf("hour %d: heatmap sum %d deep %d, HourMS %d / %d", h, sum, d.Hours.MS["deep"][h], active[h], deep[h])
+		}
+	}
+}
