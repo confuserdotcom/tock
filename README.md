@@ -1028,7 +1028,8 @@ today.
   presets`. Rounded to 5 minutes, between 15 and 120.
 - *Sustained focus.* The median of your longest stretch of activity without
   a break on each of the last 28 days; it needs 7 days of activity. Rounded
-  to 5 minutes, between 15 and 120.
+  to 5 minutes, between 15 and 120. The break reminder itself uses it kept
+  between 25 and 120 (see The adaptive break).
 
 `tock trends` shows all three after the month, then how you answered:
 

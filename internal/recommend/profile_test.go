@@ -242,3 +242,16 @@ func TestBuildRanksWorkHours(t *testing.T) {
 		t.Error("Hours lost the evening")
 	}
 }
+
+// TestBuildSustainedRoundedAndClamped: the sustained length is rounded to 5 min
+// and kept within 15..120, as the typical session is.
+func TestBuildSustainedRoundedAndClamped(t *testing.T) {
+	for _, c := range []struct{ run, want int64 }{
+		{7, 15}, {14, 15}, {52, 50}, {53, 55}, {118, 120}, {183, 120},
+	} {
+		p := Build(Input{Days: history(10, func(d *Day) { d.RunMS = c.run * min1 }), MinDays: 7, DefaultSessionMS: 25 * min1})
+		if p.SustainedMS != c.want*min1 || p.SustainedDays != 10 {
+			t.Errorf("runs of %d min: SustainedMS %d min, SustainedDays %d; want %d, 10", c.run, p.SustainedMS/min1, p.SustainedDays, c.want)
+		}
+	}
+}

@@ -119,7 +119,7 @@ func Build(in Input) Profile {
 	p.SessionMS, p.GoodSessions = sessionLength(in)
 	p.SustainedDays = len(runs)
 	if len(runs) >= MinSustainedDays {
-		p.SustainedMS = lowerMedian(runs)
+		p.SustainedMS = roundClamp(lowerMedian(runs))
 	}
 	if p.Thin {
 		return p
@@ -175,8 +175,13 @@ func sessionLength(in Input) (int64, int) {
 	if len(lens) < MinGoodSessions {
 		return in.DefaultSessionMS, 0
 	}
-	m := (lowerMedian(lens) + RoundMS/2) / RoundMS * RoundMS
-	return min(max(m, SessionMinMS), SessionMaxMS), len(lens)
+	return roundClamp(lowerMedian(lens)), len(lens)
+}
+
+// roundClamp rounds ms to RoundMS (half up) and keeps it within SessionMinMS..
+// SessionMaxMS, the range of a typical session and of the sustained focus.
+func roundClamp(ms int64) int64 {
+	return min(max((ms+RoundMS/2)/RoundMS*RoundMS, SessionMinMS), SessionMaxMS)
 }
 
 // lowerMedian is the middle element of xs sorted, the lower of the two for an

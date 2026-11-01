@@ -11,19 +11,19 @@ import (
 	"tock/internal/store"
 )
 
-// breakEnv is a Saturday with days past days of a 52 min terminal run each
-// (08:00-08:52), an open terminal span since 09:00 today, no [hours] (so no
+// breakEnv is a Saturday with days past days of a 50 min terminal run each
+// (08:00-08:50), an open terminal span since 09:02 today, no [hours] (so no
 // focus suggestions), no routine or plan notices, and the clock at 09:30.
 func breakEnv(t *testing.T, days int, extra string) *apptest.Env {
 	t.Helper()
 	e := apptest.New(t, apptest.Rules)
 	var hist []apptest.Span
 	for i := 1; i <= days; i++ {
-		hist = append(hist, apptest.Span{ID: int64(2000 + i), Start: "08:00", End: "08:52", Bundle: "term", App: "WezTerm",
+		hist = append(hist, apptest.Span{ID: int64(2000 + i), Start: "08:00", End: "08:50", Bundle: "term", App: "WezTerm",
 			Title: "tock │ h", Day: -i})
 	}
 	e.Seed(t, hist...)
-	e.Seed(t, apptest.Span{ID: 1, Start: "09:00", Bundle: "term", App: "WezTerm", Title: "tock │ x"})
+	e.Seed(t, apptest.Span{ID: 1, Start: "09:02", Bundle: "term", App: "WezTerm", Title: "tock │ x"})
 	e.WriteConfig(t, apptest.NoRoutines+apptest.NoPlanNotices+extra)
 	slotClock(e, 9, 30, 0)
 	return e
@@ -63,17 +63,17 @@ func TestAdaptiveBreakFromHistory(t *testing.T) {
 	e := breakEnv(t, 10, "")
 	a := open(t, e)
 	wantBreak(t, "09:51", breakTick(t, a, e, 9, 51, 0), "")
-	wantBreak(t, "09:52", breakTick(t, a, e, 9, 52, 0), "52 min without a break. Stand up for 10 min.")
+	wantBreak(t, "09:52", breakTick(t, a, e, 9, 52, 0), "50 min without a break. Stand up for 10 min.")
 
 	// adaptive_break off: the [focus] break_after of 50 min.
 	e = breakEnv(t, 10, "[recommend]\nadaptive_break = false\n")
 	a = open(t, e)
-	wantBreak(t, "off 09:50", breakTick(t, a, e, 9, 50, 0), "50 min without a break. Stand up for 5 min.")
+	wantBreak(t, "off 09:52", breakTick(t, a, e, 9, 52, 0), "50 min without a break. Stand up for 5 min.")
 
 	// Five days is too little history for a sustained length.
 	e = breakEnv(t, 5, "")
 	a = open(t, e)
-	wantBreak(t, "thin 09:50", breakTick(t, a, e, 9, 50, 0), "50 min without a break. Stand up for 5 min.")
+	wantBreak(t, "thin 09:52", breakTick(t, a, e, 9, 52, 0), "50 min without a break. Stand up for 5 min.")
 }
 
 // breakRows are the recommend rows of kind break.
@@ -103,7 +103,7 @@ func TestBreakRecommend(t *testing.T) {
 	e := breakEnv(t, 10, "")
 	a := open(t, e)
 	got := breakTick(t, a, e, 9, 52, 0)
-	wantBreak(t, "09:52", got, "52 min without a break. Stand up for 10 min.")
+	wantBreak(t, "09:52", got, "50 min without a break. Stand up for 10 min.")
 	ev := got[0]
 	if ev.Kind != focus.Notify || ev.Minutes != 10 {
 		t.Fatalf("event = %+v, want a Notify of 10 min", ev)
@@ -166,7 +166,7 @@ func TestTakeBreak(t *testing.T) {
 		t.Fatalf("dismiss wrote focus_break_until %q", got)
 	}
 	wantBreak(t, "09:59", breakTick(t, a, e, 9, 59, 0), "")
-	wantBreak(t, "10:02", breakTick(t, a, e, 10, 2, 0), "62 min without a break. Stand up for 10 min.")
+	wantBreak(t, "10:02", breakTick(t, a, e, 10, 2, 0), "60 min without a break. Stand up for 10 min.")
 }
 
 // A notice of one kind cannot answer a row of the other.
@@ -192,7 +192,7 @@ func TestBreakRowFailure(t *testing.T) {
 	}
 	db.Close()
 	got := breakTick(t, a, e, 9, 52, 0)
-	wantBreak(t, "09:52", got, "52 min without a break. Stand up for 10 min.")
+	wantBreak(t, "09:52", got, "50 min without a break. Stand up for 10 min.")
 	if got[0].Kind != focus.Notify || got[0].RecID != 0 {
 		t.Fatalf("event = %+v, want a plain Notify without a row", got[0])
 	}
