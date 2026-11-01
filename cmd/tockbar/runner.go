@@ -155,6 +155,9 @@ func (r *runner) tick() {
 				if s.SlotsErr != nil {
 					r.warn("reading the plan and calendar failed", s.SlotsErr)
 				}
+				if s.RecErr != nil {
+					r.warn("reading the pending suggestion failed", s.RecErr)
+				}
 			}
 		}
 	}

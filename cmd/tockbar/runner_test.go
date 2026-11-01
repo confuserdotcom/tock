@@ -451,3 +451,39 @@ func TestRunnerPostsRecommend(t *testing.T) {
 		t.Fatalf("session %d: %d..%d (err %v), want 25 min", s, start, planned, err)
 	}
 }
+
+func TestRunnerMenuRec(t *testing.T) {
+	e := apptest.New(t, apptest.Rules)
+	e.Seed(t, apptest.FocusHistory(21)...)
+	e.Seed(t, apptest.Span{ID: 1, Start: "09:00", Bundle: "term", App: "WezTerm", Title: "tock │ x"})
+	e.WriteConfig(t, apptest.NoRoutines+apptest.NoPlanNotices+apptest.AllHours)
+	e.Clock = time.Date(2026, 10, 10, 9, 30, 0, 0, apptest.Zone)
+	e.Heartbeat(t, e.Clock.UnixMilli())
+	td, err := app.Open(app.Paths{DB: e.DB, Rules: e.Rules, Learned: e.Learned, Config: e.Config}, e.NowFunc())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer td.Close()
+	evs, err := td.FocusTick(false)
+	if err != nil || len(evs) != 1 {
+		t.Fatalf("FocusTick = %v, %v, want one note", evs, err)
+	}
+
+	r, u, _ := testRunner(t, e)
+	r.handle(event{kind: evReady})
+	r.tick()
+	menu := last(u.menus)
+	key := strconv.FormatInt(evs[0].RecID, 10) + ":" + strconv.FormatInt(e.Clock.UnixMilli(), 10)
+	for _, want := range []string{"Suggested: focus now (25 min)", "rec:accept:" + key + "\tStart focus (25 min)", "rec:dismiss:" + key + "\tNot now"} {
+		if !strings.Contains(menu, want) {
+			t.Fatalf("menu lacks %q:\n%s", want, menu)
+		}
+	}
+	r.handle(event{kind: evMenu, id: "rec:accept:" + key})
+	if s, err := td.RunningSessionID(); err != nil || s == 0 {
+		t.Fatalf("running session = %d, %v, want the 25 min session", s, err)
+	}
+	if menu := last(u.menus); strings.Contains(menu, "Suggested") || strings.Contains(menu, "Not now") {
+		t.Fatalf("menu after the click still offers the suggestion:\n%s", menu)
+	}
+}

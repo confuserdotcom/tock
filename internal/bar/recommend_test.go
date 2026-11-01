@@ -1,14 +1,17 @@
 package bar
 
 import (
+	"errors"
 	"reflect"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
 	"tock/internal/app"
 	"tock/internal/apptest"
 	"tock/internal/focus"
+	"tock/internal/recommend"
 	"tock/internal/store"
 )
 
@@ -121,4 +124,137 @@ func TestRespondRecommendSpoof(t *testing.T) {
 	if running, _ := a.RunningSessionID(); running != 0 {
 		t.Fatal("an old row started a session")
 	}
+}
+
+// recIDs are the accept and dismiss menu ids of row id sent at atMS.
+func recIDs(id, atMS int64) (accept, dismiss string) {
+	k := strconv.FormatInt(id, 10) + ":" + strconv.FormatInt(atMS, 10)
+	return "rec:accept:" + k, "rec:dismiss:" + k
+}
+
+func TestSnapshotRec(t *testing.T) {
+	e, a, ev := recApp(t)
+	now := e.Clock.UnixMilli()
+	s, err := Load(a, e.Clock.Add(5*time.Minute), app.NotifyGranted)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Rec == nil || s.Rec.ID != ev.RecID || s.RecErr != nil {
+		t.Fatalf("Rec = %+v, %v, want row %d", s.Rec, s.RecErr, ev.RecID)
+	}
+	acc, dis := recIDs(ev.RecID, now)
+	items := s.Items(now + 5*60_000)
+	got := titles(items)
+	for _, want := range []string{"Suggested: focus now (25 min)", "Start focus (25 min) [" + acc + "]", "Not now [" + dis + "]"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("menu lacks %q:\n%s", want, got)
+		}
+	}
+	// The rows sit after the start items and before the trailing separator
+	// block (settings / quit).
+	idx := func(sub string) int {
+		for i, it := range items {
+			if strings.Contains(it.Title+it.ID, sub) {
+				return i
+			}
+		}
+		return -1
+	}
+	if !(idx("Start 25 min focus") < idx("Suggested:") && idx("Suggested:") < idx("Start focus (25") && idx("Start focus (25") < idx("Not now") && idx("Not now") < idx("Quit")) {
+		t.Errorf("order wrong:\n%s", got)
+	}
+
+	// The same snapshot drawn when the row is 30 min old: expired.
+	if got := titles(s.Items(now + 30*60_000)); strings.Contains(got, "Suggested") || strings.Contains(got, "Not now") {
+		t.Errorf("expired row still on the menu:\n%s", got)
+	}
+
+	// A running session hides them.
+	if _, err := a.StartSession(10); err != nil {
+		t.Fatal(err)
+	}
+	s2, err := Load(a, e.Clock.Add(time.Minute), app.NotifyGranted)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := titles(s2.Items(now + 60_000)); strings.Contains(got, "Suggested") || strings.Contains(got, "Not now") {
+		t.Errorf("rows shown with a session running:\n%s", got)
+	}
+}
+
+func TestSnapshotRecBreak(t *testing.T) {
+	s := Snapshot{OK: true, Presets: []int{25}, TrackdUp: true, Rec: &recommend.Rec{ID: 4, Kind: recommend.KindBreak, AtMS: 1_000, LengthMS: 10 * 60_000}}
+	got := titles(s.Items(2_000))
+	for _, want := range []string{"Suggested: break (10 min)", "Take a break (10 min) [rec:accept:4:1000]", "Not now [rec:dismiss:4:1000]"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("menu lacks %q:\n%s", want, got)
+		}
+	}
+}
+
+func TestMenuRec(t *testing.T) {
+	e, a, ev := recApp(t)
+	now := e.Clock.UnixMilli()
+	acc, _ := recIDs(ev.RecID, now)
+	if msg, err := Menu(a, acc); err != nil || msg != "started 25 min session" {
+		t.Fatalf("accept = %q, %v", msg, err)
+	}
+	if running, _ := a.RunningSessionID(); running == 0 {
+		t.Fatal("no session running")
+	}
+	if msg, err := Menu(a, acc); err != nil || msg != "that suggestion is no longer open" {
+		t.Fatalf("second accept = %q, %v", msg, err)
+	}
+
+	_, a2, ev2 := recApp(t)
+	_, dis := recIDs(ev2.RecID, now)
+	if msg, err := Menu(a2, dis); err != nil || msg != "suggestion dismissed" {
+		t.Fatalf("dismiss = %q, %v", msg, err)
+	}
+	if running, _ := a2.RunningSessionID(); running != 0 {
+		t.Fatal("dismiss started a session")
+	}
+	for _, bad := range []string{"rec:accept:abc", "rec:accept:0:5", "rec:accept:3", "rec:accept:3:0", "rec:dismiss:-1:5", "rec:dismiss:3:x", "rec:accept:"} {
+		if _, err := Menu(a2, bad); !errors.Is(err, ErrUnknown) {
+			t.Errorf("Menu(%q) err = %v, want ErrUnknown", bad, err)
+		}
+	}
+}
+
+// TestMenuRecStale: a click on a menu drawn before the row was answered, or
+// before another row took its id, answers nothing.
+func TestMenuRecStale(t *testing.T) {
+	e, a, ev := recApp(t)
+	now := e.Clock.UnixMilli()
+	acc, _ := recIDs(ev.RecID, now)
+	// The row goes away and a newer one takes the id.
+	if err := a.ReleaseRecommend(ev); err != nil {
+		t.Fatal(err)
+	}
+	e.Clock = e.Clock.Add(5 * time.Minute)
+	a2 := openApp(t, e)
+	s := openRaw(t, e)
+	defer s.Close()
+	id, err := s.AddRecommend(store.Recommend{Kind: "focus", AtMS: e.Clock.UnixMilli(), LengthMS: 10 * 60_000})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if id != ev.RecID {
+		t.Skipf("id %d not reused (got %d)", ev.RecID, id)
+	}
+	if msg, err := Menu(a2, acc); err != nil || msg != "that suggestion is no longer open" {
+		t.Fatalf("stale accept = %q, %v", msg, err)
+	}
+	if running, _ := a2.RunningSessionID(); running != 0 {
+		t.Fatal("a stale click started a session")
+	}
+}
+
+func openRaw(t *testing.T, e *apptest.Env) *store.Store {
+	t.Helper()
+	s, err := store.Open(e.DB)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return s
 }

@@ -47,6 +47,15 @@ func Menu(a *app.App, id string) (string, error) {
 		}
 		return "stopped session after " + report.Dur(s.EndMS-s.StartMS), nil
 	}
+	for _, p := range []struct{ prefix, reply string }{{IDRecAccept, recommend.ReplyAccept}, {IDRecDismiss, recommend.ReplyDismiss}} {
+		if v, ok := strings.CutPrefix(id, p.prefix); ok {
+			rid, at, ok := recKey(v)
+			if !ok {
+				return "", fmt.Errorf("menu %q: %w", id, ErrUnknown)
+			}
+			return answerMsg(a.AnswerRecommendAt(rid, at, "", p.reply))
+		}
+	}
 	if v, ok := strings.CutPrefix(id, IDRate); ok {
 		r, sid, ok := strings.Cut(v, ":")
 		n, err := strconv.Atoi(r)

@@ -13,6 +13,7 @@ import (
 	"tock/internal/app"
 	"tock/internal/classify"
 	"tock/internal/focus"
+	"tock/internal/recommend"
 	"tock/internal/report"
 	"tock/internal/store"
 )
@@ -37,6 +38,11 @@ const (
 	// event the menu offers to join. The id carries the start so a click on
 	// a menu drawn from an older snapshot opens nothing new.
 	IDJoin = "join:"
+	// The suggestion items carry the row id and its send time ("<id>:<at ms>"):
+	// the snapshot is up to reloadEvery old and row ids can be reused, so a
+	// click must answer the row the menu showed, never a newer one.
+	IDRecAccept  = "rec:accept:"  // + "<recommend id>:<sent at, unix ms>"
+	IDRecDismiss = "rec:dismiss:" // + "<recommend id>:<sent at, unix ms>"
 )
 
 const (
@@ -76,6 +82,8 @@ type Snapshot struct {
 	Slots        []focus.Slot   // today's plan items and calendar events, start order
 	SlotsErr     error          // why Slots could not be read, for the caller to log; the rest of the snapshot is still good
 	Loc          *time.Location // zone for the clock times of Slots; nil = local
+	Rec          *recommend.Rec // the pending recommendation (sent under 30 min ago, no reply), or nil
+	RecErr       error          // why Rec could not be read, for the caller to log; the rest of the snapshot is still good
 }
 
 // LastSession is the finished session the menu offers to rate and refile.
@@ -113,6 +121,9 @@ func Load(a *app.App, now time.Time, access string) (Snapshot, error) {
 	s.Loc = now.Location()
 	if s.Slots, err = a.Slots(now); err != nil {
 		s.Slots, s.SlotsErr = nil, fmt.Errorf("bar: slots: %w", err)
+	}
+	if s.Rec, err = a.PendingRecommend(now); err != nil {
+		s.Rec, s.RecErr = nil, fmt.Errorf("bar: pending suggestion: %w", err)
 	}
 	return s, nil
 }
@@ -216,6 +227,7 @@ func (s Snapshot) Items(nowMS int64) []Item {
 		}
 	}
 	out = append(out, s.slotItems(nowMS)...)
+	out = append(out, s.recItems(nowMS)...)
 	out = append(out, sep)
 	if s.Access == app.NotifyDenied {
 		out = append(out, Item{Title: "Notifications are off…", ID: IDSettings})
@@ -247,6 +259,34 @@ func (s Snapshot) slotItems(nowMS int64) []Item {
 		out = append(out, Item{Title: "Join " + focus.SlotName(sl, ProjectCells), ID: IDJoin + strconv.FormatInt(sl.StartMS, 10)})
 	}
 	return out
+}
+
+// recItems are the pending suggestion's rows at nowMS: its label, the accept
+// item and Not now. None while a session runs (a focus session cannot start
+// then), without a suggestion, or once it is no longer open: the snapshot can
+// be older than the 30 minutes the row stays open.
+func (s Snapshot) recItems(nowMS int64) []Item {
+	r := s.Rec
+	if s.Session != nil || r == nil || !r.Open(nowMS) {
+		return nil
+	}
+	key := strconv.FormatInt(r.ID, 10) + ":" + strconv.FormatInt(r.AtMS, 10)
+	return []Item{
+		label("Suggested: %s", report.RecText(*r)),
+		{Title: RecAcceptTitle(r.Kind, int(r.LengthMS/60_000)), ID: IDRecAccept + key},
+		{Title: "Not now", ID: IDRecDismiss + key},
+	}
+}
+
+// recKey parses the "<recommend id>:<sent at ms>" of a suggestion item id.
+func recKey(v string) (id, atMS int64, ok bool) {
+	a, b, found := strings.Cut(v, ":")
+	if !found {
+		return 0, 0, false
+	}
+	id, ok1 := sessionID(a)
+	atMS, ok2 := sessionID(b)
+	return id, atMS, ok1 && ok2
 }
 
 // joinSlot is the event the menu offers to join at nowMS: the first one with
