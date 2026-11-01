@@ -216,7 +216,9 @@ func TestProfileCachedPerDay(t *testing.T) {
 // TestRecommendIdleTickReadsNoRows: trackd's idle budget. Outside a top hour
 // no recommendation row is read; the profile is built once.
 func TestRecommendIdleTickReadsNoRows(t *testing.T) {
-	e := recEnv(t, "[focus]\nbreak_after = 480\n")
+	// adaptive_break off: the break reminder would otherwise follow the 60 min
+	// sustained focus of the history and fire at 11:00 whatever break_after says.
+	e := recEnv(t, "[focus]\nbreak_after = 480\n[recommend]\nadaptive_break = false\n")
 	a := open(t, e)
 	wantList(t, "11:00", tickAt(t, a, e, 11, 0, 0))
 	if a.recCache.ok {

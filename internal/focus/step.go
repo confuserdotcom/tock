@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"tock/internal/classify"
+	"tock/internal/recommend"
 	"tock/internal/stats"
 )
 
@@ -106,18 +107,35 @@ func runStart(in Input) (from int64, ok bool) {
 	return from, true
 }
 
-// stepBreak reminds after BreakAfterMS of continuous activity, then every
-// BreakRepeatMS while the run goes on. Calls defer it.
-func stepBreak(in Input, st *State) (Event, bool) {
-	from, ok := runStart(in)
-	if !ok || in.Now < st.SnoozeUntil || inMeeting(in) || in.Now-from < in.Cfg.BreakAfterMS {
-		return Event{}, false
+// breakDue reports a break reminder due now and the start of the run it is
+// for: the run has lasted recommend.BreakAfterMS (the learned sustained-focus
+// length, else [focus] break_after), no snooze or call holds it back, and the
+// last reminder of this run is a repeat interval old.
+func breakDue(in Input, st State) (from int64, ok bool) {
+	from, ok = runStart(in)
+	if !ok || in.Now < st.SnoozeUntil || inMeeting(in) {
+		return 0, false
+	}
+	if in.Now-from < recommend.BreakAfterMS(in.Profile, in.Rec, in.Cfg.BreakAfterMS) {
+		return 0, false
 	}
 	if st.BreakFrom == from && in.Now-st.BreakAt < in.Cfg.BreakRepeatMS {
+		return 0, false
+	}
+	return from, true
+}
+
+// stepBreak reminds after the break-after time of continuous activity, then
+// every BreakRepeatMS while the run goes on. Calls defer it. The body names
+// the break to take: 5 min, or with the profile a fifth of the run.
+func stepBreak(in Input, st *State) (Event, bool) {
+	from, ok := breakDue(in, *st)
+	if !ok {
 		return Event{}, false
 	}
 	st.BreakFrom, st.BreakAt = from, in.Now
-	return note(TopicBreak, TitleBreak, fmt.Sprintf("%d min without a break. Stand up for 5 min.", minutes(in.Now-from)), false), true
+	mins := recommend.BreakMinutes(in.Now-from, recommend.Adaptive(in.Profile, in.Rec))
+	return note(TopicBreak, TitleBreak, fmt.Sprintf("%d min without a break. Stand up for %d min.", minutes(in.Now-from), mins), false), true
 }
 
 // stepSession measures the running session, alerts on distraction and ends
