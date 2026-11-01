@@ -395,3 +395,59 @@ func TestRunnerUnansweredInviteOffersJoinOnly(t *testing.T) {
 		t.Fatalf("after the click: urls %q", u.urls)
 	}
 }
+
+func TestRunnerPostsRecommend(t *testing.T) {
+	e := apptest.New(t, apptest.Rules)
+	e.Seed(t, apptest.FocusHistory(21)...)
+	e.Seed(t, apptest.Span{ID: 1, Start: "09:00", Bundle: "term", App: "WezTerm", Title: "tock │ x"})
+	e.WriteConfig(t, apptest.NoRoutines+apptest.NoPlanNotices+apptest.AllHours)
+	e.Clock = time.Date(2026, 10, 10, 9, 30, 0, 0, apptest.Zone)
+	e.Heartbeat(t, e.Clock.UnixMilli())
+	// trackd's side: its own App on the same database.
+	td, err := app.Open(app.Paths{DB: e.DB, Rules: e.Rules, Learned: e.Learned, Config: e.Config}, e.NowFunc())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer td.Close()
+	evs, err := td.FocusTick(false)
+	if err != nil || len(evs) != 1 {
+		t.Fatalf("FocusTick = %v, %v, want one note", evs, err)
+	}
+	if err := td.Enqueue(evs[0]); err != nil {
+		t.Fatal(err)
+	}
+
+	r, u, _ := testRunner(t, e)
+	r.handle(event{kind: evReady})
+	r.tick()
+	if len(u.posts) != 1 {
+		t.Fatalf("posts = %q", u.posts)
+	}
+	f := strings.Split(u.posts[0], "|")
+	if len(f) != 4 || f[0] != "Good time to focus" || f[1] != "Your best focus hour · start a 25 min session now?" ||
+		!strings.HasPrefix(f[2], "recommend-") {
+		t.Fatalf("post = %q", u.posts[0])
+	}
+	if want := f[2] + "\trec:accept\tStart focus (25 min)\trec:dismiss\tNot now"; f[3] != want {
+		t.Fatalf("categories = %q, want %q", f[3], want)
+	}
+	nid, err := strconv.ParseInt(strings.TrimPrefix(f[2], "recommend-"), 10, 64)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.handle(event{kind: evResponse, notice: nid, id: "rec:accept"})
+	s, err := td.RunningSessionID()
+	if err != nil || s == 0 {
+		t.Fatalf("running session = %d, %v, want the 25 min session started", s, err)
+	}
+	db := e.RawDB(t)
+	defer db.Close()
+	var reply string
+	var planned, start int64
+	if err := db.QueryRow(`SELECT reply FROM recommend`).Scan(&reply); err != nil || reply != "accept" {
+		t.Fatalf("reply = %q (err %v), want accept", reply, err)
+	}
+	if err := db.QueryRow(`SELECT start_ms, planned_ms FROM session WHERE id = ?`, s).Scan(&start, &planned); err != nil || planned-start != 25*60_000 {
+		t.Fatalf("session %d: %d..%d (err %v), want 25 min", s, start, planned, err)
+	}
+}

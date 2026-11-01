@@ -118,3 +118,13 @@ func (s *Store) UnreplyRecommend(id int64, reply string) error {
 	}
 	return nil
 }
+
+// DeleteRecommend deletes row id, only while it is unanswered: for a
+// recommendation that was written but could not be handed over, so the next
+// tick suggests again. A missing or answered row is not an error.
+func (s *Store) DeleteRecommend(id int64) error {
+	if _, err := s.db.Exec(`DELETE FROM recommend WHERE id = ? AND reply = ''`, id); err != nil {
+		return fmt.Errorf("store: delete recommend: %w", err)
+	}
+	return nil
+}

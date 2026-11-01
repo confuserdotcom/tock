@@ -200,6 +200,10 @@ type Input struct {
 	// RecsOK says they were read; the caller fills both only when RecsDue.
 	Recs   []recommend.Rec
 	RecsOK bool
+	// RecSlots are today's slots for the free-moment rule of a focus
+	// suggestion; the caller fills them only when RecommendDue, from the same
+	// source as Slots but independent of the [plan] notice switches.
+	RecSlots []Slot
 }
 
 // IsMeeting reports a meeting view: a meeting app, or a URL whose host is a

@@ -82,12 +82,20 @@ func (a *App) recInput(in *focus.Input, nowT time.Time) {
 	if !focus.RecsDue(*in) {
 		return
 	}
+	// The free-moment rule reads its own copy of today's slots from the
+	// throttled cache, so it works with plan notices off and never disturbs
+	// the slot notices.
+	slots, err := a.Slots(nowT)
+	if err != nil {
+		fail(fmt.Errorf("app: recommendation slots: %w", err))
+		return
+	}
 	rows, err := a.recRows(nowT)
 	if err != nil {
 		fail(fmt.Errorf("app: recommendations: %w", err))
 		return
 	}
-	in.Recs, in.RecsOK = rows, true
+	in.RecSlots, in.Recs, in.RecsOK = slots, rows, true
 }
 
 // sendRec writes the recommend row of the RecDue event ev and returns the
@@ -111,6 +119,20 @@ func (a *App) sendRec(ev focus.Event, now int64) (focus.Event, bool) {
 	ev.RecID = id
 	ev.Kind = focus.Notify
 	return ev, true
+}
+
+// ReleaseRecommend deletes the unanswered row of a recommendation notice that
+// GuardTick returned but trackd could not hand over, so the next tick suggests
+// again. An event without a row is ignored.
+func (a *App) ReleaseRecommend(ev focus.Event) error {
+	if ev.RecID == 0 {
+		return nil
+	}
+	if err := a.st.DeleteRecommend(ev.RecID); err != nil {
+		return err
+	}
+	a.recCache.rows = slices.DeleteFunc(a.recCache.rows, func(r recommend.Rec) bool { return r.ID == ev.RecID && r.Reply == "" })
+	return nil
 }
 
 // RecAnswer is what answering a recommendation did: the row as it is now and,

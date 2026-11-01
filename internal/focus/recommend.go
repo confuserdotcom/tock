@@ -2,8 +2,10 @@ package focus
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
+	"tock/internal/classify"
 	"tock/internal/recommend"
 )
 
@@ -19,6 +21,12 @@ const (
 	// RecMinMS is the shortest session worth suggesting (CONTEXT: skip if
 	// the length is under 15 min).
 	RecMinMS = 15 * 60_000
+	// RecActiveMS of the last RecActiveWindowMS must be this machine's own
+	// activity for a suggestion: the user is at the keyboard, not away.
+	RecActiveMS       = 5 * 60_000
+	RecActiveWindowMS = 10 * 60_000
+	// recRoundMS is the unit a suggested length is floored to.
+	recRoundMS = 5 * 60_000
 )
 
 // RecommendDue reports that a focus suggestion could be due now, from the
@@ -49,10 +57,20 @@ func RecsDue(in Input) bool {
 	return RecommendDue(in)
 }
 
-// stepRecommend suggests a focus session at a top focus hour (REC-02): when
-// RecommendDue, the rows were read, fewer than [recommend] max_per_day focus
-// suggestions went out today and the last was at least RecGapMS ago. The
-// length is the profile's typical session; it is skipped under RecMinMS.
+// stepRecommend suggests a focus session at a top focus hour (REC-02). It is
+// due, beyond RecommendDue, when all of these hold (12-CONTEXT "Focus
+// suggestion"):
+//   - the rows were read, fewer than [recommend] max_per_day focus suggestions
+//     went out today and the last one was at least RecGapMS ago;
+//   - no call or meeting view (inMeeting) and no distraction snooze;
+//   - the user is active: the front view is this machine's own and not idle,
+//     and at least RecActiveMS of the last RecActiveWindowMS is this machine's
+//     own activity (the rule LocalInputEnd uses, so with two synced machines
+//     only the one in use suggests);
+//   - no plan item or calendar event is running (RecSlots).
+//
+// The length is the profile's typical session capped by the time to the next
+// slot and to the [hours] end, floored to 5 min; it is skipped under RecMinMS.
 func stepRecommend(in Input) (Event, bool) {
 	if !RecommendDue(in) || !in.RecsOK {
 		return Event{}, false
@@ -63,7 +81,27 @@ func stepRecommend(in Input) (Event, bool) {
 	if last := recommend.Last(in.Recs, recommend.KindFocus); last != 0 && in.Now-last < RecGapMS {
 		return Event{}, false
 	}
+	if inMeeting(in) || in.Now < in.State.DistractSnoozeUntil {
+		return Event{}, false
+	}
+	if cur := current(in); cur == nil || isIdle(*cur) || !ownView(*cur) {
+		return Event{}, false
+	}
+	if ownActiveMS(in.Views, in.Now-RecActiveWindowMS, in.Now) < RecActiveMS {
+		return Event{}, false
+	}
 	n := in.Profile.SessionMS
+	for _, s := range in.RecSlots {
+		switch {
+		case s.StartMS <= in.Now && in.Now < s.EndMS:
+			return Event{}, false
+		case s.StartMS > in.Now:
+			n = min(n, s.StartMS-in.Now)
+		}
+	}
+	_, to := in.Hours.Window(in.Day)
+	n = min(n, to-in.Now)
+	n -= n % recRoundMS
 	if n < RecMinMS {
 		return Event{}, false
 	}
@@ -73,4 +111,25 @@ func stepRecommend(in Input) (Event, bool) {
 	ev.Minutes = int(n / 60_000)
 	ev.RecKind, ev.RecLengthMS = recommend.KindFocus, n
 	return ev, true
+}
+
+// ownView reports a view of this machine's own screen: a positive ID and a
+// bundle that does not start with "tock." (the rule LocalInputEnd uses).
+func ownView(v classify.SpanView) bool {
+	return v.ID > 0 && !strings.HasPrefix(v.BundleID, "tock.")
+}
+
+// ownActiveMS is the time in [from, to) this machine's own non-idle views
+// cover.
+func ownActiveMS(views []classify.SpanView, from, to int64) int64 {
+	var sum int64
+	for _, v := range views {
+		if !ownView(v) || isIdle(v) {
+			continue
+		}
+		if e, s := min(v.End, to), max(v.Start, from); e > s {
+			sum += e - s
+		}
+	}
+	return sum
 }

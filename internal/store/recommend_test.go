@@ -79,3 +79,28 @@ func TestRecommendPrune(t *testing.T) {
 		t.Errorf("row 59 days old: err = %v, want kept", err)
 	}
 }
+
+func TestDeleteRecommend(t *testing.T) {
+	s := openAt(t, dbPath(t))
+	defer s.Close()
+	open, _ := s.AddRecommend(Recommend{Kind: "focus", AtMS: 1000})
+	answered, _ := s.AddRecommend(Recommend{Kind: "focus", AtMS: 2000})
+	if ok, err := s.ReplyRecommend(answered, "dismiss", 2500, 0); err != nil || !ok {
+		t.Fatal(ok, err)
+	}
+	if err := s.DeleteRecommend(open); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.DeleteRecommend(answered); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.DeleteRecommend(999); err != nil {
+		t.Fatalf("deleting a missing row: %v, want nil", err)
+	}
+	if _, err := s.Recommend(open); !errors.Is(err, ErrRecommendGone) {
+		t.Errorf("unanswered row: err = %v, want deleted", err)
+	}
+	if _, err := s.Recommend(answered); err != nil {
+		t.Errorf("answered row: err = %v, want kept", err)
+	}
+}

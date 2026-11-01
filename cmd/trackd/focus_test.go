@@ -311,3 +311,64 @@ func TestFocusLoopRetriesSlotNoticeAfterFailure(t *testing.T) {
 		t.Fatalf("notifications = %q, want %q", n.got, want)
 	}
 }
+
+// recEnv is a Saturday 09:30 in the middle of the best focus hour: 21 days of
+// 09:00-10:00 Code behind it and an open Code span since 09:00.
+func recEnv(t *testing.T) *apptest.Env {
+	t.Helper()
+	e := apptest.New(t, apptest.Rules)
+	e.Seed(t, apptest.FocusHistory(21)...)
+	e.Seed(t, apptest.Span{ID: 1, Start: "09:00", Bundle: "term", App: "WezTerm", Title: "tock │ x"})
+	e.WriteConfig(t, apptest.NoRoutines+apptest.NoPlanNotices+apptest.AllHours)
+	e.Clock = time.Date(2026, 10, 10, 9, 30, 0, 0, apptest.Zone)
+	return e
+}
+
+const recTitleBody = "Good time to focus|Your best focus hour · start a 25 min session now?"
+
+func recRowCount(t *testing.T, e *apptest.Env) int {
+	t.Helper()
+	db := e.RawDB(t)
+	defer db.Close()
+	var n int
+	if err := db.QueryRow(`SELECT count(*) FROM recommend`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	return n
+}
+
+// A focus suggestion is delivered once, across ticks and a trackd restart.
+func TestFocusLoopSendsRecommendOnce(t *testing.T) {
+	e := recEnv(t)
+	n := &recNotifier{}
+	f, _ := testLoop(t, e, n, nil)
+	f.tick()
+	f.tick()
+	g, _ := testLoop(t, e, n, nil) // trackd restarted
+	g.tick()
+	if want := []string{recTitleBody}; !reflect.DeepEqual(n.got, want) {
+		t.Fatalf("notifications = %q, want %q", n.got, want)
+	}
+	if c := recRowCount(t, e); c != 1 {
+		t.Fatalf("recommend rows = %d, want 1", c)
+	}
+}
+
+// A suggestion that could not be delivered leaves no row, so the next tick
+// sends it again.
+func TestFocusLoopRetriesRecommendAfterFailure(t *testing.T) {
+	e := recEnv(t)
+	n := &flakyNotifier{fails: 1}
+	f, _ := testLoop(t, e, n, nil)
+	f.tick()
+	if len(n.got) != 0 || recRowCount(t, e) != 0 {
+		t.Fatalf("first tick: delivered %q, rows %d, want the failure and no row", n.got, recRowCount(t, e))
+	}
+	f.tick()
+	if want := []string{recTitleBody}; !reflect.DeepEqual(n.got, want) {
+		t.Fatalf("notifications = %q, want %q", n.got, want)
+	}
+	if c := recRowCount(t, e); c != 1 {
+		t.Fatalf("recommend rows = %d, want 1", c)
+	}
+}

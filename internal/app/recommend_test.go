@@ -2,6 +2,7 @@ package app
 
 import (
 	"errors"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -15,10 +16,16 @@ import (
 // notices, with the clock at 09:30.
 func recEnv(t *testing.T, extra string) *apptest.Env {
 	t.Helper()
+	return recEnvCfg(t, apptest.NoRoutines+apptest.NoPlanNotices+apptest.AllHours+extra)
+}
+
+// recEnvCfg is recEnv with the whole config file given.
+func recEnvCfg(t *testing.T, cfg string) *apptest.Env {
+	t.Helper()
 	e := apptest.New(t, apptest.Rules)
 	e.Seed(t, apptest.FocusHistory(21)...)
 	e.Seed(t, apptest.Span{ID: 1, Start: "09:00", Bundle: "term", App: "WezTerm", Title: "tock │ x"})
-	e.WriteConfig(t, apptest.NoRoutines+apptest.NoPlanNotices+apptest.AllHours+extra)
+	e.WriteConfig(t, cfg)
 	slotClock(e, 9, 30, 0)
 	return e
 }
@@ -229,5 +236,96 @@ func TestRecommendIdleTickReadsNoRows(t *testing.T) {
 	tickAt(t, a, e, 9, 30, 0)
 	if !a.recCache.ok {
 		t.Error("rows were not read on a tick where a suggestion was due")
+	}
+}
+
+// TestRecommendSlots: a plan item soon caps the suggested length; one that is
+// too close, or running, suppresses it. Plan notices stay off throughout.
+func TestRecommendSlots(t *testing.T) {
+	for _, c := range []struct {
+		item string
+		want string // body length, "" = no notice
+		rows int
+	}{
+		{"Review @09h50 due:2026-10-10\n", "20", 1},
+		{"Review @09h40 due:2026-10-10\n", "", 0},
+		{"Review @09h00 due:2026-10-10\n", "", 0},
+	} {
+		todo := filepath.Join(t.TempDir(), "todo.txt")
+		writePlan(t, todo, c.item)
+		e := recEnvCfg(t, apptest.NoRoutines+apptest.AllHours+"[plan]\nfile = '"+todo+"'\nnotify = false\n")
+		a := open(t, e)
+		evs, err := a.FocusTick(false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if c.want == "" {
+			wantList(t, c.item, notes(evs))
+		} else {
+			wantList(t, c.item, notes(evs), wantNote(focus.TopicRecommend, "Good time to focus",
+				"Your best focus hour · start a "+c.want+" min session now?"))
+			if evs[0].Minutes != 20 {
+				t.Errorf("Minutes = %d, want 20", evs[0].Minutes)
+			}
+		}
+		rows := recRowsRaw(t, e)
+		if len(rows) != c.rows || (c.rows == 1 && rows[0].LengthMS != 20*60_000) {
+			t.Errorf("%q: rows = %+v, want %d", c.item, rows, c.rows)
+		}
+	}
+}
+
+// TestRecRowsThrottled: the rows are read once a minute, and a row trackd
+// wrote is in the cache at once.
+func TestRecRowsThrottled(t *testing.T) {
+	e := recEnv(t, "")
+	a := open(t, e)
+	if got := tickAt(t, a, e, 9, 30, 0); len(got) != 1 {
+		t.Fatalf("09:30 = %q", got)
+	}
+	db := e.RawDB(t)
+	if _, err := db.Exec(`DELETE FROM recommend`); err != nil {
+		t.Fatal(err)
+	}
+	db.Close()
+	wantList(t, "09:30:40", tickAt(t, a, e, 9, 30, 40))
+	if got := tickAt(t, a, e, 9, 31, 5); len(got) != 1 {
+		t.Fatalf("09:31:05 = %q, want the suggestion again once the cache is a minute old", got)
+	}
+}
+
+// TestReleaseRecommend: a suggestion trackd could not hand over is deleted, so
+// the next tick sends it again; an answered one stays.
+func TestReleaseRecommend(t *testing.T) {
+	e := recEnv(t, "")
+	a := open(t, e)
+	evs, err := a.FocusTick(false)
+	if err != nil || len(evs) != 1 {
+		t.Fatalf("tick = %v, %v", evs, err)
+	}
+	if err := a.ReleaseRecommend(focus.Event{}); err != nil {
+		t.Fatal(err)
+	}
+	if n := len(recRowsRaw(t, e)); n != 1 {
+		t.Fatalf("rows after releasing an event without a row = %d, want 1", n)
+	}
+	if err := a.ReleaseRecommend(evs[0]); err != nil {
+		t.Fatal(err)
+	}
+	if n := len(recRowsRaw(t, e)); n != 0 {
+		t.Fatalf("rows after release = %d, want 0", n)
+	}
+	again, err := a.FocusTick(false)
+	if err != nil || len(again) != 1 {
+		t.Fatalf("tick after release = %v, %v, want a new suggestion", again, err)
+	}
+	if _, err := a.AnswerRecommend(again[0].RecID, "", "dismiss"); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.ReleaseRecommend(again[0]); err != nil {
+		t.Fatal(err)
+	}
+	if n := len(recRowsRaw(t, e)); n != 1 {
+		t.Fatalf("an answered row was deleted: rows = %d", n)
 	}
 }

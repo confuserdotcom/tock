@@ -94,3 +94,73 @@ func TestStepRecommend(t *testing.T) {
 		t.Error("rows of yesterday blocked today's suggestion")
 	}
 }
+
+func TestRecommendRules(t *testing.T) {
+	mins := func(in Input) []int {
+		var out []int
+		for _, e := range only(Step(in), RecDue) {
+			out = append(out, e.Minutes)
+		}
+		return out
+	}
+	none := func(name string, mod func(in *Input)) {
+		t.Helper()
+		in := recBase()
+		mod(&in)
+		if got := mins(in); len(got) != 0 {
+			t.Errorf("%s: suggested %v, want none", name, got)
+		}
+	}
+	setViews := func(in *Input, vs ...vw) { in.Views, in.Labels = world(vs...) }
+	none("call", func(in *Input) { in.Call = true })
+	none("meeting view in front", func(in *Input) {
+		setViews(in, vw{from: at(9, 0, 0), to: at(9, 29, 0), kind: "deep"}, vw{from: at(9, 29, 0), to: at(9, 30, 0), bundle: "us.zoom.xos"})
+	})
+	none("front view idle", func(in *Input) {
+		setViews(in, vw{from: at(9, 0, 0), to: at(9, 25, 0), kind: "deep"}, vw{from: at(9, 25, 0), to: at(9, 30, 0), kind: "idle"})
+	})
+	none("under 5 min of own activity", func(in *Input) {
+		setViews(in, vw{from: at(9, 0, 0), to: at(9, 26, 0), kind: "idle"}, vw{from: at(9, 26, 0), to: at(9, 30, 0), kind: "deep"})
+	})
+	none("another machine's views", func(in *Input) {
+		for i := range in.Views {
+			in.Views[i].ID = -in.Views[i].ID
+		}
+	})
+	none("tock.* bundle in front", func(in *Input) {
+		setViews(in, vw{from: at(9, 0, 0), to: at(9, 30, 0), kind: "deep", bundle: "tock.remote"})
+	})
+	none("distraction snooze", func(in *Input) { in.State.DistractSnoozeUntil = at(9, 40, 0) })
+	none("running slot", func(in *Input) {
+		in.RecSlots = []Slot{{Key: "k", StartMS: at(9, 0, 0), EndMS: at(10, 0, 0)}}
+	})
+	none("slot in 13 min", func(in *Input) {
+		in.RecSlots = []Slot{{Key: "k", StartMS: at(9, 43, 0), EndMS: at(10, 0, 0)}}
+	})
+	none("work window ends in 12 min", func(in *Input) { in.Hours.EndMin = 9*60 + 42 })
+
+	// With room: the length is capped by the next slot and the [hours] end,
+	// floored to 5 min.
+	for _, c := range []struct {
+		name string
+		mod  func(in *Input)
+		want int
+	}{
+		{"slot in 25 min", func(in *Input) { in.RecSlots = []Slot{{Key: "k", StartMS: at(9, 55, 0), EndMS: at(10, 30, 0)}} }, 25},
+		{"slot in 42 min", func(in *Input) { in.RecSlots = []Slot{{Key: "k", StartMS: at(10, 12, 0), EndMS: at(11, 0, 0)}} }, 40},
+		{"window ends in 30 min", func(in *Input) { in.Hours.EndMin = 10 * 60 }, 30},
+		{"slot ended already", func(in *Input) { in.RecSlots = []Slot{{Key: "k", StartMS: at(8, 50, 0), EndMS: at(9, 20, 0)}} }, 45},
+		{"nearest of two slots", func(in *Input) {
+			in.RecSlots = []Slot{{Key: "a", StartMS: at(10, 20, 0), EndMS: at(10, 40, 0)}, {Key: "b", StartMS: at(9, 55, 0), EndMS: at(10, 10, 0)}}
+		}, 25},
+	} {
+		in := recBase()
+		c.mod(&in)
+		if got := mins(in); len(got) != 1 || got[0] != c.want {
+			t.Errorf("%s: got %v, want [%d]", c.name, got, c.want)
+		}
+		if evs := only(Step(in), RecDue); len(evs) == 1 && evs[0].RecLengthMS != int64(c.want)*minute {
+			t.Errorf("%s: RecLengthMS = %d", c.name, evs[0].RecLengthMS)
+		}
+	}
+}
