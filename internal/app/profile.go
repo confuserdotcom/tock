@@ -55,7 +55,7 @@ func (a *App) Profile(now time.Time) (recommend.Profile, error) {
 	if err != nil {
 		return recommend.Profile{}, fmt.Errorf("app: profile: %w", err)
 	}
-	p := recommend.Build(recommend.Input{Days: days, MinDays: a.cfg.Recommend.MinDays,
+	p := recommend.Build(recommend.Input{Days: days, MinDays: a.cfg.Recommend.MinDays, Hours: a.cfg.Hours,
 		DefaultSessionMS: int64(a.cfg.Focus.Presets[0]) * 60_000,
 		NowMS:            day.UnixMilli(), Sessions: sessions})
 	a.profile = profileCache{p: &p, day: key}

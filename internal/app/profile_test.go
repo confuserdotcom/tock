@@ -2,6 +2,7 @@ package app
 
 import (
 	"testing"
+	"time"
 
 	"tock/internal/apptest"
 	"tock/internal/focus"
@@ -86,5 +87,27 @@ func TestProfileSustained(t *testing.T) {
 	}
 	if p.SustainedMS != 0 || p.SustainedDays != 6 {
 		t.Fatalf("6 days: SustainedMS %d, SustainedDays %d; want 0, 6", p.SustainedMS, p.SustainedDays)
+	}
+}
+
+// TestProfileTopHoursInsideWorkWindow: the profile ranks the hours of the
+// [hours] window, so history in 09:00-10:00 gives no top hour for a 10:00-18:00
+// schedule.
+func TestProfileTopHoursInsideWorkWindow(t *testing.T) {
+	late := "[hours]\ndays = [\"mon\", \"tue\", \"wed\", \"thu\", \"fri\", \"sat\", \"sun\"]\nstart = \"10:00\"\nend = \"18:00\"\n"
+	e := recEnvCfg(t, apptest.NoRoutines+apptest.NoPlanNotices+late)
+	p, err := open(t, e).Profile(e.Clock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.Rank(time.Saturday, 9) != 0 || len(p.Top[time.Saturday]) != 0 {
+		t.Errorf("Top[Saturday] = %v, want none outside a 10:00 start", p.Top[time.Saturday])
+	}
+	if p.Hours[time.Saturday][9].Samples == 0 {
+		t.Error("the grid lost the hour outside the window")
+	}
+	e = recEnv(t, "")
+	if p, err = open(t, e).Profile(e.Clock); err != nil || p.Rank(time.Saturday, 9) != 1 {
+		t.Errorf("08:00 start: rank of 9 = %d, err %v; want 1", p.Rank(time.Saturday, 9), err)
 	}
 }

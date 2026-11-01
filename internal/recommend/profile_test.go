@@ -4,6 +4,8 @@ import (
 	"reflect"
 	"testing"
 	"time"
+
+	"tock/internal/stats"
 )
 
 const min1 = int64(60_000)
@@ -203,5 +205,40 @@ func TestBuildSustained(t *testing.T) {
 	p = Build(Input{Days: days, MinDays: 7, DefaultSessionMS: 25 * min1})
 	if p.SustainedMS != 0 || p.SustainedDays != 6 {
 		t.Errorf("6 days: SustainedMS %d, SustainedDays %d; want 0, 6", p.SustainedMS, p.SustainedDays)
+	}
+}
+
+// TestBuildRanksWorkHours: the best hours are ranked among the hours of the
+// [hours] window, so evening hours that outscore it cannot take their places.
+func TestBuildRanksWorkHours(t *testing.T) {
+	days := history(21, func(d *Day) {
+		for _, h := range []int{21, 22, 23} { // after work, the best of the day
+			d.ActiveMS[h], d.FocusMS[h] = 60*min1, 55*min1
+		}
+		for _, h := range []int{9, 10, 11, 12} {
+			d.ActiveMS[h], d.FocusMS[h] = 60*min1, 30*min1
+		}
+		d.ActiveMS[8], d.FocusMS[8] = 60*min1, 40*min1 // 08:30 start: partly inside
+	})
+	hours := stats.Hours{Set: true, StartMin: 8*60 + 30, EndMin: 18 * 60}
+	for i := range hours.Days {
+		hours.Days[i] = i != int(time.Sunday) && i != int(time.Saturday)
+	}
+	in := Input{Days: days, MinDays: 7, DefaultSessionMS: 25 * min1}
+
+	if p := Build(in); !reflect.DeepEqual(p.Top[time.Tuesday], []int{21, 22, 23}) {
+		t.Fatalf("without [hours] Top[Tuesday] = %v, want [21 22 23]", p.Top[time.Tuesday])
+	}
+	in.Hours = hours
+	p := Build(in)
+	if !reflect.DeepEqual(p.Top[time.Tuesday], []int{8, 9, 10}) {
+		t.Errorf("Top[Tuesday] = %v, want [8 9 10] (08 is inside a window from 08:30)", p.Top[time.Tuesday])
+	}
+	if p.Top[time.Saturday] != nil || p.Top[time.Sunday] != nil {
+		t.Errorf("days off have top hours: %v %v", p.Top[time.Saturday], p.Top[time.Sunday])
+	}
+	// The grid keeps every hour.
+	if p.Hours[time.Tuesday][22].Samples == 0 {
+		t.Error("Hours lost the evening")
 	}
 }

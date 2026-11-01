@@ -3,6 +3,8 @@ package recommend
 import (
 	"sort"
 	"time"
+
+	"tock/internal/stats"
 )
 
 // Day is one past local day: the active (non-idle) and the focus (deep-kind)
@@ -39,6 +41,10 @@ type Input struct {
 	Days []Day
 	// MinDays is [recommend] min_days: active days the profile needs.
 	MinDays int
+	// Hours is the [hours] work schedule. When it is set the top hours are
+	// ranked among the hours of the window of each work day only, since a
+	// suggestion is made inside it; unset, every hour counts.
+	Hours stats.Hours
 	// DefaultSessionMS is the [focus] default session length.
 	DefaultSessionMS int64
 	// NowMS bounds the sessions: those that started within SessionDays
@@ -64,7 +70,7 @@ type Profile struct {
 	Thin bool
 	// Hours is indexed by time.Weekday and the hour of day.
 	Hours [7][24]HourStat
-	// Top holds each weekday's best hours, best first.
+	// Top holds each weekday's best hours inside the work window, best first.
 	Top [7][]int
 	// SessionMS is the typical successful session length; GoodSessions is
 	// how many sessions it comes from, 0 = it is the default.
@@ -121,6 +127,9 @@ func Build(in Input) Profile {
 	for wd := range p.Hours {
 		var hs []int
 		for h, st := range p.Hours[wd] {
+			if !inWindow(in.Hours, time.Weekday(wd), h) {
+				continue
+			}
 			if st.Samples >= MinSamples && st.MeanMS >= MinHourMS {
 				hs = append(hs, h)
 			}
@@ -138,6 +147,15 @@ func Build(in Input) Profile {
 		p.Top[wd] = hs
 	}
 	return p
+}
+
+// inWindow reports that some of hour h of weekday wd is inside the work window:
+// always when no schedule is set, never on a day off.
+func inWindow(hrs stats.Hours, wd time.Weekday, h int) bool {
+	if !hrs.Set {
+		return true
+	}
+	return hrs.Days[wd] && h*60 < hrs.EndMin && (h+1)*60 > hrs.StartMin
 }
 
 // sessionLength is the typical length of the good sessions of the last
