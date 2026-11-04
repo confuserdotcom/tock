@@ -143,7 +143,7 @@ func TestFocusDefaults(t *testing.T) {
 		MeetingApps: []string{"us.zoom.xos", "com.apple.FaceTime", "com.microsoft.teams2",
 			"com.microsoft.teams", "Cisco-Systems.Spark", "com.cisco.webexmeetingsapp"},
 		MeetingHosts: []string{"meet.google.com", "teams.microsoft.com", "app.zoom.us", "whereby.com"},
-		BlockGraceMS: 10_000,
+		BlockGraceMS: 10_000, NoticeBudget: 8, NoticeGapMS: 20 * 60_000,
 	}
 	if !reflect.DeepEqual(f, want) {
 		t.Fatalf("DefaultFocus = %+v\nwant %+v", f, want)
@@ -174,6 +174,7 @@ meeting_hosts = []
 		Presets: []int{30, 45}, BreakAfterMS: 40 * 60_000, BreakRepeatMS: 5 * 60_000,
 		DistractGraceMS: 30_000, DistractRepeatMS: 90_000, SnoozeMS: 10 * 60_000, AutoMinMS: 20 * 60_000,
 		RecapAt: 8*60 + 30, Notify: false, MeetingApps: []string{"a.b"}, MeetingHosts: []string{}, BlockGraceMS: 10_000,
+		NoticeBudget: 8, NoticeGapMS: 20 * 60_000,
 	}
 	if !reflect.DeepEqual(c.Focus, want) {
 		t.Fatalf("focus = %+v\nwant %+v", c.Focus, want)
@@ -215,6 +216,8 @@ func TestFocusErrors(t *testing.T) {
 		{"[focus]\npresets = [241]\n", "config.toml: [focus] presets has 241, want 1 to 240 minutes"},
 		{"[focus]\nbreak_after = 0\n", "config.toml: [focus] break_after = 0, want 1 to 480"},
 		{"[focus]\nbreak_repeat = 241\n", "config.toml: [focus] break_repeat = 241, want 1 to 240"},
+		{"[focus]\nnotice_budget = -1\n", "config.toml: [focus] notice_budget = -1, want 0 (no limit) to 100"},
+		{"[focus]\nnotice_gap = 241\n", "config.toml: [focus] notice_gap = 241, want 0 (none) to 240"},
 		{"[focus]\ndistract_grace = 3601\n", "config.toml: [focus] distract_grace = 3601, want 1 to 3600"},
 		{"[focus]\ndistract_repeat = -1\n", "config.toml: [focus] distract_repeat = -1, want 1 to 3600"},
 		{"[focus]\nauto_min = 4\n", "config.toml: [focus] auto_min = 4, want 5 to 240"},
@@ -486,5 +489,16 @@ func TestLoadCalendarAutoOpen(t *testing.T) {
 	}
 	if _, err := Load(write(t, "[calendar]\nauto_open = 1\n")); err == nil {
 		t.Fatal("auto_open = 1 must fail to load")
+	}
+}
+
+func TestFocusNoticeBudget(t *testing.T) {
+	c, err := Load(write(t, "[focus]\nnotice_budget = 3\nnotice_gap = 45\n"))
+	if err != nil || c.Focus.NoticeBudget != 3 || c.Focus.NoticeGapMS != 45*60_000 {
+		t.Fatalf("budget = %d, gap = %d, %v", c.Focus.NoticeBudget, c.Focus.NoticeGapMS, err)
+	}
+	c, err = Load(write(t, "[focus]\nnotice_budget = 0\nnotice_gap = 0\n"))
+	if err != nil || c.Focus.NoticeBudget != 0 || c.Focus.NoticeGapMS != 0 {
+		t.Fatalf("off: budget = %d, gap = %d, %v", c.Focus.NoticeBudget, c.Focus.NoticeGapMS, err)
 	}
 }

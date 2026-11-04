@@ -39,6 +39,11 @@ type Focus struct {
 	// UrgeSurf turns the distraction notice into an urge-surfing prompt with
 	// counted answers.
 	UrgeSurf bool
+	// NoticeBudget is how many nudges tock sends unasked in a day (break,
+	// away, start, midday, overworking, suggestions); 0 = no limit.
+	// NoticeGapMS is the least time between two of them; 0 = none.
+	NoticeBudget int
+	NoticeGapMS  int64
 }
 
 // DefaultFocus is the [focus] section used when the file does not set it.
@@ -53,6 +58,7 @@ func DefaultFocus() Focus {
 			"com.microsoft.teams", "Cisco-Systems.Spark", "com.cisco.webexmeetingsapp"},
 		MeetingHosts: []string{"meet.google.com", "teams.microsoft.com", "app.zoom.us", "whereby.com"},
 		BlockGraceMS: 10_000,
+		NoticeBudget: 8, NoticeGapMS: 20 * 60_000,
 	}
 }
 
@@ -75,6 +81,8 @@ type focusTOML struct {
 	FocusOn        *string   `toml:"focus_on"`
 	FocusOff       *string   `toml:"focus_off"`
 	UrgeSurf       *bool     `toml:"urge_surf"`
+	NoticeBudget   *int      `toml:"notice_budget"`
+	NoticeGap      *int      `toml:"notice_gap"`
 }
 
 // decodeFocus applies the keys present in f to c and validates them.
@@ -112,6 +120,18 @@ func decodeFocus(f focusTOML, c *Focus) error {
 			return fmt.Errorf("[focus] %s = %d, want %d to %d", d.key, *d.v, d.lo, d.hi)
 		}
 		*d.dst = int64(*d.v) * d.unitMS
+	}
+	if v := f.NoticeBudget; v != nil {
+		if *v < 0 || *v > 100 {
+			return fmt.Errorf("[focus] notice_budget = %d, want 0 (no limit) to 100", *v)
+		}
+		c.NoticeBudget = *v
+	}
+	if v := f.NoticeGap; v != nil {
+		if *v < 0 || *v > 240 {
+			return fmt.Errorf("[focus] notice_gap = %d, want 0 (none) to 240", *v)
+		}
+		c.NoticeGapMS = int64(*v) * 60_000
 	}
 	if f.Recap != nil {
 		at, ok := parseClock(*f.Recap)

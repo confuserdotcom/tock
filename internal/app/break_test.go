@@ -154,7 +154,7 @@ func TestTakeBreak(t *testing.T) {
 	}
 
 	// Not now: stored, and the repeat comes after break_repeat as before.
-	e = breakEnv(t, 10, "")
+	e = breakEnv(t, 10, "[focus]\n"+apptest.NoNudgeLimit)
 	a = open(t, e)
 	ev = breakTick(t, a, e, 9, 52, 0)[0]
 	slotClock(e, 9, 53, 0)
@@ -229,4 +229,17 @@ func TestBreakOverLate(t *testing.T) {
 	}
 	wantList(t, "10:09", tickAt(t, a, e, 10, 9, 0))
 	wantList(t, "10:09:05", tickAt(t, a, e, 10, 9, 5))
+}
+
+// TestBreakRemindersSpaced: with the default nudge gap, the 10 min break
+// repeat comes 20 min after the last nudge, and the count is kept.
+func TestBreakRemindersSpaced(t *testing.T) {
+	e := breakEnv(t, 0, "")
+	a := open(t, e)
+	wantBreak(t, "09:52", breakTick(t, a, e, 9, 52, 0), "50 min without a break. Stand up for 5 min.")
+	wantBreak(t, "10:02", breakTick(t, a, e, 10, 2, 0), "")
+	wantBreak(t, "10:12", breakTick(t, a, e, 10, 12, 0), "70 min without a break. Stand up for 5 min.")
+	if got := stateVal(t, e, store.KeyFocusNudges); got != "2" {
+		t.Fatalf("nudges = %q, want 2", got)
+	}
 }

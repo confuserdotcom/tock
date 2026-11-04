@@ -155,6 +155,24 @@ func (a *App) ReleaseRecommend(ev focus.Event) error {
 	return nil
 }
 
+// ReleaseNudge gives back the budget a nudge GuardTick returned took, when
+// trackd could not hand it over: the count drops by one and the gap is
+// lifted. Any other notice is ignored.
+func (a *App) ReleaseNudge(ev focus.Event) error {
+	if !focus.IsNudge(ev.Topic) {
+		return nil
+	}
+	st, err := a.focusState()
+	if err != nil {
+		return err
+	}
+	if st.Nudges == 0 && st.NudgeAt == 0 {
+		return nil
+	}
+	st.Nudges, st.NudgeAt = max(st.Nudges-1, 0), 0
+	return a.setFocusState(st, a.nowMS())
+}
+
 // PendingRecommend returns the newest recommendation that is still open at
 // now (unanswered, sent under recommend.PendingMS ago), nil if none. One
 // indexed read of the last 30 minutes of rows.

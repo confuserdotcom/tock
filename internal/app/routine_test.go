@@ -187,7 +187,7 @@ func overEnv(t *testing.T, hoursExtra string) *apptest.Env {
 	t.Helper()
 	e := apptest.New(t, apptest.Rules)
 	e.Seed(t, apptest.Span{ID: 1, Start: "13:00", Bundle: "term", App: "WezTerm", Title: "secret-today-title"})
-	e.WriteConfig(t, "[focus]\nbreak_after = 480\n[hours]\ndays = [\"mon\",\"tue\",\"wed\",\"thu\",\"fri\",\"sat\",\"sun\"]\nstart = \"09:00\"\nend = \"14:00\"\n"+
+	e.WriteConfig(t, "[focus]\nbreak_after = 480\n"+apptest.NoNudgeLimit+"[hours]\ndays = [\"mon\",\"tue\",\"wed\",\"thu\",\"fri\",\"sat\",\"sun\"]\nstart = \"09:00\"\nend = \"14:00\"\n"+
 		hoursExtra+"[routine]\nstart = false\nmidday = \"off\"\nend = false\n")
 	return e
 }

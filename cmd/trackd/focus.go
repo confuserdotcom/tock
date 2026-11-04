@@ -123,13 +123,16 @@ func (f *focusLoop) tick() {
 // release lets a slot notice that could not be delivered come again on the
 // next tick of its window (it was marked as sent when the tick built it), and
 // deletes the row of a recommendation that could not be delivered so the next
-// tick suggests again.
+// tick suggests again, and gives a nudge's budget back.
 func (f *focusLoop) release(n focus.Event) {
 	if err := f.a.ReleaseSlotNotice(n); err != nil {
 		f.warn("slot notice release failed", err)
 	}
 	if err := f.a.ReleaseRecommend(n); err != nil {
 		f.warn("recommendation release failed", err)
+	}
+	if err := f.a.ReleaseNudge(n); err != nil {
+		f.warn("nudge release failed", err)
 	}
 }
 

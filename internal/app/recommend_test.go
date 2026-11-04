@@ -282,7 +282,7 @@ func TestRecommendSlots(t *testing.T) {
 // TestRecRowsThrottled: the rows are read once a minute, and a row trackd
 // wrote is in the cache at once.
 func TestRecRowsThrottled(t *testing.T) {
-	e := recEnv(t, "")
+	e := recEnv(t, "[focus]\n"+apptest.NoNudgeLimit)
 	a := open(t, e)
 	if got := tickAt(t, a, e, 9, 30, 0); len(got) != 1 {
 		t.Fatalf("09:30 = %q", got)
@@ -318,6 +318,11 @@ func TestReleaseRecommend(t *testing.T) {
 	}
 	if n := len(recRowsRaw(t, e)); n != 0 {
 		t.Fatalf("rows after release = %d, want 0", n)
+	}
+	// trackd also gives the nudge's budget back, so the gap does not hold
+	// the next suggestion.
+	if err := a.ReleaseNudge(evs[0]); err != nil {
+		t.Fatal(err)
 	}
 	again, err := a.FocusTick(false)
 	if err != nil || len(again) != 1 {
@@ -616,5 +621,31 @@ func TestSnoozeRecommend(t *testing.T) {
 	}
 	if acc, n := l.Totals(recommend.KindBreak); acc != 0 || n != 0 {
 		t.Errorf("Totals(break) = %d of %d, want none", acc, n)
+	}
+}
+
+// TestReleaseNudge: a nudge trackd could not hand over gives its budget back;
+// a notice that is not a nudge leaves the count alone.
+func TestReleaseNudge(t *testing.T) {
+	e := recEnv(t, "")
+	a := open(t, e)
+	evs, err := a.FocusTick(false)
+	if err != nil || len(evs) != 1 || !focus.IsNudge(evs[0].Topic) {
+		t.Fatalf("tick = %v, %v", evs, err)
+	}
+	if got := stateVal(t, e, store.KeyFocusNudges); got != "1" {
+		t.Fatalf("nudges = %q, want 1", got)
+	}
+	if err := a.ReleaseNudge(focus.Event{Topic: focus.TopicDone}); err != nil {
+		t.Fatal(err)
+	}
+	if got := stateVal(t, e, store.KeyFocusNudges); got != "1" {
+		t.Fatalf("nudges after a done release = %q, want 1", got)
+	}
+	if err := a.ReleaseNudge(evs[0]); err != nil {
+		t.Fatal(err)
+	}
+	if n, at := stateVal(t, e, store.KeyFocusNudges), stateVal(t, e, store.KeyFocusNudgeAt); n != "0" || at != "0" {
+		t.Fatalf("after release nudges = %q, at = %q", n, at)
 	}
 }

@@ -29,9 +29,12 @@ func Step(in Input) []Event {
 			st.BreakAt = in.Now
 			stateChanged = true
 		}
-	} else if n, ok := stepBreak(in, &st); ok {
-		notes = append(notes, n)
-		stateChanged = true
+	} else if nudgeOK(in, st) {
+		if n, ok := stepBreak(in, &st); ok {
+			notes = append(notes, n)
+			spend(in, &st)
+			stateChanged = true
+		}
 	}
 	if n, ok := stepBreakOver(in, &st); ok {
 		notes = append(notes, n)
@@ -40,34 +43,89 @@ func Step(in Input) []Event {
 		stateChanged = true
 	}
 	writes = append(writes, autoSessions(in)...)
-	if n, ok := stepStart(in, &st); ok {
+	if !nudgeOK(in, st) {
+	} else if n, ok := stepStart(in, &st); ok {
 		notes = append(notes, n)
+		spend(in, &st)
 		stateChanged = true
 	}
-	if n, ok := stepMidday(in, &st); ok {
+	if !nudgeOK(in, st) {
+	} else if n, ok := stepMidday(in, &st); ok {
 		notes = append(notes, n)
+		spend(in, &st)
 		stateChanged = true
 	}
 	if n, ok := stepRecap(in, &st); ok {
 		notes = append(notes, n)
 		stateChanged = true
 	}
-	if n, ok := stepOver(in, &st); ok {
+	if !nudgeOK(in, st) {
+	} else if n, ok := stepOver(in, &st); ok {
 		notes = append(notes, n)
+		spend(in, &st)
 		stateChanged = true
 	}
-	if n, ok := stepAway(in, &st); ok {
+	if !nudgeOK(in, st) {
+	} else if n, ok := stepAway(in, &st); ok {
 		notes = append(notes, n)
+		spend(in, &st)
 		stateChanged = true
+	}
+	rec, recOK := Event{}, false
+	if nudgeOK(in, st) {
+		if rec, recOK = stepRecommend(in, st); recOK {
+			stateChanged = spend(in, &st) || stateChanged
+		}
 	}
 	if stateChanged {
 		writes = append(writes, Event{Kind: StateUpdate, State: st})
 	}
 	notes = append(notes, stepSlots(in)...)
-	if n, ok := stepRecommend(in, st); ok {
-		notes = append(notes, n)
+	if recOK {
+		notes = append(notes, rec)
 	}
 	return append(writes, notes...)
+}
+
+// IsNudge reports whether a notice of topic is a nudge (see nudgeOK).
+func IsNudge(topic string) bool {
+	switch topic {
+	case TopicBreak, TopicAway, TopicStart, TopicMidday, TopicOver, TopicRecommend:
+		return true
+	}
+	return false
+}
+
+// nudgeOK reports whether a nudge may go out now. A nudge is a notice tock
+// sends unasked: a break reminder, the away question, the start-of-day,
+// midday and overworking notices, a suggestion. None comes during a call or
+// meeting, more than [focus] notice_budget a day, or within notice_gap of
+// the last. A held nudge's step does not run, so its state does not advance
+// and it comes later if it is still due. Notices you asked for (a session's,
+// Break over, plan slots, the recap) are never held.
+func nudgeOK(in Input, st State) bool {
+	if inMeeting(in) {
+		return false
+	}
+	if g := in.Cfg.NoticeGapMS; g > 0 && st.NudgeAt > 0 && in.Now-st.NudgeAt < g {
+		return false
+	}
+	b := in.Cfg.NoticeBudget
+	return b <= 0 || st.NudgeDay != dayKey(in.Day) || st.Nudges < b
+}
+
+// spend counts a nudge sent now; it reports whether st changed (only while a
+// budget or gap is set).
+func spend(in Input, st *State) bool {
+	if in.Cfg.NoticeBudget <= 0 && in.Cfg.NoticeGapMS <= 0 {
+		return false
+	}
+	if d := dayKey(in.Day); st.NudgeDay != d {
+		st.NudgeDay, st.Nudges = d, 0
+	}
+	st.Nudges++
+	st.NudgeAt = in.Now
+	return true
 }
 
 // openSession is the running manual session, or nil.

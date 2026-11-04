@@ -273,6 +273,11 @@ urge_surf = false        # the distraction notice asks you to pause and counts y
 auto_min = 25            # minutes of deep work that count as an unplanned session
 recap = "21:00"          # daily recap notification, "" to disable
 notify = true
+notice_budget = 8        # nudges a day tock sends unasked (break, away, start, midday,
+                         # overworking, suggestions); 0 = no limit (0 to 100)
+notice_gap = 20          # least minutes between two nudges; 0 = none (0 to 240).
+                         # Nudges wait out calls and meetings; session, Break over,
+                         # plan and recap notices are never held back
 # meeting_apps / meeting_hosts replace the built-in lists of meeting apps
 # (bundle ids) and hosts during which break and distraction nudges stay quiet
 block = false            # close distracting tabs and hide distracting apps in sessions

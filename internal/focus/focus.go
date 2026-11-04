@@ -114,6 +114,12 @@ type State struct {
 	// BreakOverAt is the BreakUntil the Break over notice was sent (or given up)
 	// for; trackd owns it.
 	BreakOverAt int64
+	// NudgeDay, Nudges and NudgeAt count the nudges (see nudgeOK): the
+	// YYYY-MM-DD Nudges were sent on, and when the last one was sent (ms).
+	// They move only while [focus] notice_budget or notice_gap is set.
+	NudgeDay string
+	Nudges   int
+	NudgeAt  int64
 }
 
 // EventKind says what an Event asks the caller to do.
