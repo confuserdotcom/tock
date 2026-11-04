@@ -118,3 +118,63 @@ func TestCallsUnknownCategory(t *testing.T) {
 		t.Fatal("unknown [calls] key must fail")
 	}
 }
+
+// TestCallKeepsDistraction: a distraction stays one during a call; a video
+// chat site with the camera on is still Entertainment.
+func TestCallKeepsDistraction(t *testing.T) {
+	rs, err := Parse([]byte(callRules+`
+[[category]]
+name = "Fun"
+kind = "distract"
+
+[[rule]]
+url = "^umingle\\.com"
+category = "Fun"
+`), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	v := SpanView{ID: 1, Start: 0, End: 1, BundleID: "arc", App: "Arc", URL: sp("umingle.com/chat"), InCall: true}
+	if l := rs.Label(v, nil); l.Category != "Fun" || l.CategorySource != SourceRule {
+		t.Fatalf("distraction in call: %+v", l)
+	}
+}
+
+// TestProjectNeedsItsCategory: a rule's project filed under a category is
+// dropped when the label's category is another one.
+func TestProjectNeedsItsCategory(t *testing.T) {
+	rs, err := Parse([]byte(baseRules+`
+[[category]]
+name = "Fun"
+kind = "distract"
+
+[[category]]
+name = "Learn"
+kind = "deep"
+
+[[project]]
+name = "Video"
+category = "Fun"
+
+[[rule]]
+url = "^yt\\.com"
+title = "lecture"
+category = "Learn"
+
+[[rule]]
+url = "^yt\\.com"
+category = "Fun"
+project = "Video"
+`), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	v := SpanView{ID: 1, Start: 0, End: 1, BundleID: "arc", App: "Arc", URL: sp("yt.com/w"), Title: sp("MIT lecture 3")}
+	if l := rs.Label(v, nil); l.Category != "Learn" || l.Project != "" {
+		t.Fatalf("lecture: %+v", l)
+	}
+	v.Title = sp("cats")
+	if l := rs.Label(v, nil); l.Category != "Fun" || l.Project != "Video" {
+		t.Fatalf("cats: %+v", l)
+	}
+}

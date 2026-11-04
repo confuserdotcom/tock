@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"tock/internal/ask"
-	"tock/internal/claude"
 )
 
 // cmdAsk answers a question about tracked time. Claude turns the question
@@ -38,10 +37,10 @@ func cmdAsk(env Env, args []string) error {
 	if !a.Config().LLM.Enabled {
 		return errors.New("Claude is off: [llm] enabled = false in config.toml")
 	}
-	if env.APIKey == "" {
-		return errors.New("ANTHROPIC_API_KEY is not set")
+	if !env.hasClaude() {
+		return errNoClaude
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), claude.Timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), env.claudeTimeout())
 	defer cancel()
 	raw, err := env.llm().Ask(ctx, a.Config().LLM.Model, payload)
 	if err != nil {

@@ -56,6 +56,8 @@ type App struct {
 
 	routineErr error // why a routine notice was not built on the last focus tick
 
+	autoAt int64 // when AutoAcceptEvery last ran AutoAccept (ms)
+
 	slotCache slotCache        // today's slots (see Slots)
 	slotSeen  map[string]int64 // slot key -> tick time (ms) it first appeared in the slot list that day
 	// slotSeenDay is the calendar day slotSeen belongs to; planErr is why the

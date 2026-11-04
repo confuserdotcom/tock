@@ -17,6 +17,7 @@ const inboxHeader = 2
 // inboxTab lists unlabelled keys.
 type inboxTab struct {
 	items  []classify.Item
+	small  []classify.Item // keys under [inbox] min_minutes, not listed
 	loaded bool
 	cursor int
 	top    int
@@ -37,12 +38,12 @@ func (t *inboxTab) suggested() int {
 	return n
 }
 
-func (t *inboxTab) set(items []classify.Item) {
+func (t *inboxTab) set(items, small []classify.Item) {
 	var key string
 	if t.cursor < len(t.items) {
 		key = t.items[t.cursor].Key
 	}
-	t.items, t.loaded = items, true
+	t.items, t.small, t.loaded = items, small, true
 	for i, it := range items {
 		if it.Key == key {
 			t.cursor = i
@@ -143,12 +144,22 @@ func (t inboxTab) view(w, h int) []string {
 	for _, it := range t.items {
 		total += it.TotalMS
 	}
-	if len(t.items) == 0 {
-		return emptyState(w, "Inbox",
-			sGood.Render("✓ Inbox zero."),
-			sText.Render(fmt.Sprintf("Everything from the last %d days is labelled.", InboxDays)))
+	var smallMS int64
+	for _, it := range t.small {
+		smallMS += it.TotalMS
 	}
-	head := sUnl.Render(report.Dur(total)+" unlabelled") + sDim.Render(fmt.Sprintf(" · %s · last %d days", plural(len(t.items), "key"), InboxDays))
+	if len(t.items) == 0 {
+		rest := fmt.Sprintf("Everything from the last %d days is labelled.", InboxDays)
+		if len(t.small) > 0 {
+			rest = fmt.Sprintf("Only %s (%s) under the floor, not listed.", plural(len(t.small), "small key"), report.Dur(smallMS))
+		}
+		return emptyState(w, "Inbox", sGood.Render("✓ Inbox zero."), sText.Render(rest))
+	}
+	smallText := ""
+	if len(t.small) > 0 {
+		smallText = fmt.Sprintf(" · %d small (%s) hidden", len(t.small), report.Dur(smallMS))
+	}
+	head := sUnl.Render(report.Dur(total)+" unlabelled") + sDim.Render(fmt.Sprintf(" · %s%s · last %d days", plural(len(t.items), "key"), smallText, InboxDays))
 	if n := t.suggested(); n > 0 {
 		head += sDim.Render(" · ") + sBrand.Render(fmt.Sprintf("%d suggested", n))
 	}

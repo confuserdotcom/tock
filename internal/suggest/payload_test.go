@@ -19,8 +19,8 @@ func TestPayloadNeverCarriesDeniedItems(t *testing.T) {
 		{Key: "Code · main.go", App: "Code", TotalMS: 10 * minute, Bundles: []string{"com.microsoft.VSCode"}, Example: "RAWEXAMPLE main.go"},
 		{Key: "MarkerPrivApp (private)", App: "MarkerPrivApp", TotalMS: 9 * minute, Private: true, Bundles: []string{"arc"}},
 		{Key: "Mail · markermail subject", App: "Mail", TotalMS: 8 * minute, Bundles: []string{"com.apple.mail"}, Example: "RAWEXAMPLE mail"},
-		{Key: "Arc · mabanque.bnpparibas.fr/markerbank", App: "Arc", TotalMS: 7 * minute, ByURL: true, Bundles: []string{"arc"}},
-		{Key: "Arc · secret-host.example/markerhost", App: "Arc", TotalMS: 6 * minute, ByURL: true, Bundles: []string{"arc"}},
+		{Key: "Arc · mabanque.bnpparibas.fr", App: "Arc", TotalMS: 7 * minute, ByURL: true, Bundles: []string{"arc"}},
+		{Key: "Arc · secret-host.example", App: "Arc", TotalMS: 6 * minute, ByURL: true, Bundles: []string{"arc"}},
 		{Key: "Notes · markerpayroll Payroll q#", App: "Notes", TotalMS: 5 * minute, Bundles: []string{"notes"}},
 		{Key: "Notes · markercached", App: "Notes", TotalMS: 4 * minute, Bundles: []string{"notes"}},
 		{Key: "Notes · markershort", App: "Notes", TotalMS: minute, Bundles: []string{"notes"}},
@@ -39,7 +39,7 @@ func TestPayloadNeverCarriesDeniedItems(t *testing.T) {
 
 func TestPayloadShape(t *testing.T) {
 	items := []classify.Item{
-		{Key: "Arc · github.com/tock", App: "Arc", TotalMS: 150_000, ByURL: true, Bundles: []string{"arc"}},
+		{Key: "Arc · github.com", App: "Arc", TotalMS: 150_000, ByURL: true, Bundles: []string{"arc"}},
 		{Key: "Finder", App: "Finder", TotalMS: 120_000, Bundles: []string{"finder"}},
 	}
 	b := Prepare(items, nil, filter(t, config.DefaultLLM()), ruleset(t))
@@ -61,7 +61,7 @@ func TestPayloadShape(t *testing.T) {
     {
       "id": "k1",
       "app": "Arc",
-      "host": "github.com/tock",
+      "host": "github.com",
       "minutes": 3
     },
     {
@@ -74,7 +74,7 @@ func TestPayloadShape(t *testing.T) {
 	if string(b.Payload) != want {
 		t.Fatalf("payload:\n%s\nwant:\n%s", b.Payload, want)
 	}
-	if b.Keys["k1"] != "Arc · github.com/tock" || b.Keys["k2"] != "Finder" {
+	if b.Keys["k1"] != "Arc · github.com" || b.Keys["k2"] != "Finder" {
 		t.Fatalf("keys = %v", b.Keys)
 	}
 }
@@ -110,9 +110,9 @@ func TestFilterRules(t *testing.T) {
 		{classify.Item{Key: "A · x", App: "A", TotalMS: 2*minute - 1, Bundles: []string{"a"}}, false},
 		{classify.Item{Key: "A (private)", App: "A", TotalMS: 9 * minute, Private: true}, false},
 		{classify.Item{Key: "A · x", App: "A", TotalMS: 9 * minute, Bundles: []string{"a", "com.bitwarden.desktop"}}, false},
-		{classify.Item{Key: "Arc · www.paypal.com/x", App: "Arc", TotalMS: 9 * minute, ByURL: true, Bundles: []string{"arc"}}, false},
-		{classify.Item{Key: "Arc · mail.google.com/mail", App: "Arc", TotalMS: 9 * minute, ByURL: true, Bundles: []string{"arc"}}, false},
-		{classify.Item{Key: "Arc · wiseguys.dev/x", App: "Arc", TotalMS: 9 * minute, ByURL: true, Bundles: []string{"arc"}}, true},
+		{classify.Item{Key: "Arc · www.paypal.com", App: "Arc", TotalMS: 9 * minute, ByURL: true, Bundles: []string{"arc"}}, false},
+		{classify.Item{Key: "Arc · mail.google.com", App: "Arc", TotalMS: 9 * minute, ByURL: true, Bundles: []string{"arc"}}, false},
+		{classify.Item{Key: "Arc · wiseguys.dev", App: "Arc", TotalMS: 9 * minute, ByURL: true, Bundles: []string{"arc"}}, true},
 		{classify.Item{Key: "Numbers · Salary #", App: "Numbers", TotalMS: 9 * minute, Bundles: []string{"n"}}, false},
 	}
 	for _, tt := range tests {

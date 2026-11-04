@@ -93,11 +93,11 @@ func (rs *Ruleset) Propose(key string, want Want, history []SpanView, overrides 
 	bundles := bundlesOf(history, target)
 	var rules []Rule
 	if first.URL != nil && *first.URL != "" {
-		host, seg := splitURLKey(urlKey(*first.URL))
-		hostRe := `^(www\.)?` + regexp.QuoteMeta(host) + `(/|$)`
+		site, domain := siteOf(*first.URL)
+		hostRe := siteRule(site, domain)
 		rules = append(rules, Rule{URL: hostRe})
-		if seg != "" {
-			rules = append(rules, Rule{URL: `^(www\.)?` + regexp.QuoteMeta(host+"/"+seg) + `(/|$)`})
+		if seg := topPage(history, target); seg != "" && domain == "" {
+			rules = append(rules, Rule{URL: `^(www\.)?` + regexp.QuoteMeta(site+"/"+seg) + `(/|$)`})
 		}
 		rules = append(rules, Rule{Bundle: bundles, URL: hostRe})
 	} else {
@@ -205,9 +205,22 @@ func bundlesOf(history []SpanView, idx []int) []string {
 	return out
 }
 
-func splitURLKey(k string) (host, seg string) {
-	host, seg, _ = strings.Cut(k, "/")
-	return host, seg
+// topPage is the page (first path segment) the target spans spent the most
+// time on, ties alphabetical; "" when that is the site root.
+func topPage(history []SpanView, target []int) string {
+	ms := map[string]int64{}
+	for _, i := range target {
+		if u := history[i].URL; u != nil {
+			ms[pageOf(*u)] += history[i].DurMS()
+		}
+	}
+	best := ""
+	for p, d := range ms {
+		if d > ms[best] || (d == ms[best] && p < best) {
+			best = p
+		}
+	}
+	return best
 }
 
 // sharedClean returns the Clean title when every target span has the same

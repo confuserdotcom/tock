@@ -178,6 +178,10 @@ type inboxJSON struct {
 	Days    int        `json:"days"`
 	TotalMS int64      `json:"totalMS"`
 	Items   []itemJSON `json:"items"`
+	// SmallKeys and SmallMS are the keys under [inbox] min_minutes, not
+	// listed.
+	SmallKeys int   `json:"smallKeys"`
+	SmallMS   int64 `json:"smallMS"`
 }
 
 type kindName struct {
@@ -356,10 +360,14 @@ func (s *Server) inbox(r *http.Request) (any, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := s.a.AutoAcceptEvery(days); err != nil {
+		return nil, err
+	}
 	items, err := s.a.Inbox(days)
 	if err != nil {
 		return nil, err
 	}
+	items, small := classify.Floor(items, s.a.Config().Inbox.MinMS)
 	sugg, err := s.a.Suggestions()
 	if err != nil {
 		return nil, err
@@ -368,7 +376,10 @@ func (s *Server) inbox(r *http.Request) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	out := inboxJSON{Days: days, Items: make([]itemJSON, len(items))}
+	out := inboxJSON{Days: days, Items: make([]itemJSON, len(items)), SmallKeys: len(small)}
+	for _, it := range small {
+		out.SmallMS += it.TotalMS
+	}
 	for i, it := range items {
 		out.TotalMS += it.TotalMS
 		j := itemJSON{Key: report.Safe(it.Key), App: report.Safe(it.App), MS: it.TotalMS, Spans: it.Spans,

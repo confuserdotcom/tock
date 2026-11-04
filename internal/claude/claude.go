@@ -1,7 +1,9 @@
-// Package claude is tock's only network code: one call to the Anthropic
-// Messages API that asks for inbox label suggestions. Only cmd/tock imports
-// it; trackd never links it (cmd/trackd tests check). Errors carry the HTTP
-// status and API error type only, never the request, the body or the key.
+// Package claude is tock's only network code: calls that ask Claude for
+// inbox label suggestions, the day's summary or a query, either to the
+// Anthropic Messages API with a key or through the claude CLI on the user's
+// subscription (cli.go). Only cmd/tock imports it; trackd never links it
+// (cmd/trackd tests check). Errors carry a status or error type only, never
+// the request, the body or the key.
 package claude
 
 import (

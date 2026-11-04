@@ -36,6 +36,7 @@ type Config struct {
 	Privacy   Privacy
 	Plan      Plan
 	Routine   Routine
+	Inbox     Inbox
 	Recommend Recommend
 	Model     Model
 	OCR       OCR
@@ -222,7 +223,7 @@ func DefaultLLM() LLM {
 
 // Default is the configuration used when there is no file.
 func Default() Config {
-	return Config{Score: stats.DefaultWeights, Focus: DefaultFocus(), LLM: DefaultLLM(), Shell: DefaultShell(), Away: DefaultAway(), AFK: DefaultAFK(), Slack: DefaultSlack(), Routine: DefaultRoutine(),
+	return Config{Score: stats.DefaultWeights, Focus: DefaultFocus(), LLM: DefaultLLM(), Shell: DefaultShell(), Away: DefaultAway(), AFK: DefaultAFK(), Slack: DefaultSlack(), Routine: DefaultRoutine(), Inbox: DefaultInbox(),
 		Recommend: DefaultRecommend(), Plan: DefaultPlan(), Model: Model{Enabled: true}, OCR: DefaultOCR()}
 }
 
@@ -325,6 +326,7 @@ type fileTOML struct {
 	Privacy   privacyTOML   `toml:"privacy"`
 	Plan      planTOML      `toml:"plan"`
 	Routine   routineTOML   `toml:"routine"`
+	Inbox     inboxTOML     `toml:"inbox"`
 	Recommend recommendTOML `toml:"recommend"`
 	Model     modelTOML     `toml:"model"`
 	OCR       ocrTOML       `toml:"ocr"`
@@ -414,6 +416,9 @@ func Load(path string) (Config, error) {
 		return Default(), fmt.Errorf("%s: %w", name, err)
 	}
 	if err := decodeRoutine(f.Routine, &c.Routine); err != nil {
+		return Default(), fmt.Errorf("%s: %w", name, err)
+	}
+	if err := decodeInbox(f.Inbox, &c.Inbox); err != nil {
 		return Default(), fmt.Errorf("%s: %w", name, err)
 	}
 	if err := decodeRecommend(f.Recommend, &c.Recommend); err != nil {

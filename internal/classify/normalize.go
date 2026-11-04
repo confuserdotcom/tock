@@ -105,7 +105,8 @@ func Key(v SpanView) string {
 	case v.Private:
 		return v.App + " (private)"
 	case v.URL != nil && *v.URL != "":
-		return v.App + " · " + urlKey(*v.URL)
+		site, _ := siteOf(*v.URL)
+		return v.App + " · " + site
 	case v.Title != nil:
 		if t := titleKey(v.App, *v.Title); t != "" {
 			return v.App + " · " + t

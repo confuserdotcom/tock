@@ -147,13 +147,13 @@ func TestLabelQuietOverrides(t *testing.T) {
 	if l.Quiet || l.Category != "Games" {
 		t.Fatalf("manual to unmarked = %+v, want not quiet", l)
 	}
-	// the rule's mark does not leak onto the call category
+	// a distraction keeps its rule label, and its mark, during a call
 	rs = mustParse(t, quietFixture+"\n[calls]\ncategory = \"Video\"\n", "")
 	v := quietView("quiet.rule")
 	v.InCall = true
 	l = rs.Label(v, nil)
-	if l.CategorySource != SourceCall || l.Quiet {
-		t.Fatalf("call label = %+v, want call source and not quiet", l)
+	if l.CategorySource != SourceRule || !l.Quiet {
+		t.Fatalf("call label = %+v, want the quiet rule label", l)
 	}
 	// a kept category is quiet only through the category
 	v = quietView("quiet.rule")

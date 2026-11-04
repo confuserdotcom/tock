@@ -12,9 +12,9 @@ func TestInboxListsAndIgnores(t *testing.T) {
 	te.seed(t, daySpans()...)
 	code, out := te.run(t, "", "inbox")
 	want := "Inbox  last 7 days · 3 keys · 28m unlabelled\n" +
-		"  1    12m  Arc · chatgpt.com/c  \"Proofs\"\n" +
+		"  1    12m  Arc · chatgpt.com  \"Proofs\"\n" +
 		"  2    10m  Mail · inbox  \"Inbox\"\n" +
-		"  3     6m  Arc · labs.x.tv/lab  \"Low Level Labs\"\n" +
+		"  3     6m  Arc · labs.x.tv  \"Low Level Labs\"\n" +
 		"tag: tock tag <n> <Category>[/<Project>]   accept →: tock tag <n>   hide: tock ignore <n>\n"
 	if code != 0 || out != want {
 		t.Fatalf("inbox: code %d\n%s\nwant:\n%s", code, out, want)
@@ -78,7 +78,7 @@ func TestListingExpiresAndBadNumbers(t *testing.T) {
 // tock tag <n> without a label accepts it.
 func TestInboxGuessAccepted(t *testing.T) {
 	te := newTestEnv(t, testRules)
-	os.WriteFile(filepath.Join(te.ConfigDir, "config.toml"), []byte("[model]\nenabled = false\n"), 0o600) // the model would label it outright
+	os.WriteFile(filepath.Join(te.ConfigDir, "config.toml"), []byte("[model]\nenabled = false\n[inbox]\nauto_accept = 0\n"), 0o600) // the model or auto-accept would label it outright
 	te.seed(t, append(daySpans(), seedSpan{9, "13:00", "13:20", "arc", "Arc", "Settings", "chatgpt.com/settings", false})...)
 	if code, _ := te.run(t, "", "tag", "--span", "9", "Study"); code != 0 {
 		t.Fatalf("tag --span: %s", te.errb)
@@ -110,5 +110,85 @@ func TestInboxModelLabels(t *testing.T) {
 	code, out := te.run(t, "", "inbox")
 	if code != 0 || strings.Contains(out, "Proofs") {
 		t.Fatalf("inbox: code %d\n%s", code, out)
+	}
+}
+
+// TestInboxSiteRow: every page of a site is one row that counts its pages.
+func TestInboxSiteRow(t *testing.T) {
+	te := newTestEnv(t, testRules)
+	te.seed(t,
+		seedSpan{1, "09:00", "09:10", "arc", "Arc", "Opening book", "app.noctie.ai/opening-book", false},
+		seedSpan{2, "09:10", "09:15", "arc", "Arc", "Puzzles", "app.noctie.ai/puzzles", false},
+		seedSpan{3, "09:15", "09:16", "arc", "Arc", "PDF", "doc-0o-bs.googleusercontent.com/viewer/a", false},
+		seedSpan{4, "09:16", "09:17", "arc", "Arc", "PDF", "doc-1k-aa.googleusercontent.com/viewer/b", false},
+		seedSpan{5, "09:17", "09:30", "term", "Term", "x", "", false},
+	)
+	_, out := te.run(t, "", "inbox")
+	for _, want := range []string{
+		"  1    15m  Arc · app.noctie.ai · 2 pages  \"Puzzles\"\n",
+		"  2     2m  Arc · googleusercontent.com  \"PDF\"\n",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("inbox lacks %q:\n%s", want, out)
+		}
+	}
+}
+
+// TestInboxNoiseFloor: keys under [inbox] min_minutes are summed in one line;
+// --all lists them.
+func TestInboxNoiseFloor(t *testing.T) {
+	te := newTestEnv(t, testRules)
+	te.seed(t,
+		seedSpan{1, "09:00", "09:10", "arc", "Arc", "Noctie", "app.noctie.ai/x", false},
+		seedSpan{2, "09:10", "09:11", "arc", "Arc", "Kitea", "kitea.com/x", false},
+		seedSpan{3, "09:11", "09:12", "arc", "Arc", "Steelcase", "steelcase.com/x", false},
+		seedSpan{4, "09:12", "09:30", "term", "Term", "x", "", false},
+	)
+	_, out := te.run(t, "", "inbox")
+	want := "Inbox  last 7 days · 1 key · 10m unlabelled\n" +
+		"  1    10m  Arc · app.noctie.ai  \"Noctie\"\n" +
+		"+ 2 small keys under 2m (2m) · tock inbox --all\n" +
+		"tag: tock tag <n> <Category>[/<Project>]   accept →: tock tag <n>   hide: tock ignore <n>\n"
+	if out != want {
+		t.Fatalf("inbox:\n%s\nwant:\n%s", out, want)
+	}
+	if _, out := te.run(t, "", "inbox", "--all"); !strings.Contains(out, "3 keys · 12m") || !strings.Contains(out, "steelcase.com") {
+		t.Fatalf("--all:\n%s", out)
+	}
+}
+
+// TestInboxAutoAccept: a key whose same-site guess is confident is labelled
+// by a learned rule before the list prints; --auto lists it for review.
+func TestInboxAutoAccept(t *testing.T) {
+	te := newTestEnv(t, testRules)
+	te.seed(t,
+		seedSpan{1, "09:00", "09:20", "safari", "Safari", "", "chess.com/play", false},
+		seedSpan{2, "09:20", "09:25", "arc", "Arc", "", "chess.com/analysis", false},
+		seedSpan{3, "09:25", "09:40", "arc", "Arc", "Noctie", "app.noctie.ai/x", false},
+	)
+	if code, _ := te.run(t, "", "tag", "--span", "1", "Entertainment"); code != 0 {
+		t.Fatalf("tag: %s", te.errb.String())
+	}
+	_, out := te.run(t, "", "inbox")
+	if strings.Contains(out, "chess.com") || !strings.Contains(out, "auto-labelled 1 key (5m) today · tock inbox --auto") {
+		t.Fatalf("inbox:\n%s", out)
+	}
+	b, err := os.ReadFile(te.learnedPath())
+	if err != nil || !strings.Contains(string(b), `chess\\.com`) || !strings.Contains(string(b), `category = "Entertainment"`) {
+		t.Fatalf("learned.toml: %s %v", b, err)
+	}
+	_, out = te.run(t, "", "inbox", "--auto")
+	want := "Auto-labelled  last 7 days · 1 key\n" +
+		"  1     5m  Arc · chess.com  → Entertainment (same site, 100%)\n" +
+		"wrong? tock tag <n> <Category>[/<Project>] relabels it and replaces the rule\n"
+	if out != want {
+		t.Fatalf("--auto:\n%s\nwant:\n%s", out, want)
+	}
+	// Re-tagging an auto-labelled key works from that listing and sticks.
+	if code, out := te.run(t, "y\n", "tag", "1", "Study"); code != 0 || !strings.Contains(out, "learned: Study") {
+		t.Fatalf("retag: %q %s", out, te.errb.String())
+	}
+	if _, out := te.run(t, "", "inbox"); strings.Contains(out, "chess.com") || strings.Contains(out, "auto-labelled 2") {
+		t.Fatalf("after retag:\n%s", out)
 	}
 }

@@ -12,7 +12,7 @@ func TestInboxLists(t *testing.T) {
 	m, _ := seeded(t)
 	m = press(t, m, "3")
 	mustContain(t, m, "28m unlabelled · 3 keys · last 7 days")
-	if l := line(t, m, "chatgpt.com/c"); !strings.HasPrefix(l, "▸  12m   2 spans  Arc · chatgpt.com/c") || !strings.Contains(l, `"Proofs"`) {
+	if l := line(t, m, "chatgpt.com"); !strings.HasPrefix(l, "▸  12m   2 spans  Arc · chatgpt.com") || !strings.Contains(l, `"Proofs"`) {
 		t.Fatalf("first item: %q", l)
 	}
 	mustContain(t, m, "10m    1 span  Mail · inbox")
@@ -25,7 +25,7 @@ func TestInboxLearnWritesRuleAndBadgeDrops(t *testing.T) {
 	m = press(t, m, "3", "enter")
 	m = typeText(t, m, "stu")
 	m = press(t, m, "enter", "enter")
-	mustContain(t, m, "Learn a rule", "Arc · chatgpt.com/c", "->  Study",
+	mustContain(t, m, "Learn a rule", "Arc · chatgpt.com", "->  Study",
 		"matches  2 spans (12m): 2 this key, 0 other unlabelled (0s), 0 relabelled", "[y] accept")
 	m = press(t, m, "y")
 	mustContain(t, m, "learned: Study now covers 2 spans (12m)", "inbox ²", "16m unlabelled · 2 keys")
@@ -73,23 +73,22 @@ func TestInboxTagOnce(t *testing.T) {
 func TestInboxIgnoreAndUndo(t *testing.T) {
 	m, _ := seeded(t)
 	m = press(t, m, "3", "x")
-	mustContain(t, m, "ignored: Arc · chatgpt.com/c   u undo", "inbox ²")
+	mustContain(t, m, "ignored: Arc · chatgpt.com   u undo", "inbox ²")
 	m = press(t, m, "u")
-	mustContain(t, m, "undid: ignore Arc · chatgpt.com/c", "inbox ³")
+	mustContain(t, m, "undid: ignore Arc · chatgpt.com", "inbox ³")
 	m = press(t, m, "u")
 	mustContain(t, m, "inbox ³")
 }
 
 // T on a labelled today row: every candidate would relabel the other
-// youtube spans that rules.toml labels Entertainment, so only tagging once
-// is offered.
+// terminal span that rules.toml labels Code, so only tagging once is
+// offered.
 func TestNoSafeRuleOffersTagOnce(t *testing.T) {
 	e := apptest.New(t, apptest.Rules)
 	e.Seed(t,
-		apptest.Span{ID: 1, Start: "09:00", End: "09:10", Bundle: "arc", App: "Arc", Title: "A", URL: "www.youtube.com/watch"},
-		apptest.Span{ID: 2, Start: "09:10", End: "09:20", Bundle: "arc", App: "Arc", Title: "B", URL: "www.youtube.com/watch"},
-		apptest.Span{ID: 3, Start: "09:20", End: "09:30", Bundle: "arc", App: "Arc", Title: "Home", URL: "www.youtube.com"},
-		apptest.Span{ID: 4, Start: "09:30", End: "09:40", Bundle: "chrome", App: "Chrome", Title: "C", URL: "www.youtube.com/watch"},
+		apptest.Span{ID: 1, Start: "09:00", End: "09:10", Bundle: "term", App: "Term", Title: "build 1"},
+		apptest.Span{ID: 2, Start: "09:10", End: "09:20", Bundle: "term", App: "Term", Title: "build 2"},
+		apptest.Span{ID: 3, Start: "09:20", End: "09:25", Bundle: "term", App: "Term", Title: "build log"},
 	)
 	m := newModel(t, e)
 	m = press(t, m, "g", "T")
@@ -105,5 +104,23 @@ func TestNoSafeRuleOffersTagOnce(t *testing.T) {
 	}
 	if _, err := os.Stat(e.Learned); !os.IsNotExist(err) {
 		t.Fatal("no rule must be learned")
+	}
+}
+
+// TestInboxNoiseFloor: keys under [inbox] min_minutes leave the list; the
+// header counts them.
+func TestInboxNoiseFloor(t *testing.T) {
+	e := apptest.New(t, apptest.Rules)
+	e.Seed(t,
+		apptest.Span{ID: 1, Start: "09:00", End: "09:10", Bundle: "arc", App: "Arc", Title: "Noctie", URL: "app.noctie.ai/x"},
+		apptest.Span{ID: 2, Start: "09:10", End: "09:11", Bundle: "arc", App: "Arc", Title: "Kitea", URL: "kitea.com/x"},
+		apptest.Span{ID: 3, Start: "09:11", End: "09:12", Bundle: "arc", App: "Arc", Title: "Steel", URL: "steelcase.com/x"},
+		apptest.Span{ID: 4, Start: "09:12", End: "09:30", Bundle: "term", App: "Term", Title: "x"},
+	)
+	m := newModel(t, e)
+	m = press(t, m, "3")
+	mustContain(t, m, "10m unlabelled · 1 key · 2 small (2m) hidden · last 7 days", "inbox ¹")
+	if strings.Contains(m.View().Content, "kitea") {
+		t.Fatal("small key listed")
 	}
 }

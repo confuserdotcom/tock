@@ -16,8 +16,10 @@ score your focus, run focus sessions and help you label what is left.
 - Private-browsing windows are recorded as "<app> (private)", with no title or
   URL.
 - Claude suggestions, summaries and `tock ask` are the only features that talk
-  to the internet, and they are off unless `ANTHROPIC_API_KEY` is set in the
-  shell that runs `tock`.
+  to the internet. They run through Claude Code (`claude -p`, on your Claude
+  subscription: no API key, no tools, no saved session), or through the API
+  when `ANTHROPIC_API_KEY` is set in the shell that runs `tock`. With neither,
+  they are off.
   - When on, at most once an hour, tock sends the grouped inbox keys: app name, URL host, cleaned title and minutes. It also sends your category and project names.
   - Password managers, mail and messaging apps, banks and webmail are never sent. Extend the deny lists in `config.toml [llm]`.
   - `tock summary` runs only when you type it. It sends the day's work blocks: the weekday (never the date), clock times, minutes, labels and, per block, at most 8 apps with their URL host or cleaned title, through the same deny lists. The answer is saved in tock.db.
@@ -78,7 +80,7 @@ ok  trackd: running (version 3f2a1c0)
 ok  accessibility: granted
 ok  notifications: native, with buttons (menu bar)
 ok  automation: no browser denied
-ok  suggestions: off (set ANTHROPIC_API_KEY to enable)
+ok  suggestions: on via your Claude subscription (claude CLI)
 ```
 
 Permissions are tied to the signing certificate, so they survive rebuilds.
@@ -88,7 +90,13 @@ forgets the grants on every rebuild.
 ## First day
 
 1. Work normally. `tock` opens the TUI. `tock today` prints the day.
-2. `tock inbox` lists time no rule labels yet, grouped by key. Label a key with
+2. `tock inbox` lists time no rule labels yet, grouped by key: one row per
+   app and site (`Arc · youtube.com · 4 pages`), one per app and cleaned
+   title otherwise. Numbered CDN or viewer hosts fold into their domain
+   (`doc-0o-bs.googleusercontent.com` is `googleusercontent.com`). Keys with
+   less than 2 minutes in the window are summed in one line
+   (`+ 46 small keys under 2m`); `tock inbox --all` lists them, and
+   `[inbox] min_minutes` sets the floor. Label a key with
    `tock tag 1 Code/tock`. This also writes a rule to
    `~/.config/tock/learned.toml`, so the same activity is labelled from now on.
    In the TUI, use the inbox tab's `enter`.
@@ -96,6 +104,11 @@ forgets the grants on every rebuild.
    similar titles, or between two spans with one label), the inbox shows a
    guess such as `→ Code (same app, 82%)`. `tock tag 1` with no label
    accepts it. Guesses are computed on your machine; nothing is sent.
+   A same-site or same-app guess of 85 % or more (`[inbox] auto_accept`) is
+   applied for you: tock learns its rule as `tock tag` would, and the inbox
+   says `auto-labelled 3 keys (12m) today`. `tock inbox --auto` lists them;
+   `tock tag <n> <label>` on that list corrects one, and tock never
+   auto-labels that key again. `tock undo` also reverts each rule.
    Tagged it wrong? Tag it again (or `t` on the row in today): the new rule
    replaces the mistaken learned one, so every span it labelled changes.
 3. Edit `~/.config/tock/rules.toml` for anything broader, then run
@@ -180,7 +193,7 @@ tock                                   open the TUI (today, week, inbox, focus, 
 tock status                            one line for a status bar
 tock init                              write starter ~/.config/tock/rules.toml
 tock today [--date YYYY-MM-DD] [--keys]
-tock inbox [--days N] [--all]          unlabelled activity, numbered
+tock inbox [--days N] [--all | --auto]  unlabelled activity, numbered; --auto: what tock labelled itself
 tock tag [--once] <n> [<Category>[/<Project>]]   no label: accept the → suggestion
 tock tag --span <id> <Category>[/<Project>]
 tock ignore <n> | tock ignore --undo <key>
@@ -211,9 +224,9 @@ tock model [why <app> "<title>" [<label>]]
 tock web [--port N] [--no-open] [--idle D]  the dashboard in your browser, on this machine only
 tock review [--week YYYY-MM-DD] [--plan TEXT]
                                        weekly recap, then next week's focus
-tock suggest [--dry-run | --force]     Claude label suggestions for the inbox (needs ANTHROPIC_API_KEY)
+tock suggest [--dry-run | --force]     Claude label suggestions for the inbox (claude CLI or ANTHROPIC_API_KEY)
 tock blocks [--date D]                 the day's work blocks: stretches of work on one thing
-tock summary [--date D] [--dry-run]    Claude writes what you worked on (needs ANTHROPIC_API_KEY)
+tock summary [--date D] [--dry-run]    Claude writes what you worked on (claude CLI or ANTHROPIC_API_KEY)
 tock ask [--dry-run] "<question>"      ask about your time in plain words; answered on this machine
 tock doctor [--wait] [--open]          check trackd, permissions, rules and config
 tock export [--from D] [--to D] [--format csv|json] [--by project]
@@ -276,6 +289,10 @@ end = "18:00"
 over_grace = 30          # minutes of work past end before the overworking notice (5 to 240)
 over_repeat = 60         # minutes between overworking notices while you keep going (15 to 480)
 
+[inbox]
+min_minutes = 2          # a key needs this much time in the window for its own inbox row; 0 lists all (0 to 60)
+auto_accept = 85         # % a same-site or same-app guess needs to be applied without asking; 0 = off (60 to 100)
+
 [routine]                # notices that mark the day; see Routines
 start = true             # start of day notice on the first activity of a work day
 midday = "13:00"         # midday check-in time, "off" to disable
@@ -313,7 +330,7 @@ emoji = ":dart:"
 dnd = true               # pause Slack notifications for the session
 
 [llm]
-enabled = true                # still needs ANTHROPIC_API_KEY
+enabled = true                # still needs Claude Code (claude) or ANTHROPIC_API_KEY
 model = "claude-haiku-5-5"
 min_minutes = 2               # inbox time a key needs before it is sent
 deny_apps = []                # bundle ids added to the built-in deny list
@@ -776,7 +793,8 @@ the TUI). Run it again to replace them; `--date` summarizes another day.
 totals by category, project, app, site, kind or day, over a range. Claude
 only turns the question into a query; tock runs it on your data.
 
-Both need `ANTHROPIC_API_KEY`, and `[llm] enabled = false` turns them off; see
+Both need Claude Code (the `claude` command, logged in) or `ANTHROPIC_API_KEY`,
+and `[llm] enabled = false` turns them off; see
 Privacy for what they send.
 
 ## Trends and review
@@ -858,7 +876,9 @@ labelled, including time you only listened and would otherwise be idle:
 category = "Meeting"   # a declared category
 ```
 
-A manual tag still wins. `tock rules check` says whether calls are labelled.
+A manual tag still wins, and so does a distraction: a video chat site your
+rules call Entertainment stays Entertainment with the camera on. `tock rules
+check` says whether calls are labelled.
 
 ## Commits
 

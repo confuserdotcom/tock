@@ -14,13 +14,13 @@ func TestIgnoreAndUndo(t *testing.T) {
 	e := apptest.New(t, apptest.Rules)
 	e.Seed(t, apptest.DaySpans()...)
 	a := open(t, e)
-	if err := a.Ignore("Arc · chatgpt.com/c", true); err != nil {
+	if err := a.Ignore("Arc · chatgpt.com", true); err != nil {
 		t.Fatal(err)
 	}
 	if items, _ := a.Inbox(7); len(items) != 2 {
 		t.Fatalf("ignored key still listed: %+v", items)
 	}
-	if err := a.Ignore("Arc · chatgpt.com/c", false); err != nil {
+	if err := a.Ignore("Arc · chatgpt.com", false); err != nil {
 		t.Fatal(err)
 	}
 	if items, _ := a.Inbox(7); len(items) != 3 {
@@ -65,15 +65,15 @@ func TestProposeLearnAppliesToHistory(t *testing.T) {
 	e.Seed(t, apptest.Span{ID: 20, Start: "10:00", End: "10:30", Bundle: "arc", App: "Arc", Title: "Old chat", URL: "chatgpt.com/c/9", Day: -3})
 	a := open(t, e)
 	want := classify.Want{Category: "Study"}
-	cands, err := a.Propose("Arc · chatgpt.com/c", want)
+	cands, err := a.Propose("Arc · chatgpt.com", want)
 	if err != nil || len(cands) == 0 || !cands[0].Safe {
 		t.Fatalf("candidates %+v, %v", cands, err)
 	}
-	if err := a.Learn("Arc · chatgpt.com/c", cands[0], want); err != nil {
+	if err := a.Learn("Arc · chatgpt.com", cands[0], want); err != nil {
 		t.Fatal(err)
 	}
 	body, _ := os.ReadFile(e.Learned)
-	if !strings.Contains(string(body), `# learned 2026-10-10 from "Arc · chatgpt.com/c", 3 spans`) {
+	if !strings.Contains(string(body), `# learned 2026-10-10 from "Arc · chatgpt.com", 3 spans`) {
 		t.Fatalf("learned.toml:\n%s", body)
 	}
 	d, _ := a.Day(e.Clock.AddDate(0, 0, -3))
@@ -96,11 +96,11 @@ func TestLearnReplacesMistake(t *testing.T) {
 	learn := func(cat string) {
 		t.Helper()
 		want := classify.Want{Category: cat}
-		cands, err := a.Propose("Arc · chatgpt.com/c", want)
+		cands, err := a.Propose("Arc · chatgpt.com", want)
 		if err != nil || len(cands) == 0 || !cands[0].Safe {
 			t.Fatalf("%s: candidates %+v, %v", cat, cands, err)
 		}
-		if err := a.Learn("Arc · chatgpt.com/c", cands[0], want); err != nil {
+		if err := a.Learn("Arc · chatgpt.com", cands[0], want); err != nil {
 			t.Fatal(err)
 		}
 	}

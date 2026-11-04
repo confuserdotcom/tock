@@ -54,7 +54,7 @@ type memoKey struct {
 
 // Label classifies v. Idle spans get an empty label. o may be nil. Each field
 // is decided separately: manual override, else (category only) CallCategory
-// for a view in a call, else the first matching learned rule that sets the
+// for a view in a call unless its rule label is a distraction, else the first matching learned rule that sets the
 // field, else the first matching user rule, else (category only)
 // CalendarCategory for a meeting view, else empty.
 func (rs *Ruleset) Label(v SpanView, o *Override) Label {
@@ -69,7 +69,9 @@ func (rs *Ruleset) Label(v SpanView, o *Override) Label {
 		o = nil
 	}
 	// After the memoized rule label, so the memo key needs no InCall.
-	if v.InCall && rs.CallCategory != "" && v.BundleID != span.IdleBundleID {
+	// A distraction stays one during a call (a video chat site is
+	// entertainment with the camera on).
+	if v.InCall && rs.CallCategory != "" && v.BundleID != span.IdleBundleID && l.Kind != KindDistract {
 		l.Category, l.Kind = rs.CallCategory, rs.Kind(rs.CallCategory)
 		l.CategorySource, l.CategoryRule = SourceCall, ""
 	}
@@ -84,6 +86,13 @@ func (rs *Ruleset) Label(v SpanView, o *Override) Label {
 	if o != nil && o.Project != "" {
 		l.Project = o.Project
 		l.ProjectSource, l.ProjectRule = SourceManual, ""
+	}
+	// A project filed under a category labels only time in that category:
+	// a lecture on a video site is not the Video project.
+	if l.Project != "" && l.Category != "" && (l.ProjectSource == SourceRule || l.ProjectSource == SourceLearned) {
+		if c := rs.ProjectCategory(l.Project); c != "" && !strings.EqualFold(c, l.Category) {
+			l.Project, l.ProjectSource, l.ProjectRule = "", SourceNone, ""
+		}
 	}
 	if l.Project == "" && v.Planned != "" {
 		if c := rs.ProjectCategory(v.Planned); c != "" && strings.EqualFold(c, l.Category) {
