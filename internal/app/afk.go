@@ -5,6 +5,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -198,6 +199,35 @@ func (a *App) base(rows []store.SpanRow, ovs map[int64]classify.Override, from, 
 		}
 	}
 	return out
+}
+
+// rowEnds is, for rows in start order, the latest end among rows 0..i (the
+// open span ends at nowMS): it never decreases, so rowsFor can search it.
+func rowEnds(rows []store.SpanRow, nowMS int64) []int64 {
+	out := make([]int64, len(rows))
+	var m int64 = math.MinInt64
+	for i, r := range rows {
+		end := nowMS
+		if r.End != nil {
+			end = *r.End
+		}
+		m = max(m, end)
+		out[i] = m
+	}
+	return out
+}
+
+// rowsFor is the rows base needs for [from, to), out of rows in start
+// order with their rowEnds: those that start before to and reach past
+// classify.MaxAFKMS before from, where a pause into the day is judged.
+// One day's base then costs that day's rows, not the whole range's.
+func rowsFor(rows []store.SpanRow, ends []int64, from, to int64) []store.SpanRow {
+	lo := sort.Search(len(ends), func(i int) bool { return ends[i] > from-classify.MaxAFKMS })
+	hi := sort.Search(len(rows), func(i int) bool { return rows[i].Start >= to })
+	if hi < lo {
+		return nil
+	}
+	return rows[lo:hi]
 }
 
 // clipViews cuts views to [from, to) and drops the ones left empty.
