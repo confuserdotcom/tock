@@ -221,3 +221,17 @@ func TestCallApps(t *testing.T) {
 		t.Fatal("empty app id must be rejected")
 	}
 }
+
+// TestMemoBounded: the label memo starts over instead of growing for ever.
+func TestMemoBounded(t *testing.T) {
+	rs, err := Parse([]byte(callRules), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < memoMax+10; i++ {
+		rs.Label(SpanView{ID: 1, BundleID: "term", App: "T", Title: sp(fmt.Sprint(i))}, nil)
+	}
+	if n := len(rs.memo); n > memoMax {
+		t.Fatalf("memo holds %d", n)
+	}
+}

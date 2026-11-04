@@ -126,6 +126,9 @@ func (rs *Ruleset) Label(v SpanView, o *Override) Label {
 	return l
 }
 
+// memoMax bounds the label memo; past it the memo starts over.
+const memoMax = 50_000
+
 // keyOf is v's memo key and its cleaned title ("" when it has none).
 func keyOf(v *SpanView) (memoKey, string) {
 	k := memoKey{bundle: v.BundleID, app: v.App, private: v.Private}
@@ -217,6 +220,9 @@ func (rs *Ruleset) ruleLabel(v *SpanView) Label {
 	}
 
 	rs.mu.Lock()
+	if len(rs.memo) >= memoMax { // a daemon sees new titles for weeks
+		clear(rs.memo)
+	}
 	rs.memo[k] = l
 	rs.mu.Unlock()
 	return l

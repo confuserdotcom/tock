@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"runtime/debug"
 	"syscall"
 	"time"
 
@@ -67,6 +68,9 @@ func newSource() (collect.Source, error) {
 	})
 }
 
+// memoryLimit is trackd's soft Go memory limit (runtime/debug).
+const memoryLimit = 32 << 20
+
 func main() {
 	if len(os.Args) > 1 && os.Args[1] == "ocr-worker" {
 		os.Exit(runOCRWorker(os.Args[2:], os.Stdout))
@@ -106,6 +110,11 @@ func main() {
 		}
 		os.Exit(runDump(src, os.Stdout, os.Getppid()))
 	}
+
+	// trackd's budget is 40 MB. The live heap is a few MB, but rebuilding
+	// the history after a rule change allocates hundreds; a soft limit makes
+	// the collector work harder then instead of letting the heap grow.
+	debug.SetMemoryLimit(memoryLimit)
 
 	o := daemonOpts{
 		DataDir:   dataDir(),
