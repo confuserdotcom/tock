@@ -155,6 +155,24 @@ func (a *App) ReleaseRecommend(ev focus.Event) error {
 	return nil
 }
 
+// ReleaseNudge gives back the budget a nudge GuardTick returned took, when
+// trackd could not hand it over: the count drops by one and the gap is
+// lifted. Any other notice is ignored.
+func (a *App) ReleaseNudge(ev focus.Event) error {
+	if !focus.IsNudge(ev.Topic) {
+		return nil
+	}
+	st, err := a.focusState()
+	if err != nil {
+		return err
+	}
+	if st.Nudges == 0 && st.NudgeAt == 0 {
+		return nil
+	}
+	st.Nudges, st.NudgeAt = max(st.Nudges-1, 0), 0
+	return a.setFocusState(st, a.nowMS())
+}
+
 // PendingRecommend returns the newest recommendation that is still open at
 // now (unanswered, sent under recommend.PendingMS ago), nil if none. One
 // indexed read of the last 30 minutes of rows.
@@ -301,6 +319,22 @@ func (a *App) TakeBreak(lengthMS int64) (untilMS int64, err error) {
 	}
 	if err := a.st.SetState(store.KeyFocusBreakUntil, strconv.FormatInt(untilMS, 10), now); err != nil {
 		return 0, fmt.Errorf("app: take break: %w", err)
+	}
+	return untilMS, nil
+}
+
+// ExtendBreak makes the break the user took end lengthMS from now, as when
+// they ask the break screen for more time: Break over and the break screen
+// come again at the new end. The break keeps its start. It returns the new
+// end (ms).
+func (a *App) ExtendBreak(lengthMS int64) (untilMS int64, err error) {
+	if lengthMS <= 0 {
+		return 0, fmt.Errorf("app: extend break: length %d ms, want more than 0", lengthMS)
+	}
+	now := a.nowMS()
+	untilMS = now + lengthMS
+	if err := a.st.SetState(store.KeyFocusBreakUntil, strconv.FormatInt(untilMS, 10), now); err != nil {
+		return 0, fmt.Errorf("app: extend break: %w", err)
 	}
 	return untilMS, nil
 }

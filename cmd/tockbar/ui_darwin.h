@@ -8,5 +8,7 @@ void bar_post(long long id, const char *title, const char *body, const char *cat
 void bar_check_auth(int prompt);
 void bar_open_url(const char *url);
 void bar_quit(void);
+void bar_curtain(long long nid, const char *title, const char *body, long long from_ms, long long until_ms,
+                 const char *buttons);
 
 #endif

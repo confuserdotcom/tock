@@ -26,11 +26,18 @@ const (
 	keepCategories = 8
 )
 
+// defaultAction is the action of a click on a notification itself.
+const defaultAction = "com.apple.UNNotificationDefaultActionIdentifier"
+
 // ui is the Cocoa side, faked in tests.
 type ui interface {
 	SetTitle(title string)
 	SetMenu(spec string)
 	Post(id int64, title, body, category, categories string)
+	// Curtain shows the break screen of notice id over every screen until a
+	// button (answered through evResponse) or Esc closes it: fromMS is when
+	// the break began, untilMS its planned end, buttons "id\ttitle…".
+	Curtain(id int64, title, body string, fromMS, untilMS int64, buttons string)
 	CheckAuth(prompt bool)
 	OpenURL(url string)
 	Quit()
@@ -183,6 +190,15 @@ func (r *runner) post() {
 			r.warn("reading a notice failed", err)
 			continue
 		}
+		if n.Topic == focus.TopicBreakScreen && d.From > 0 {
+			var bs []string
+			for _, b := range bar.Buttons(n, d) {
+				bs = append(bs, b.ID, clean(b.Title))
+			}
+			r.ui.Curtain(n.ID, clean(n.Title), clean(n.Body), d.From, d.To, strings.Join(bs, "\t"))
+			r.log.Info("break screen shown")
+			continue
+		}
 		cat := bar.Category(n, d)
 		if cat != "" {
 			line := []string{cat}
@@ -303,6 +319,17 @@ func (r *runner) handle(ev event) {
 		r.done("menu "+ev.id, msg, err)
 	case evResponse:
 		if r.a == nil {
+			return
+		}
+		if ev.id == defaultAction {
+			// A click on the notice itself: the recap opens Today.
+			if n, _, err := r.a.Notice(ev.notice); err == nil && n.Topic == focus.TopicRecap {
+				link, err := r.dash.URL("")
+				if err == nil {
+					r.ui.OpenURL(link)
+				}
+				r.done("recap", "opened the dashboard", err)
+			}
 			return
 		}
 		if ev.id == bar.ActJoin {

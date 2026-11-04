@@ -39,6 +39,16 @@ type Focus struct {
 	// UrgeSurf turns the distraction notice into an urge-surfing prompt with
 	// counted answers.
 	UrgeSurf bool
+	// NoticeBudget is how many nudges tock sends unasked in a day (break,
+	// away, start, midday, overworking, suggestions); 0 = no limit.
+	// NoticeGapMS is the least time between two of them; 0 = none.
+	NoticeBudget int
+	NoticeGapMS  int64
+	// BreakScreen shows a full-screen notice when a break you took runs
+	// BreakScreenGraceMS past its end and you are not back at deep work.
+	// Esc or a button closes it; it never locks anything.
+	BreakScreen        bool
+	BreakScreenGraceMS int64
 }
 
 // DefaultFocus is the [focus] section used when the file does not set it.
@@ -53,6 +63,8 @@ func DefaultFocus() Focus {
 			"com.microsoft.teams", "Cisco-Systems.Spark", "com.cisco.webexmeetingsapp"},
 		MeetingHosts: []string{"meet.google.com", "teams.microsoft.com", "app.zoom.us", "whereby.com"},
 		BlockGraceMS: 10_000,
+		NoticeBudget: 8, NoticeGapMS: 20 * 60_000,
+		BreakScreenGraceMS: 5 * 60_000,
 	}
 }
 
@@ -75,6 +87,10 @@ type focusTOML struct {
 	FocusOn        *string   `toml:"focus_on"`
 	FocusOff       *string   `toml:"focus_off"`
 	UrgeSurf       *bool     `toml:"urge_surf"`
+	NoticeBudget   *int      `toml:"notice_budget"`
+	NoticeGap      *int      `toml:"notice_gap"`
+	BreakScreen    *bool     `toml:"break_screen"`
+	BreakGrace     *int      `toml:"break_screen_grace"`
 }
 
 // decodeFocus applies the keys present in f to c and validates them.
@@ -104,6 +120,7 @@ func decodeFocus(f focusTOML, c *Focus) error {
 		{"distract_repeat", f.DistractRepeat, 1, 3600, 1000, &c.DistractRepeatMS},
 		{"auto_min", f.AutoMin, 5, 240, 60_000, &c.AutoMinMS},
 		{"block_grace", f.BlockGrace, 1, 600, 1000, &c.BlockGraceMS},
+		{"break_screen_grace", f.BreakGrace, 1, 60, 60_000, &c.BreakScreenGraceMS},
 	} {
 		if d.v == nil {
 			continue
@@ -113,12 +130,27 @@ func decodeFocus(f focusTOML, c *Focus) error {
 		}
 		*d.dst = int64(*d.v) * d.unitMS
 	}
+	if v := f.NoticeBudget; v != nil {
+		if *v < 0 || *v > 100 {
+			return fmt.Errorf("[focus] notice_budget = %d, want 0 (no limit) to 100", *v)
+		}
+		c.NoticeBudget = *v
+	}
+	if v := f.NoticeGap; v != nil {
+		if *v < 0 || *v > 240 {
+			return fmt.Errorf("[focus] notice_gap = %d, want 0 (none) to 240", *v)
+		}
+		c.NoticeGapMS = int64(*v) * 60_000
+	}
 	if f.Recap != nil {
 		at, ok := parseClock(*f.Recap)
 		if !ok {
 			return fmt.Errorf(`[focus] recap = %q, want "HH:MM" or ""`, *f.Recap)
 		}
 		c.RecapAt = at
+	}
+	if f.BreakScreen != nil {
+		c.BreakScreen = *f.BreakScreen
 	}
 	if f.UrgeSurf != nil {
 		c.UrgeSurf = *f.UrgeSurf

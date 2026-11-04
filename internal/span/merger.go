@@ -60,7 +60,19 @@ type Merger struct {
 	haveLast        bool
 	lastHB          int64
 	ignoreIdleNext  bool
+	// returnAt is the first input seen while idle, 0 = none: the return it
+	// may start waits for more input (see returnMinMS).
+	returnAt int64
 }
+
+const (
+	// returnMinMS and returnWithinMS: while idle, input ends idle only when
+	// more input follows the first event at least returnMinMS and at most
+	// returnWithinMS later; idle then ends at the first event. One event
+	// alone (a mouse jiggler, a bumped desk) is no return.
+	returnMinMS    = 1_000
+	returnWithinMS = 30_000
+)
 
 // New returns a Merger. A zero cfg.NextID starts ids at 1.
 func New(cfg Config) *Merger {
@@ -180,6 +192,7 @@ func (m *Merger) openNew(start int64, s *Sample, idle bool) []Op {
 		sp.Private = s.Private
 	}
 	m.nextID++
+	m.returnAt = 0
 	m.cur = &openSpan{
 		id: sp.ID, start: start, key: k, bundleID: sp.BundleID, idle: idle,
 		afterBoundary: m.prev == nil || m.prev.hardEnd,
@@ -407,13 +420,17 @@ func (m *Merger) feedSample(s *Sample) []Op {
 			ops = append(ops, m.openNew(act, s, true)...)
 		}
 	case m.cur != nil && m.cur.idle:
-		// Activity resumed: end the idle span when the user came back.
-		end := ts - idleMS
-		if end < m.cur.start {
-			end = m.cur.start
+		// Input while idle: the user came back at the first event, once
+		// more input follows it.
+		in := max(ts-idleMS, m.cur.start)
+		switch {
+		case m.returnAt == 0 || in-m.returnAt > returnWithinMS:
+			m.returnAt = in
+		case in-m.returnAt >= returnMinMS:
+			end := m.returnAt
+			ops = append(ops, m.closeCur(end, reasonKeyChange)...)
+			ops = append(ops, m.openNew(end, s, false)...)
 		}
-		ops = append(ops, m.closeCur(end, reasonKeyChange)...)
-		ops = append(ops, m.openNew(end, s, false)...)
 	case m.cur != nil:
 		if m.keyOf(s) != m.cur.key {
 			ops = append(ops, m.switchTo(s, ts)...)

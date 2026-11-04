@@ -17,7 +17,7 @@ import (
 // pastFormat is the version of what the disk cache of past days holds and
 // how it is computed: bump it when pastDay, or the code that fills it,
 // changes in a way the build revision does not show.
-const pastFormat = 1
+const pastFormat = 2
 
 // diskDay is a past day as the derived table keeps it.
 type diskDay struct {
@@ -33,8 +33,10 @@ type diskDay struct {
 // spans, away rows, calls, events, edits, plan slots and the other
 // machines' views with what they say about their input. The day's spans
 // themselves are not read: a day goes to disk only once closed (see
-// fillPast), and a pruned title shows as a kept label. nil when an input
-// cannot be read.
+// fillPast), and a pruned title shows as a kept label. Nor is the local
+// model: a closed day keeps the model fills it was computed with, as the
+// model is trained again every modelEveryMS. nil when an input cannot be
+// read.
 func (a *App) dayKeys(days []time.Time) map[string]string {
 	if len(days) == 0 {
 		return nil

@@ -39,7 +39,16 @@ const (
 	// focus (or Take a break), and Not now.
 	ActRecAccept  = "rec:accept"
 	ActRecDismiss = "rec:dismiss"
+
+	// ActBack and ActMore answer the break screen: back to work, or the
+	// break goes on for BreakMore.
+	ActBack = "back"
+	ActMore = "more"
 )
+
+// BreakMore is how much longer the break screen's 5 more minutes makes the
+// break.
+const BreakMore = 5 * time.Minute
 
 // ProjectCells is how wide a project name may be in a button or menu item.
 const ProjectCells = 24
@@ -108,6 +117,8 @@ func Buttons(n store.Notice, d app.NoticeData) []Button {
 			return nil
 		}
 		return []Button{{ActRecAccept, RecAcceptTitle(recommend.KindFocus, d.Minutes)}, {ActRecDismiss, "Not now"}}
+	case focus.TopicBreakScreen:
+		return []Button{{ActBack, "Back to work"}, {ActMore, fmt.Sprintf("%d more minutes", int(BreakMore.Minutes()))}}
 	case focus.TopicBreak:
 		snooze := Button{ActSnooze, fmt.Sprintf("Snooze %d min", int(SnoozeFor.Minutes()))}
 		if d.Rec > 0 && d.Minutes > 0 {

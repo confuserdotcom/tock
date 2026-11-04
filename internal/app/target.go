@@ -107,6 +107,16 @@ func (a *App) fillPast(from, to time.Time) error {
 	if err != nil {
 		return err
 	}
+	// Past days are labelled as a report labels them, the model's fills
+	// included, so the target compares like with like. A closed day keeps
+	// the model it was computed with: the model is not in its key (see
+	// dayKeys), or every retraining would compute every day again.
+	cut := a.cut // labelling here is not a report: its cuts are not counted
+	m, err := a.labelModel()
+	a.cut = cut
+	if err != nil {
+		return err
+	}
 	if a.past == nil {
 		a.past = map[string]pastDay{}
 	}
@@ -129,6 +139,7 @@ func (a *App) fillPast(from, to time.Time) error {
 			return err
 		}
 		ls := a.rs.LabelAll(vs, ovs)
+		a.rs.ApplyModel(m, vs, ls)
 		wFrom, wTo := a.cfg.Hours.Window(d)
 		p := pastDay{Stats: stats.Compute(stats.Clip(vs, ls, wFrom, wTo)), Active: report.Active(vs)}
 		p.ActiveHours, p.DeepHours = report.HourMS(vs, ls, d.Location())

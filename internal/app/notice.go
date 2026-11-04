@@ -73,6 +73,9 @@ func (a *App) Enqueue(ev focus.Event) error {
 	if (ev.Topic == focus.TopicRecommend || ev.Topic == focus.TopicBreak) && ev.RecID != 0 {
 		d.Rec, d.RecAt = ev.RecID, ev.RecAtMS
 	}
+	if ev.Topic == focus.TopicBreakScreen {
+		d.From, d.To = ev.Break.From, ev.Break.To
+	}
 	if ev.Topic == focus.TopicAway {
 		d.From, d.To = ev.Away.From, ev.Away.To
 		ls, err := a.RecentAwayLabels(AwayQuickLabels)

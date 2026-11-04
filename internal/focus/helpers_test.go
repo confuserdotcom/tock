@@ -52,10 +52,13 @@ func world(vs ...vw) ([]classify.SpanView, []classify.Label) {
 	return views, labels
 }
 
-// input is a tick at now over vs with the default config.
+// input is a tick at now over vs with the default config, the nudge budget
+// off (budget_test.go turns it on).
 func input(now int64, vs ...vw) Input {
 	views, labels := world(vs...)
-	return Input{Now: now, Day: day0, Views: views, Labels: labels, Cfg: config.DefaultFocus()}
+	cfg := config.DefaultFocus()
+	cfg.NoticeBudget, cfg.NoticeGapMS = 0, 0
+	return Input{Now: now, Day: day0, Views: views, Labels: labels, Cfg: cfg}
 }
 
 // only returns the events of kind k.

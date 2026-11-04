@@ -154,7 +154,7 @@ func TestTakeBreak(t *testing.T) {
 	}
 
 	// Not now: stored, and the repeat comes after break_repeat as before.
-	e = breakEnv(t, 10, "")
+	e = breakEnv(t, 10, "[focus]\n"+apptest.NoNudgeLimit)
 	a = open(t, e)
 	ev = breakTick(t, a, e, 9, 52, 0)[0]
 	slotClock(e, 9, 53, 0)
@@ -229,4 +229,57 @@ func TestBreakOverLate(t *testing.T) {
 	}
 	wantList(t, "10:09", tickAt(t, a, e, 10, 9, 0))
 	wantList(t, "10:09:05", tickAt(t, a, e, 10, 9, 5))
+}
+
+// TestBreakRemindersSpaced: with the default nudge gap, the 10 min break
+// repeat comes 20 min after the last nudge, and the count is kept.
+func TestBreakRemindersSpaced(t *testing.T) {
+	e := breakEnv(t, 0, "")
+	a := open(t, e)
+	wantBreak(t, "09:52", breakTick(t, a, e, 9, 52, 0), "50 min without a break. Stand up for 5 min.")
+	wantBreak(t, "10:02", breakTick(t, a, e, 10, 2, 0), "")
+	wantBreak(t, "10:12", breakTick(t, a, e, 10, 12, 0), "70 min without a break. Stand up for 5 min.")
+	if got := stateVal(t, e, store.KeyFocusNudges); got != "2" {
+		t.Fatalf("nudges = %q, want 2", got)
+	}
+}
+
+// TestBreakScreenOnce: a taken break that runs 5 min over while you are away
+// brings the break screen once, with the break in its event.
+func TestBreakScreenOnce(t *testing.T) {
+	e := apptest.New(t, apptest.Rules)
+	e.Seed(t,
+		apptest.Span{ID: 1, Start: "09:00", End: "09:30", Bundle: "term", App: "WezTerm", Title: "tock │ x"},
+		apptest.Span{ID: 2, Start: "09:30", Bundle: "tock.idle", App: "Idle"},
+	)
+	e.WriteConfig(t, "[focus]\nbreak_screen = true\n"+apptest.NoRoutines+apptest.NoPlanNotices+apptest.NoRecommend)
+	slotClock(e, 9, 30, 0)
+	a := open(t, e)
+	if _, err := a.TakeBreak(10 * 60_000); err != nil {
+		t.Fatal(err)
+	}
+	screens := func(h, m int) []focus.Event {
+		slotClock(e, h, m, 0)
+		evs, err := a.FocusTick(false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var out []focus.Event
+		for _, ev := range evs {
+			if ev.Topic == focus.TopicBreakScreen {
+				out = append(out, ev)
+			}
+		}
+		return out
+	}
+	if got := screens(9, 44); len(got) != 0 {
+		t.Fatalf("09:44 = %+v", got)
+	}
+	got := screens(9, 45)
+	if len(got) != 1 || got[0].Break.To != apptest.At(t, "09:40", 0) || got[0].Break.From != apptest.At(t, "09:30", 0) {
+		t.Fatalf("09:45 = %+v", got)
+	}
+	if got := screens(9, 46); len(got) != 0 {
+		t.Fatalf("09:46 = %+v, want the screen once", got)
+	}
 }

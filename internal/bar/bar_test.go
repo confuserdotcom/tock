@@ -1401,3 +1401,33 @@ func TestLoadSlots(t *testing.T) {
 		t.Errorf("snapshot not good: %+v", s)
 	}
 }
+
+// TestRespondBreakScreen: Back to work changes nothing; 5 more minutes makes
+// the break end 5 min from now, keeping its start. The notice carries the
+// break so the screen can count it.
+func TestRespondBreakScreen(t *testing.T) {
+	e, a := seeded(t)
+	now := e.Clock.UnixMilli()
+	if _, err := a.TakeBreak(10 * 60_000); err != nil {
+		t.Fatal(err)
+	}
+	ev := focus.Event{Kind: focus.Notify, Topic: focus.TopicBreakScreen, Title: focus.TitleBreakScreen, Body: "b",
+		Break: classify.Interval{From: now - 15*60_000, To: now - 5*60_000}}
+	id := enqueue(t, a, ev)
+	n, d, err := a.Notice(id)
+	if err != nil || d.From != ev.Break.From || d.To != ev.Break.To {
+		t.Fatalf("notice data = %+v, %v", d, err)
+	}
+	if got := Buttons(n, d); len(got) != 2 || got[0].ID != ActBack || got[1].Title != "5 more minutes" {
+		t.Fatalf("buttons = %+v", got)
+	}
+	if msg, err := Respond(a, id, ActBack); err != nil || msg != "back to work" {
+		t.Fatalf("back = %q, %v", msg, err)
+	}
+	if msg, err := Respond(a, id, ActMore); err != nil || msg != "break 5 min longer" {
+		t.Fatalf("more = %q, %v", msg, err)
+	}
+	if until, err := a.BreakUntil(e.Clock); err != nil || until != now+5*60_000 {
+		t.Fatalf("break until = %d, %v, want %d", until, err, now+5*60_000)
+	}
+}

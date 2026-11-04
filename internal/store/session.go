@@ -42,6 +42,14 @@ const (
 	// KeyFocusBreakOver is the break end (ms, KeyFocusBreakUntil's value) the
 	// Break over notice was last sent for; trackd owns it.
 	KeyFocusBreakOver = "focus_break_over"
+	// KeyFocusBreakScreen is the break end (ms) the break screen was shown,
+	// or given up, for; trackd owns it.
+	KeyFocusBreakScreen = "focus_break_screen"
+	// KeyFocusNudgeDay, KeyFocusNudges and KeyFocusNudgeAt count the nudges:
+	// the YYYY-MM-DD counted, how many that day, when the last was sent (ms).
+	KeyFocusNudgeDay = "focus_nudge_day"
+	KeyFocusNudges   = "focus_nudges"
+	KeyFocusNudgeAt  = "focus_nudge_at"
 	// KeyFocusDistractSnooze is when (ms) snoozed distraction notices of the
 	// running session resume.
 	KeyFocusDistractSnooze = "focus_distract_snooze"

@@ -2,9 +2,6 @@ package app
 
 import (
 	"bytes"
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,21 +11,12 @@ import (
 	"tock/internal/rulesfile"
 
 	"tock/internal/classify"
+	"tock/internal/syncdir"
 )
-
-// rulesCopy is this machine's rules.toml in its sync folder. machine.json
-// says when it last changed and its checksum, so a machine takes a newer
-// copy only once the whole of it has arrived.
-const rulesCopy = "rules.toml"
 
 // KeyRulesFrom is the daemon_state key naming the machine whose rules.toml
 // this machine last took, as "<machine> <changed ms>".
 const KeyRulesFrom = "rules_from"
-
-func rulesSum(b []byte) string {
-	s := sha256.Sum256(b)
-	return hex.EncodeToString(s[:])
-}
 
 // localRules is this machine's rules.toml and when it last changed.
 func (a *App) localRules() ([]byte, int64, error) {
@@ -45,15 +33,15 @@ func (a *App) localRules() ([]byte, int64, error) {
 
 // shareRules copies rules.toml to this machine's sync folder and fills in
 // what machine.json says about it.
-func (a *App) shareRules(dir string, mi *machineInfo) error {
+func (a *App) shareRules(dir string, mi *syncdir.MachineInfo) error {
 	b, at, err := a.localRules()
 	if err != nil {
 		return err
 	}
-	if _, err := writeIfChanged(filepath.Join(dir, rulesCopy), b); err != nil {
+	if _, err := syncdir.WriteIfChanged(filepath.Join(dir, syncdir.RulesCopy), b); err != nil {
 		return err
 	}
-	mi.RulesAt, mi.RulesSum = at, rulesSum(b)
+	mi.RulesAt, mi.RulesSum = at, syncdir.RulesSum(b)
 	return nil
 }
 
@@ -96,12 +84,12 @@ func (a *App) takeRulesLocked(dir, self string) (from, refused string, err error
 			continue
 		}
 		mdir := filepath.Join(dir, e.Name())
-		mi, ok := readMachineInfo(mdir)
+		mi, ok := syncdir.ReadMachineInfo(mdir)
 		if !ok || mi.RulesSum == "" || mi.RulesAt <= bestAt {
 			continue
 		}
-		b, err := os.ReadFile(filepath.Join(mdir, rulesCopy))
-		if err != nil || rulesSum(b) != mi.RulesSum || bytes.Equal(b, local) {
+		b, err := os.ReadFile(filepath.Join(mdir, syncdir.RulesCopy))
+		if err != nil || syncdir.RulesSum(b) != mi.RulesSum || bytes.Equal(b, local) {
 			continue // still arriving, or the same rules
 		}
 		// Names merged or renamed there are renamed here too first.
@@ -155,17 +143,4 @@ func (a *App) RulesFrom() (string, time.Time) {
 		return "", time.Time{}
 	}
 	return name, time.UnixMilli(n)
-}
-
-// readMachineInfo reads a machine folder's machine.json.
-func readMachineInfo(dir string) (machineInfo, bool) {
-	b, err := os.ReadFile(filepath.Join(dir, machineFile))
-	if err != nil {
-		return machineInfo{}, false
-	}
-	var mi machineInfo
-	if json.Unmarshal(b, &mi) != nil {
-		return machineInfo{}, false
-	}
-	return mi, true
 }

@@ -34,6 +34,10 @@ const NoPlanNotices = "[plan]\nnotify = false\n"
 // a second [recommend] table.
 const NoRecommend = "[recommend]\nenabled = false\n"
 
+// NoNudgeLimit is the [focus] lines that turn the nudge budget and gap off,
+// for tests of a notice's own timing; add them to the test's [focus] table.
+const NoNudgeLimit = "notice_budget = 0\nnotice_gap = 0\n"
+
 // AllHours is an [hours] table with every weekday 08:00-18:00.
 const AllHours = "[hours]\ndays = [\"mon\", \"tue\", \"wed\", \"thu\", \"fri\", \"sat\", \"sun\"]\nstart = \"08:00\"\nend = \"18:00\"\n"
 

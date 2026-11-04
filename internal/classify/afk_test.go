@@ -113,3 +113,40 @@ func TestMarkAFKTrust(t *testing.T) {
 		}
 	}
 }
+
+// TestMarkAFKBlip: one input event between two idle stretches (a mouse
+// jiggler, a bumped desk) is not a return: it stays idle, and its AFK
+// window never swallows the idle after it.
+func TestMarkAFKBlip(t *testing.T) {
+	z := "org.pwmt.zathura"
+	s := int64(1000)
+	cases := []struct {
+		name string
+		in   []SpanView
+		want []SpanView
+	}{
+		{"zero-length blip between idle is idle",
+			[]SpanView{idleV(1, 0, 10*mn), av(2, 10*mn, 10*mn, z), idleV(3, 10*mn, 20*mn)},
+			[]SpanView{idleV(1, 0, 10*mn), idleV(2, 10*mn, 10*mn), idleV(3, 10*mn, 20*mn)}},
+		{"a blip under 2 s is idle",
+			[]SpanView{idleV(1, 0, 10*mn), av(2, 10*mn, 10*mn+1999, z), idleV(3, 10*mn+1999, 20*mn)},
+			[]SpanView{idleV(1, 0, 10*mn), idleV(2, 10*mn, 10*mn+1999), idleV(3, 10*mn+1999, 20*mn)}},
+		{"2 s of input is a return",
+			[]SpanView{idleV(1, 0, 10*mn), av(2, 10*mn, 10*mn+2*s, z), idleV(3, 10*mn+2*s, 20*mn)},
+			[]SpanView{idleV(1, 0, 10*mn), av(2, 10*mn, 20*mn, z)}},
+		{"no idle after: the return goes on",
+			[]SpanView{idleV(1, 0, 10*mn), av(2, 10*mn, 10*mn, z)},
+			[]SpanView{idleV(1, 0, 10*mn), av(2, 10*mn, 10*mn, z)}},
+		{"no idle before: a switch, not a blip",
+			[]SpanView{av(1, 0, 10*mn, "wez"), av(2, 10*mn, 10*mn, z), idleV(3, 10*mn, 25*mn)},
+			[]SpanView{av(1, 0, 10*mn, "wez"), av(2, 10*mn, 10*mn, z), idleV(3, 10*mn, 25*mn)}},
+		{"a gap before is not idle",
+			[]SpanView{idleV(1, 0, 9*mn), av(2, 10*mn, 10*mn, z), idleV(3, 10*mn, 25*mn)},
+			[]SpanView{idleV(1, 0, 9*mn), av(2, 10*mn, 10*mn, z), idleV(3, 10*mn, 25*mn)}},
+	}
+	for _, c := range cases {
+		if got := MarkAFK(c.in, AFK{Window: windows}); !reflect.DeepEqual(got, c.want) {
+			t.Errorf("%s:\n got  %+v\n want %+v", c.name, got, c.want)
+		}
+	}
+}

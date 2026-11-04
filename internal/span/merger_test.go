@@ -88,6 +88,7 @@ func TestIdleEndsOnActivity(t *testing.T) {
 	T := a + 400000
 	ops := polls(m, "Terminal", t0, T-2000, a)
 	ops = append(ops, m.Feed(*S(T, "Mail", "", 1.5))...)
+	ops = append(ops, m.Feed(*S(T+2000, "Mail", "", 0.2))...) // input goes on: a return
 	assertSpans(t, replay(t, ops), []Span{
 		W(t0, a, "Terminal"),
 		W(a, T-1500, IdleBundleID),
@@ -103,11 +104,67 @@ func TestIdleEndsOnActivityClampedToIdleStart(t *testing.T) {
 		S(t0, "Terminal", "", 0),
 		S(t0+2000, "Terminal", "", 400.0), // idle opens at t0 (clamped)
 		S(t0+4000, "Mail", "", 10.0),
+		S(t0+6000, "Mail", "", 0),
 	)
 	assertSpans(t, replay(t, ops), []Span{
 		W(t0, t0, "Terminal"),
 		W(t0, t0, IdleBundleID),
 		WO(t0, "Mail"),
+	})
+}
+
+// TestIdleJiggleKeepsIdle: one input event while idle (a mouse jiggler, a
+// bumped desk) is no return: the idle span stays open.
+func TestIdleJiggleKeepsIdle(t *testing.T) {
+	m := New(DefaultConfig())
+	a := t0 + 8000
+	j := a + 600000 // the jiggle
+	ops := polls(m, "Terminal", t0, j-2000, a)
+	for ts := j; ts <= j+300000; ts += 2000 {
+		ops = append(ops, m.Feed(*S(ts, "Terminal", "", float64(ts-j)/1000))...)
+	}
+	assertSpans(t, replay(t, ops), []Span{
+		W(t0, a, "Terminal"),
+		WO(a, IdleBundleID),
+	})
+}
+
+// TestIdleReturnAfterJiggle: a jiggle, then a real return a minute later:
+// the idle span ends at the return, not at the jiggle.
+func TestIdleReturnAfterJiggle(t *testing.T) {
+	m := New(DefaultConfig())
+	a := t0 + 8000
+	j := a + 600000
+	ops := polls(m, "Terminal", t0, j-2000, a)
+	for ts := j; ts < j+60000; ts += 2000 {
+		ops = append(ops, m.Feed(*S(ts, "Terminal", "", float64(ts-j)/1000))...)
+	}
+	r := j + 60000 // back, and typing
+	ops = append(ops, polls(m, "Mail", r, r+10000, r+10000)...)
+	assertSpans(t, replay(t, ops), []Span{
+		W(t0, a, "Terminal"),
+		W(a, r, IdleBundleID),
+		WO(r, "Mail"),
+	})
+}
+
+// TestIdleReturnBackdatedToFirstInput: input that goes on ends idle at its
+// first event, one poll after it.
+func TestIdleReturnBackdatedToFirstInput(t *testing.T) {
+	m := New(DefaultConfig())
+	a := t0 + 8000
+	ops := polls(m, "Terminal", t0, a+400000, a)
+	r := a + 500000
+	first := m.Feed(*S(r, "Mail", "", 0.5))
+	if got := kinds(withoutHB(first)); len(got) != 0 {
+		t.Fatalf("the first input ended idle at once: %v", got)
+	}
+	ops = append(ops, first...)
+	ops = append(ops, m.Feed(*S(r+2000, "Mail", "", 0.3))...)
+	assertSpans(t, replay(t, ops), []Span{
+		W(t0, a, "Terminal"),
+		W(a, r-500, IdleBundleID),
+		WO(r-500, "Mail"),
 	})
 }
 
