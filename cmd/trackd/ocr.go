@@ -119,6 +119,7 @@ type ocrCoord struct {
 	busy      bool
 	permUntil int64 // no_permission is assumed until then
 	jobs      chan ocrJob
+	done      chan struct{} // closed when the worker goroutine ends
 }
 
 func newOCRCoord(c *ocrCoord) *ocrCoord {
@@ -127,7 +128,9 @@ func newOCRCoord(c *ocrCoord) *ocrCoord {
 	}
 	if !c.runSync {
 		c.jobs = make(chan ocrJob, 1)
+		c.done = make(chan struct{})
 		go func() {
+			defer close(c.done)
 			for j := range c.jobs {
 				c.run(j)
 			}
@@ -136,10 +139,12 @@ func newOCRCoord(c *ocrCoord) *ocrCoord {
 	return c
 }
 
-// close stops the worker goroutine.
+// close stops the worker goroutine once a read in progress (at most
+// collect.OCRTimeout) is done, so nothing writes to a closed store.
 func (c *ocrCoord) close() {
 	if c.jobs != nil {
 		close(c.jobs)
+		<-c.done
 	}
 }
 

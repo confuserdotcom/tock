@@ -323,3 +323,18 @@ func TestRunOCRWorkerArgs(t *testing.T) {
 		t.Fatalf("printed %q", out.String())
 	}
 }
+
+// TestOCRAsyncCloseWaits: close returns only after the read in progress
+// stored its words.
+func TestOCRAsyncCloseWaits(t *testing.T) {
+	r := newOCRRig(t)
+	c := newOCRCoord(&ocrCoord{cap: r.cap, load: r.c.load, st: r.st, log: r.c.log, now: func() int64 { return r.now }, idleMS: 300_000})
+	sp := span.Span{ID: 1, Start: r.now, BundleID: "term", App: "term"}
+	c.observe([]span.Op{{Kind: span.OpOpen, Span: sp}}, nil)
+	r.now += 25_000
+	c.observe(nil, &span.Sample{TS: r.now, BundleID: "term", App: "term", Title: strPtr("zsh")})
+	c.close()
+	if got := words(t, r.st, 1); !slices.Equal(got, []string{"kubectl", "rollout"}) {
+		t.Fatalf("words after close = %v", got)
+	}
+}
