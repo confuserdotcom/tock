@@ -59,6 +59,16 @@ func TestPruneTitles(t *testing.T) {
 	}
 	a := open(t, e)
 	before := labelsOn(t, a, -40)
+	oldRows, err := a.st.Spans(0, a.midnight(a.now()).AddDate(0, 0, -30).UnixMilli())
+	if err != nil || len(oldRows) == 0 {
+		t.Fatalf("old rows %v, %v", oldRows, err)
+	}
+	todayRows, _ := a.st.Spans(a.midnight(a.now()).UnixMilli(), a.nowMS())
+	for _, id := range []int64{oldRows[0].ID, todayRows[0].ID} {
+		if err := a.st.SetSpanWords(id, []string{"kubectl"}, 1); err != nil {
+			t.Fatal(err)
+		}
+	}
 
 	dry, err := a.PruneTitles(0, true)
 	if err != nil || dry.Spans != 6 || dry.Files != 1 || dry.Before.Format("2006-01-02") != "2026-09-10" {
@@ -82,6 +92,9 @@ func TestPruneTitles(t *testing.T) {
 	}
 	if today, _ := a.st.Spans(a.midnight(a.now()).UnixMilli(), a.nowMS()); today[0].Title == nil {
 		t.Error("today's titles must stay")
+	}
+	if w, _ := a.st.SpanWords([]int64{oldRows[0].ID, todayRows[0].ID}); len(w) != 1 || w[todayRows[0].ID] == nil {
+		t.Errorf("screen words after prune = %v, want today's only", w)
 	}
 	if b, _ := os.ReadFile(oldFile); strings.Contains(string(b), "Secret") || !strings.Contains(string(b), `"u":"mail.com"`) ||
 		!strings.Contains(string(b), `"c":"Communication"`) {

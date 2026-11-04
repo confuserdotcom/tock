@@ -54,6 +54,13 @@ func (a *App) PruneTitles(days int, dryRun bool) (PruneReport, error) {
 		if r.Remote, err = a.st.PruneRemote(before); err != nil {
 			return r, err
 		}
+		// Screen keywords go with the titles (OCR-04).
+		if _, err := a.st.PruneSpanWords(before); err != nil {
+			return r, err
+		}
+		if err := a.st.PruneOCRStats(r.Before.AddDate(0, 0, -store.OCRStatKeepDays).Format("2006-01-02")); err != nil {
+			return r, err
+		}
 	}
 	if dir := a.cfg.Sync.Dir; dir != "" {
 		if r.Files, err = pruneDayFiles(filepath.Join(dir, a.cfg.Sync.MachineName()), r.Before, dryRun); err != nil {

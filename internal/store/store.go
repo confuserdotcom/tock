@@ -138,7 +138,9 @@ func (s *Store) Apply(ops []span.Op) error {
 		case span.OpClose, span.OpExtend:
 			_, err = tx.Exec(`UPDATE span SET "end"=? WHERE id=?`, op.TS, op.ID)
 		case span.OpDelete:
-			_, err = tx.Exec(`DELETE FROM span WHERE id=?`, op.ID)
+			if _, err = tx.Exec(`DELETE FROM span WHERE id=?`, op.ID); err == nil {
+				_, err = tx.Exec(`DELETE FROM span_ocr WHERE span_id=?`, op.ID)
+			}
 		case span.OpReopen:
 			_, err = tx.Exec(`UPDATE span SET "end"=NULL WHERE id=?`, op.ID)
 		case span.OpHeartbeat:

@@ -42,8 +42,8 @@ func objectExists(t *testing.T, db *sql.DB, typ, name string) bool {
 func TestMigrateFreshCreatesLatest(t *testing.T) {
 	s := openAt(t, dbPath(t))
 	defer s.Close()
-	if got := versionRows(t, s.db); !slices.Equal(got, []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18}) {
-		t.Fatalf("schema_version rows = %v, want [1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18]", got)
+	if got := versionRows(t, s.db); !slices.Equal(got, []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19}) {
+		t.Fatalf("schema_version rows = %v, want [1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19]", got)
 	}
 	for _, tbl := range []string{"span", "daemon_state", "override", "inbox_ignore", "session", "suggestion"} {
 		if !objectExists(t, s.db, "table", tbl) {
@@ -65,7 +65,7 @@ func TestMigrateIdempotent(t *testing.T) {
 	}
 	s = openAt(t, path)
 	defer s.Close()
-	if got := versionRows(t, s.db); len(got) != 18 {
+	if got := versionRows(t, s.db); len(got) != 19 {
 		t.Fatalf("schema_version rows after reopen = %v, want exactly one per migration", got)
 	}
 }
@@ -113,16 +113,16 @@ func TestOpenTooNewSchema(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer raw.Close()
-	if got := versionRows(t, raw); !slices.Equal(got, []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 99}) {
-		t.Fatalf("schema_version rows = %v, want [1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 99] untouched", got)
+	if got := versionRows(t, raw); !slices.Equal(got, []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 99}) {
+		t.Fatalf("schema_version rows = %v, want [1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 99] untouched", got)
 	}
 }
 
 func TestSchemaVersion(t *testing.T) {
 	s := openAt(t, dbPath(t))
 	defer s.Close()
-	if v, err := s.SchemaVersion(); err != nil || v != 18 {
-		t.Fatalf("SchemaVersion = %d (err %v), want 18", v, err)
+	if v, err := s.SchemaVersion(); err != nil || v != 19 {
+		t.Fatalf("SchemaVersion = %d (err %v), want 19", v, err)
 	}
 }
 
@@ -242,7 +242,7 @@ func TestMigrate14LegacySessions(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, e := range entries {
-		if e.Name() == "0014_session_quality.sql" || e.Name() == "0015_session_urges.sql" || e.Name() == "0016_slot.sql" || e.Name() == "0017_event_mine.sql" || e.Name() == "0018_recommend.sql" {
+		if e.Name() == "0014_session_quality.sql" || e.Name() == "0015_session_urges.sql" || e.Name() == "0016_slot.sql" || e.Name() == "0017_event_mine.sql" || e.Name() == "0018_recommend.sql" || e.Name() == "0019_ocr.sql" {
 			continue
 		}
 		b, err := fs.ReadFile(migrationFS, "migrations/"+e.Name())
@@ -288,7 +288,7 @@ func TestMigrate15Urges(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, e := range entries {
-		if e.Name() == "0015_session_urges.sql" || e.Name() == "0016_slot.sql" || e.Name() == "0017_event_mine.sql" || e.Name() == "0018_recommend.sql" {
+		if e.Name() == "0015_session_urges.sql" || e.Name() == "0016_slot.sql" || e.Name() == "0017_event_mine.sql" || e.Name() == "0018_recommend.sql" || e.Name() == "0019_ocr.sql" {
 			continue
 		}
 		b, err := fs.ReadFile(migrationFS, "migrations/"+e.Name())
@@ -340,7 +340,7 @@ func TestMigrate16Slot(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, e := range entries {
-		if e.Name() == "0016_slot.sql" || e.Name() == "0017_event_mine.sql" || e.Name() == "0018_recommend.sql" {
+		if e.Name() == "0016_slot.sql" || e.Name() == "0017_event_mine.sql" || e.Name() == "0018_recommend.sql" || e.Name() == "0019_ocr.sql" {
 			continue
 		}
 		b, err := fs.ReadFile(migrationFS, "migrations/"+e.Name())
@@ -383,7 +383,7 @@ func TestMigrate17EventMine(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, e := range entries {
-		if e.Name() == "0017_event_mine.sql" || e.Name() == "0018_recommend.sql" {
+		if e.Name() == "0017_event_mine.sql" || e.Name() == "0018_recommend.sql" || e.Name() == "0019_ocr.sql" {
 			continue
 		}
 		b, err := fs.ReadFile(migrationFS, "migrations/"+e.Name())
@@ -420,7 +420,7 @@ func TestMigrate18Recommend(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, e := range entries {
-		if e.Name() == "0018_recommend.sql" {
+		if e.Name() == "0018_recommend.sql" || e.Name() == "0019_ocr.sql" {
 			continue
 		}
 		b, err := fs.ReadFile(migrationFS, "migrations/"+e.Name())
@@ -439,8 +439,8 @@ func TestMigrate18Recommend(t *testing.T) {
 	if err := migrateFS(db, migrationFS, "migrations"); err != nil {
 		t.Fatal(err)
 	}
-	if got := versionRows(t, db); len(got) != 18 {
-		t.Fatalf("schema_version rows = %v, want 18", got)
+	if got := versionRows(t, db); len(got) != 19 {
+		t.Fatalf("schema_version rows = %v, want 19", got)
 	}
 	if _, err := db.Exec(`INSERT INTO recommend(kind, at_ms, weekday, hour, length_ms) VALUES('focus', 1000, 6, 9, 1500000)`); err != nil {
 		t.Fatal(err)
@@ -452,5 +452,40 @@ func TestMigrate18Recommend(t *testing.T) {
 	}
 	if !objectExists(t, db, "index", "recommend_at") {
 		t.Error("index recommend_at missing")
+	}
+}
+
+// TestMigrate19OCR: a schema-18 database upgrades to 19 with empty span_ocr
+// and ocr_stat tables.
+func TestMigrate19OCR(t *testing.T) {
+	old := fstest.MapFS{}
+	entries, err := fs.ReadDir(migrationFS, "migrations")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range entries {
+		if e.Name() == "0019_ocr.sql" {
+			continue
+		}
+		b, err := fs.ReadFile(migrationFS, "migrations/"+e.Name())
+		if err != nil {
+			t.Fatal(err)
+		}
+		old["migrations/"+e.Name()] = &fstest.MapFile{Data: b}
+	}
+	db := rawMem(t)
+	if err := migrateFS(db, old, "migrations"); err != nil {
+		t.Fatal(err)
+	}
+	if err := migrateFS(db, migrationFS, "migrations"); err != nil {
+		t.Fatal(err)
+	}
+	if got := versionRows(t, db); len(got) != 19 {
+		t.Fatalf("schema_version rows = %v, want 19", got)
+	}
+	for _, tbl := range []string{"span_ocr", "ocr_stat"} {
+		if !objectExists(t, db, "table", tbl) {
+			t.Errorf("table %s missing", tbl)
+		}
 	}
 }
