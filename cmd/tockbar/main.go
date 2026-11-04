@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"time"
 
@@ -49,6 +50,15 @@ func barAgent() service.Agent {
 	}
 }
 
+// tockBin is the tock command the dashboard runs: $TOCK_BIN, else the one
+// make install puts in ~/.local/bin (launchd's PATH does not reach it).
+func tockBin() string {
+	if b := os.Getenv("TOCK_BIN"); b != "" {
+		return b
+	}
+	return filepath.Join(home(), ".local", "bin", "tock")
+}
+
 func paths() app.Paths {
 	return app.Paths{
 		DB:       filepath.Join(dataDir(), "tock.db"),
@@ -80,10 +90,15 @@ func main() {
 	}
 	log := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	log.Info("tockbar starting", "version", version)
+	open := func() (*app.App, error) { return app.Open(paths(), time.Now) }
 	r := &runner{
-		open: func() (*app.App, error) { return app.Open(paths(), time.Now) },
-		now:  time.Now,
-		log:  log,
+		open:  open,
+		now:   time.Now,
+		log:   log,
+		rules: paths().Rules,
+		dash: &dash{cmd: func() *exec.Cmd {
+			return exec.Command(tockBin(), "web", "--no-open", "--idle", dashIdle.String())
+		}},
 		// Ask for notification access only when launchd (or open) started
 		// the app: from a terminal the prompt would name the terminal.
 		prompt: os.Getppid() == 1,

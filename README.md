@@ -203,7 +203,7 @@ tock top [--days N | --week | --month] [--by category|app|site|project] [--limit
                                        where the time went: top categories, apps and sites
 tock model [why <app> "<title>" [<label>]]
                                        how well the local model labels; why it labels a window so
-tock web [--port N] [--no-open]       the dashboard in your browser, on this machine only
+tock web [--port N] [--no-open] [--idle D]  the dashboard in your browser, on this machine only
 tock review [--week YYYY-MM-DD] [--plan TEXT]
                                        weekly recap, then next week's focus
 tock suggest [--dry-run | --force]     Claude label suggestions for the inbox (needs ANTHROPIC_API_KEY)
@@ -812,7 +812,8 @@ Every request needs the token, so other sites open in your browser can
 neither read nor label anything, and requests that name another host are
 refused. The page, its styles and scripts are built into `tock` and load
 nothing from the internet. trackd is not involved. `--no-open` prints the
-link without opening a browser.
+link without opening a browser. `--idle 30m` stops the server after 30
+minutes with no request; the menu bar's **Open dashboard** uses it.
 
 For working on the page, `TOCK_DEMO_PORT=7788 go test -tags demo -run
 TestDemo -timeout 0 ./internal/web` serves synthetic data at
@@ -1134,7 +1135,8 @@ The menu bar shows today's tracked time (`◷ 2h54`), or the countdown while
 a focus session runs (`◉ 18:42`). A `!` means trackd is not running. The
 menu has:
 
-- the day at a glance: focus, score and unlabelled time;
+- the day at a glance: focus and score; **Label 28m unlabelled…** opens the
+  dashboard's inbox;
 - the next slot, `Next: 14:00 Review (in 12 min)`, when one starts within
   the hour, and `Join <title>` for a meeting with a link that starts within
   10 minutes or is running;
@@ -1142,7 +1144,12 @@ menu has:
 - while a suggestion is open (30 minutes, no session running), `Suggested:
   focus now (45 min)` with `Start focus (45 min)` and `Not now` (a break
   reminder shows `Suggested: break (10 min)` with `Take a break (10 min)`);
-  while a break you took runs, `Break · until 10:20`.
+  while a break you took runs, `Break · until 10:20`;
+- **Open dashboard**, which runs `tock web` for you (no terminal needed) and
+  stops it after 30 minutes with no request;
+- **Allow Accessibility for trackd…** when trackd lacks that permission, and
+  **Set up tock** when there are no rules yet (it writes the starter rules,
+  as `tock init` does).
 
 With the app running and allowed to notify, focus notifications come from
 tock with buttons:

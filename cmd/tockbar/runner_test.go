@@ -42,7 +42,10 @@ func testRunner(t *testing.T, e *apptest.Env) (*runner, *fakeUI, *bytes.Buffer) 
 			return app.Open(app.Paths{DB: e.DB, Rules: e.Rules, Learned: e.Learned, Config: e.Config}, e.NowFunc())
 		},
 		now: e.NowFunc(), log: slog.New(slog.NewTextHandler(&logb, nil)), prompt: true, ui: u,
+		rules: e.Rules,
 	}
+	starts := 0
+	r.dash = &dash{cmd: fakeWeb("serve", &starts)}
 	t.Cleanup(r.close)
 	return r, u, &logb
 }
@@ -206,7 +209,7 @@ func TestRunnerWaitsForTock(t *testing.T) {
 	e := apptest.New(t, apptest.Rules) // no database yet
 	r, u, _ := testRunner(t, e)
 	r.handle(event{kind: evReady})
-	if last(u.titles) != "◷ tock" || !strings.Contains(last(u.menus), "tock is not set up") {
+	if last(u.titles) != "◷ tock" || !strings.Contains(last(u.menus), "Waiting for trackd to start") {
 		t.Fatalf("title %q menu %q", last(u.titles), last(u.menus))
 	}
 	e.Seed(t, apptest.DaySpans()...)
@@ -219,6 +222,48 @@ func TestRunnerWaitsForTock(t *testing.T) {
 	r.tick()
 	if r.a == nil || last(u.titles) == "◷ tock" {
 		t.Fatalf("not reopened: %q", last(u.titles))
+	}
+}
+
+func TestRunnerSetsUpRules(t *testing.T) {
+	e := seededEnv(t)
+	if err := os.Remove(e.Rules); err != nil {
+		t.Fatal(err)
+	}
+	r, u, _ := testRunner(t, e)
+	r.handle(event{kind: evReady})
+	if !strings.Contains(last(u.menus), "setup\tSet up tock") {
+		t.Fatalf("menu = %q", last(u.menus))
+	}
+	r.handle(event{kind: evMenu, id: bar.IDSetup})
+	if r.a == nil || last(u.titles) == "◷ tock" {
+		t.Fatalf("not opened after setup: %q %q", last(u.titles), last(u.menus))
+	}
+	if b, err := os.ReadFile(e.Rules); err != nil || len(b) == 0 {
+		t.Fatalf("rules not written: %v", err)
+	}
+	// A second click (stale menu) must not touch the rules now in place.
+	if err := os.WriteFile(e.Rules, []byte(apptest.Rules), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	r.handle(event{kind: evMenu, id: bar.IDSetup})
+	if b, _ := os.ReadFile(e.Rules); string(b) != apptest.Rules {
+		t.Fatal("setup overwrote existing rules")
+	}
+}
+
+func TestRunnerOpensDashboard(t *testing.T) {
+	e := seededEnv(t)
+	r, u, logb := testRunner(t, e)
+	r.handle(event{kind: evReady})
+	r.handle(event{kind: evMenu, id: bar.IDDashboard})
+	r.handle(event{kind: evMenu, id: bar.IDInbox})
+	r.handle(event{kind: evMenu, id: bar.IDAccess})
+	if len(u.urls) != 3 {
+		t.Fatalf("urls = %v\n%s", u.urls, logb)
+	}
+	if !strings.HasPrefix(u.urls[0], "http://127.0.0.1:") || !strings.Contains(u.urls[1], "/?v=inbox#") || u.urls[2] != bar.AccessibilityURL {
+		t.Fatalf("urls = %v", u.urls)
 	}
 }
 

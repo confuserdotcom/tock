@@ -43,6 +43,11 @@ const (
 	// click must answer the row the menu showed, never a newer one.
 	IDRecAccept  = "rec:accept:"  // + "<recommend id>:<sent at, unix ms>"
 	IDRecDismiss = "rec:dismiss:" // + "<recommend id>:<sent at, unix ms>"
+	// The menu bar app handles these itself; they never reach Menu.
+	IDDashboard = "dash"       // opens the web dashboard
+	IDInbox     = "dash:inbox" // opens the dashboard on the inbox
+	IDSetup     = "setup"      // writes the starter rules
+	IDAccess    = "ax"         // opens the Accessibility pane of System Settings
 )
 
 const (
@@ -59,12 +64,17 @@ const lastWithinMS = 24 * 60 * 60_000
 // SettingsURL opens the Notifications pane of System Settings.
 const SettingsURL = "x-apple.systempreferences:com.apple.Notifications-Settings.extension"
 
+// AccessibilityURL opens Privacy & Security › Accessibility in System Settings.
+const AccessibilityURL = "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
+
 // maxPresets is how many start items the menu offers.
 const maxPresets = 3
 
 // Snapshot is what the menu bar shows, read from tock's database.
 type Snapshot struct {
-	OK           bool // false when tock could not open (no rules or database yet)
+	OK           bool  // false when tock could not open (no rules or database yet)
+	Why          error // why it could not open, when !OK; nil = unknown
+	AXDenied     bool  // trackd reported Accessibility is not granted
 	TrackedMS    int64
 	FocusMS      int64
 	Score        int
@@ -95,6 +105,9 @@ type LastSession struct {
 	Loc    *time.Location // zone for the time range
 }
 
+// NotReady is the snapshot shown while tock cannot open, for the reason why.
+func NotReady(why error) Snapshot { return Snapshot{Why: why} }
+
 // Load reads today's snapshot. access is the app's notification access.
 func Load(a *app.App, now time.Time, access string) (Snapshot, error) {
 	a.Reload() // tockbar is long-running: pick up config and rules edits
@@ -104,6 +117,7 @@ func Load(a *app.App, now time.Time, access string) (Snapshot, error) {
 		return s, err
 	}
 	s.TrackdUp = h.TrackdUp
+	s.AXDenied = h.AXTrusted != nil && !*h.AXTrusted
 	d, err := a.Day(now)
 	if err != nil {
 		return s, err
@@ -192,7 +206,14 @@ var sep = Item{Separator: true}
 // Items is the menu at nowMS.
 func (s Snapshot) Items(nowMS int64) []Item {
 	if !s.OK {
-		return []Item{label("tock is not set up: run tock init"), sep, {Title: "Quit tock menu bar", ID: IDQuit}}
+		first := label("tock could not open · see tockbar.log")
+		switch {
+		case errors.Is(s.Why, classify.ErrNoRules):
+			first = Item{Title: "Set up tock", ID: IDSetup}
+		case errors.Is(s.Why, app.ErrNoDB):
+			first = label("Waiting for trackd to start")
+		}
+		return []Item{first, sep, {Title: "Quit tock menu bar", ID: IDQuit}}
 	}
 	out := []Item{label("Today · %s tracked", report.Dur(s.TrackedMS))}
 	if s.Active {
@@ -219,10 +240,13 @@ func (s Snapshot) Items(nowMS int64) []Item {
 		out = append(out, s.Last.item())
 	}
 	if s.UnlabelledMS > 0 {
-		out = append(out, label("%s unlabelled · open tock to label", report.Dur(s.UnlabelledMS)))
+		out = append(out, Item{Title: fmt.Sprintf("Label %s unlabelled…", report.Dur(s.UnlabelledMS)), ID: IDInbox})
 	}
 	if !s.TrackdUp {
 		out = append(out, label("trackd is not running"))
+	}
+	if s.AXDenied {
+		out = append(out, Item{Title: "Allow Accessibility for trackd…", ID: IDAccess})
 	}
 	out = append(out, sep)
 	if s.Session != nil {
@@ -234,7 +258,7 @@ func (s Snapshot) Items(nowMS int64) []Item {
 	}
 	out = append(out, s.slotItems(nowMS)...)
 	out = append(out, s.recItems(nowMS)...)
-	out = append(out, sep)
+	out = append(out, sep, Item{Title: "Open dashboard", ID: IDDashboard})
 	if s.Access == app.NotifyDenied {
 		out = append(out, Item{Title: "Notifications are off…", ID: IDSettings})
 	}

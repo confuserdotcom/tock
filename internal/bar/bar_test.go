@@ -64,12 +64,13 @@ func TestSnapshotDay(t *testing.T) {
 	}
 	want := `Today · 2h54 tracked
 Focus 2h14 · score 74
-28m unlabelled · open tock to label
+Label 28m unlabelled… [dash:inbox]
 --
 Start 25 min focus [start:25]
 Start 50 min focus [start:50]
 Start 90 min focus [start:90]
 --
+Open dashboard [dash]
 Quit tock menu bar [quit]`
 	if got := titles(s.Items(now)); got != want {
 		t.Fatalf("menu:\n%s\nwant:\n%s", got, want)
@@ -116,9 +117,51 @@ func TestSnapshotSession(t *testing.T) {
 }
 
 func TestSnapshotNotSetUp(t *testing.T) {
-	var s Snapshot
-	if s.Title(0) != "◷ tock" || !strings.HasPrefix(titles(s.Items(0)), "tock is not set up") {
-		t.Fatalf("not set up: %q / %q", s.Title(0), titles(s.Items(0)))
+	for _, c := range []struct {
+		why  error
+		want string
+	}{
+		{fmt.Errorf("app: %w", classify.ErrNoRules), "Set up tock [setup]"},
+		{app.ErrNoDB, "Waiting for trackd to start"},
+		{errors.New("disk on fire"), "tock could not open · see tockbar.log"},
+		{nil, "tock could not open · see tockbar.log"},
+	} {
+		s := NotReady(c.why)
+		if s.OK || s.Title(0) != "◷ tock" {
+			t.Fatalf("%v: ok %v title %q", c.why, s.OK, s.Title(0))
+		}
+		if got, want := titles(s.Items(0)), c.want+"\n--\nQuit tock menu bar [quit]"; got != want {
+			t.Fatalf("%v: menu:\n%s\nwant:\n%s", c.why, got, want)
+		}
+	}
+}
+
+func TestSnapshotAccessibility(t *testing.T) {
+	s := Snapshot{OK: true, TrackdUp: true, AXDenied: true}
+	got := titles(s.Items(0))
+	if !strings.Contains(got, "Allow Accessibility for trackd… [ax]\n--") {
+		t.Fatalf("menu:\n%s", got)
+	}
+	s.AXDenied = false
+	if got := titles(s.Items(0)); strings.Contains(got, "[ax]") {
+		t.Fatalf("granted menu offers ax:\n%s", got)
+	}
+}
+
+func TestLoadAccessibility(t *testing.T) {
+	e, a := seeded(t)
+	for _, c := range []struct {
+		v    string
+		want bool
+	}{{"0", true}, {"1", false}} {
+		e.State(t, store.KeyAXTrusted, c.v)
+		s, err := Load(a, e.Clock, app.NotifyGranted)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if s.AXDenied != c.want {
+			t.Fatalf("ax_trusted %s: AXDenied = %v", c.v, s.AXDenied)
+		}
 	}
 }
 
@@ -1224,13 +1267,13 @@ func TestSnapshotNext(t *testing.T) {
 	// The block ends with the Next row, under the start items and above the last separator.
 	tail := func(s Snapshot, at int64) string {
 		its := s.Items(at)
-		return titles(its[len(its)-4 : len(its)-2])
+		return titles(its[len(its)-5 : len(its)-3])
 	}
 	review := planSlot(t, "14:00", "14:50", "Review")
 	if got := tail(slotSnap(review), now); got != "Start 25 min focus [start:25]\nNext: 14:00 Review (in 12 min)" {
 		t.Errorf("12 min ahead: %q", got)
 	}
-	if got := titles(slotSnap(review).Items(now)); !strings.HasSuffix(got, "Next: 14:00 Review (in 12 min)\n--\nQuit tock menu bar [quit]") {
+	if got := titles(slotSnap(review).Items(now)); !strings.HasSuffix(got, "Next: 14:00 Review (in 12 min)\n--\nOpen dashboard [dash]\nQuit tock menu bar [quit]") {
 		t.Errorf("menu:\n%s", got)
 	}
 	if got := tail(slotSnap(review), apptest.At(t, "13:48", 0)+30_000); !strings.HasSuffix(got, "(in 12 min)") {

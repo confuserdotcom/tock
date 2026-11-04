@@ -3,12 +3,14 @@ package main
 import (
 	"errors"
 	"log/slog"
+	"os"
 	"strconv"
 	"strings"
 	"time"
 
 	"tock/internal/app"
 	"tock/internal/bar"
+	"tock/internal/classify"
 	"tock/internal/focus"
 )
 
@@ -58,6 +60,8 @@ type runner struct {
 	log    *slog.Logger
 	prompt bool
 	ui     ui
+	rules  string // rules.toml, which Set up tock writes
+	dash   *dash
 
 	a        *app.App
 	openedAt time.Time // last open attempt
@@ -100,6 +104,7 @@ func (r *runner) loop(events <-chan event) {
 }
 
 func (r *runner) close() {
+	r.dash.Close()
 	if r.a != nil {
 		r.a.Close()
 		r.a = nil
@@ -121,7 +126,7 @@ func (r *runner) tick() {
 		a, err := r.open()
 		if err != nil {
 			r.warn("tock not ready", err)
-			r.snap = bar.Snapshot{}
+			r.snap = bar.NotReady(err)
 		} else {
 			r.a, r.dirty, r.lastErr = a, true, ""
 			r.log.Info("tock opened")
@@ -257,6 +262,28 @@ func (r *runner) handle(ev event) {
 			return
 		case bar.IDSettings:
 			r.ui.OpenURL(bar.SettingsURL)
+			return
+		case bar.IDAccess:
+			r.ui.OpenURL(bar.AccessibilityURL)
+			return
+		case bar.IDDashboard, bar.IDInbox:
+			view := ""
+			if ev.id == bar.IDInbox {
+				view = "inbox"
+			}
+			link, err := r.dash.URL(view)
+			if err == nil {
+				r.ui.OpenURL(link)
+			}
+			r.done("menu "+ev.id, "opened the dashboard", err)
+			return
+		case bar.IDSetup:
+			err := classify.WriteStarter(r.rules)
+			if errors.Is(err, os.ErrExist) {
+				err = nil // set up meanwhile: just open it
+			}
+			r.openedAt = time.Time{} // reopen now, not in reopenEvery
+			r.done("menu setup", "wrote the starter rules", err)
 			return
 		}
 		if strings.HasPrefix(ev.id, bar.IDJoin) {
