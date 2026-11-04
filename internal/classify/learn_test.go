@@ -38,7 +38,7 @@ func learnHistory() []SpanView {
 func TestProposeURLLadder(t *testing.T) {
 	rs := mustParse(t, learnRules, "")
 	h := learnHistory()
-	cands, err := rs.Propose("Arc · chatgpt.com/c", Want{Category: "Study", Project: "ATLAS"}, h, nil)
+	cands, err := rs.Propose("Arc · chatgpt.com", Want{Category: "Study", Project: "ATLAS"}, h, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,8 +52,8 @@ func TestProposeURLLadder(t *testing.T) {
 	if c.Rule.Category != "Study" || c.Rule.Project != "ATLAS" || c.Rule.File != LearnedFile {
 		t.Fatalf("candidate label = %+v", c.Rule)
 	}
-	// spans 1,2 (this key) + 3 (settings) + 5 (safari) all unlabelled
-	if c.Matches != 4 || c.ThisKey != 2 || c.New != 2 || c.NewMS != mins(6) || c.Relabeled != 0 || !c.Safe || c.MatchMS != mins(13) {
+	// spans 1,2,3 (this key, the whole site) + 5 (safari) all unlabelled
+	if c.Matches != 4 || c.ThisKey != 3 || c.New != 1 || c.NewMS != mins(1) || c.Relabeled != 0 || !c.Safe || c.MatchMS != mins(13) {
 		t.Fatalf("host candidate counts = %+v", c)
 	}
 	if got := cands[1].Rule.URL; got != `^(www\.)?chatgpt\.com/c(/|$)` {
@@ -71,10 +71,10 @@ func TestProposeUnsafeWhenRelabelling(t *testing.T) {
 	rs := mustParse(t, learnRules, "")
 	h := learnHistory()
 	h = append(h, SpanView{ID: 7, Start: mins(60), End: mins(61), BundleID: "arc", App: "Arc", Title: sp("Tutorial"), URL: sp("www.youtube.com/watch")})
-	// Span 8 (the YouTube home page) has a different key and is
+	// Span 8 (the YouTube home page in Safari) has a different key and is
 	// Entertainment by rule, so a whole-host rule would relabel it.
-	h = append(h, SpanView{ID: 8, Start: mins(70), End: mins(71), BundleID: "arc", App: "Arc", Title: sp("Home"), URL: sp("www.youtube.com")})
-	cands, err := rs.Propose("Arc · youtube.com/watch", Want{Category: "Study"}, h, nil)
+	h = append(h, SpanView{ID: 8, Start: mins(70), End: mins(71), BundleID: "safari", App: "Safari", Title: sp("Home"), URL: sp("www.youtube.com")})
+	cands, err := rs.Propose("Arc · youtube.com", Want{Category: "Study"}, h, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -85,7 +85,7 @@ func TestProposeUnsafeWhenRelabelling(t *testing.T) {
 		t.Fatalf("host+/watch candidate should be safe: %+v", cands[1])
 	}
 	// A manual override on span 8 means the host rule changes nothing there.
-	cands, _ = rs.Propose("Arc · youtube.com/watch", Want{Category: "Study"}, h, map[int64]Override{8: {Category: "Entertainment"}})
+	cands, _ = rs.Propose("Arc · youtube.com", Want{Category: "Study"}, h, map[int64]Override{8: {Category: "Entertainment"}})
 	if !cands[0].Safe {
 		t.Fatalf("manual spans must not count as relabelled: %+v", cands[0])
 	}
@@ -172,16 +172,16 @@ url = '^(www\.)?chatgpt\.com(/|$)'
 category = "Entertainment"
 `
 	rs := mustParse(t, learnRules, wrong)
-	cands, err := rs.Propose("Arc · chatgpt.com/c", Want{Category: "Study"}, learnHistory(), nil)
+	cands, err := rs.Propose("Arc · chatgpt.com", Want{Category: "Study"}, learnHistory(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	host := cands[0]
-	if !host.Safe || host.Fixed != 2 || host.Relabeled != 0 || len(host.Replaces) != 1 || host.Replaces[0] != 0 {
+	if !host.Safe || host.Fixed != 1 || host.Relabeled != 0 || len(host.Replaces) != 1 || host.Replaces[0] != 0 {
 		t.Fatalf("host candidate = %+v", host)
 	}
 	// The segment rule does not cover chatgpt.com/settings: it fixes the
-	// span it matches but leaves the old rule in place.
+	// Safari span it matches but leaves the old rule in place.
 	seg := cands[1]
 	if !seg.Safe || seg.Fixed != 1 || len(seg.Replaces) != 0 {
 		t.Fatalf("segment candidate = %+v", seg)

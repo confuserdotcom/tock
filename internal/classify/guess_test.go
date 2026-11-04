@@ -33,7 +33,7 @@ func TestGuesses(t *testing.T) {
 	if len(g) != 3 {
 		t.Fatalf("guesses = %+v", g)
 	}
-	if x := g["Arc · github.com/notifications"]; x.Category != "Code" || x.Project != "tock" || x.Reason != GuessSite || x.Share != 1 {
+	if x := g["Arc · github.com"]; x.Category != "Code" || x.Project != "tock" || x.Reason != GuessSite || x.Share != 1 {
 		t.Errorf("github guess = %+v", x)
 	}
 	if x := g["Term · htop"]; x.Category != "Code" || x.Project != "" || x.Reason != GuessApp {

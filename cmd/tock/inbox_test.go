@@ -12,9 +12,9 @@ func TestInboxListsAndIgnores(t *testing.T) {
 	te.seed(t, daySpans()...)
 	code, out := te.run(t, "", "inbox")
 	want := "Inbox  last 7 days · 3 keys · 28m unlabelled\n" +
-		"  1    12m  Arc · chatgpt.com/c  \"Proofs\"\n" +
+		"  1    12m  Arc · chatgpt.com  \"Proofs\"\n" +
 		"  2    10m  Mail · inbox  \"Inbox\"\n" +
-		"  3     6m  Arc · labs.x.tv/lab  \"Low Level Labs\"\n" +
+		"  3     6m  Arc · labs.x.tv  \"Low Level Labs\"\n" +
 		"tag: tock tag <n> <Category>[/<Project>]   accept →: tock tag <n>   hide: tock ignore <n>\n"
 	if code != 0 || out != want {
 		t.Fatalf("inbox: code %d\n%s\nwant:\n%s", code, out, want)
@@ -110,5 +110,26 @@ func TestInboxModelLabels(t *testing.T) {
 	code, out := te.run(t, "", "inbox")
 	if code != 0 || strings.Contains(out, "Proofs") {
 		t.Fatalf("inbox: code %d\n%s", code, out)
+	}
+}
+
+// TestInboxSiteRow: every page of a site is one row that counts its pages.
+func TestInboxSiteRow(t *testing.T) {
+	te := newTestEnv(t, testRules)
+	te.seed(t,
+		seedSpan{1, "09:00", "09:10", "arc", "Arc", "Opening book", "app.noctie.ai/opening-book", false},
+		seedSpan{2, "09:10", "09:15", "arc", "Arc", "Puzzles", "app.noctie.ai/puzzles", false},
+		seedSpan{3, "09:15", "09:16", "arc", "Arc", "PDF", "doc-0o-bs.googleusercontent.com/viewer/a", false},
+		seedSpan{4, "09:16", "09:17", "arc", "Arc", "PDF", "doc-1k-aa.googleusercontent.com/viewer/b", false},
+		seedSpan{5, "09:17", "09:30", "term", "Term", "x", "", false},
+	)
+	_, out := te.run(t, "", "inbox")
+	for _, want := range []string{
+		"  1    15m  Arc · app.noctie.ai · 2 pages  \"Puzzles\"\n",
+		"  2     2m  Arc · googleusercontent.com  \"PDF\"\n",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("inbox lacks %q:\n%s", want, out)
+		}
 	}
 }

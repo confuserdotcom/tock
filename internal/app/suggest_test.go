@@ -11,8 +11,8 @@ import (
 	"tock/internal/suggest"
 )
 
-// apptest.DaySpans inbox, largest first: Arc · chatgpt.com/c (12m),
-// Mail · inbox (10m), Arc · labs.x.tv/lab (6m).
+// apptest.DaySpans inbox, largest first: Arc · chatgpt.com (12m),
+// Mail · inbox (10m), Arc · labs.x.tv (6m).
 func TestSuggestPrepareSaveAndCache(t *testing.T) {
 	e := apptest.New(t, apptest.Rules)
 	e.Seed(t, apptest.DaySpans()...)
@@ -20,10 +20,10 @@ func TestSuggestPrepareSaveAndCache(t *testing.T) {
 
 	p, err := a.SuggestPrepare(false)
 	if err != nil || p.Status != suggest.Ready || p.Model != "claude-haiku-5-5" || len(p.Batch.Keys) != 3 ||
-		p.Batch.Keys["k1"] != "Arc · chatgpt.com/c" || p.Batch.Keys["k3"] != "Arc · labs.x.tv/lab" {
+		p.Batch.Keys["k1"] != "Arc · chatgpt.com" || p.Batch.Keys["k3"] != "Arc · labs.x.tv" {
 		t.Fatalf("first prepare = %+v, %v", p, err)
 	}
-	if !strings.Contains(string(p.Batch.Payload), `"host": "chatgpt.com/c"`) || strings.Contains(string(p.Batch.Payload), "Proofs") {
+	if !strings.Contains(string(p.Batch.Payload), `"host": "chatgpt.com"`) || strings.Contains(string(p.Batch.Payload), "Proofs") {
 		t.Fatalf("payload:\n%s", p.Batch.Payload)
 	}
 	if again, err := a.SuggestPrepare(false); err != nil || again.Status != suggest.Wait ||
@@ -36,8 +36,8 @@ func TestSuggestPrepareSaveAndCache(t *testing.T) {
 		t.Fatalf("save = %d, %v", n, err)
 	}
 	got, err := a.Suggestions()
-	want := map[string]classify.Want{"Arc · chatgpt.com/c": {Category: "Study", Project: "tock"}}
-	if err != nil || len(got) != 1 || got["Arc · chatgpt.com/c"] != want["Arc · chatgpt.com/c"] {
+	want := map[string]classify.Want{"Arc · chatgpt.com": {Category: "Study", Project: "tock"}}
+	if err != nil || len(got) != 1 || got["Arc · chatgpt.com"] != want["Arc · chatgpt.com"] {
 		t.Fatalf("Suggestions = %+v, %v", got, err)
 	}
 

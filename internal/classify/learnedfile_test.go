@@ -12,7 +12,7 @@ func TestAppendLearnedNewestFirstAndRoundTrip(t *testing.T) {
 	path := filepath.Join(dir, LearnedFile)
 	r1 := Rule{URL: `^(www\.)?chatgpt\.com(/|$)`, Category: "Code"}
 	r2 := Rule{Bundle: []string{"term"}, Title: `^it's "quoted" \d$`, Project: "tock"}
-	if err := AppendLearned(path, r1, `learned 2026-10-10 from "Arc · chatgpt.com/c", 4 spans`); err != nil {
+	if err := AppendLearned(path, r1, `learned 2026-10-10 from "Arc · chatgpt.com", 4 spans`); err != nil {
 		t.Fatal(err)
 	}
 	if err := AppendLearned(path, r2, "learned 2026-10-11 from \"x\nmultiline\", 1 spans"); err != nil {

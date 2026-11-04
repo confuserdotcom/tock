@@ -88,7 +88,10 @@ forgets the grants on every rebuild.
 ## First day
 
 1. Work normally. `tock` opens the TUI. `tock today` prints the day.
-2. `tock inbox` lists time no rule labels yet, grouped by key. Label a key with
+2. `tock inbox` lists time no rule labels yet, grouped by key: one row per
+   app and site (`Arc · youtube.com · 4 pages`), one per app and cleaned
+   title otherwise. Numbered CDN or viewer hosts fold into their domain
+   (`doc-0o-bs.googleusercontent.com` is `googleusercontent.com`). Label a key with
    `tock tag 1 Code/tock`. This also writes a rule to
    `~/.config/tock/learned.toml`, so the same activity is labelled from now on.
    In the TUI, use the inbox tab's `enter`.

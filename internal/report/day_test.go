@@ -18,7 +18,7 @@ func TestBuildDayTotalsAndCategories(t *testing.T) {
 		sv{6, "12:16", "12:22", "arc", "Lab", "labs.x.tv/lab/1", "", "", "", false},
 	)
 	d := BuildDay(DayInput{Date: day0, NowMS: hm(t, "15:00"), Views: vs, Labels: ls,
-		Ignored: map[string]bool{"arc · labs.x.tv/lab": true}})
+		Ignored: map[string]bool{"arc · labs.x.tv": true}})
 	if d.TrackedMS != (100+34+12+9+6)*60_000 || d.IdleMS != 41*60_000 {
 		t.Fatalf("tracked %s idle %s", Dur(d.TrackedMS), Dur(d.IdleMS))
 	}
@@ -41,7 +41,7 @@ func TestBuildDayTotalsAndCategories(t *testing.T) {
 		t.Fatalf("Code keys = %+v", code.Items)
 	}
 	un := d.Categories[2]
-	if un.MS != 15*60_000 || len(un.Items) != 1 || un.Items[0].Key != "arc · chatgpt.com/c" {
+	if un.MS != 15*60_000 || len(un.Items) != 1 || un.Items[0].Key != "arc · chatgpt.com" {
 		t.Fatalf("Unclassified must skip ignored keys: %+v", un)
 	}
 }

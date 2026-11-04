@@ -144,7 +144,7 @@ func BuildDay(in DayInput) Day {
 		if name == Unclassified {
 			keep = func(i int) bool {
 				return in.Labels[i].Category == "" && in.Views[i].BundleID != span.IdleBundleID &&
-					!in.Ignored[classify.Key(in.Views[i])]
+					!in.Ignored[classify.Key(in.Views[i])] && !in.Ignored[classify.LegacyKey(in.Views[i])]
 			}
 		}
 		c.Items = classify.Group(in.Views, keep)

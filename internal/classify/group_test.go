@@ -20,7 +20,7 @@ func TestInboxGroupsUnlabelled(t *testing.T) {
 	if len(items) != 2 {
 		t.Fatalf("items = %+v, want chatgpt and private", items)
 	}
-	if it := items[0]; it.Key != "Arc · chatgpt.com/c" || it.TotalMS != 180_000 || it.Spans != 2 || it.Example != "Chat B" || it.App != "Arc" {
+	if it := items[0]; it.Key != "Arc · chatgpt.com" || it.TotalMS != 180_000 || it.Spans != 2 || it.Example != "Chat B" || it.App != "Arc" {
 		t.Fatalf("first item = %+v", it)
 	}
 	if it := items[1]; it.Key != "Arc (private)" || it.Example != "" {
@@ -56,7 +56,7 @@ func TestGroupBundlesAndKind(t *testing.T) {
 	if it := byKey["A · x"]; !reflect.DeepEqual(it.Bundles, []string{"b1", "b2"}) || it.ByURL || it.Private {
 		t.Fatalf("title item = %+v", it)
 	}
-	if it := byKey["Arc · github.com/tock"]; !it.ByURL || it.Private || !reflect.DeepEqual(it.Bundles, []string{"arc"}) {
+	if it := byKey["Arc · github.com"]; !it.ByURL || it.Private || !reflect.DeepEqual(it.Bundles, []string{"arc"}) {
 		t.Fatalf("url item = %+v", it)
 	}
 	if it := byKey["Arc (private)"]; !it.Private || it.ByURL {

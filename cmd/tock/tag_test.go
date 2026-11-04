@@ -13,7 +13,7 @@ func TestTagLearnAppliesToHistory(t *testing.T) {
 	te := newTestEnv(t, testRules)
 	te.seed(t, append(daySpans(),
 		seedSpan{9, "13:00", "13:05", "safari", "Safari", "Chat", "chatgpt.com/c/9", false})...)
-	te.run(t, "", "inbox") // 1 = Arc · chatgpt.com/c
+	te.run(t, "", "inbox") // 1 = Arc · chatgpt.com
 	code, out := te.run(t, "y\n", "tag", "1", "stu/atl")
 	if code != 0 {
 		t.Fatalf("tag: code %d err %q", code, te.errb.String())
@@ -29,7 +29,7 @@ func TestTagLearnAppliesToHistory(t *testing.T) {
 		}
 	}
 	data, err := os.ReadFile(te.learnedPath())
-	if err != nil || !strings.Contains(string(data), `# learned 2026-10-10 from "Arc · chatgpt.com/c", 2 spans`) {
+	if err != nil || !strings.Contains(string(data), `# learned 2026-10-10 from "Arc · chatgpt.com", 2 spans`) {
 		t.Fatalf("learned.toml:\n%s (err %v)", data, err)
 	}
 	_, out = te.run(t, "", "today")
@@ -85,7 +85,7 @@ func TestTagSkipsUnsafeCandidates(t *testing.T) {
 		seedSpan{1, "09:00", "09:10", "arc", "Arc", "A", "www.youtube.com/watch", false},
 		seedSpan{2, "09:10", "09:20", "chrome", "Chrome", "C", "www.youtube.com/watch", false},
 	)
-	te.run(t, "", "today", "--keys") // 1 = Arc · youtube.com/watch (Entertainment)
+	te.run(t, "", "today", "--keys") // 1 = Arc · youtube.com (Entertainment)
 	code, out := te.run(t, "y\n", "tag", "1", "Study")
 	if code != 0 {
 		t.Fatalf("code %d err %q", code, te.errb.String())
@@ -106,12 +106,11 @@ func TestTagSkipsUnsafeCandidates(t *testing.T) {
 func TestTagNoSafeRuleOffersOnce(t *testing.T) {
 	te := newTestEnv(t, testRules)
 	te.seed(t,
-		seedSpan{1, "09:00", "09:10", "arc", "Arc", "A", "www.youtube.com/watch", false},
-		seedSpan{2, "09:10", "09:20", "arc", "Arc", "B", "www.youtube.com/watch", false},
-		seedSpan{3, "09:20", "09:30", "arc", "Arc", "Home", "www.youtube.com", false},
-		seedSpan{4, "09:30", "09:40", "chrome", "Chrome", "C", "www.youtube.com/watch", false},
+		seedSpan{1, "09:00", "09:10", "term", "Term", "build 1", "", false},
+		seedSpan{2, "09:10", "09:20", "term", "Term", "build 2", "", false},
+		seedSpan{3, "09:20", "09:25", "term", "Term", "build log", "", false},
 	)
-	te.run(t, "", "today", "--keys") // 1 = Arc · youtube.com/watch
+	te.run(t, "", "today", "--keys") // 1 = Term · build #
 	code, out := te.run(t, "o\n", "tag", "1", "Study")
 	if code != 0 {
 		t.Fatalf("code %d err %q", code, te.errb.String())

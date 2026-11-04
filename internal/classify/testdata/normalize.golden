@@ -26,12 +26,12 @@ Preview	~/Documents/papers/attention.pdf	<nil>	0	~/Documents/papers/attention.pd
 nvim	/Users/x/dev/tock/cmd/tock/main.go	<nil>	0	/Users/x/dev/tock/cmd/tock/main.go	nvim · main.go
 Spotify	Spotify Premium	<nil>	0	Spotify Premium	Spotify · spotify premium
 System Settings	<nil>	<nil>	0	<nil>	System Settings
-Arc	XOR Equivalence Check	chatgpt.com/c/6ac98015-85e8	0	XOR Equivalence Check	Arc · chatgpt.com/c
-Arc	Low Level Labs	labs.lowlevel.tv/lab/asm-registers-101	0	Low Level Labs	Arc · labs.lowlevel.tv/lab
-Arc	dinky is my window manager	www.youtube.com/watch	0	dinky is my window manager	Arc · youtube.com/watch
+Arc	XOR Equivalence Check	chatgpt.com/c/6ac98015-85e8	0	XOR Equivalence Check	Arc · chatgpt.com
+Arc	Low Level Labs	labs.lowlevel.tv/lab/asm-registers-101	0	Low Level Labs	Arc · labs.lowlevel.tv
+Arc	dinky is my window manager	www.youtube.com/watch	0	dinky is my window manager	Arc · youtube.com
 Arc	(4) YouTube	www.youtube.com	0	YouTube	Arc · youtube.com
-Safari	GitHub - tock	github.com/someone/tock/pulls	0	GitHub - tock	Safari · github.com/someone
-Google Chrome	Inbox (3) - someone@example.com - Gmail	mail.google.com/mail/u/0	0	Inbox - someone@example.com - Gmail	Google Chrome · mail.google.com/mail
+Safari	GitHub - tock	github.com/someone/tock/pulls	0	GitHub - tock	Safari · github.com
+Google Chrome	Inbox (3) - someone@example.com - Gmail	mail.google.com/mail/u/0	0	Inbox - someone@example.com - Gmail	Google Chrome · mail.google.com
 Google Chrome	<nil>	<nil>	1	<nil>	Google Chrome (private)
 Safari	<nil>	<nil>	1	<nil>	Safari (private)
 Firefox	Some page — Mozilla Firefox	<nil>	0	Some page — Mozilla Firefox	Firefox · some page — mozilla firefox

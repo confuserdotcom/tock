@@ -44,7 +44,7 @@ func TestPrepareSummary(t *testing.T) {
 		len(p.Blocks[0].Items) != 2 || p.Blocks[0].Withheld != 20 || b.Starts["b1"] != at(9, 0) {
 		t.Fatalf("payload = %s", got)
 	}
-	if p.Blocks[0].Items[1].Host != "github.com/x" {
+	if p.Blocks[0].Items[1].Host != "github.com" {
 		t.Fatalf("host item = %+v", p.Blocks[0].Items[1])
 	}
 

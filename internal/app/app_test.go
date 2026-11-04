@@ -71,10 +71,10 @@ func TestInboxAndKeySpans(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(items) != 3 || items[0].Key != "Arc · chatgpt.com/c" {
+	if len(items) != 3 || items[0].Key != "Arc · chatgpt.com" {
 		t.Fatalf("inbox = %+v", items)
 	}
-	ids, ms, err := a.KeySpans("Arc · chatgpt.com/c")
+	ids, ms, err := a.KeySpans("Arc · chatgpt.com")
 	if err != nil || len(ids) != 2 || report.Dur(ms) != "12m" {
 		t.Fatalf("KeySpans = %v %s %v", ids, report.Dur(ms), err)
 	}

@@ -55,16 +55,16 @@ func TestTodayKeysNumbersAndSavesListing(t *testing.T) {
 	for _, want := range []string{
 		"      1   1h40  WezTerm · tock │ x",
 		"      2    34m  WezTerm · atlas │ y",
-		"      3    12m  Arc · youtube.com/watch",
-		"      4    12m  Arc · chatgpt.com/c",
+		"      3    12m  Arc · youtube.com",
+		"      4    12m  Arc · chatgpt.com",
 		"      5    10m  Mail · inbox",
-		"      6     6m  Arc · labs.x.tv/lab",
+		"      6     6m  Arc · labs.x.tv",
 	} {
 		if !strings.Contains(out, want+"\n") {
 			t.Errorf("missing %q in:\n%s", want, out)
 		}
 	}
-	if k, err := resolveListed(te.Env, "3"); err != nil || k != "Arc · youtube.com/watch" {
+	if k, err := resolveListed(te.Env, "3"); err != nil || k != "Arc · youtube.com" {
 		t.Fatalf("listing 3 = %q, %v", k, err)
 	}
 	if fi, err := os.Stat(te.listingPath()); err != nil || fi.Mode().Perm() != 0o600 {

@@ -53,6 +53,9 @@ func cmdInbox(env Env, args []string) error {
 	for i, it := range shown {
 		keys[i] = it.Key
 		line := fmt.Sprintf("%3d  %5s  %s", i+1, report.Dur(it.TotalMS), report.Safe(it.Key))
+		if it.Pages > 1 {
+			line += fmt.Sprintf(" · %d pages", it.Pages)
+		}
 		if it.Example != "" {
 			line += fmt.Sprintf("  %q", it.Example)
 		}

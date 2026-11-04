@@ -41,7 +41,7 @@ func TestSuggestCommand(t *testing.T) {
 	withClient(te, fc)
 
 	code, dry := te.run(t, "", "suggest", "--dry-run")
-	if code != 0 || !strings.Contains(dry, `"host": "chatgpt.com/c"`) || strings.Contains(dry, "Proofs") || fc.calls != 0 {
+	if code != 0 || !strings.Contains(dry, `"host": "chatgpt.com"`) || strings.Contains(dry, "Proofs") || fc.calls != 0 {
 		t.Fatalf("dry-run: code %d calls %d\n%s", code, fc.calls, dry)
 	}
 	if code, out := te.run(t, "", "suggest"); code != 0 || out != "sent 3 keys · 1 suggested\n" {
@@ -63,7 +63,7 @@ func TestSuggestCommand(t *testing.T) {
 	if _, out := te.run(t, "", "suggest", "--force"); out != "sent 1 key · 0 suggested\n" || fc.calls != 2 {
 		t.Fatalf("force: %q calls %d", out, fc.calls)
 	}
-	if _, out := te.run(t, "", "inbox"); !strings.Contains(out, "  1    12m  Arc · chatgpt.com/c  \"Proofs\"  → Study/tock\n") ||
+	if _, out := te.run(t, "", "inbox"); !strings.Contains(out, "  1    12m  Arc · chatgpt.com  \"Proofs\"  → Study/tock\n") ||
 		strings.Contains(out, "Mail · inbox  \"Inbox\"  →") {
 		t.Fatalf("inbox suggestion column:\n%s", out)
 	}

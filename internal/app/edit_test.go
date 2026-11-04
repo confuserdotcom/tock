@@ -153,7 +153,7 @@ func TestUndoTagLearnIgnoreAnswer(t *testing.T) {
 		t.Fatalf("after two undos = %+v", ovs)
 	}
 
-	key := "Arc · chatgpt.com/c"
+	key := "Arc · chatgpt.com"
 	cs, err := a.Propose(key, classify.Want{Category: "Study"})
 	if err != nil || len(cs) == 0 {
 		t.Fatalf("Propose = %v, %v", cs, err)
@@ -193,7 +193,7 @@ func TestUndoRefusesChangedFile(t *testing.T) {
 	e := apptest.New(t, apptest.Rules)
 	e.Seed(t, apptest.DaySpans()...)
 	a := open(t, e)
-	key := "Arc · chatgpt.com/c"
+	key := "Arc · chatgpt.com"
 	cs, _ := a.Propose(key, classify.Want{Category: "Study"})
 	if err := a.Learn(key, cs[0], classify.Want{Category: "Study"}); err != nil {
 		t.Fatal(err)

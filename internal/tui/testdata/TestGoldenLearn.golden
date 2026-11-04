@@ -1,7 +1,7 @@
 tock   today   week    inbox ³    focus   rules   plan   labels          Sat 10 Oct  15:00  ● trackd
  Inbox                                                        28m unlabelled · 3 keys · last 7 days 
  ╭────────────────────────────────────────────────────────────────────────────────────────────────╮ 
-▸│ Learn a rule  Arc · chatgpt.com/c                                                              │ 
+▸│ Learn a rule  Arc · chatgpt.com                                                                │ 
  │                                                                                                │ 
  │ rule     url='^(www\.)?chatgpt\.com(/|$)'  ->  Study                                           │ 
  │ matches  2 spans (12m): 2 this key, 0 other unlabelled (0s), 0 relabelled                      │ 

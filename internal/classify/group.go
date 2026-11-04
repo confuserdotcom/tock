@@ -21,7 +21,10 @@ type Item struct {
 	// Private is true for the "<app> (private)" key; ByURL is true when the
 	// key holds a URL host and segment rather than a title.
 	Private, ByURL bool
-	lastStart      int64
+	// Pages is the number of distinct first path segments of a site row.
+	Pages     int
+	pages     map[string]bool
+	lastStart int64
 }
 
 // Group groups the views for which keep(i) is true by Key, sorted by total
@@ -40,6 +43,12 @@ func Group(views []SpanView, keep func(i int) bool) []Item {
 				ByURL: !v.Private && v.URL != nil && *v.URL != ""}
 			byKey[k] = it
 		}
+		if it.ByURL {
+			if it.pages == nil {
+				it.pages = map[string]bool{}
+			}
+			it.pages[pageOf(*v.URL)] = true
+		}
 		it.TotalMS += v.DurMS()
 		it.Spans++
 		if !slices.Contains(it.Bundles, v.BundleID) {
@@ -53,6 +62,7 @@ func Group(views []SpanView, keep func(i int) bool) []Item {
 	out := make([]Item, 0, len(byKey))
 	for _, it := range byKey {
 		sort.Strings(it.Bundles)
+		it.Pages, it.pages = len(it.pages), nil
 		out = append(out, *it)
 	}
 	sort.Slice(out, func(a, b int) bool {
@@ -85,6 +95,7 @@ func Inbox(views []SpanView, labels []Label, ignored map[string]bool) []Item {
 			!IsAway(views[i]) && // answered in tock away; t relabels it
 			!IsMeeting(views[i]) && // event titles never reach the inbox or Claude
 			!IsRemote(views[i]) && // labelled on the machine it came from
-			!ignored[Key(views[i])]
+			!ignored[Key(views[i])] &&
+			!ignored[LegacyKey(views[i])]
 	})
 }
