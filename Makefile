@@ -33,7 +33,7 @@ CODESIGN_TIMEOUT ?= 60
 # receives SIGALRM and exits 142 when it overruns.
 WITH_TIMEOUT = perl -e 'alarm shift; exec @ARGV or exit 127'
 
-.PHONY: install-linux uninstall-linux deploy-linux build test test-quick vet clean bundle bundle-bar print-dr cert cert-trust dump dump-bg dump-stop install install-mac uninstall update update-here hooks publish-linux bootstrap-hint
+.PHONY: icon install-linux uninstall-linux deploy-linux build test test-quick vet clean bundle bundle-bar print-dr cert cert-trust dump dump-bg dump-stop install install-mac uninstall update update-here hooks publish-linux bootstrap-hint
 
 build:
 	CGO_ENABLED=1 go build -ldflags "$(LDFLAGS)" -o bin/trackd ./cmd/trackd
@@ -114,6 +114,8 @@ bundle-bar:
 	@mkdir -p "$(BAR_BUNDLE)/Contents/MacOS"
 	cp build/tockbar "$(BAR_BUNDLE)/Contents/MacOS/tockbar"
 	cp packaging/bar/Info.plist "$(BAR_BUNDLE)/Contents/Info.plist"
+	@mkdir -p "$(BAR_BUNDLE)/Contents/Resources"
+	cp packaging/bar/AppIcon.icns "$(BAR_BUNDLE)/Contents/Resources/AppIcon.icns"
 	chmod -R go-w "$(BAR_BUNDLE)"
 	@id="$(SIGN_ID)"; \
 	if [ "$(SIGN_MODE)" = adhoc ] || ! security find-identity -v -p codesigning 2>/dev/null | grep -q '"$(SIGN_ID)"'; then \
@@ -124,6 +126,13 @@ bundle-bar:
 	if [ "$$rc" = 142 ]; then echo "codesign timed out after $(CODESIGN_TIMEOUT) s: a keychain prompt is probably waiting" >&2; exit 1; fi; \
 	[ "$$rc" = 0 ] || exit $$rc
 	codesign --verify --strict "$(BAR_BUNDLE)"
+
+# icon: render packaging/bar/AppIcon.icns from the drawing in
+# packaging/bar/icon/gen.go (same as icon.svg). Commit the result.
+icon:
+	@rm -rf build/AppIcon.iconset && mkdir -p build
+	cd packaging/bar/icon && go run gen.go $(CURDIR)/build/AppIcon.iconset
+	iconutil -c icns -o packaging/bar/AppIcon.icns build/AppIcon.iconset
 
 print-dr:
 	@codesign -d -r- "$(BUNDLE)" 2>&1 | grep -E '^designated|# designated' || true
