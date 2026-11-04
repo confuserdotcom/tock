@@ -72,6 +72,12 @@ func (a *App) fillPast(from, to time.Time) error {
 	if today := a.midnight(a.now()); to.After(today) {
 		to = today
 	}
+	if _, err := a.refreshPast(); err != nil {
+		return err
+	}
+	if a.past == nil {
+		a.past = map[string]pastDay{}
+	}
 	var missing []time.Time
 	for d := from; d.Before(to); d = d.AddDate(0, 0, 1) {
 		if _, ok := a.past[dateKey(d)]; !ok {
@@ -80,6 +86,21 @@ func (a *App) fillPast(from, to time.Time) error {
 	}
 	if len(missing) == 0 {
 		return nil
+	}
+	keys := a.dayKeys(missing)
+	if keys != nil {
+		disk := a.loadPast(keys)
+		rest := missing[:0:0]
+		for _, d := range missing {
+			if p, ok := disk[dateKey(d)]; ok {
+				a.past[dateKey(d)] = p
+			} else {
+				rest = append(rest, d)
+			}
+		}
+		if missing = rest; len(missing) == 0 {
+			return nil
+		}
 	}
 	first, last := missing[0], missing[len(missing)-1].AddDate(0, 0, 1)
 	rows, ovs, err := a.spans(first.UnixMilli(), last.UnixMilli())
@@ -90,6 +111,16 @@ func (a *App) fillPast(from, to time.Time) error {
 		a.past = map[string]pastDay{}
 	}
 	now := a.nowMS()
+	// A day is closed, and goes to disk, once nothing can still change it:
+	// no open span started before its end, and its last pause is judged.
+	closedBy := now - classify.MaxAFKMS
+	for _, r := range rows {
+		if r.End == nil {
+			closedBy = min(closedBy, r.Start)
+		}
+	}
+	done := map[string]pastDay{}
+	defer func() { a.savePast(done, keys) }()
 	for _, d := range missing {
 		from, to := d.UnixMilli(), d.AddDate(0, 0, 1).UnixMilli()
 		vs, err := a.decorate(a.base(rows, ovs, from, to, now), ovs, from, to)
@@ -105,6 +136,9 @@ func (a *App) fillPast(from, to time.Time) error {
 			p.GoalMS = report.GoalTimes(a.rs.Goals, vs, ls)
 		}
 		a.past[dateKey(d)] = p
+		if to <= closedBy {
+			done[dateKey(d)] = p
+		}
 	}
 	return nil
 }

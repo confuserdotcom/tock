@@ -59,31 +59,43 @@ func (a *App) spans(from, to int64) ([]store.SpanRow, map[int64]classify.Overrid
 	if err != nil {
 		return nil, nil, err
 	}
-	ovs, err := a.st.Overrides()
+	ovs, err := a.refreshPast()
 	if err != nil {
 		return nil, nil, err
+	}
+	return rows, overrides(ovs), nil
+}
+
+// refreshPast drops the cached past days when what labels them changed:
+// the overrides, the away rows, the events, the other machines' views, the
+// edits, the plan or when input began to be known. It returns the
+// overrides.
+func (a *App) refreshPast() (map[int64]store.Override, error) {
+	ovs, err := a.st.Overrides()
+	if err != nil {
+		return nil, err
 	}
 	n, lastAt, err := a.st.AwayStamp()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	en, eid, err := a.st.EventStamp()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	rn, rid, err := a.st.RemoteStamp()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	dn, dsum, err := a.st.EditStamp()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	if fp := fingerprint(ovs) ^ uint64(n)<<48 ^ uint64(lastAt) ^ uint64(en)<<32 ^ uint64(eid)<<8 ^
 		uint64(rn)<<40 ^ uint64(rid)<<16 ^ uint64(dn)<<52 ^ uint64(dsum)*31 ^ a.planStamp()*17 ^ uint64(a.inputSince)*13; fp != a.pastKey {
 		a.past, a.pastKey = nil, fp
 	}
-	return rows, overrides(ovs), nil
+	return ovs, nil
 }
 
 // labelled loads the spans overlapping [from, to), clipped, with their

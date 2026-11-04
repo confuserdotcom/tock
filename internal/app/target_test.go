@@ -161,3 +161,57 @@ func TestDayScore(t *testing.T) {
 		t.Fatalf("score line = %q", got)
 	}
 }
+
+// A new process reads closed past days from disk instead of computing them
+// again: here the span of day -6 is gone, which no key reads, so only
+// the cached day can still give 90 minutes.
+func TestPastDaysFromDisk(t *testing.T) {
+	e := apptest.New(t, apptest.Rules)
+	history(t, e, 7)
+	if got := target(t, open(t, e)); got.MS != 165*60_000 {
+		t.Fatalf("first run: %s", report.Dur(got.MS))
+	}
+	db := e.RawDB(t)
+	var n int
+	if err := db.QueryRow(`SELECT count(*) FROM day_cache`).Scan(&n); err != nil || n == 0 {
+		t.Fatalf("no day went to disk: %d %v", n, err)
+	}
+	if _, err := db.Exec(`DELETE FROM span WHERE id = 102`); err != nil {
+		t.Fatal(err)
+	}
+	if got := target(t, open(t, e)); got.MS != 165*60_000 {
+		t.Fatalf("second run must read day -6 from disk: %s", report.Dur(got.MS))
+	}
+	// An away row on day -6 changes its key: computed again, now without
+	// its span.
+	p := open(t, e)
+	d6 := p.midnight(p.now()).AddDate(0, 0, -6)
+	at := d6.Add(20 * time.Hour).UnixMilli()
+	if _, err := db.Exec(`INSERT INTO away(start_ms, end_ms, at_ms) VALUES(?, ?, 1)`, at, at+60_000); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := p.Day(p.now()); err != nil {
+		t.Fatal(err)
+	}
+	if got := p.past[dateKey(d6)].Stats.FocusMS; got != 0 {
+		t.Fatalf("day -6 kept its cached focus %s after its key changed", report.Dur(got))
+	}
+	if got := p.past[dateKey(d6.AddDate(0, 0, 1))].Stats.FocusMS; got != 120*60_000 {
+		t.Fatalf("day -5 must stay as it was: %s", report.Dur(got))
+	}
+}
+
+// A day an open span reaches is not closed: it is computed, never stored.
+func TestOpenDayNotStored(t *testing.T) {
+	e := apptest.New(t, apptest.Rules)
+	e.Seed(t, apptest.Span{ID: 1, Start: "09:00", End: "", Bundle: "term", App: "WezTerm", Title: "tock │ x", Day: -1})
+	a := open(t, e)
+	if _, err := a.Day(a.now()); err != nil {
+		t.Fatal(err)
+	}
+	var n int
+	if err := e.RawDB(t).QueryRow(`SELECT count(*) FROM day_cache WHERE day = ?`,
+		dateKey(a.midnight(a.now()).AddDate(0, 0, -1))).Scan(&n); err != nil || n != 0 {
+		t.Fatalf("a day with an open span went to disk: %d %v", n, err)
+	}
+}
