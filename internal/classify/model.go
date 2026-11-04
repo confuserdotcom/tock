@@ -562,3 +562,16 @@ func (rs *Ruleset) SeedCategory() string {
 	}
 	return ""
 }
+
+// Unclear reports whether l says little about what the window holds: no
+// category, or one from a rule that names only the app or site. Screen
+// reading looks at such windows (OCR-01).
+func (rs *Ruleset) Unclear(l Label) bool {
+	switch l.CategorySource {
+	case SourceNone, "":
+		return true
+	case SourceRule, SourceLearned:
+		return rs.genericRefs()[l.CategoryRule]
+	}
+	return false
+}

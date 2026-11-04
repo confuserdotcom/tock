@@ -192,3 +192,20 @@ func TestScreenWordsWeighLess(t *testing.T) {
 		t.Fatalf("title beats screen: %s %d", c, n)
 	}
 }
+
+func TestUnclear(t *testing.T) {
+	rs := modelRules(t)
+	for _, c := range []struct {
+		v    SpanView
+		want bool
+	}{
+		{tv("zathura", "x.pdf", 0), true},     // no rule
+		{tv("chromium", "Funny", 0), true},    // a rule that names only the app
+		{tv("wez", "nvim main.go", 0), false}, // a rule on the title
+		{tv("wez", "htop", 0), true},          // the title rule misses
+	} {
+		if got := rs.Unclear(rs.Label(c.v, nil)); got != c.want {
+			t.Errorf("%s %q: Unclear = %v, want %v", c.v.BundleID, *c.v.Title, got, c.want)
+		}
+	}
+}
