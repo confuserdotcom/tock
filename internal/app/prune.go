@@ -12,6 +12,7 @@ import (
 
 	"tock/internal/shell"
 	"tock/internal/store"
+	"tock/internal/syncdir"
 )
 
 // ErrPruneOff means [privacy] keep_titles is not set and no days were given.
@@ -101,7 +102,7 @@ func pruneDayFiles(dir string, before time.Time, dryRun bool) (int, error) {
 	cut := before.Format("2006-01-02")
 	n := 0
 	for _, f := range files {
-		m := dayFileRE.FindStringSubmatch(f.Name())
+		m := syncdir.DayFileRE.FindStringSubmatch(f.Name())
 		if m == nil || m[1] >= cut {
 			continue
 		}
@@ -118,7 +119,7 @@ func pruneDayFiles(dir string, before time.Time, dryRun bool) (int, error) {
 		if dryRun {
 			continue
 		}
-		if _, err := writeIfChanged(path, b); err != nil {
+		if _, err := syncdir.WriteIfChanged(path, b); err != nil {
 			return n, err
 		}
 	}
@@ -134,7 +135,7 @@ func pruneDayFile(b []byte) ([]byte, bool) {
 	sc.Buffer(make([]byte, 64*1024), 4*1024*1024)
 	for sc.Scan() {
 		line := sc.Bytes()
-		var r syncRecord
+		var r syncdir.Record
 		if json.Unmarshal(line, &r) != nil {
 			out.Write(line)
 			out.WriteByte('\n')

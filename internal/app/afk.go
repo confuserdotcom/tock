@@ -12,27 +12,9 @@ import (
 	"tock/internal/classify"
 	"tock/internal/span"
 	"tock/internal/store"
+	"tock/internal/syncdir"
 	"tock/internal/update"
 )
-
-// machineFile is the file in a machine's sync folder that says what the
-// machine reports, so the others can tell whether its time saw input.
-const machineFile = "machine.json"
-
-type machineInfo struct {
-	Input      bool   `json:"input"`
-	HID        bool   `json:"hid,omitempty"`         // input comes from the OS (macOS), not hypridle
-	InputSince int64  `json:"input_since,omitempty"` // when it began to report input, ms; 0 for always
-	RulesAt    int64  `json:"rules_at,omitempty"`    // rules.toml's change time, ms
-	RulesSum   string `json:"rules_sum,omitempty"`   // sha256 of the shared copy
-	// Version is this machine's trackd version; UpdateError its last failed
-	// self-update.
-	Version     string `json:"version,omitempty"`
-	UpdateError string `json:"update_error,omitempty"`
-	// RulesRefused is the newer rules.toml this machine last could not
-	// take, as "<machine>: why"; "" when it took or had nothing to take.
-	RulesRefused string `json:"rules_refused,omitempty"`
-}
 
 // KeyInputSince is the daemon_state key holding when this Linux machine
 // began reporting input (ms), "" while it does not.
@@ -281,7 +263,7 @@ func (a *App) staleRemote(rv []store.RemoteView) []store.RemoteView {
 // writeMachineFile writes this machine's machine.json to its sync folder,
 // and shares rules.toml unless [sync] rules is off.
 func (a *App) writeMachineFile(dir string) error {
-	mi := machineInfo{Input: a.input, HID: a.goos != "linux"}
+	mi := syncdir.MachineInfo{Input: a.input, HID: a.goos != "linux"}
 	mi.Version, _, _ = a.st.State(store.KeyVersion)
 	mi.UpdateError, _, _ = a.st.State(update.KeyError)
 	mi.RulesRefused, _, _ = a.st.State(KeyRulesRefused)
@@ -297,13 +279,13 @@ func (a *App) writeMachineFile(dir string) error {
 	if err != nil {
 		return err
 	}
-	_, err = writeIfChanged(filepath.Join(dir, machineFile), append(b, '\n'))
+	_, err = syncdir.WriteIfChanged(filepath.Join(dir, syncdir.MachineFile), append(b, '\n'))
 	return err
 }
 
 // readMachineFile records what a remote machine's machine.json says.
 func (a *App) readMachineFile(dir, machine string) error {
-	mi, ok := readMachineInfo(dir)
+	mi, ok := syncdir.ReadMachineInfo(dir)
 	if !ok {
 		return nil // an older tock writes none: unknown
 	}
