@@ -76,14 +76,33 @@ func TestCallLabel(t *testing.T) {
 	if rs.CallCategory != "Meeting" {
 		t.Fatalf("CallCategory = %q", rs.CallCategory)
 	}
+	// A call is context: labelled activity keeps its label.
 	v := SpanView{ID: 1, Start: 0, End: 1, BundleID: "term", App: "T", InCall: true}
-	l := rs.Label(v, nil)
-	if l.Category != "Meeting" || l.Kind != KindShallow || l.CategorySource != SourceCall || l.CategoryRule != "" || l.Project != "tock" {
-		t.Fatalf("in call: %+v", l)
+	if l := rs.Label(v, nil); l.Category != "Code" || l.CategorySource != SourceRule || l.Project != "tock" {
+		t.Fatalf("labelled activity in call: %+v", l)
 	}
-	v.InCall = false
-	if l := rs.Label(v, nil); l.Category != "Code" {
+	// Unlabelled activity during a call is the call.
+	u := SpanView{ID: 3, Start: 0, End: 1, BundleID: "other", App: "O", InCall: true}
+	l := rs.Label(u, nil)
+	if l.Category != "Meeting" || l.Kind != KindShallow || l.CategorySource != SourceCall || l.CategoryRule != "" {
+		t.Fatalf("unlabelled in call: %+v", l)
+	}
+	u.InCall = false
+	if l := rs.Label(u, nil); l.Category != "" {
 		t.Fatalf("out of call (memo must not leak): %+v", l)
+	}
+	// A call app or a meeting site in front is the call, whatever its rule.
+	for _, c := range []SpanView{
+		{ID: 4, BundleID: "com.apple.FaceTime", App: "FaceTime", InCall: true},
+		{ID: 5, BundleID: "arc", App: "Arc", URL: sp("meet.google.com/abc-defg-hij"), InCall: true},
+		{ID: 6, BundleID: "arc", App: "Arc", URL: sp("us02web.zoom.us/j/1"), InCall: true},
+	} {
+		if l := rs.Label(c, nil); l.Category != "Meeting" || l.CategorySource != SourceCall {
+			t.Fatalf("call app %s: %+v", c.App, l)
+		}
+	}
+	if l := rs.Label(SpanView{ID: 7, BundleID: "com.apple.FaceTime", App: "FaceTime"}, nil); l.CategorySource == SourceCall {
+		t.Fatalf("call app out of a call: %+v", l)
 	}
 	v.InCall = true
 	if l := rs.Label(v, &Override{Category: "Entertainment"}); l.Category != "Entertainment" || l.CategorySource != SourceManual {
@@ -176,5 +195,29 @@ project = "Video"
 	v.Title = sp("cats")
 	if l := rs.Label(v, nil); l.Category != "Fun" || l.Project != "Video" {
 		t.Fatalf("cats: %+v", l)
+	}
+}
+
+// TestCallApps: [calls] apps replaces the built-in call apps; [] means none.
+func TestCallApps(t *testing.T) {
+	custom := strings.Replace(callRules, "[calls]\ncategory = \"meeting\"\n",
+		"[calls]\ncategory = \"meeting\"\napps = [\"chat.app\"]\n", 1) +
+		"[[rule]]\nbundle = [\"com.apple.FaceTime\"]\ncategory = \"Code\"\n"
+	rs, err := Parse([]byte(custom), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if l := rs.Label(SpanView{ID: 1, BundleID: "chat.app", App: "Chat", InCall: true}, nil); l.CategorySource != SourceCall {
+		t.Fatalf("listed app: %+v", l)
+	}
+	if l := rs.Label(SpanView{ID: 2, BundleID: "com.apple.FaceTime", App: "FaceTime", InCall: true}, nil); l.Category != "Code" {
+		t.Fatalf("unlisted app keeps its rule: %+v", l)
+	}
+	// Meeting sites stay call time whatever the list says.
+	if l := rs.Label(SpanView{ID: 3, BundleID: "arc", App: "Arc", URL: sp("meet.google.com/x"), InCall: true}, nil); l.CategorySource != SourceCall {
+		t.Fatalf("meeting site: %+v", l)
+	}
+	if _, err := Parse([]byte(strings.Replace(custom, `apps = ["chat.app"]`, `apps = [""]`, 1)), nil); err == nil {
+		t.Fatal("empty app id must be rejected")
 	}
 }

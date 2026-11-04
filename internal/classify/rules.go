@@ -184,8 +184,12 @@ type Ruleset struct {
 	Learned    []Rule
 	Rules      []Rule
 	// CallCategory labels call time ([calls] category); "" leaves calls
-	// unlabelled.
+	// unlabelled. A call is context: it labels only views in a call that
+	// have no category of their own, plus call apps and meeting sites.
 	CallCategory string
+	// CallApps are the bundle ids that are the call itself when in front
+	// during a call ([calls] apps; DefaultCallApps when unset).
+	CallApps map[string]bool
 	// CalendarCategory labels meeting views the rules leave without a
 	// category ([calendar] category); "" turns calendar events off.
 	CalendarCategory string
@@ -233,7 +237,8 @@ type rulesTOML struct {
 	} `toml:"project"`
 	Rule  []ruleTOML `toml:"rule"`
 	Calls struct {
-		Category string `toml:"category"`
+		Category string    `toml:"category"`
+		Apps     *[]string `toml:"apps"`
 	} `toml:"calls"`
 	Calendar struct {
 		Category string `toml:"category"`
@@ -322,6 +327,17 @@ func Parse(rulesData, learnedData []byte) (*Ruleset, error) {
 			return nil, fmt.Errorf("%s: [calls]: unknown category %q", RulesFile, rf.Calls.Category)
 		}
 		rs.CallCategory = cat.Name
+	}
+	apps := DefaultCallApps
+	if rf.Calls.Apps != nil {
+		apps = *rf.Calls.Apps
+	}
+	rs.CallApps = make(map[string]bool, len(apps))
+	for _, a := range apps {
+		if strings.TrimSpace(a) == "" {
+			return nil, fmt.Errorf("%s: [calls]: empty app id in apps", RulesFile)
+		}
+		rs.CallApps[strings.TrimSpace(a)] = true
 	}
 	if c := strings.TrimSpace(rf.Calendar.Category); c != "" {
 		cat, ok := rs.catByLower[nameKey(c)]

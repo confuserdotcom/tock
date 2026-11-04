@@ -52,9 +52,25 @@ func MarkEvents(views []SpanView, events []EventMark, from, to int64) []SpanView
 	for i, m := range marks {
 		iv[i] = m.Interval
 	}
-	return fill(views, iv, from, to, func(i int, start, end int64) SpanView {
+	// An event is more specific than a call: call time inside it becomes
+	// the meeting. Call views go in as idle (InCall tells them apart) and
+	// what no event claims is call time again.
+	in := make([]SpanView, len(views))
+	for i, v := range views {
+		if v.BundleID == span.CallBundleID {
+			v.BundleID, v.App = span.IdleBundleID, span.IdleApp
+		}
+		in[i] = v
+	}
+	out := fill(in, iv, from, to, func(i int, start, end int64) SpanView {
 		title := marks[i].Title
 		return SpanView{ID: -(MeetingIDBase + marks[i].ID), Start: start, End: end,
 			BundleID: span.MeetingBundleID, App: span.MeetingApp, Title: &title}
 	})
+	for i := range out {
+		if out[i].BundleID == span.IdleBundleID && out[i].InCall {
+			out[i].BundleID, out[i].App = span.CallBundleID, span.CallApp
+		}
+	}
+	return out
 }

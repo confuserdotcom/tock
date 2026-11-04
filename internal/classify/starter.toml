@@ -62,7 +62,8 @@ afk = "10m"
 name = "Browsing"
 kind = "browse"
 
-# Time with a camera or microphone in use (calls) gets this category.
+# Time in a call (camera or microphone in use) that has no label of its
+# own, and call apps or Meet/Zoom/Teams pages in front, get this category.
 [calls]
 category = "Meeting"
 

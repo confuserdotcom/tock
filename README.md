@@ -867,18 +867,26 @@ have them moved by hand first.
 trackd notices when a camera or microphone is in use, in any app. It only
 reads whether a device is running, so it needs no camera or microphone
 permission and records no audio or video, just start and end times. During
-a call, break and distraction nudges stay quiet. With this table in
-`rules.toml` (the starter rules have it), calls of at least two minutes are
-labelled, including time you only listened and would otherwise be idle:
+a call, break and distraction nudges stay quiet.
+
+A call is context, not an activity: what is on screen decides the label.
+With this table in `rules.toml` (the starter rules have it), calls of at
+least two minutes label the time that has no label of its own (including
+time you only listened and would otherwise be idle) and the time a call app
+or a Meet, Zoom or Teams page is in front. Chess, study or a video chat site
+your rules already label keep that label with the camera on.
 
 ```toml
 [calls]
 category = "Meeting"   # a declared category
+# apps = ["us.zoom.xos", "com.apple.FaceTime"]   # call apps; default: the
+#   common ones (FaceTime, Zoom, Teams, Discord, Telegram, WhatsApp, Skype,
+#   Signal). [] for none.
 ```
 
-A manual tag still wins, and so does a distraction: a video chat site your
-rules call Entertainment stays Entertainment with the camera on. `tock rules
-check` says whether calls are labelled.
+A calendar event is more specific than a call: call time inside it is the
+meeting. A manual tag still wins. `tock rules check` says whether calls are
+labelled.
 
 ## Commits
 

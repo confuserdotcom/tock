@@ -64,8 +64,11 @@ type Day struct {
 type CatRow struct {
 	Name, Kind string
 	MS         int64
-	Projects   []NameMS        // by time desc, then name
-	Items      []classify.Item // the category's keys by time; Unclassified omits ignored keys
+	// CallMS is the part of MS spent in a call that kept its own label
+	// (chess or study with the camera on); the call category has none.
+	CallMS   int64
+	Projects []NameMS        // by time desc, then name
+	Items    []classify.Item // the category's keys by time; Unclassified omits ignored keys
 }
 
 // NameMS is a named total.
@@ -132,6 +135,9 @@ func BuildDay(in DayInput) Day {
 			cats[name] = c
 		}
 		c.MS += ms
+		if v.InCall && l.CategorySource != classify.SourceCall {
+			c.CallMS += ms
+		}
 		projects[l.Project] += ms
 		if l.Project != "" {
 			c.Projects = addMS(c.Projects, l.Project, ms)

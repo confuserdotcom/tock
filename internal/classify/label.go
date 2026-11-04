@@ -54,9 +54,10 @@ type memoKey struct {
 
 // Label classifies v. Idle spans get an empty label. o may be nil. Each field
 // is decided separately: manual override, else (category only) CallCategory
-// for a view in a call unless its rule label is a distraction, else the first matching learned rule that sets the
-// field, else the first matching user rule, else (category only)
-// CalendarCategory for a meeting view, else empty.
+// for a call app or meeting site in a call, else the first matching learned
+// rule that sets the field, else the first matching user rule, else
+// (category only) CallCategory for any other view in a call, else
+// (category only) CalendarCategory for a meeting view, else empty.
 func (rs *Ruleset) Label(v SpanView, o *Override) Label {
 	var l Label
 	switch {
@@ -69,9 +70,9 @@ func (rs *Ruleset) Label(v SpanView, o *Override) Label {
 		o = nil
 	}
 	// After the memoized rule label, so the memo key needs no InCall.
-	// A distraction stays one during a call (a video chat site is
-	// entertainment with the camera on).
-	if v.InCall && rs.CallCategory != "" && v.BundleID != span.IdleBundleID && l.Kind != KindDistract {
+	// A call is context: it labels what has no category of its own, and
+	// the call apps and meeting sites, never other labelled activity.
+	if v.InCall && rs.CallCategory != "" && v.BundleID != span.IdleBundleID && (l.Category == "" || rs.isCallView(&v)) {
 		l.Category, l.Kind = rs.CallCategory, rs.Kind(rs.CallCategory)
 		l.CategorySource, l.CategoryRule = SourceCall, ""
 	}

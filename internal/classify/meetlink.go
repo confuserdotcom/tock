@@ -59,11 +59,19 @@ func meetingURL(s string) *url.URL {
 	if err != nil || u.Scheme != "https" || u.User != nil || u.Port() != "" || u.Opaque != "" {
 		return nil
 	}
-	switch h := strings.ToLower(u.Hostname()); {
-	case h == "meet.google.com", h == "zoom.us", h == "teams.microsoft.com", h == "teams.live.com":
-	case strings.HasSuffix(h, ".zoom.us") && len(h) > len(".zoom.us"):
-	default:
+	if !isMeetingHost(strings.ToLower(u.Hostname())) {
 		return nil
 	}
 	return u
+}
+
+// isMeetingHost reports whether the lowercase host h is a meeting host:
+// meet.google.com, zoom.us or a subdomain, teams.microsoft.com or
+// teams.live.com.
+func isMeetingHost(h string) bool {
+	switch {
+	case h == "meet.google.com", h == "zoom.us", h == "teams.microsoft.com", h == "teams.live.com":
+		return true
+	}
+	return strings.HasSuffix(h, ".zoom.us") && len(h) > len(".zoom.us")
 }

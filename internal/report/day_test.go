@@ -168,3 +168,23 @@ func TestHourMS(t *testing.T) {
 		}
 	}
 }
+
+// TestBuildDayCallMS: a category counts its time spent in calls that the
+// call did not label; the call's own category does not.
+func TestBuildDayCallMS(t *testing.T) {
+	vs, ls := build(t,
+		sv{1, "09:00", "10:00", "arc", "Game", "chess.com/play", "Chess", "neutral", "", false},
+		sv{2, "10:00", "10:30", "arc", "Game", "chess.com/play", "Chess", "neutral", "", false},
+		sv{3, "10:30", "10:40", "tock.call", "", "", "Social", "neutral", "", false},
+	)
+	vs[1].InCall, vs[2].InCall = true, true
+	ls[2].CategorySource = classify.SourceCall
+	d := BuildDay(DayInput{Date: day0, NowMS: hm(t, "15:00"), Views: vs, Labels: ls})
+	got := map[string]int64{}
+	for _, c := range d.Categories {
+		got[c.Name] = c.CallMS
+	}
+	if got["Chess"] != 30*60_000 || got["Social"] != 0 {
+		t.Fatalf("CallMS = %v", got)
+	}
+}
