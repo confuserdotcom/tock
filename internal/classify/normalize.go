@@ -70,13 +70,16 @@ func cleanOnce(s string) string {
 	fields := strings.Fields(s)
 	kept := fields[:0]
 	for _, f := range fields {
-		if isNoiseToken(f) || counterRe.MatchString(f) {
+		if isNoiseToken(f) || ((f[0] == '(' || f[0] == '[') && counterRe.MatchString(f)) {
 			continue
 		}
 		kept = append(kept, f)
 	}
 	s = strings.Join(kept, " ")
-	s = editSuffixRe.ReplaceAllString(s, "")
+	// The suffix check first: the regex backtracks through long titles.
+	if strings.HasSuffix(s, "Edited") || strings.HasSuffix(s, "[Modified]") {
+		s = editSuffixRe.ReplaceAllString(s, "")
+	}
 	s = strings.TrimSpace(s)
 	s = strings.TrimSuffix(strings.TrimPrefix(s, "*"), "*")
 	return strings.TrimSpace(s)

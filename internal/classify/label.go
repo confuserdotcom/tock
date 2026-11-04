@@ -161,12 +161,27 @@ func (rs *Ruleset) keptLabel(v *SpanView) Label {
 }
 
 func (rs *Ruleset) ruleLabel(v *SpanView) Label {
-	k, clean := keyOf(v)
+	// The memo is keyed on the raw title: cleaning it costs more than the
+	// lookup, and the label depends on nothing else.
+	k := memoKey{bundle: v.BundleID, app: v.App, private: v.Private}
+	if v.Title != nil {
+		k.title, k.hasTitle = *v.Title, true
+	}
+	if v.URL != nil {
+		k.url, k.hasURL = *v.URL, true
+	}
+	if v.Dir != nil {
+		k.dir, k.hasDir = *v.Dir, true
+	}
 	rs.mu.Lock()
 	l, ok := rs.memo[k]
 	rs.mu.Unlock()
 	if ok {
 		return l
+	}
+	clean := ""
+	if v.Title != nil {
+		clean = Clean(*v.Title)
 	}
 
 	l = Label{CategorySource: SourceNone, ProjectSource: SourceNone}

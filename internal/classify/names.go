@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 )
 
 // ResolveCategory maps user input to a declared category name: an exact
@@ -98,4 +99,17 @@ func (rs *Ruleset) ParseWant(arg string) (Want, error) {
 
 // nameKey is how category and project names are compared: trimmed,
 // composed (NFC) and lower-case.
-func nameKey(s string) string { return strings.ToLower(NFC(strings.TrimSpace(s))) }
+func nameKey(s string) string {
+	if k, ok := nameKeys.Load(s); ok {
+		return k.(string)
+	}
+	k := strings.ToLower(NFC(strings.TrimSpace(s)))
+	if len(s) <= 128 { // names, not arbitrary text
+		nameKeys.Store(s, k)
+	}
+	return k
+}
+
+// nameKeys caches nameKey: it runs for every label, and the names are few
+// (category and project names, as written).
+var nameKeys sync.Map
