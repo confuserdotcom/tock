@@ -33,7 +33,7 @@ func (a *App) labelModel() (*classify.Model, error) {
 		a.model, a.modelRS, a.modelFP, a.modelAt = m, a.rs, a.pastKey, at
 		return m, nil
 	}
-	vs, labels, _, err := a.history()
+	ex, err := a.trainingSet()
 	if err != nil {
 		return nil, err
 	}
@@ -41,7 +41,6 @@ func (a *App) labelModel() (*classify.Model, error) {
 	if c := a.rs.SeedCategory(); c != "" {
 		seed = map[string][]string{c: classify.SeedWords}
 	}
-	ex := a.rs.TrainingSet(vs, labels)
 	if len(ex) == 0 && seed == nil {
 		return nil, nil
 	}

@@ -398,15 +398,28 @@ const genericWeight = 0.5
 // views, weighted by where the label came from and, gently, by time.
 // Remote labels count as rules of the other machine.
 func (rs *Ruleset) TrainingSet(views []SpanView, labels []Label) []Example {
-	type acc struct {
-		i     int
-		w     float64
-		ms    int64
-		blind string
-		seen  bool // a label that read the title
-	}
-	var order []string
-	by := map[string]*acc{}
+	return MergeTraining(rs.TrainingPart(views, labels))
+}
+
+// TrainEntry is what one stretch of the timeline says about one key and
+// category: the first view of it, the strongest label weight, the time,
+// and whether a label read the title (else Blind is the labeller).
+type TrainEntry struct {
+	Key      string // Key of the view and the category
+	View     SpanView
+	Category string
+	W        float64
+	MS       int64
+	Blind    string
+	Seen     bool
+}
+
+// TrainingPart is the entries of views, in order of first appearance. The
+// parts of consecutive stretches, merged in order, are the part of the
+// whole (see MergeTraining), so a closed day's part can be kept.
+func (rs *Ruleset) TrainingPart(views []SpanView, labels []Label) []TrainEntry {
+	var out []TrainEntry
+	by := map[string]int{}
 	generic := rs.genericRefs()
 	for i := range views {
 		v, l := &views[i], &labels[i]
@@ -424,22 +437,43 @@ func (rs *Ruleset) TrainingSet(views []SpanView, labels []Label) []Example {
 			w, blind = genericWeight, l.CategoryRule
 		}
 		k := Key(*v) + "\x00" + l.Category
-		a := by[k]
-		if a == nil {
-			a = &acc{i: i, blind: blind}
-			by[k] = a
-			order = append(order, k)
+		j, ok := by[k]
+		if !ok {
+			j = len(out)
+			by[k] = j
+			out = append(out, TrainEntry{Key: k, View: *v, Category: l.Category, Blind: blind})
 		}
-		a.w, a.ms, a.seen = max(a.w, w), a.ms+v.DurMS(), a.seen || blind == ""
+		e := &out[j]
+		e.W, e.MS, e.Seen = max(e.W, w), e.MS+v.DurMS(), e.Seen || blind == ""
 	}
-	out := make([]Example, 0, len(order))
-	for _, k := range order {
-		a := by[k]
-		e := Example{View: views[a.i], Category: labels[a.i].Category, Weight: a.w * (1 + math.Log2(1+float64(a.ms)/60_000))}
-		if !a.seen {
-			e.Blind = a.blind
+	return out
+}
+
+// MergeTraining is the examples of parts taken in order: per key and
+// category the first view and labeller, the strongest weight and the
+// whole time.
+func MergeTraining(parts ...[]TrainEntry) []Example {
+	var all []TrainEntry
+	by := map[string]int{}
+	for _, part := range parts {
+		for _, p := range part {
+			j, ok := by[p.Key]
+			if !ok {
+				by[p.Key] = len(all)
+				all = append(all, p)
+				continue
+			}
+			e := &all[j]
+			e.W, e.MS, e.Seen = max(e.W, p.W), e.MS+p.MS, e.Seen || p.Seen
 		}
-		out = append(out, e)
+	}
+	out := make([]Example, 0, len(all))
+	for _, e := range all {
+		x := Example{View: e.View, Category: e.Category, Weight: e.W * (1 + math.Log2(1+float64(e.MS)/60_000))}
+		if !e.Seen {
+			x.Blind = e.Blind
+		}
+		out = append(out, x)
 	}
 	return out
 }

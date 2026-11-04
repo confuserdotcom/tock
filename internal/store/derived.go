@@ -1,6 +1,7 @@
 package store
 
 import (
+	"database/sql"
 	"fmt"
 	"strings"
 )
@@ -93,4 +94,15 @@ func (s *Store) SpanMarks(from, to, openMS int64) ([]SpanMark, error) {
 		out = append(out, m)
 	}
 	return out, rows.Err()
+}
+
+// FirstMS is the start of the earliest span or other machine's view, and
+// false when there is neither.
+func (s *Store) FirstMS() (int64, bool, error) {
+	var ms sql.NullInt64
+	err := s.db.QueryRow(`SELECT min(m) FROM (SELECT min(start) AS m FROM span UNION ALL SELECT min(start_ms) FROM remote_view)`).Scan(&ms)
+	if err != nil {
+		return 0, false, fmt.Errorf("store: first ms: %w", err)
+	}
+	return ms.Int64, ms.Valid, nil
 }

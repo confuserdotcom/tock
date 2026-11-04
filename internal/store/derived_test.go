@@ -52,3 +52,22 @@ func TestSpanMarks(t *testing.T) {
 		t.Fatalf("no span in [11, 19): %+v", got)
 	}
 }
+
+func TestFirstMS(t *testing.T) {
+	s := openAt(t, dbPath(t))
+	if _, ok, err := s.FirstMS(); ok || err != nil {
+		t.Fatalf("empty: %v %v", ok, err)
+	}
+	if _, err := s.db.Exec(`INSERT INTO span(id,start,"end",bundle_id,app) VALUES(1,50,60,'b','B')`); err != nil {
+		t.Fatal(err)
+	}
+	if ms, ok, _ := s.FirstMS(); !ok || ms != 50 {
+		t.Fatalf("span only: %d %v", ms, ok)
+	}
+	if _, err := s.db.Exec(`INSERT INTO remote_view(machine,day,start_ms,end_ms,bundle,app) VALUES('r','d',20,30,'b','B')`); err != nil {
+		t.Fatal(err)
+	}
+	if ms, _, _ := s.FirstMS(); ms != 20 {
+		t.Fatalf("remote first: %d", ms)
+	}
+}
