@@ -19,7 +19,9 @@ type Sources struct {
 }
 
 // Resolve lays the sources over this machine's views, clipped to
-// [from, to), in one pass, and returns the timeline in start order.
+// [from, to), in one pass, and returns the timeline in start order. Pass
+// the views whole: the switch rule compares when they began, not where a
+// day cuts them.
 //
 // Each instant has one owner, decided by this table:
 //
@@ -79,7 +81,7 @@ func Resolve(views []SpanView, src Sources, from, to int64) []SpanView {
 		cuts = append(cuts, c.from...)
 		cuts = append(cuts, c.to...)
 	}
-	vs := clipSorted(views, from, to)
+	vs, began := clipSorted(views, from, to)
 	for _, v := range vs {
 		cuts = append(cuts, v.Start, v.End)
 	}
@@ -96,7 +98,7 @@ func Resolve(views []SpanView, src Sources, from, to int64) []SpanView {
 	}
 	// piece decides the owner of [s, e), where one claim of each kind
 	// holds throughout; v is the view of this machine there, or nil.
-	piece := func(v *SpanView, s, e int64) {
+	piece := func(v *SpanView, began, s, e int64) {
 		inCall := v != nil && calls.at(s) >= 0
 		planned := ""
 		if i := plan.at(s); i >= 0 {
@@ -117,7 +119,7 @@ func Resolve(views []SpanView, src Sources, from, to int64) []SpanView {
 			p.BundleID, p.App, p.Title, p.URL, p.InCall = span.CallBundleID, span.CallApp, nil, nil, true
 		case !idle:
 			p = *v
-			if i := remote.at(s); i >= 0 && v.ID > 0 && src.Remote[remote.src[i]].View.Start > v.Start+SwitchGraceMS {
+			if i := remote.at(s); i >= 0 && v.ID > 0 && src.Remote[remote.src[i]].View.Start > began+SwitchGraceMS {
 				p = remoteViews[remote.src[i]]
 			}
 		default:
@@ -152,16 +154,17 @@ func Resolve(views []SpanView, src Sources, from, to int64) []SpanView {
 		}
 		n := 0
 		var v *SpanView
+		var vBegan int64
 		for _, i := range active {
 			if vs[i].End <= s {
 				continue
 			}
 			active[n] = i
 			n++
-			v = &vs[i] // active is in start order
+			v, vBegan = &vs[i], began[i] // active is in start order
 		}
 		active = active[:n]
-		piece(v, s, e)
+		piece(v, vBegan, s, e)
 	}
 
 	if len(src.Edits) == 0 {
@@ -225,17 +228,26 @@ func (c claims) at(t int64) int {
 }
 
 // clipSorted is views cut to [from, to), the empty ones dropped, in start
-// order.
-func clipSorted(views []SpanView, from, to int64) []SpanView {
-	out := make([]SpanView, 0, len(views))
+// order, with when each began before it was cut.
+func clipSorted(views []SpanView, from, to int64) ([]SpanView, []int64) {
+	type item struct {
+		v     SpanView
+		began int64
+	}
+	items := make([]item, 0, len(views))
 	for _, v := range views {
+		b := v.Start
 		v.Start, v.End = max(v.Start, from), min(v.End, to)
 		if v.End > v.Start {
-			out = append(out, v)
+			items = append(items, item{v, b})
 		}
 	}
-	sort.SliceStable(out, func(i, j int) bool { return out[i].Start < out[j].Start })
-	return out
+	sort.SliceStable(items, func(i, j int) bool { return items[i].v.Start < items[j].v.Start })
+	out, began := make([]SpanView, len(items)), make([]int64, len(items))
+	for i, it := range items {
+		out[i], began[i] = it.v, it.began
+	}
+	return out, began
 }
 
 func uniqueSorted(xs []int64) []int64 {

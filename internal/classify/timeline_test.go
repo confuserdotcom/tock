@@ -120,7 +120,7 @@ func TestResolveMatchesPasses(t *testing.T) {
 		if src.NowMS < to {
 			to = src.NowMS // the passes drop idle time inside a claim past now
 		}
-		got := render(Resolve(cloneViews(views), src, from, to))
+		got := render(Resolve(clipViews(cloneViews(views), from, to), src, from, to))
 		want := render(passes(clipViews(cloneViews(views), from, to), src, from, to))
 		if got != want {
 			t.Fatalf("case %d differs\nviews %+v\nsources %+v\nfrom %d to %d\ngot\n%s\nwant\n%s", n, views, src, from, to, got, want)
@@ -288,6 +288,9 @@ func TestResolveTable(t *testing.T) {
 		{"a later switch takes activity", []SpanView{act(1, 0, 2*sg)},
 			Sources{Remote: []RemoteMark{rm(1, sg+1, 2*sg)}},
 			fmt.Sprintf("activity#1 0-%d, remote %d-%d", sg+1, sg+1, 2*sg)},
+		{"the switch rule reads when a view began, not where it was cut", []SpanView{act(1, -sg, 2*sg)},
+			Sources{Remote: []RemoteMark{rm(1, sg/2, 2*sg)}},
+			fmt.Sprintf("activity#1 0-%d, remote %d-%d", sg/2, sg/2, 2*sg)},
 		{"within the grace, activity stays", []SpanView{act(1, 0, 2*sg)},
 			Sources{Remote: []RemoteMark{rm(1, sg, 2*sg)}},
 			fmt.Sprintf("activity#1 0-%d", 2*sg)},

@@ -205,7 +205,7 @@ func (a *App) remote(vs []classify.SpanView, calls []classify.Interval, ovs map[
 	out := classify.Resolve(vs, classify.Sources{Calls: calls, Remote: marks, NowMS: now}, from, to)
 	all := classify.Resolve(vs, classify.Sources{Calls: calls, Remote: whole, NowMS: now}, from, to)
 	a.cut.StaleMS += remoteMS(all) - remoteMS(out)
-	a.cut.OtherMS += localMS(vs) - localMS(out)
+	a.cut.OtherMS += localMS(clipViews(vs, from, to)) - localMS(out)
 	return marks, nil
 }
 

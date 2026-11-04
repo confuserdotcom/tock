@@ -173,9 +173,10 @@ func (a *App) afkWindow(ovs map[int64]classify.Override) func(classify.SpanView)
 	}
 }
 
-// base turns rows into this machine's views over [from, to): unclipped
-// first, so a pause across the edges is judged whole, with shell dirs and
-// the AFK windows applied, then clipped. The open span ends at nowMS.
+// base turns rows into this machine's views, whole, so a pause across
+// [from, to)'s edges is judged whole and classify.Resolve sees when each
+// began, with shell dirs and the AFK windows applied. Resolve clips them.
+// The open span ends at nowMS.
 func (a *App) base(rows []store.SpanRow, ovs map[int64]classify.Override, from, to, nowMS int64) []classify.SpanView {
 	vs := views(rows, math.MinInt64, math.MaxInt64, nowMS)
 	a.attachShell(vs)
@@ -186,12 +187,12 @@ func (a *App) base(rows []store.SpanRow, ovs map[int64]classify.Override, from, 
 	if a.goos == "linux" {
 		afk.TrustMS = a.cfg.AFK.TrustMS
 	}
-	out := clipViews(classify.MarkAFK(vs, afk), from, to)
+	out := classify.MarkAFK(vs, afk)
 	idle := map[int64]bool{}
 	for _, r := range rows {
 		idle[r.ID] = r.BundleID == span.IdleBundleID
 	}
-	for _, v := range out {
+	for _, v := range clipViews(out, from, to) {
 		if v.BundleID == span.IdleBundleID && v.ID > 0 && !idle[v.ID] {
 			a.cut.StaleMS += v.DurMS()
 		}
