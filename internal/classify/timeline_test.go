@@ -253,7 +253,7 @@ func TestResolveTable(t *testing.T) {
 		case v.BundleID == span.IdleBundleID:
 			return "idle"
 		}
-		return "activity"
+		return fmt.Sprint("activity#", v.ID)
 	}
 	show := func(vs []SpanView) string {
 		var s []string
@@ -278,7 +278,7 @@ func TestResolveTable(t *testing.T) {
 	}{
 		{"in a call, activity keeps its view", []SpanView{act(1, 0, 100)},
 			Sources{Calls: []Interval{{0, 100}}, Remote: []RemoteMark{rm(1, sg+10, 100)}},
-			"activity 0-100 call"},
+			"activity#1 0-100 call"},
 		{"in a call, idle time is the call", []SpanView{idle(1, 0, 100)},
 			Sources{Calls: []Interval{{0, 100}}, Remote: []RemoteMark{rm(1, 0, 100)}, Away: []AwayMark{{1, Interval{0, 100}}}},
 			"call 0-100 call"},
@@ -287,10 +287,10 @@ func TestResolveTable(t *testing.T) {
 			"meeting 0-50, call 50-100 call"},
 		{"a later switch takes activity", []SpanView{act(1, 0, 2*sg)},
 			Sources{Remote: []RemoteMark{rm(1, sg+1, 2*sg)}},
-			fmt.Sprintf("activity 0-%d, remote %d-%d", sg+1, sg+1, 2*sg)},
+			fmt.Sprintf("activity#1 0-%d, remote %d-%d", sg+1, sg+1, 2*sg)},
 		{"within the grace, activity stays", []SpanView{act(1, 0, 2*sg)},
 			Sources{Remote: []RemoteMark{rm(1, sg, 2*sg)}},
-			fmt.Sprintf("activity 0-%d", 2*sg)},
+			fmt.Sprintf("activity#1 0-%d", 2*sg)},
 		{"idle: remote, then away, then event", []SpanView{idle(1, 0, 100)},
 			Sources{Remote: []RemoteMark{rm(1, 0, 20)}, Away: []AwayMark{{1, Interval{0, 40}}}, Events: []EventMark{{ID: 1, Interval: Interval{0, 60}}}},
 			"remote 0-20, away 20-40, meeting 40-60, idle 60-100"},
@@ -299,13 +299,16 @@ func TestResolveTable(t *testing.T) {
 			"away 10-20"},
 		{"plan is context, not for meetings", []SpanView{act(1, 0, 20), idle(2, 20, 40)},
 			Sources{Plan: []PlanSlot{{Interval{10, 40}, "M"}}, Events: []EventMark{{ID: 1, Interval: Interval{30, 40}}}},
-			"activity 0-10, activity 10-20 plan=M, idle 20-30 plan=M, meeting 30-40"},
+			"activity#1 0-10, activity#1 10-20 plan=M, idle 20-30 plan=M, meeting 30-40"},
 		{"edits win, the later first", []SpanView{act(1, 0, 100)},
 			Sources{Calls: []Interval{{0, 100}}, Edits: []EditMark{{ID: 2, Kind: EditCut, Interval: Interval{0, 50}}, {ID: 1, Kind: EditAdd, Interval: Interval{0, 60}}}},
-			"entry 50-60, activity 60-100 call"},
+			"entry 50-60, activity#1 60-100 call"},
 		{"claims stop at now", []SpanView{idle(1, 0, 100)},
 			Sources{Away: []AwayMark{{1, Interval{0, 100}}}, NowMS: 30},
 			"away 0-30, idle 30-100"},
+		{"where spans overlap, the later start wins", []SpanView{act(1, 0, 100), act(2, 40, 70), idle(3, 60, 80)},
+			Sources{},
+			"activity#1 0-40, activity#2 40-60, idle 60-80, activity#1 80-100"},
 		{"overlapping absences count once", []SpanView{idle(1, 0, 100)},
 			Sources{Away: []AwayMark{{2, Interval{20, 60}}, {1, Interval{0, 40}}}},
 			"away 0-40, away 40-60, idle 60-100"},

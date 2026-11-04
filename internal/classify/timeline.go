@@ -139,8 +139,9 @@ func Resolve(views []SpanView, src Sources, from, to int64) []SpanView {
 	}
 
 	// One sweep over the cuts: each piece has at most one view of this
-	// machine. Where views overlap (they should not), activity wins over
-	// idle time, then the view that started first.
+	// machine. Where views overlap (a span left open by a crash), the one
+	// that started last wins: you are where you switched last, and an idle
+	// span starts at the last input.
 	var active []int
 	j := 0
 	for k := 0; k+1 < len(cuts); k++ {
@@ -157,9 +158,7 @@ func Resolve(views []SpanView, src Sources, from, to int64) []SpanView {
 			}
 			active[n] = i
 			n++
-			if v == nil || (v.BundleID == span.IdleBundleID && vs[i].BundleID != span.IdleBundleID) {
-				v = &vs[i]
-			}
+			v = &vs[i] // active is in start order
 		}
 		active = active[:n]
 		piece(v, s, e)
