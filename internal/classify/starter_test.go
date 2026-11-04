@@ -2,6 +2,7 @@ package classify
 
 import (
 	"bufio"
+	"errors"
 	"os"
 	"strings"
 	"testing"
@@ -39,5 +40,29 @@ func TestStarterCorpus(t *testing.T) {
 	}
 	if n < 60 {
 		t.Fatalf("corpus has %d samples, want at least 60", n)
+	}
+}
+
+func TestWriteStarter(t *testing.T) {
+	dir := t.TempDir()
+	path := dir + "/sub/rules.toml"
+	if err := WriteStarter(path); err != nil {
+		t.Fatal(err)
+	}
+	b, err := os.ReadFile(path)
+	if err != nil || string(b) != string(Starter) {
+		t.Fatalf("written = %d bytes, %v", len(b), err)
+	}
+	if fi, _ := os.Stat(path); fi.Mode().Perm() != 0o600 {
+		t.Fatalf("mode = %v", fi.Mode().Perm())
+	}
+	if err := os.WriteFile(path, []byte("mine"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteStarter(path); !errors.Is(err, os.ErrExist) {
+		t.Fatalf("second write = %v, want ErrExist", err)
+	}
+	if b, _ := os.ReadFile(path); string(b) != "mine" {
+		t.Fatalf("overwrote the user's rules: %q", b)
 	}
 }

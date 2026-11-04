@@ -19,21 +19,9 @@ func cmdInit(env Env, args []string) error {
 		return usagef("init takes no arguments")
 	}
 	path := env.rulesPath()
-	if err := os.MkdirAll(env.ConfigDir, 0o700); err != nil {
-		return err
-	}
-	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
-	if errors.Is(err, os.ErrExist) {
+	if err := classify.WriteStarter(path); errors.Is(err, os.ErrExist) {
 		return fmt.Errorf("%s already exists; not overwriting", path)
-	}
-	if err != nil {
-		return err
-	}
-	if _, err := f.Write(classify.Starter); err != nil {
-		f.Close()
-		return err
-	}
-	if err := f.Close(); err != nil {
+	} else if err != nil {
 		return err
 	}
 	fmt.Fprintf(env.Stdout, "wrote %s\n", path)
