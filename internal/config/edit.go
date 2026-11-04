@@ -72,7 +72,7 @@ func SetBool(src []byte, table, key string, v bool) ([]byte, error) {
 
 	var m map[string]any
 	if _, err := toml.Decode(string(b), &m); err != nil {
-		return nil, fmt.Errorf("config: set [%s] %s: %w", table, key, err)
+		return nil, fmt.Errorf("config: set [%s] %s: change it by hand: %w", table, key, err)
 	}
 	if t, ok := m[table].(map[string]any); !ok || t[key] != v {
 		return nil, fmt.Errorf("config: set [%s] %s: the file sets it in a way tock cannot edit; change it by hand", table, key)

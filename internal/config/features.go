@@ -18,7 +18,7 @@ var Features = []Feature{
 		func(c Config) bool { return c.Model.Enabled }},
 	{"claude", "Tracking", "Claude", "suggestions, summaries and tock ask", "llm", "enabled",
 		func(c Config) bool { return c.LLM.Enabled }},
-	{"ocr", "Tracking", "Screen text", "reads the front window to label it; needs Screen Recording", "ocr", "enabled",
+	{"ocr", "Tracking", "Screen text", "reads the front window; needs Screen Recording", "ocr", "enabled",
 		func(c Config) bool { return c.OCR.Enabled }},
 	{"calendar", "Tracking", "Calendar meetings", "events from macOS Calendar explain idle time", "calendar", "enabled",
 		func(c Config) bool { return c.Calendar.Enabled }},

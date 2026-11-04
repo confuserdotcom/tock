@@ -1,0 +1,26 @@
+tock · choices   space turn on/off · enter save · q quit
+
+Tracking
+› ● Local model labels           labels activity on this machine
+  ● Claude                       suggestions, summaries and tock ask
+  ○ Screen text                  reads the front window; needs Screen Recording
+  ○ Calendar meetings            events from macOS Calendar explain idle time
+
+Focus
+  ● Notifications                every notice tock sends
+  ● Suggestions                  when to start focus or take a break
+  ○ Break screen                 covers the screens when a break runs over
+  ○ Block distractions           closes distracting tabs and apps in a session
+  ○ Urge surfing                 the distraction notice asks what you feel
+
+Day
+  ● Start of day                 a notice when your day starts
+  ● Evening recap                the day in one notice
+  ● Overworking                  a notice when work runs past [hours] end
+  ● Plan reminders               up next and starting now, for timed plan items
+
+Other
+  ○ Slack status                 status and do-not-disturb during sessions
+
+  ↗ Open dashboard               in your browser, on this machine only
+
