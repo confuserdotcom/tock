@@ -38,6 +38,7 @@ type Config struct {
 	Routine   Routine
 	Recommend Recommend
 	Model     Model
+	OCR       OCR
 }
 
 // Model is the [model] section: the local classifier that labels what the
@@ -222,7 +223,7 @@ func DefaultLLM() LLM {
 // Default is the configuration used when there is no file.
 func Default() Config {
 	return Config{Score: stats.DefaultWeights, Focus: DefaultFocus(), LLM: DefaultLLM(), Shell: DefaultShell(), Away: DefaultAway(), AFK: DefaultAFK(), Slack: DefaultSlack(), Routine: DefaultRoutine(),
-		Recommend: DefaultRecommend(), Plan: DefaultPlan(), Model: Model{Enabled: true}}
+		Recommend: DefaultRecommend(), Plan: DefaultPlan(), Model: Model{Enabled: true}, OCR: DefaultOCR()}
 }
 
 type scoreTOML struct {
@@ -326,6 +327,7 @@ type fileTOML struct {
 	Routine   routineTOML   `toml:"routine"`
 	Recommend recommendTOML `toml:"recommend"`
 	Model     modelTOML     `toml:"model"`
+	OCR       ocrTOML       `toml:"ocr"`
 }
 
 // Load reads path. A missing file is Default() and no error. Any other
@@ -415,6 +417,9 @@ func Load(path string) (Config, error) {
 		return Default(), fmt.Errorf("%s: %w", name, err)
 	}
 	if err := decodeRecommend(f.Recommend, &c.Recommend); err != nil {
+		return Default(), fmt.Errorf("%s: %w", name, err)
+	}
+	if err := decodeOCR(f.OCR, &c.OCR); err != nil {
 		return Default(), fmt.Errorf("%s: %w", name, err)
 	}
 	if c.Hours.Set && f.Focus.Recap == nil {
