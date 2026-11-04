@@ -77,7 +77,8 @@ func ocrReason(code int) string {
 }
 
 // OCRTimeout is the hard limit of one read: the worker is killed after it.
-const OCRTimeout = 3 * time.Second
+// A cold accurate read of a large window takes up to about 2 s.
+const OCRTimeout = 5 * time.Second
 
 // ocrMaxOutput bounds what a worker may print.
 const ocrMaxOutput = 64 << 10

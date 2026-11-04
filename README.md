@@ -1161,7 +1161,7 @@ or any moment a password field holds the keyboard (secure input). Each
 skip is counted in `tock doctor`.
 
 **What is kept.** The screenshot exists only in a short-lived worker
-(`trackd ocr-worker`) that trackd starts for one read and kills after 3
+(`trackd ocr-worker`) that trackd starts for one read and kills after 5
 seconds: nothing is written to disk, and trackd itself never holds the
 image or Vision's memory. Of the text, only plain words are kept: 3 to 24
 letters, no stop words, nothing with a digit, no emails, links, tokens or
@@ -1195,8 +1195,10 @@ $ tock doctor
 ok  ocr: on · permission granted · today 37 reads, avg 138 ms · skipped: away 12, private window 4
 ```
 
-One read costs about 0.2 s of CPU in the worker and nothing in trackd's
-memory; reading once a minute is well under 1 % CPU, and nothing runs while
+One read costs about 1 s of CPU in the worker (Vision's accurate mode,
+which reads more than twice as many real words as its fast mode) and
+nothing in trackd's memory. At most one read a minute while an unclear
+window stays in front; raise `interval` to read less. Nothing runs while
 `enabled = false`.
 
 ## Menu bar and notifications

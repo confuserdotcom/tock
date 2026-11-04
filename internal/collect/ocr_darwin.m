@@ -22,12 +22,15 @@ int tock_secure_input(void) { return IsSecureEventInputEnabled() ? 1 : 0; }
 int tock_screen_preflight(void) { return CGPreflightScreenCaptureAccess() ? 1 : 0; }
 int tock_screen_request(void) { return CGRequestScreenCaptureAccess() ? 1 : 0; }
 
-// recognise runs Vision (fast, en + fr, no language correction) on img and
-// returns the lines, one per observation.
+// recognise runs Vision (accurate, en + fr, language correction) on img and
+// returns the lines, one per observation. Fast mode was measured on a real
+// browser window: a fifth of its words were real words (l for i, stray
+// accents), against over half in accurate mode, for about 0.8 s instead of
+// 0.1 s, spent in the worker, not in trackd.
 static int recognise(CGImageRef img, char **out) {
 	VNRecognizeTextRequest *r = [[VNRecognizeTextRequest alloc] init];
-	r.recognitionLevel = VNRequestTextRecognitionLevelFast;
-	r.usesLanguageCorrection = NO;
+	r.recognitionLevel = VNRequestTextRecognitionLevelAccurate;
+	r.usesLanguageCorrection = YES;
 	r.recognitionLanguages = @[ @"en-US", @"fr-FR" ];
 	VNImageRequestHandler *h = [[VNImageRequestHandler alloc] initWithCGImage:img options:@{}];
 	NSError *err = nil;
