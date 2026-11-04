@@ -173,7 +173,7 @@ func TestPastDaysFromDisk(t *testing.T) {
 	}
 	db := e.RawDB(t)
 	var n int
-	if err := db.QueryRow(`SELECT count(*) FROM day_cache`).Scan(&n); err != nil || n == 0 {
+	if err := db.QueryRow(`SELECT count(*) FROM derived`).Scan(&n); err != nil || n == 0 {
 		t.Fatalf("no day went to disk: %d %v", n, err)
 	}
 	if _, err := db.Exec(`DELETE FROM span WHERE id = 102`); err != nil {
@@ -210,7 +210,7 @@ func TestOpenDayNotStored(t *testing.T) {
 		t.Fatal(err)
 	}
 	var n int
-	if err := e.RawDB(t).QueryRow(`SELECT count(*) FROM day_cache WHERE day = ?`,
+	if err := e.RawDB(t).QueryRow(`SELECT count(*) FROM derived WHERE name = ?`,
 		dateKey(a.midnight(a.now()).AddDate(0, 0, -1))).Scan(&n); err != nil || n != 0 {
 		t.Fatalf("a day with an open span went to disk: %d %v", n, err)
 	}

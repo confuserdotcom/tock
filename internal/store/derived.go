@@ -5,56 +5,57 @@ import (
 	"strings"
 )
 
-// CachedDay is one closed day's derived result and the key of the inputs
-// it was computed from.
-type CachedDay struct {
+// Derived is one derived result and the key of the inputs it was
+// computed from.
+type Derived struct {
 	Key  string
 	Data []byte
 }
 
-// DayCache returns the cached rows of days, by date; days with no row are
+// DerivedRows returns the rows of names; names with no row are
 // absent.
-func (s *Store) DayCache(days []string) (map[string]CachedDay, error) {
-	out := map[string]CachedDay{}
-	if len(days) == 0 {
+func (s *Store) DerivedRows(names []string) (map[string]Derived, error) {
+	out := map[string]Derived{}
+	if len(names) == 0 {
 		return out, nil
 	}
-	args := make([]any, len(days))
-	for i, d := range days {
+	args := make([]any, len(names))
+	for i, d := range names {
 		args[i] = d
 	}
-	rows, err := s.db.Query(`SELECT day, key, data FROM day_cache WHERE day IN (?`+strings.Repeat(",?", len(days)-1)+`)`, args...)
+	rows, err := s.db.Query(`SELECT name, key, data FROM derived WHERE name IN (?`+strings.Repeat(",?", len(names)-1)+`)`, args...)
 	if err != nil {
-		return nil, fmt.Errorf("store: day cache: %w", err)
+		return nil, fmt.Errorf("store: derived: %w", err)
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var day string
-		var c CachedDay
-		if err := rows.Scan(&day, &c.Key, &c.Data); err != nil {
-			return nil, fmt.Errorf("store: day cache: %w", err)
+		var name string
+		var c Derived
+		if err := rows.Scan(&name, &c.Key, &c.Data); err != nil {
+			return nil, fmt.Errorf("store: derived: %w", err)
 		}
-		out[day] = c
+		out[name] = c
 	}
 	return out, rows.Err()
 }
 
-// PutDayCache stores days, replacing their rows, in one transaction.
-func (s *Store) PutDayCache(days map[string]CachedDay, nowMS int64) error {
+// PutDerived stores rows by name, replacing the old ones, in one
+// transaction.
+func (s *Store) PutDerived(rows map[string]Derived, nowMS int64) error {
 	tx, err := s.db.Begin()
 	if err != nil {
-		return fmt.Errorf("store: put day cache: %w", err)
+		return fmt.Errorf("store: put derived: %w", err)
 	}
-	for day, c := range days {
-		if _, err := tx.Exec(`INSERT INTO day_cache(day, key, data, at_ms) VALUES(?, ?, ?, ?)
-			ON CONFLICT(day) DO UPDATE SET key = excluded.key, data = excluded.data, at_ms = excluded.at_ms`,
-			day, c.Key, c.Data, nowMS); err != nil {
+	for name, c := range rows {
+		if _, err := tx.Exec(`INSERT INTO derived(name, key, data, at_ms) VALUES(?, ?, ?, ?)
+			ON CONFLICT(name) DO UPDATE SET key = excluded.key, data = excluded.data, at_ms = excluded.at_ms`,
+			name, c.Key, c.Data, nowMS); err != nil {
 			_ = tx.Rollback()
-			return fmt.Errorf("store: put day cache %s: %w", day, err)
+			return fmt.Errorf("store: put derived %s: %w", name, err)
 		}
 	}
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("store: put day cache: %w", err)
+		return fmt.Errorf("store: put derived: %w", err)
 	}
 	return nil
 }

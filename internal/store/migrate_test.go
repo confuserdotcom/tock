@@ -242,7 +242,7 @@ func TestMigrate14LegacySessions(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, e := range entries {
-		if e.Name() == "0014_session_quality.sql" || e.Name() == "0015_session_urges.sql" || e.Name() == "0016_slot.sql" || e.Name() == "0017_event_mine.sql" || e.Name() == "0018_recommend.sql" || e.Name() == "0019_ocr.sql" || e.Name() == "0020_auto_label.sql" || e.Name() == "0021_day_cache.sql" {
+		if e.Name() == "0014_session_quality.sql" || e.Name() == "0015_session_urges.sql" || e.Name() == "0016_slot.sql" || e.Name() == "0017_event_mine.sql" || e.Name() == "0018_recommend.sql" || e.Name() == "0019_ocr.sql" || e.Name() == "0020_auto_label.sql" || e.Name() == "0021_derived.sql" {
 			continue
 		}
 		b, err := fs.ReadFile(migrationFS, "migrations/"+e.Name())
@@ -288,7 +288,7 @@ func TestMigrate15Urges(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, e := range entries {
-		if e.Name() == "0015_session_urges.sql" || e.Name() == "0016_slot.sql" || e.Name() == "0017_event_mine.sql" || e.Name() == "0018_recommend.sql" || e.Name() == "0019_ocr.sql" || e.Name() == "0020_auto_label.sql" || e.Name() == "0021_day_cache.sql" {
+		if e.Name() == "0015_session_urges.sql" || e.Name() == "0016_slot.sql" || e.Name() == "0017_event_mine.sql" || e.Name() == "0018_recommend.sql" || e.Name() == "0019_ocr.sql" || e.Name() == "0020_auto_label.sql" || e.Name() == "0021_derived.sql" {
 			continue
 		}
 		b, err := fs.ReadFile(migrationFS, "migrations/"+e.Name())
@@ -340,7 +340,7 @@ func TestMigrate16Slot(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, e := range entries {
-		if e.Name() == "0016_slot.sql" || e.Name() == "0017_event_mine.sql" || e.Name() == "0018_recommend.sql" || e.Name() == "0019_ocr.sql" || e.Name() == "0020_auto_label.sql" || e.Name() == "0021_day_cache.sql" {
+		if e.Name() == "0016_slot.sql" || e.Name() == "0017_event_mine.sql" || e.Name() == "0018_recommend.sql" || e.Name() == "0019_ocr.sql" || e.Name() == "0020_auto_label.sql" || e.Name() == "0021_derived.sql" {
 			continue
 		}
 		b, err := fs.ReadFile(migrationFS, "migrations/"+e.Name())
@@ -383,7 +383,7 @@ func TestMigrate17EventMine(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, e := range entries {
-		if e.Name() == "0017_event_mine.sql" || e.Name() == "0018_recommend.sql" || e.Name() == "0019_ocr.sql" || e.Name() == "0020_auto_label.sql" || e.Name() == "0021_day_cache.sql" {
+		if e.Name() == "0017_event_mine.sql" || e.Name() == "0018_recommend.sql" || e.Name() == "0019_ocr.sql" || e.Name() == "0020_auto_label.sql" || e.Name() == "0021_derived.sql" {
 			continue
 		}
 		b, err := fs.ReadFile(migrationFS, "migrations/"+e.Name())
@@ -420,7 +420,7 @@ func TestMigrate18Recommend(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, e := range entries {
-		if e.Name() == "0018_recommend.sql" || e.Name() == "0019_ocr.sql" || e.Name() == "0020_auto_label.sql" || e.Name() == "0021_day_cache.sql" {
+		if e.Name() == "0018_recommend.sql" || e.Name() == "0019_ocr.sql" || e.Name() == "0020_auto_label.sql" || e.Name() == "0021_derived.sql" {
 			continue
 		}
 		b, err := fs.ReadFile(migrationFS, "migrations/"+e.Name())
@@ -464,7 +464,7 @@ func TestMigrate19OCR(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, e := range entries {
-		if e.Name() == "0019_ocr.sql" || e.Name() == "0020_auto_label.sql" || e.Name() == "0021_day_cache.sql" {
+		if e.Name() == "0019_ocr.sql" || e.Name() == "0020_auto_label.sql" || e.Name() == "0021_derived.sql" {
 			continue
 		}
 		b, err := fs.ReadFile(migrationFS, "migrations/"+e.Name())

@@ -5,19 +5,19 @@ import (
 	"testing"
 )
 
-func TestDayCache(t *testing.T) {
+func TestDerivedRows(t *testing.T) {
 	s := openAt(t, dbPath(t))
-	if got, err := s.DayCache([]string{"2026-11-01"}); err != nil || len(got) != 0 {
+	if got, err := s.DerivedRows([]string{"2026-11-01"}); err != nil || len(got) != 0 {
 		t.Fatalf("empty cache = %v, %v", got, err)
 	}
-	if err := s.PutDayCache(map[string]CachedDay{"2026-11-01": {"k1", []byte("a")}, "2026-11-02": {"k2", []byte("b")}}, 5); err != nil {
+	if err := s.PutDerived(map[string]Derived{"2026-11-01": {"k1", []byte("a")}, "2026-11-02": {"k2", []byte("b")}}, 5); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.PutDayCache(map[string]CachedDay{"2026-11-01": {"k3", []byte("c")}}, 6); err != nil {
+	if err := s.PutDerived(map[string]Derived{"2026-11-01": {"k3", []byte("c")}}, 6); err != nil {
 		t.Fatal(err)
 	}
-	got, err := s.DayCache([]string{"2026-11-01", "2026-11-02", "2026-11-03"})
-	want := map[string]CachedDay{"2026-11-01": {"k3", []byte("c")}, "2026-11-02": {"k2", []byte("b")}}
+	got, err := s.DerivedRows([]string{"2026-11-01", "2026-11-02", "2026-11-03"})
+	want := map[string]Derived{"2026-11-01": {"k3", []byte("c")}, "2026-11-02": {"k2", []byte("b")}}
 	if err != nil || !reflect.DeepEqual(got, want) {
 		t.Fatalf("cache = %v, %v", got, err)
 	}

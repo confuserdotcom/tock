@@ -19,7 +19,7 @@ import (
 // changes in a way the build revision does not show.
 const pastFormat = 1
 
-// diskDay is a past day as the day_cache table keeps it.
+// diskDay is a past day as the derived table keeps it.
 type diskDay struct {
 	FromMS, ToMS int64
 	Day          pastDay
@@ -39,25 +39,10 @@ func (a *App) dayKeys(days []time.Time) map[string]string {
 	if len(days) == 0 {
 		return nil
 	}
-	g := fnv.New64a()
-	fmt.Fprintf(g, "%d\x00%s\x00%s\x00%d\x00", pastFormat, buildID(), a.goos, a.inputSince)
-	for _, p := range []string{a.paths.Rules, a.paths.Learned, a.paths.Config} {
-		b, err := os.ReadFile(p)
-		if err != nil && !os.IsNotExist(err) {
-			return nil
-		}
-		g.Write(b)
-		g.Write([]byte{0})
+	global, ok := a.inputsHash()
+	if !ok {
+		return nil
 	}
-	// Shell dirs of past views come from the log's old lines: a log cut at
-	// its head changes them.
-	if a.paths.ShellLog != "" {
-		if f, err := os.Open(a.paths.ShellLog); err == nil {
-			_, _ = io.CopyN(g, f, 4096)
-			f.Close()
-		}
-	}
-	global := g.Sum64()
 
 	lo, hi := days[0].UnixMilli()-classify.MaxAFKMS, days[len(days)-1].AddDate(0, 0, 1).UnixMilli()
 	now := a.nowMS()
@@ -153,6 +138,31 @@ func remoteKey(h hash.Hash64, rv []store.RemoteView, machines map[string]string,
 	}
 }
 
+// inputsHash is a hash of what every derived result depends on besides the
+// database: the code, the rules, the learned rules, the config and the
+// shell log's head. false when a file cannot be read.
+func (a *App) inputsHash() (uint64, bool) {
+	g := fnv.New64a()
+	fmt.Fprintf(g, "%d\x00%s\x00%s\x00%d\x00", pastFormat, buildID(), a.goos, a.inputSince)
+	for _, p := range []string{a.paths.Rules, a.paths.Learned, a.paths.Config} {
+		b, err := os.ReadFile(p)
+		if err != nil && !os.IsNotExist(err) {
+			return 0, false
+		}
+		g.Write(b)
+		g.Write([]byte{0})
+	}
+	// Shell dirs of past views come from the log's old lines: a log cut at
+	// its head changes them.
+	if a.paths.ShellLog != "" {
+		if f, err := os.Open(a.paths.ShellLog); err == nil {
+			_, _ = io.CopyN(g, f, 4096)
+			f.Close()
+		}
+	}
+	return g.Sum64(), true
+}
+
 // buildID names the code that computed a cached day: the VCS revision, and
 // for a build with local changes the binary's time too.
 func buildID() string {
@@ -186,7 +196,7 @@ func (a *App) loadPast(keys map[string]string) map[string]pastDay {
 	for d := range keys {
 		dates = append(dates, d)
 	}
-	rows, err := a.st.DayCache(dates)
+	rows, err := a.st.DerivedRows(dates)
 	if err != nil {
 		return out
 	}
@@ -206,7 +216,7 @@ func (a *App) loadPast(keys map[string]string) map[string]pastDay {
 // savePast writes closed days to disk under their keys. A cache: a failed
 // write only costs the next run the time to compute them again.
 func (a *App) savePast(days map[string]pastDay, keys map[string]string) {
-	rows := make(map[string]store.CachedDay, len(days))
+	rows := make(map[string]store.Derived, len(days))
 	loc := a.now().Location()
 	for date, p := range days {
 		day, err := time.ParseInLocation("2006-01-02", date, loc)
@@ -215,10 +225,10 @@ func (a *App) savePast(days map[string]pastDay, keys map[string]string) {
 		}
 		b, err := json.Marshal(diskDay{FromMS: day.UnixMilli(), ToMS: day.AddDate(0, 0, 1).UnixMilli(), Day: p})
 		if err == nil {
-			rows[date] = store.CachedDay{Key: keys[date], Data: b}
+			rows[date] = store.Derived{Key: keys[date], Data: b}
 		}
 	}
 	if len(rows) > 0 {
-		_ = a.st.PutDayCache(rows, a.nowMS())
+		_ = a.st.PutDerived(rows, a.nowMS())
 	}
 }
