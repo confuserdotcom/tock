@@ -54,17 +54,34 @@ int tock_ocr_run(const char *bundle, char **out) {
 		if (app == nil || bundle == NULL || ![app.bundleIdentifier isEqualToString:@(bundle)]) return CHANGED;
 
 		// The front window of the app: the window list runs front to back.
-		CGWindowID wid = 0;
+		// Browsers keep untitled helper windows on layer 0 in front of the
+		// real one (Arc: a score of 600x600), so the first titled window of
+		// a real size wins, else the largest.
+		CGWindowID wid = 0, largest = 0;
+		double largestArea = 0;
 		CFArrayRef arr = CGWindowListCopyWindowInfo(kCGWindowListOptionOnScreenOnly | kCGWindowListExcludeDesktopElements, kCGNullWindowID);
 		if (arr) {
 			for (NSDictionary *d in (__bridge NSArray *)arr) {
-				if ([d[(id)kCGWindowOwnerPID] intValue] == app.processIdentifier && [d[(id)kCGWindowLayer] intValue] == 0) {
-					wid = [d[(id)kCGWindowNumber] unsignedIntValue];
+				if ([d[(id)kCGWindowOwnerPID] intValue] != app.processIdentifier || [d[(id)kCGWindowLayer] intValue] != 0 ||
+				    [d[(id)kCGWindowAlpha] doubleValue] <= 0) {
+					continue;
+				}
+				CGRect r;
+				if (!CGRectMakeWithDictionaryRepresentation((__bridge CFDictionaryRef)d[(id)kCGWindowBounds], &r)) continue;
+				CGWindowID n = [d[(id)kCGWindowNumber] unsignedIntValue];
+				NSString *name = d[(id)kCGWindowName];
+				if (name.length > 0 && r.size.width >= 300 && r.size.height >= 200) {
+					wid = n;
 					break;
+				}
+				if (r.size.width * r.size.height > largestArea) {
+					largestArea = r.size.width * r.size.height;
+					largest = n;
 				}
 			}
 			CFRelease(arr);
 		}
+		if (wid == 0) wid = largest;
 		if (wid == 0) return NOWINDOW;
 
 		__block SCShareableContent *content = nil;
