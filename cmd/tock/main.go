@@ -30,7 +30,7 @@ const usage = `usage:
   tock status                            one line for a status bar
   tock init                              write starter ~/.config/tock/rules.toml
   tock today [--date YYYY-MM-DD] [--keys]
-  tock inbox [--days N] [--all]          unlabelled activity, numbered
+  tock inbox [--days N] [--all | --auto]  unlabelled activity, numbered; --auto: what tock labelled itself
   tock tag [--once] <n> [<Category>[/<Project>]]   (no label: accept the → suggestion)
   tock tag --span <id> <Category>[/<Project>]
   tock ignore <n> | tock ignore --undo <key>

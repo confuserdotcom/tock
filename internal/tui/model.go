@@ -168,6 +168,9 @@ func (m *Model) load() tea.Cmd {
 				return
 			}
 			msg.focus = &f
+			if msg.err = a.AutoAcceptEvery(InboxDays); msg.err != nil {
+				return
+			}
 			if msg.items, msg.err = a.Inbox(InboxDays); msg.err != nil {
 				return
 			}

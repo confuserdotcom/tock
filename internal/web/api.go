@@ -360,6 +360,9 @@ func (s *Server) inbox(r *http.Request) (any, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := s.a.AutoAcceptEvery(days); err != nil {
+		return nil, err
+	}
 	items, err := s.a.Inbox(days)
 	if err != nil {
 		return nil, err

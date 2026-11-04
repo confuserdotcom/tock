@@ -2,9 +2,12 @@ package main
 
 import (
 	"fmt"
+	"time"
 
+	"tock/internal/app"
 	"tock/internal/classify"
 	"tock/internal/report"
+	"tock/internal/store"
 )
 
 const inboxTop = 20
@@ -13,17 +16,28 @@ func cmdInbox(env Env, args []string) error {
 	fs := newFlags("inbox")
 	days := fs.Int("days", 7, "how many days back to look")
 	all := fs.Bool("all", false, "show every key, not only the top 20 above [inbox] min_minutes")
+	auto := fs.Bool("auto", false, "list the keys tock labelled on its own")
 	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
 	if fs.NArg() > 0 || *days < 1 {
-		return usagef("inbox: usage: tock inbox [--days N] [--all]")
+		return usagef("inbox: usage: tock inbox [--days N] [--all | --auto]")
 	}
 	a, err := openApp(env)
 	if err != nil {
 		return err
 	}
 	defer a.Close()
+	if *auto {
+		return listAuto(env, a, *days)
+	}
+	if _, err := a.AutoAccept(*days); err != nil {
+		return err
+	}
+	today, err := a.AutoLabels(midnightMS(env.Now()))
+	if err != nil {
+		return err
+	}
 	items, err := a.Inbox(*days)
 	if err != nil {
 		return err
@@ -38,6 +52,7 @@ func cmdInbox(env Env, args []string) error {
 	}
 	if len(items) == 0 {
 		fmt.Fprintf(env.Stdout, "Inbox empty: everything in the last %d days is labelled.\n", *days)
+		autoLine(env, today)
 		return saveListing(env, nil)
 	}
 	var small []classify.Item
@@ -82,7 +97,40 @@ func cmdInbox(env Env, args []string) error {
 		fmt.Fprintf(env.Stdout, "+ %s under %s (%s) · tock inbox --all\n",
 			plural(len(small), "small key"), report.Dur(a.Config().Inbox.MinMS), report.Dur(ms))
 	}
+	autoLine(env, today)
 	fmt.Fprintln(env.Stdout, "tag: tock tag <n> <Category>[/<Project>]   accept →: tock tag <n>   hide: tock ignore <n>")
+	return saveListing(env, keys)
+}
+
+// autoLine says how many keys tock labelled on its own today.
+func autoLine(env Env, today []store.AutoLabel) {
+	if len(today) == 0 {
+		return
+	}
+	var ms int64
+	for _, x := range today {
+		ms += x.MS
+	}
+	fmt.Fprintf(env.Stdout, "auto-labelled %s (%s) today · tock inbox --auto\n", plural(len(today), "key"), report.Dur(ms))
+}
+
+// listAuto is tock inbox --auto: the keys auto-labelled in the last days
+// days, numbered so tock tag can relabel them.
+func listAuto(env Env, a *app.App, days int) error {
+	xs, err := a.AutoLabels(env.Now().AddDate(0, 0, -days).UnixMilli())
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(env.Stdout, "Auto-labelled  last %d days · %s\n", days, plural(len(xs), "key"))
+	keys := make([]string, len(xs))
+	for i, x := range xs {
+		keys[i] = x.Key
+		fmt.Fprintf(env.Stdout, "%3d  %5s  %s  → %s (%s, %d%%)\n", i+1, report.Dur(x.MS), report.Safe(x.Key),
+			tagText(classify.Want{Category: x.Category, Project: x.Project}), x.Reason, int(x.Share*100+0.5))
+	}
+	if len(xs) > 0 {
+		fmt.Fprintln(env.Stdout, "wrong? tock tag <n> <Category>[/<Project>] relabels it and replaces the rule")
+	}
 	return saveListing(env, keys)
 }
 
@@ -125,4 +173,9 @@ func tagText(w classify.Want) string {
 		return w.Category
 	}
 	return w.Category + "/" + w.Project
+}
+
+// midnightMS is the start of t's local day.
+func midnightMS(t time.Time) int64 {
+	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location()).UnixMilli()
 }

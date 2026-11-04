@@ -102,6 +102,11 @@ forgets the grants on every rebuild.
    similar titles, or between two spans with one label), the inbox shows a
    guess such as `→ Code (same app, 82%)`. `tock tag 1` with no label
    accepts it. Guesses are computed on your machine; nothing is sent.
+   A same-site or same-app guess of 85 % or more (`[inbox] auto_accept`) is
+   applied for you: tock learns its rule as `tock tag` would, and the inbox
+   says `auto-labelled 3 keys (12m) today`. `tock inbox --auto` lists them;
+   `tock tag <n> <label>` on that list corrects one, and tock never
+   auto-labels that key again. `tock undo` also reverts each rule.
    Tagged it wrong? Tag it again (or `t` on the row in today): the new rule
    replaces the mistaken learned one, so every span it labelled changes.
 3. Edit `~/.config/tock/rules.toml` for anything broader, then run
@@ -186,7 +191,7 @@ tock                                   open the TUI (today, week, inbox, focus, 
 tock status                            one line for a status bar
 tock init                              write starter ~/.config/tock/rules.toml
 tock today [--date YYYY-MM-DD] [--keys]
-tock inbox [--days N] [--all]          unlabelled activity, numbered
+tock inbox [--days N] [--all | --auto]  unlabelled activity, numbered; --auto: what tock labelled itself
 tock tag [--once] <n> [<Category>[/<Project>]]   no label: accept the → suggestion
 tock tag --span <id> <Category>[/<Project>]
 tock ignore <n> | tock ignore --undo <key>
@@ -284,6 +289,7 @@ over_repeat = 60         # minutes between overworking notices while you keep go
 
 [inbox]
 min_minutes = 2          # a key needs this much time in the window for its own inbox row; 0 lists all (0 to 60)
+auto_accept = 85         # % a same-site or same-app guess needs to be applied without asking; 0 = off (60 to 100)
 
 [routine]                # notices that mark the day; see Routines
 start = true             # start of day notice on the first activity of a work day

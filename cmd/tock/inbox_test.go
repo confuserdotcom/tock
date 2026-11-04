@@ -78,7 +78,7 @@ func TestListingExpiresAndBadNumbers(t *testing.T) {
 // tock tag <n> without a label accepts it.
 func TestInboxGuessAccepted(t *testing.T) {
 	te := newTestEnv(t, testRules)
-	os.WriteFile(filepath.Join(te.ConfigDir, "config.toml"), []byte("[model]\nenabled = false\n"), 0o600) // the model would label it outright
+	os.WriteFile(filepath.Join(te.ConfigDir, "config.toml"), []byte("[model]\nenabled = false\n[inbox]\nauto_accept = 0\n"), 0o600) // the model or auto-accept would label it outright
 	te.seed(t, append(daySpans(), seedSpan{9, "13:00", "13:20", "arc", "Arc", "Settings", "chatgpt.com/settings", false})...)
 	if code, _ := te.run(t, "", "tag", "--span", "9", "Study"); code != 0 {
 		t.Fatalf("tag --span: %s", te.errb)
@@ -154,5 +154,41 @@ func TestInboxNoiseFloor(t *testing.T) {
 	}
 	if _, out := te.run(t, "", "inbox", "--all"); !strings.Contains(out, "3 keys · 12m") || !strings.Contains(out, "steelcase.com") {
 		t.Fatalf("--all:\n%s", out)
+	}
+}
+
+// TestInboxAutoAccept: a key whose same-site guess is confident is labelled
+// by a learned rule before the list prints; --auto lists it for review.
+func TestInboxAutoAccept(t *testing.T) {
+	te := newTestEnv(t, testRules)
+	te.seed(t,
+		seedSpan{1, "09:00", "09:20", "safari", "Safari", "", "chess.com/play", false},
+		seedSpan{2, "09:20", "09:25", "arc", "Arc", "", "chess.com/analysis", false},
+		seedSpan{3, "09:25", "09:40", "arc", "Arc", "Noctie", "app.noctie.ai/x", false},
+	)
+	if code, _ := te.run(t, "", "tag", "--span", "1", "Entertainment"); code != 0 {
+		t.Fatalf("tag: %s", te.errb.String())
+	}
+	_, out := te.run(t, "", "inbox")
+	if strings.Contains(out, "chess.com") || !strings.Contains(out, "auto-labelled 1 key (5m) today · tock inbox --auto") {
+		t.Fatalf("inbox:\n%s", out)
+	}
+	b, err := os.ReadFile(te.learnedPath())
+	if err != nil || !strings.Contains(string(b), `chess\\.com`) || !strings.Contains(string(b), `category = "Entertainment"`) {
+		t.Fatalf("learned.toml: %s %v", b, err)
+	}
+	_, out = te.run(t, "", "inbox", "--auto")
+	want := "Auto-labelled  last 7 days · 1 key\n" +
+		"  1     5m  Arc · chess.com  → Entertainment (same site, 100%)\n" +
+		"wrong? tock tag <n> <Category>[/<Project>] relabels it and replaces the rule\n"
+	if out != want {
+		t.Fatalf("--auto:\n%s\nwant:\n%s", out, want)
+	}
+	// Re-tagging an auto-labelled key works from that listing and sticks.
+	if code, out := te.run(t, "y\n", "tag", "1", "Study"); code != 0 || !strings.Contains(out, "learned: Study") {
+		t.Fatalf("retag: %q %s", out, te.errb.String())
+	}
+	if _, out := te.run(t, "", "inbox"); strings.Contains(out, "chess.com") || strings.Contains(out, "auto-labelled 2") {
+		t.Fatalf("after retag:\n%s", out)
 	}
 }
