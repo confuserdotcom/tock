@@ -344,6 +344,13 @@ func Load(path string) (Config, error) {
 	if err != nil {
 		return Default(), fmt.Errorf("%s: %w", name, err)
 	}
+	return Parse(name, b)
+}
+
+// Parse reads the settings in b; name labels the errors. An empty b is
+// the defaults.
+func Parse(name string, b []byte) (Config, error) {
+	c := Default()
 	var f fileTOML
 	md, err := toml.Decode(string(b), &f)
 	if err != nil {
