@@ -64,6 +64,9 @@ func newSource() (collect.Source, error) {
 }
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "ocr-worker" {
+		os.Exit(runOCRWorker(os.Args[2:], os.Stdout))
+	}
 	if len(os.Args) > 1 {
 		var run func() error
 		switch os.Args[1] {
@@ -107,12 +110,15 @@ func main() {
 		Camera:    collect.CameraInUse,
 		Mic:       collect.MicInUse,
 		Calendar:  collect.EventKit{},
+		OCR:       newOCRCapturer(),
+		// SecureInput is a cheap Carbon call, made only before a read.
+		SecureInput: collect.SecureInput,
 		// A terminal-launched trackd would attribute the prompt to the
 		// terminal (see newSource).
 		CalendarPrompt: os.Getppid() == 1,
 	}
 	if runtime.GOOS == "linux" {
-		o.Notifier, o.Camera, o.Mic, o.Calendar = notifySendNotifier{}, nil, nil, nil
+		o.Notifier, o.Camera, o.Mic, o.Calendar, o.OCR = notifySendNotifier{}, nil, nil, nil, nil
 		// Self-update replaces the files next to this one, as the unit runs it.
 		if exe, err := os.Executable(); err == nil {
 			if exe, err = filepath.EvalSymlinks(exe); err == nil {

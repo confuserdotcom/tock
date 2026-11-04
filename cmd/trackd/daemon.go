@@ -73,6 +73,11 @@ type daemonOpts struct {
 	Exe string
 	// UpdateEvery is the update loop period (default 1 min).
 	UpdateEvery time.Duration
+	// OCR reads the front window's text; nil = screen reading is
+	// unavailable (Linux, tests). SecureInput reports a password field
+	// holding the keyboard; nil = never.
+	OCR         collect.Capturer
+	SecureInput func() bool
 }
 
 func wallNowMS() int64 { return time.Now().Round(0).UnixMilli() }
@@ -182,6 +187,14 @@ func runWithStore(o daemonOpts, log *slog.Logger, st *store.Store) int {
 			drops.report(src.Dropped(), nowMS)
 		},
 	}
+	if o.ConfigDir != "" {
+		p.ocr = newOCRCoord(&ocrCoord{
+			cap: o.OCR, secure: o.SecureInput, st: st, log: log, now: o.Now,
+			idleMS: span.DefaultConfig().IdleThreshold.Milliseconds(),
+			load:   ocrLoader(o.ConfigDir),
+		})
+		defer p.ocr.close()
+	}
 	pipeErr := make(chan error, 1)
 	go func() {
 		err := p.run()
@@ -284,6 +297,7 @@ type pipe struct {
 	now    func() int64
 	watch  *stateWatcher // may be nil
 	onTick func(nowMS int64)
+	ocr    *ocrCoord // may be nil
 }
 
 func (p pipe) run() error {
@@ -298,8 +312,12 @@ func (p pipe) run() error {
 					return err
 				}
 			}
-			if err := p.st.Apply(p.m.Feed(x)); err != nil {
+			ops := p.m.Feed(x)
+			if err := p.st.Apply(ops); err != nil {
 				return err
+			}
+			if p.ocr != nil {
+				p.ocr.observe(ops, x.Sample)
 			}
 		case <-p.tick:
 			now := p.now()

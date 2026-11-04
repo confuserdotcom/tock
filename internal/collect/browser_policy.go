@@ -300,3 +300,7 @@ func applyBrowser(s *span.Sample, run scriptRunner, p *browserPolicy, nowMS int6
 		s.Title = nil
 	}
 }
+
+// IsBrowser reports whether bundleID is a browser whose private windows
+// tock detects (Chrome, Arc, Brave, Safari, Firefox).
+func IsBrowser(bundleID string) bool { return browserForBundle(bundleID) != browserNone }
