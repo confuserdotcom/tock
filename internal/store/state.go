@@ -20,6 +20,15 @@ const (
 	KeyCalendarStatus = "calendar_status"
 	// KeyCalendarSync is the unix ms of the last successful calendar sync.
 	KeyCalendarSync = "calendar_sync"
+	// KeyOCRRequest is a screen read tock asks trackd for: "test
+	// <not-before ms> <nonce>" or "grant <nonce>"; "" once taken.
+	KeyOCRRequest = "ocr.req"
+	// KeyOCRResult is trackd's answer: "<nonce> <app>\t<reason>\t<cost
+	// ms>\t<words>" for a test, "<nonce> grant\t<granted|missing>".
+	KeyOCRResult = "ocr.res"
+	// KeyOCRPerm is the Screen Recording permission trackd's last read
+	// saw: granted or missing.
+	KeyOCRPerm = "ocr.perm"
 )
 
 // AutomationKey returns the daemon_state key for the Automation permission of

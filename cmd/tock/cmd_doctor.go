@@ -142,6 +142,7 @@ func cmdDoctor(env Env, args []string) error {
 		doctorSync(env, cfg.Sync, ok, bad)
 		doctorUpdates(env, cfg.Sync, ok, bad)
 		doctorGuard(env, cfg, ok, bad)
+		doctorOCR(env, cfg.OCR, h, ok, bad)
 	}
 
 	if env.APIKey != "" {
@@ -503,4 +504,20 @@ func quoteAll(ss []string) []string {
 		out[i] = strconv.Quote(s)
 	}
 	return out
+}
+
+// doctorOCR reports screen reading: off, its permission and today's reads.
+func doctorOCR(env Env, cfg config.OCR, h app.Health, ok func(name, detail string), bad func(name, detail, fix string)) {
+	var stats map[string]store.OCRStat
+	if cfg.Enabled && !env.Linux {
+		if st, err := openStore(env); err == nil {
+			stats, _ = st.OCRStats(env.Now().Format("2006-01-02"))
+			st.Close()
+		}
+	}
+	if detail, fix := ocrDoctor(cfg, env.Linux, h.OCRPerm, stats); fix != "" {
+		bad("ocr", detail, fix)
+	} else {
+		ok("ocr", detail)
+	}
 }

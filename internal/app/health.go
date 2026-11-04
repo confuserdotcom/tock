@@ -32,6 +32,9 @@ type Health struct {
 	// reports); CalendarSyncMS the last sync, 0 when none.
 	CalendarStatus string
 	CalendarSyncMS int64
+	// OCRPerm is the Screen Recording permission trackd's last screen read
+	// saw: granted, missing, or "" before any.
+	OCRPerm string
 	// BarUp says the menu bar app's heartbeat is fresh; BarNotify is its
 	// notification access ("" before it reports).
 	BarUp     bool
@@ -67,6 +70,7 @@ func ReadHealth(st *store.Store, nowMS int64) (Health, error) {
 	}
 	h.Version = states[store.KeyVersion]
 	h.CalendarStatus = states[store.KeyCalendarStatus]
+	h.OCRPerm = states[store.KeyOCRPerm]
 	h.CalendarSyncMS, _ = strconv.ParseInt(states[store.KeyCalendarSync], 10, 64)
 	beat, _ := strconv.ParseInt(states[store.KeyBarBeat], 10, 64)
 	h.BarUp = beat > 0 && nowMS-beat <= BarFreshMS && beat <= nowMS+BarFreshMS

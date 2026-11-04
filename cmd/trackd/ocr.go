@@ -20,12 +20,11 @@ import (
 	"tock/internal/store"
 )
 
-// daemon_state keys of screen reading (OCR-06). tock writes ocr.req, trackd
-// answers in ocr.res and keeps the permission it last saw in ocr.perm.
+// daemon_state keys of screen reading (OCR-06): tock asks, trackd answers.
 const (
-	keyOCRRequest = "ocr.req"
-	keyOCRResult  = "ocr.res"
-	keyOCRPerm    = "ocr.perm"
+	keyOCRRequest = store.KeyOCRRequest
+	keyOCRResult  = store.KeyOCRResult
+	keyOCRPerm    = store.KeyOCRPerm
 )
 
 const (

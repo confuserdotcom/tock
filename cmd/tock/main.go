@@ -61,6 +61,7 @@ const usage = `usage:
   tock session refile [#ID|last] PROJECT  relabel a finished session's active time to a project (tock undo reverts)
   tock recap [YYYY-MM-DD|start|midday]   the daily recap, or a routine notice now
   tock recommend [accept | dismiss]      the pending suggestion: show it, take it, or not now
+  tock ocr test [--now] | grant          read the front window's text once (in 3 s) | ask for Screen Recording
   tock trends [--month YYYY-MM] [--hours]  a month against the one before; --hours: focus by weekday and hour
   tock top [--days N | --week | --month] [--by category|app|site|project] [--limit N]
                                          where the time went: top categories, apps and sites
@@ -224,6 +225,7 @@ var commands = map[string]func(Env, []string) error{
 	"away":       cmdAway,
 	"trends":     cmdTrends,
 	"recommend":  cmdRecommend,
+	"ocr":        cmdOCR,
 	"top":        cmdTop,
 	"model":      cmdModel,
 	"review":     cmdReview,
