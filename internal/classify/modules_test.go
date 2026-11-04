@@ -121,7 +121,7 @@ func TestModuleErrors(t *testing.T) {
 
 func TestMarkPlan(t *testing.T) {
 	vs := []SpanView{{ID: 1, Start: 0, End: 100}, {ID: 2, Start: 100, End: 300}}
-	got := MarkPlan(vs, []PlanSlot{{Interval{50, 150}, "A"}, {Interval{250, 400}, "B"}})
+	got := passPlan(vs, []PlanSlot{{Interval{50, 150}, "A"}, {Interval{250, 400}, "B"}})
 	want := []struct {
 		id, s, e int64
 		p        string

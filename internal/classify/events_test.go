@@ -36,7 +36,7 @@ func TestMarkEvents(t *testing.T) {
 		{ID: 9, Title: "late", Interval: Interval{30, 75}}, // overlaps 7: 7 started first and wins until 35
 		{ID: 7, Title: "standup", Interval: Interval{5, 35}},
 	}
-	got := MarkEvents(views, evs, 0, 100)
+	got := passEvents(views, evs, 0, 100)
 	want := "1:0-10 a, m7:10-35 tock.meeting standup, m9:35-40 tock.meeting late, 3:40-50 a, " +
 		"m9:50-70 tock.meeting late, 4:70-80 b"
 	if meetPieces(got) != want {
@@ -46,11 +46,11 @@ func TestMarkEvents(t *testing.T) {
 		t.Fatalf("meeting view = %+v", got[1])
 	}
 	// to (now) clips the fill: nothing after it.
-	got = MarkEvents([]SpanView{{ID: 1, Start: 0, End: 10, BundleID: "a"}}, []EventMark{{ID: 2, Title: "x", Interval: Interval{5, 60}}}, 0, 30)
+	got = passEvents([]SpanView{{ID: 1, Start: 0, End: 10, BundleID: "a"}}, []EventMark{{ID: 2, Title: "x", Interval: Interval{5, 60}}}, 0, 30)
 	if want := "1:0-10 a, m2:10-30 tock.meeting x"; meetPieces(got) != want {
 		t.Fatalf("clipped: %s", meetPieces(got))
 	}
-	if got := MarkEvents(views, nil, 0, 100); meetPieces(got) != meetPieces(views) {
+	if got := passEvents(views, nil, 0, 100); meetPieces(got) != meetPieces(views) {
 		t.Fatal("no events must change nothing")
 	}
 	if _, ok := MeetingEventID(-5); ok {
@@ -63,8 +63,8 @@ func TestMarkEvents(t *testing.T) {
 
 func TestAwayWinsOverEvent(t *testing.T) {
 	views := []SpanView{{ID: 1, Start: 0, End: 10, BundleID: "a"}, {ID: 2, Start: 40, End: 50, BundleID: "a"}}
-	vs := MarkAway(views, []AwayMark{{4, Interval{10, 25}}}, 0, 100)
-	vs = MarkEvents(vs, []EventMark{{ID: 1, Title: "m", Interval: Interval{10, 40}}}, 0, 100)
+	vs := passAway(views, []AwayMark{{4, Interval{10, 25}}}, 0, 100)
+	vs = passEvents(vs, []EventMark{{ID: 1, Title: "m", Interval: Interval{10, 40}}}, 0, 100)
 	if want := "1:0-10 a, -4:10-25 tock.away, m1:25-40 tock.meeting m, 2:40-50 a"; meetPieces(vs) != want {
 		t.Fatalf("got %s", meetPieces(vs))
 	}
@@ -140,7 +140,7 @@ func TestMarkEventsClaimsCallTime(t *testing.T) {
 		{ID: 1, Start: 0, End: 50, BundleID: span.CallBundleID, App: span.CallApp, InCall: true},
 		{ID: 2, Start: 50, End: 60, BundleID: "term", App: "T", InCall: true},
 	}
-	got := MarkEvents(views, []EventMark{{ID: 9, Title: "1:1", Interval: Interval{20, 100}}}, 0, 100)
+	got := passEvents(views, []EventMark{{ID: 9, Title: "1:1", Interval: Interval{20, 100}}}, 0, 100)
 	var b []string
 	for _, v := range got {
 		b = append(b, fmt.Sprintf("%d-%d %s", v.Start, v.End, v.BundleID))

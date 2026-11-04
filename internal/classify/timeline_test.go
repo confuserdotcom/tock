@@ -39,12 +39,12 @@ func render(vs []SpanView) string {
 // Resolve: the oracle Resolve must match where their rules agree.
 func passes(views []SpanView, src Sources, from, to int64) []SpanView {
 	hi := min(to, src.NowMS)
-	vs := MarkCalls(views, src.Calls)
-	vs = MarkRemote(vs, src.Remote, from, hi)
-	vs = MarkAway(vs, src.Away, from, to)
-	vs = MarkPlan(vs, src.Plan)
+	vs := passCalls(views, src.Calls)
+	vs = passRemote(vs, src.Remote, from, hi)
+	vs = passAway(vs, src.Away, from, to)
+	vs = passPlan(vs, src.Plan)
 	if src.Events != nil {
-		vs = MarkEvents(vs, src.Events, from, hi)
+		vs = passEvents(vs, src.Events, from, hi)
 	}
 	return ApplyEdits(vs, src.Edits, from, hi)
 }

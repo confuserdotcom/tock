@@ -1,8 +1,6 @@
 package classify
 
 import (
-	"sort"
-
 	"tock/internal/span"
 )
 
@@ -28,49 +26,3 @@ func MeetingEventID(id int64) (int64, bool) {
 
 // IsMeeting reports a view that a calendar event explains.
 func IsMeeting(v SpanView) bool { return v.BundleID == span.MeetingBundleID }
-
-// MarkEvents rewrites the idle pieces and gaps inside each event, within
-// [from, to), as span.MeetingBundleID views titled with the event. Activity
-// keeps its own views. Where events overlap, the one that starts first wins.
-// The result is in start order.
-func MarkEvents(views []SpanView, events []EventMark, from, to int64) []SpanView {
-	evs := append([]EventMark{}, events...)
-	sort.SliceStable(evs, func(i, j int) bool { return evs[i].From < evs[j].From })
-	marks := make([]EventMark, 0, len(evs))
-	var end int64
-	for _, e := range evs {
-		if len(marks) > 0 {
-			e.From = max(e.From, end)
-		}
-		if e.To <= e.From {
-			continue
-		}
-		marks = append(marks, e)
-		end = max(end, e.To)
-	}
-	iv := make([]Interval, len(marks))
-	for i, m := range marks {
-		iv[i] = m.Interval
-	}
-	// An event is more specific than a call: call time inside it becomes
-	// the meeting. Call views go in as idle (InCall tells them apart) and
-	// what no event claims is call time again.
-	in := make([]SpanView, len(views))
-	for i, v := range views {
-		if v.BundleID == span.CallBundleID {
-			v.BundleID, v.App = span.IdleBundleID, span.IdleApp
-		}
-		in[i] = v
-	}
-	out := fill(in, iv, from, to, func(i int, start, end int64) SpanView {
-		title := marks[i].Title
-		return SpanView{ID: -(MeetingIDBase + marks[i].ID), Start: start, End: end,
-			BundleID: span.MeetingBundleID, App: span.MeetingApp, Title: &title}
-	})
-	for i := range out {
-		if out[i].BundleID == span.IdleBundleID && out[i].InCall {
-			out[i].BundleID, out[i].App = span.CallBundleID, span.CallApp
-		}
-	}
-	return out
-}
