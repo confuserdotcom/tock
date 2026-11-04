@@ -81,3 +81,16 @@ func TestAppendLearnedRefusesCorruptFile(t *testing.T) {
 		t.Fatal("corrupt learned.toml was modified")
 	}
 }
+
+// AppendLearned adds r to the learned file at path, as rulesfile would.
+func AppendLearned(path string, r Rule, comment string) error {
+	old, err := os.ReadFile(path)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	out, err := AppendLearnedText(old, r, comment)
+	if err != nil {
+		return err
+	}
+	return WriteFile(path, out)
+}

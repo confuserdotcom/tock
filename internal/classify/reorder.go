@@ -185,20 +185,3 @@ func RemoveRules(file string, data []byte, idx []int) ([]byte, error) {
 	}
 	return nil, fmt.Errorf("%s: can't remove rules from this layout safely; edit the file", file)
 }
-
-// RemoveLearned drops the learned rules at the 0-based positions idx from
-// the file at path, atomically; nothing is written on error.
-func RemoveLearned(path string, idx []int) error {
-	if len(idx) == 0 {
-		return nil
-	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return err
-	}
-	out, err := RemoveRules(LearnedFile, data, idx)
-	if err != nil {
-		return err
-	}
-	return writeAtomic(path, ".learned-*.toml", out)
-}

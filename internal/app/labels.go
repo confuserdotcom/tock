@@ -1,11 +1,11 @@
 package app
 
 import (
-	"errors"
 	"fmt"
 	"math"
 	"os"
 	"strings"
+	"tock/internal/rulesfile"
 
 	"tock/internal/classify"
 	"tock/internal/store"
@@ -25,41 +25,16 @@ type CategorySpec struct {
 // each file that changed as <file>.bak, writes learned.toml (when it
 // changed) then rules.toml, and reloads.
 func (a *App) rewriteRules(edit func(rules, learned []byte) ([]byte, []byte, error)) error {
-	return a.withRulesLock(func() error { return a.rewriteRulesLocked(edit) })
-}
-
-func (a *App) rewriteRulesLocked(edit func(rules, learned []byte) ([]byte, []byte, error)) error {
-	rules, err := os.ReadFile(a.paths.Rules)
+	err := a.rules().Rewrite(func(cur rulesfile.Set) (rulesfile.Set, error) {
+		r, l, err := edit(cur.Rules, cur.Learned)
+		if err != nil {
+			return cur, err
+		}
+		next := cur
+		next.Rules, next.Learned = r, l
+		return next, nil
+	}, rulesfile.Options{})
 	if err != nil {
-		return err
-	}
-	learned, err := os.ReadFile(a.paths.Learned)
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return err
-	}
-	newRules, newLearned, err := edit(rules, learned)
-	if err != nil {
-		return err
-	}
-	if _, err := classify.Parse(newRules, newLearned); err != nil {
-		return fmt.Errorf("the rewritten rules do not parse (%v); nothing changed", err)
-	}
-	if string(newRules) != string(rules) {
-		if err := os.WriteFile(a.paths.Rules+".bak", rules, 0o600); err != nil {
-			return err
-		}
-	}
-	if string(newLearned) != string(learned) {
-		if learned != nil {
-			if err := os.WriteFile(a.paths.Learned+".bak", learned, 0o600); err != nil {
-				return err
-			}
-		}
-		if err := classify.WriteFile(a.paths.Learned, newLearned); err != nil {
-			return err
-		}
-	}
-	if err := classify.WriteFile(a.paths.Rules, newRules); err != nil {
 		return err
 	}
 	_, err = a.Reload()
