@@ -876,7 +876,9 @@ labelled, including time you only listened and would otherwise be idle:
 category = "Meeting"   # a declared category
 ```
 
-A manual tag still wins. `tock rules check` says whether calls are labelled.
+A manual tag still wins, and so does a distraction: a video chat site your
+rules call Entertainment stays Entertainment with the camera on. `tock rules
+check` says whether calls are labelled.
 
 ## Commits
 
