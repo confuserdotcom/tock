@@ -2,9 +2,11 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -13,6 +15,7 @@ import (
 	"tock/internal/app"
 	"tock/internal/apptest"
 	"tock/internal/bar"
+	"tock/internal/classify"
 	"tock/internal/focus"
 )
 
@@ -21,6 +24,7 @@ type fakeUI struct {
 	posts         []string
 	auth          []bool
 	urls          []string
+	curtains      []string
 	quit          bool
 }
 
@@ -28,6 +32,9 @@ func (f *fakeUI) SetTitle(t string) { f.titles = append(f.titles, t) }
 func (f *fakeUI) SetMenu(s string)  { f.menus = append(f.menus, s) }
 func (f *fakeUI) Post(id int64, title, body, cat, cats string) {
 	f.posts = append(f.posts, title+"|"+body+"|"+cat+"|"+cats)
+}
+func (f *fakeUI) Curtain(id int64, title, body string, fromMS, untilMS int64, buttons string) {
+	f.curtains = append(f.curtains, fmt.Sprintf("%d|%s|%s|%d|%d|%s", id, title, body, fromMS, untilMS, buttons))
 }
 func (f *fakeUI) CheckAuth(prompt bool) { f.auth = append(f.auth, prompt) }
 func (f *fakeUI) OpenURL(u string)      { f.urls = append(f.urls, u) }
@@ -530,5 +537,38 @@ func TestRunnerMenuRec(t *testing.T) {
 	}
 	if menu := last(u.menus); strings.Contains(menu, "Suggested") || strings.Contains(menu, "Not now") {
 		t.Fatalf("menu after the click still offers the suggestion:\n%s", menu)
+	}
+}
+
+// TestRunnerShowsBreakScreen: a break screen notice goes to the full-screen
+// curtain with its break and buttons, never to a banner; its buttons answer
+// like a notification's.
+func TestRunnerShowsBreakScreen(t *testing.T) {
+	e := seededEnv(t)
+	r, u, _ := testRunner(t, e)
+	r.handle(event{kind: evReady})
+	now := e.Clock.UnixMilli()
+	if _, err := r.a.TakeBreak(10 * 60_000); err != nil {
+		t.Fatal(err)
+	}
+	ev := focus.Event{Topic: focus.TopicBreakScreen, Title: focus.TitleBreakScreen, Body: "Your 10 min break ran 5 min over.",
+		Break: classify.Interval{From: now - 15*60_000, To: now - 5*60_000}}
+	if err := r.a.Enqueue(ev); err != nil {
+		t.Fatal(err)
+	}
+	r.tick()
+	if len(u.posts) != 0 || len(u.curtains) != 1 {
+		t.Fatalf("posts = %q, curtains = %q", u.posts, u.curtains)
+	}
+	f := strings.Split(u.curtains[0], "|")
+	want := []string{focus.TitleBreakScreen, ev.Body, strconv.FormatInt(ev.Break.From, 10), strconv.FormatInt(ev.Break.To, 10),
+		"back\tBack to work\tmore\t5 more minutes"}
+	if len(f) != 6 || !slices.Equal(f[1:], want) {
+		t.Fatalf("curtain = %q", u.curtains[0])
+	}
+	nid, _ := strconv.ParseInt(f[0], 10, 64)
+	r.handle(event{kind: evResponse, notice: nid, id: "more"})
+	if until, err := r.a.BreakUntil(e.Clock); err != nil || until != now+5*60_000 {
+		t.Fatalf("break until = %d, %v", until, err)
 	}
 }

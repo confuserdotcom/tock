@@ -78,6 +78,16 @@ func (cocoa) CheckAuth(prompt bool) {
 	C.bar_check_auth(p)
 }
 
+func (cocoa) Curtain(id int64, title, body string, fromMS, untilMS int64, buttons string) {
+	cstr(title, func(t *C.char) {
+		cstr(body, func(b *C.char) {
+			cstr(buttons, func(bs *C.char) {
+				C.bar_curtain(C.longlong(id), t, b, C.longlong(fromMS), C.longlong(untilMS), bs)
+			})
+		})
+	})
+}
+
 func (cocoa) Post(id int64, title, body, category, categories string) {
 	cstr(title, func(t *C.char) {
 		cstr(body, func(b *C.char) {

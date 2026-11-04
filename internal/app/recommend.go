@@ -323,6 +323,22 @@ func (a *App) TakeBreak(lengthMS int64) (untilMS int64, err error) {
 	return untilMS, nil
 }
 
+// ExtendBreak makes the break the user took end lengthMS from now, as when
+// they ask the break screen for more time: Break over and the break screen
+// come again at the new end. The break keeps its start. It returns the new
+// end (ms).
+func (a *App) ExtendBreak(lengthMS int64) (untilMS int64, err error) {
+	if lengthMS <= 0 {
+		return 0, fmt.Errorf("app: extend break: length %d ms, want more than 0", lengthMS)
+	}
+	now := a.nowMS()
+	untilMS = now + lengthMS
+	if err := a.st.SetState(store.KeyFocusBreakUntil, strconv.FormatInt(untilMS, 10), now); err != nil {
+		return 0, fmt.Errorf("app: extend break: %w", err)
+	}
+	return untilMS, nil
+}
+
 // BreakUntil is when the break the user took ends (ms), 0 when none runs at
 // now.
 func (a *App) BreakUntil(now time.Time) (int64, error) {

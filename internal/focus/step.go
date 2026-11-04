@@ -39,7 +39,10 @@ func Step(in Input) []Event {
 	if n, ok := stepBreakOver(in, &st); ok {
 		notes = append(notes, n)
 	}
-	if st.BreakOverAt != in.State.BreakOverAt { // sent, or given up by a late tick
+	if n, ok := stepBreakScreen(in, &st); ok {
+		notes = append(notes, n)
+	}
+	if st.BreakOverAt != in.State.BreakOverAt || st.BreakScreenAt != in.State.BreakScreenAt { // sent, or given up
 		stateChanged = true
 	}
 	writes = append(writes, autoSessions(in)...)
@@ -231,6 +234,29 @@ func stepBreakOver(in Input, st *State) (Event, bool) {
 		return Event{}, false
 	}
 	return note(TopicBreakOver, TitleBreakOver, fmt.Sprintf("%d min break done. Back to it.", minutes(until-st.BreakTakenAt)), false), true
+}
+
+// stepBreakScreen shows the break screen once for a break the user took
+// that ran [focus] break_screen_grace past its end, unless they are back at
+// deep work then. A call or meeting holds it; a tick that first sees it due
+// more than BreakOverLateMS late sends nothing and marks it shown.
+func stepBreakScreen(in Input, st *State) (Event, bool) {
+	until := st.BreakUntil
+	due := until + in.Cfg.BreakScreenGraceMS
+	if !in.Cfg.BreakScreen || until <= 0 || st.BreakScreenAt == until || in.Now < due || inMeeting(in) {
+		return Event{}, false
+	}
+	st.BreakScreenAt = until
+	if in.Now-due >= BreakOverLateMS {
+		return Event{}, false
+	}
+	if n := len(in.Views); current(in) != nil && !isIdle(in.Views[n-1]) && in.Labels[n-1].Kind == classify.KindDeep {
+		return Event{}, false
+	}
+	n := note(TopicBreakScreen, TitleBreakScreen, fmt.Sprintf("Your %d min break ran %d min over.",
+		minutes(until-st.BreakTakenAt), minutes(in.Now-until)), false)
+	n.Break = classify.Interval{From: st.BreakTakenAt, To: until}
+	return n, true
 }
 
 // stepSession measures the running session, alerts on distraction and ends

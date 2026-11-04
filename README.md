@@ -278,6 +278,10 @@ notice_budget = 8        # nudges a day tock sends unasked (break, away, start, 
 notice_gap = 20          # least minutes between two nudges; 0 = none (0 to 240).
                          # Nudges wait out calls and meetings; session, Break over,
                          # plan and recap notices are never held back
+break_screen = false     # a break you took that runs over covers the screens until
+                         # you click Back to work or 5 more minutes, or press Esc;
+                         # never locks, never during a call, not once back at deep work
+break_screen_grace = 5   # minutes past the break's end before it shows (1 to 60)
 # meeting_apps / meeting_hosts replace the built-in lists of meeting apps
 # (bundle ids) and hosts during which break and distraction nudges stay quiet
 block = false            # close distracting tabs and hide distracting apps in sessions

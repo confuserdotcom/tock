@@ -44,6 +44,8 @@ const (
 	TitleOver = "Overworking"
 	// TitleBreakOver is the notice that the break the user took has ended.
 	TitleBreakOver = "Break over"
+	// TitleBreakScreen is the break screen's title.
+	TitleBreakScreen = "Back to it?"
 )
 
 // Notification topics: what a note is about, so a notifier can offer the
@@ -60,6 +62,9 @@ const (
 	TopicOver = "overwork"
 	// TopicBreakOver is the Break over notice's topic; it has no buttons.
 	TopicBreakOver = "breakover"
+	// TopicBreakScreen is the full-screen notice of a break that ran over;
+	// the menu bar app shows it over every screen instead of a banner.
+	TopicBreakScreen = "breakscreen"
 )
 
 // AwayNotifyMS is how soon after coming back the away question is sent; an
@@ -114,6 +119,9 @@ type State struct {
 	// BreakOverAt is the BreakUntil the Break over notice was sent (or given up)
 	// for; trackd owns it.
 	BreakOverAt int64
+	// BreakScreenAt is the BreakUntil the break screen was shown (or given
+	// up) for; trackd owns it.
+	BreakScreenAt int64
 	// NudgeDay, Nudges and NudgeAt count the nudges (see nudgeOK): the
 	// YYYY-MM-DD Nudges were sent on, and when the last one was sent (ms).
 	// They move only while [focus] notice_budget or notice_gap is set.
@@ -150,6 +158,7 @@ type Event struct {
 	Refile      bool              // TopicDone: a refile of the session's time to Project is offered
 	Away        classify.Interval // TopicAway: the absence asked about
 	Before      classify.Want     // TopicAway: the label of what it follows, if any
+	Break       classify.Interval // TopicBreakScreen: the break taken, from its start to its planned end
 	// Category and RuleRef (TopicFocus): the category the notice offers to
 	// mark quiet, and the rule that set it ("" = none).
 	Category, RuleRef string

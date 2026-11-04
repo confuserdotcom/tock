@@ -211,3 +211,212 @@ void bar_quit(void) {
         [NSApp terminate:nil];
     });
 }
+
+// ---------------------------------------------------------------------------
+// Break screen: a dimmed window over every screen, the break on the main one.
+// It never locks anything: Esc or a button closes it.
+// ---------------------------------------------------------------------------
+
+static NSColor *rgb(int hex) {
+    return [NSColor colorWithSRGBRed:((hex >> 16) & 0xff) / 255.0
+                               green:((hex >> 8) & 0xff) / 255.0
+                                blue:(hex & 0xff) / 255.0
+                               alpha:1];
+}
+
+// CurtainBar draws the break: brass for the planned part, rust for the overrun.
+@interface CurtainBar : NSView
+@property double planned; // share of the bar the planned break takes, 0..1
+@end
+
+@implementation CurtainBar
+- (void)drawRect:(NSRect)r {
+    (void)r;
+    NSRect b = self.bounds;
+    CGFloat rad = b.size.height / 2;
+    NSBezierPath *track = [NSBezierPath bezierPathWithRoundedRect:b xRadius:rad yRadius:rad];
+    [rgb(0x2b241b) setFill];
+    [track fill];
+    [NSGraphicsContext saveGraphicsState];
+    [track addClip];
+    CGFloat split = b.size.width * MAX(0, MIN(1, self.planned));
+    [rgb(0xe3a446) setFill];
+    NSRectFill(NSMakeRect(b.origin.x, b.origin.y, split, b.size.height));
+    [rgb(0xb5462c) setFill];
+    NSRectFill(NSMakeRect(b.origin.x + split, b.origin.y, b.size.width - split, b.size.height));
+    [NSGraphicsContext restoreGraphicsState];
+}
+@end
+
+@interface CurtainWindow : NSWindow
+@end
+
+@interface Curtain : NSObject
+@property long long nid;
+@property long long fromMS, untilMS;
+@property(strong) NSArray<NSString *> *actions;
+@property(strong) NSMutableArray<NSWindow *> *windows;
+@property(strong) NSTextField *clock;
+@property(strong) CurtainBar *bar;
+@property(strong) NSTimer *timer;
+- (void)close;
+@end
+
+static Curtain *curtain;
+
+@implementation CurtainWindow
+- (BOOL)canBecomeKeyWindow {
+    return YES;
+}
+- (void)cancelOperation:(id)sender {
+    (void)sender;
+    [curtain close];
+}
+- (void)keyDown:(NSEvent *)e {
+    if (e.keyCode == 53) { // Esc
+        [curtain close];
+        return;
+    }
+    [super keyDown:e];
+}
+@end
+
+static NSTextField *curtainLabel(NSString *s, NSFont *f, NSColor *c) {
+    NSTextField *l = [NSTextField labelWithString:s];
+    l.font = f;
+    l.textColor = c;
+    l.alignment = NSTextAlignmentCenter;
+    l.lineBreakMode = NSLineBreakByWordWrapping;
+    l.maximumNumberOfLines = 3;
+    l.preferredMaxLayoutWidth = 520;
+    return l;
+}
+
+@implementation Curtain
+- (void)tick {
+    long long now = (long long)([[NSDate date] timeIntervalSince1970] * 1000);
+    long long away = MAX(0, now - self.fromMS) / 1000;
+    NSString *t = away >= 3600 ? [NSString stringWithFormat:@"%lldh %02lld away", away / 3600, (away % 3600) / 60]
+                               : [NSString stringWithFormat:@"%lld:%02lld away", away / 60, away % 60];
+    self.clock.stringValue = t;
+    long long whole = MAX(now, self.untilMS) - self.fromMS;
+    self.bar.planned = whole > 0 ? (double)(self.untilMS - self.fromMS) / (double)whole : 1;
+    [self.bar setNeedsDisplay:YES];
+}
+
+- (void)clicked:(NSButton *)b {
+    NSInteger i = b.tag;
+    long long nid = self.nid;
+    NSString *act = i >= 0 && i < (NSInteger)self.actions.count ? self.actions[i] : nil;
+    [self close];
+    if (act != nil) {
+        goResponse(nid, (char *)[act UTF8String]);
+    }
+}
+
+- (void)close {
+    [self.timer invalidate];
+    self.timer = nil;
+    for (NSWindow *w in self.windows) {
+        [w orderOut:nil];
+    }
+    [self.windows removeAllObjects];
+    if (curtain == self) {
+        curtain = nil;
+    }
+}
+
+- (NSView *)contentWithTitle:(NSString *)title body:(NSString *)body buttons:(NSArray<NSString *> *)f {
+    NSTextField *kicker = curtainLabel([title uppercaseString],
+                                       [NSFont monospacedSystemFontOfSize:12 weight:NSFontWeightMedium], rgb(0x8a7d68));
+    self.clock = curtainLabel(@"", [NSFont monospacedDigitSystemFontOfSize:72 weight:NSFontWeightBold], rgb(0xf1e4cf));
+    self.bar = [CurtainBar new];
+    self.bar.translatesAutoresizingMaskIntoConstraints = NO;
+    [self.bar.widthAnchor constraintEqualToConstant:360].active = YES;
+    [self.bar.heightAnchor constraintEqualToConstant:6].active = YES;
+    NSTextField *msg = curtainLabel(body, [NSFont systemFontOfSize:15], rgb(0xc7b79c));
+    NSMutableArray *acts = [NSMutableArray array];
+    NSStackView *row = [NSStackView new];
+    row.orientation = NSUserInterfaceLayoutOrientationHorizontal;
+    row.spacing = 10;
+    for (NSUInteger i = 0; i + 1 < f.count; i += 2) {
+        NSButton *b = [NSButton buttonWithTitle:f[i + 1] target:self action:@selector(clicked:)];
+        b.tag = (NSInteger)acts.count;
+        b.bezelStyle = NSBezelStyleRounded;
+        b.controlSize = NSControlSizeLarge;
+        if (acts.count == 0) {
+            b.keyEquivalent = @"\r"; // the first answer is the default
+            b.bezelColor = rgb(0xe3a446);
+        }
+        [acts addObject:f[i]];
+        [row addArrangedSubview:b];
+    }
+    self.actions = acts;
+    NSTextField *hint = curtainLabel(@"esc to dismiss · never locks your Mac",
+                                     [NSFont monospacedSystemFontOfSize:11 weight:NSFontWeightRegular], rgb(0x8a7d68));
+    NSStackView *col = [NSStackView stackViewWithViews:@[ kicker, self.clock, self.bar, msg, row, hint ]];
+    col.orientation = NSUserInterfaceLayoutOrientationVertical;
+    col.alignment = NSLayoutAttributeCenterX;
+    col.spacing = 18;
+    [col setCustomSpacing:28 afterView:msg];
+    col.translatesAutoresizingMaskIntoConstraints = NO;
+    return col;
+}
+@end
+
+void bar_curtain(long long nid, const char *title, const char *body, long long from_ms, long long until_ms,
+                 const char *buttons) {
+    NSString *t = str(title), *b = str(body), *bs = str(buttons);
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [curtain close];
+        Curtain *c = [Curtain new];
+        c.nid = nid;
+        c.fromMS = from_ms;
+        c.untilMS = until_ms;
+        c.windows = [NSMutableArray array];
+        NSArray<NSString *> *f = bs.length > 0 ? [bs componentsSeparatedByString:@"\t"] : @[];
+        BOOL still = [[NSWorkspace sharedWorkspace] accessibilityDisplayShouldReduceMotion];
+        NSScreen *main = [NSScreen mainScreen];
+        for (NSScreen *s in [NSScreen screens]) {
+            CurtainWindow *w = [[CurtainWindow alloc] initWithContentRect:s.frame
+                                                                styleMask:NSWindowStyleMaskBorderless
+                                                                  backing:NSBackingStoreBuffered
+                                                                    defer:NO];
+            w.releasedWhenClosed = NO;
+            w.level = NSMainMenuWindowLevel + 2;
+            w.collectionBehavior = NSWindowCollectionBehaviorCanJoinAllSpaces |
+                                   NSWindowCollectionBehaviorFullScreenAuxiliary |
+                                   NSWindowCollectionBehaviorStationary | NSWindowCollectionBehaviorIgnoresCycle;
+            w.opaque = NO;
+            w.backgroundColor = [rgb(0x0d0b09) colorWithAlphaComponent:0.94];
+            w.hasShadow = NO;
+            [w setFrame:s.frame display:NO];
+            if (s == main) {
+                NSView *v = [c contentWithTitle:t body:b buttons:f];
+                [w.contentView addSubview:v];
+                [v.centerXAnchor constraintEqualToAnchor:w.contentView.centerXAnchor].active = YES;
+                [v.centerYAnchor constraintEqualToAnchor:w.contentView.centerYAnchor].active = YES;
+            }
+            w.alphaValue = still ? 1 : 0;
+            [c.windows addObject:w];
+        }
+        curtain = c;
+        [c tick];
+        c.timer = [NSTimer scheduledTimerWithTimeInterval:1 target:c selector:@selector(tick) userInfo:nil repeats:YES];
+        [NSApp activateIgnoringOtherApps:YES];
+        for (NSWindow *w in c.windows) {
+            [w orderFrontRegardless];
+            if (w.screen == main) {
+                [w makeKeyWindow];
+            }
+        }
+        if (!still) {
+            [NSAnimationContext runAnimationGroup:^(NSAnimationContext *ctx) {
+                ctx.duration = 0.35;
+                for (NSWindow *w in c.windows) {
+                    w.animator.alphaValue = 1;
+                }
+            }];
+        }
+    });
+}
