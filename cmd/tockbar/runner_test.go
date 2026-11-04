@@ -572,3 +572,44 @@ func TestRunnerShowsBreakScreen(t *testing.T) {
 		t.Fatalf("break until = %d, %v", until, err)
 	}
 }
+
+// TestRunnerRecapOpensToday: clicking the recap notice itself opens the
+// dashboard on Today; another notice's click opens nothing.
+func TestRunnerRecapOpensToday(t *testing.T) {
+	e := seededEnv(t)
+	r, u, _ := testRunner(t, e)
+	r.handle(event{kind: evReady})
+	for _, ev := range []focus.Event{
+		{Topic: focus.TopicRecap, Title: focus.TitleRecap, Body: "4h today."},
+		{Topic: focus.TopicBreakOver, Title: focus.TitleBreakOver, Body: "Back to it."},
+	} {
+		if err := r.a.Enqueue(ev); err != nil {
+			t.Fatal(err)
+		}
+	}
+	r.tick()
+	if len(u.posts) != 2 {
+		t.Fatalf("posts = %q", u.posts)
+	}
+	ids := r.noticeIDs(t)
+	r.handle(event{kind: evResponse, notice: ids[1], id: defaultAction})
+	if len(u.urls) != 0 {
+		t.Fatalf("Break over opened %q", u.urls)
+	}
+	r.handle(event{kind: evResponse, notice: ids[0], id: defaultAction})
+	if len(u.urls) != 1 || !strings.HasPrefix(u.urls[0], "http://127.0.0.1:") || strings.Contains(u.urls[0], "?v=") {
+		t.Fatalf("recap opened %q, want the dashboard on Today", u.urls)
+	}
+}
+
+// noticeIDs is the ids of the notices queued so far, oldest first.
+func (r *runner) noticeIDs(t *testing.T) []int64 {
+	t.Helper()
+	var ids []int64
+	for id := int64(1); id < 100; id++ {
+		if _, _, err := r.a.Notice(id); err == nil {
+			ids = append(ids, id)
+		}
+	}
+	return ids
+}

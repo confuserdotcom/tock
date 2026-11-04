@@ -26,6 +26,9 @@ const (
 	keepCategories = 8
 )
 
+// defaultAction is the action of a click on a notification itself.
+const defaultAction = "com.apple.UNNotificationDefaultActionIdentifier"
+
 // ui is the Cocoa side, faked in tests.
 type ui interface {
 	SetTitle(title string)
@@ -316,6 +319,17 @@ func (r *runner) handle(ev event) {
 		r.done("menu "+ev.id, msg, err)
 	case evResponse:
 		if r.a == nil {
+			return
+		}
+		if ev.id == defaultAction {
+			// A click on the notice itself: the recap opens Today.
+			if n, _, err := r.a.Notice(ev.notice); err == nil && n.Topic == focus.TopicRecap {
+				link, err := r.dash.URL("")
+				if err == nil {
+					r.ui.OpenURL(link)
+				}
+				r.done("recap", "opened the dashboard", err)
+			}
 			return
 		}
 		if ev.id == bar.ActJoin {
