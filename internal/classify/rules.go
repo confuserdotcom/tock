@@ -184,8 +184,14 @@ type Ruleset struct {
 	Learned    []Rule
 	Rules      []Rule
 	// CallCategory labels call time ([calls] category); "" leaves calls
-	// unlabelled.
+	// unlabelled. A call is context: it labels only views in a call that
+	// have no category of their own, plus call apps and meeting sites.
 	CallCategory string
+	// Renamed is the rename log ([[renamed]]), oldest first.
+	Renamed []Rename
+	// CallApps are the bundle ids that are the call itself when in front
+	// during a call ([calls] apps; DefaultCallApps when unset).
+	CallApps map[string]bool
 	// CalendarCategory labels meeting views the rules leave without a
 	// category ([calendar] category); "" turns calendar events off.
 	CalendarCategory string
@@ -231,9 +237,15 @@ type rulesTOML struct {
 		Rate     *float64 `toml:"rate"`
 		Repos    []string `toml:"repos"`
 	} `toml:"project"`
-	Rule  []ruleTOML `toml:"rule"`
+	Rule    []ruleTOML `toml:"rule"`
+	Renamed []struct {
+		Kind string `toml:"kind"`
+		From string `toml:"from"`
+		To   string `toml:"to"`
+	} `toml:"renamed"`
 	Calls struct {
-		Category string `toml:"category"`
+		Category string    `toml:"category"`
+		Apps     *[]string `toml:"apps"`
 	} `toml:"calls"`
 	Calendar struct {
 		Category string `toml:"category"`
@@ -322,6 +334,26 @@ func Parse(rulesData, learnedData []byte) (*Ruleset, error) {
 			return nil, fmt.Errorf("%s: [calls]: unknown category %q", RulesFile, rf.Calls.Category)
 		}
 		rs.CallCategory = cat.Name
+	}
+	ren := make([]struct{ Kind, From, To string }, len(rf.Renamed))
+	for i, r := range rf.Renamed {
+		ren[i] = struct{ Kind, From, To string }{r.Kind, r.From, r.To}
+	}
+	renamed, rerr := parseRenamed(ren)
+	if rerr != nil {
+		return nil, rerr
+	}
+	rs.Renamed = renamed
+	apps := DefaultCallApps
+	if rf.Calls.Apps != nil {
+		apps = *rf.Calls.Apps
+	}
+	rs.CallApps = make(map[string]bool, len(apps))
+	for _, a := range apps {
+		if strings.TrimSpace(a) == "" {
+			return nil, fmt.Errorf("%s: [calls]: empty app id in apps", RulesFile)
+		}
+		rs.CallApps[strings.TrimSpace(a)] = true
 	}
 	if c := strings.TrimSpace(rf.Calendar.Category); c != "" {
 		cat, ok := rs.catByLower[nameKey(c)]

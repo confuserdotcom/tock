@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 	"tock/internal/config"
+	"tock/internal/fronttab"
 
 	"tock/internal/store"
 	"tock/internal/update"
@@ -200,6 +201,14 @@ func TestDoctorLinux(t *testing.T) {
 		strings.Contains(out, "accessibility") || strings.Contains(out, "automation") || strings.Contains(out, "calendar") || len(*opened) != 0 {
 		t.Fatalf("exit %d:\n%s", code, out)
 	}
+	if !strings.Contains(out, "ok  browser: off: browser windows get no web address (trackd browser install)") {
+		t.Fatalf("no extension:\n%s", out)
+	}
+	os.MkdirAll(te.StateDir, 0o700)
+	os.WriteFile(filepath.Join(te.StateDir, fronttab.File), []byte(`{"at_ms":`+nowMS()+`,"focused":true}`), 0o600)
+	if _, out := te.run(t, "", "doctor"); !strings.Contains(out, "ok  browser: the tock extension sends the tab in front (last 15:00)") {
+		t.Fatalf("extension:\n%s", out)
+	}
 	te, _ = doctorEnv(t, testRules)
 	te.Linux = true
 	te.seed(t, daySpans()...)
@@ -319,5 +328,18 @@ func TestDoctorGuardLines(t *testing.T) {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q in\n%s", want, got)
 		}
+	}
+}
+
+// TestDoctorRemoteRulesRefused: a machine that kept its rules.toml because
+// it could not take a newer one says so in machine.json; the doctor here
+// names it.
+func TestDoctorRemoteRulesRefused(t *testing.T) {
+	_, out := lagDoctor(t, `{"input":true,"rules_refused":"mac: learned.toml: unknown category \"Utilities\""}`, "", 0)
+	if !strings.Contains(out, `!!  rules sync: ryuk kept its rules.toml: the newer one from mac: learned.toml: unknown category "Utilities"`) {
+		t.Fatalf("doctor:\n%s", out)
+	}
+	if _, out := lagDoctor(t, `{"input":true}`, "", 0); strings.Contains(out, "kept its rules.toml") {
+		t.Fatalf("no refusal:\n%s", out)
 	}
 }

@@ -72,6 +72,9 @@ func cmdToday(env Env, args []string) error {
 		if r.Name == report.Unclassified && len(r.Items) > 0 {
 			extra = fmt.Sprintf("%d keys → tock inbox", len(r.Items))
 		}
+		if r.CallMS > 0 {
+			extra = strings.TrimLeft(extra+" · "+report.Dur(r.CallMS)+" on calls", " ·")
+		}
 		line := fmt.Sprintf("%s%5s  %s  %s", report.Pad(r.Name, 15), report.Dur(r.MS),
 			report.Pad(report.Bar(r.MS, maxMS, barCells), barCells), extra)
 		fmt.Fprintln(env.Stdout, strings.TrimRight(line, " "))

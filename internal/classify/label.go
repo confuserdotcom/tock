@@ -52,11 +52,27 @@ type memoKey struct {
 	private                  bool
 }
 
-// Label classifies v. Idle spans get an empty label. o may be nil. Each field
-// is decided separately: manual override, else (category only) CallCategory
-// for a view in a call unless its rule label is a distraction, else the first matching learned rule that sets the
-// field, else the first matching user rule, else (category only)
-// CalendarCategory for a meeting view, else empty.
+// Label classifies v. Idle spans get an empty label. o may be nil.
+//
+// Precedence, highest first (TestPrecedence pins each step; change them
+// together). Category:
+//  1. a manual tag (tock tag, away labels and timeline edits come as o);
+//  2. the call: call time, a call app or a meeting site in front during a
+//     call ([calls]);
+//  3. the kept label of a span whose title was deleted, else a module named
+//     in the title or directory;
+//  4. the first matching learned rule, then 5. the first matching user rule;
+//  6. the local model (ApplyModel, after Label): fills what 1-5 left, and
+//     may override a generic rule;
+//  7. the call, for any other view in a call that nothing above labelled
+//     (a call is context, not an activity);
+//  8. the calendar, for meeting time ([calendar]);
+//  9. the category the project is filed under.
+//
+// Project: a manual project; else the kept or module project; else the
+// first matching learned, then user rule; else the plan's module when it
+// is filed under the label's category. A project that is not manual and is
+// filed under another category than the label's is dropped.
 func (rs *Ruleset) Label(v SpanView, o *Override) Label {
 	var l Label
 	switch {
@@ -69,9 +85,9 @@ func (rs *Ruleset) Label(v SpanView, o *Override) Label {
 		o = nil
 	}
 	// After the memoized rule label, so the memo key needs no InCall.
-	// A distraction stays one during a call (a video chat site is
-	// entertainment with the camera on).
-	if v.InCall && rs.CallCategory != "" && v.BundleID != span.IdleBundleID && l.Kind != KindDistract {
+	// A call is context: it labels what has no category of its own, and
+	// the call apps and meeting sites, never other labelled activity.
+	if v.InCall && rs.CallCategory != "" && v.BundleID != span.IdleBundleID && (l.Category == "" || rs.isCallView(&v)) {
 		l.Category, l.Kind = rs.CallCategory, rs.Kind(rs.CallCategory)
 		l.CategorySource, l.CategoryRule = SourceCall, ""
 	}
@@ -88,8 +104,9 @@ func (rs *Ruleset) Label(v SpanView, o *Override) Label {
 		l.ProjectSource, l.ProjectRule = SourceManual, ""
 	}
 	// A project filed under a category labels only time in that category:
-	// a lecture on a video site is not the Video project.
-	if l.Project != "" && l.Category != "" && (l.ProjectSource == SourceRule || l.ProjectSource == SourceLearned) {
+	// a lecture on a video site is not the Video project, and a call titled
+	// with a module is not that module. Only a manual project stays.
+	if l.Project != "" && l.Category != "" && l.ProjectSource != SourceManual {
 		if c := rs.ProjectCategory(l.Project); c != "" && !strings.EqualFold(c, l.Category) {
 			l.Project, l.ProjectSource, l.ProjectRule = "", SourceNone, ""
 		}
@@ -108,6 +125,9 @@ func (rs *Ruleset) Label(v SpanView, o *Override) Label {
 	l.Quiet = rs.quiet(l.Category, l.CategoryRule)
 	return l
 }
+
+// memoMax bounds the label memo; past it the memo starts over.
+const memoMax = 50_000
 
 // keyOf is v's memo key and its cleaned title ("" when it has none).
 func keyOf(v *SpanView) (memoKey, string) {
@@ -144,12 +164,27 @@ func (rs *Ruleset) keptLabel(v *SpanView) Label {
 }
 
 func (rs *Ruleset) ruleLabel(v *SpanView) Label {
-	k, clean := keyOf(v)
+	// The memo is keyed on the raw title: cleaning it costs more than the
+	// lookup, and the label depends on nothing else.
+	k := memoKey{bundle: v.BundleID, app: v.App, private: v.Private}
+	if v.Title != nil {
+		k.title, k.hasTitle = *v.Title, true
+	}
+	if v.URL != nil {
+		k.url, k.hasURL = *v.URL, true
+	}
+	if v.Dir != nil {
+		k.dir, k.hasDir = *v.Dir, true
+	}
 	rs.mu.Lock()
 	l, ok := rs.memo[k]
 	rs.mu.Unlock()
 	if ok {
 		return l
+	}
+	clean := ""
+	if v.Title != nil {
+		clean = Clean(*v.Title)
 	}
 
 	l = Label{CategorySource: SourceNone, ProjectSource: SourceNone}
@@ -185,6 +220,9 @@ func (rs *Ruleset) ruleLabel(v *SpanView) Label {
 	}
 
 	rs.mu.Lock()
+	if len(rs.memo) >= memoMax { // a daemon sees new titles for weeks
+		clear(rs.memo)
+	}
 	rs.memo[k] = l
 	rs.mu.Unlock()
 	return l

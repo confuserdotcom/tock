@@ -7,10 +7,12 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"runtime/debug"
 	"syscall"
 	"time"
 
 	"tock/internal/collect"
+	"tock/internal/fronttab"
 )
 
 // version is set via -ldflags "-X main.version=...".
@@ -53,7 +55,10 @@ func stateDir() string {
 // (RESEARCH Q1).
 func newSource() (collect.Source, error) {
 	if runtime.GOOS == "linux" {
-		return collect.NewHyprland(collect.HyprOptions{IdleFile: filepath.Join(stateDir(), collect.IdleFile)})
+		return collect.NewHyprland(collect.HyprOptions{
+			IdleFile:    filepath.Join(stateDir(), collect.IdleFile),
+			BrowserFile: filepath.Join(stateDir(), fronttab.File),
+		})
 	}
 	underLaunchd := os.Getppid() == 1
 	return collect.NewDarwin(collect.Options{
@@ -63,9 +68,15 @@ func newSource() (collect.Source, error) {
 	})
 }
 
+// memoryLimit is trackd's soft Go memory limit (runtime/debug).
+const memoryLimit = 32 << 20
+
 func main() {
 	if len(os.Args) > 1 && os.Args[1] == "ocr-worker" {
 		os.Exit(runOCRWorker(os.Args[2:], os.Stdout))
+	}
+	if host, _ := browserHostCaller(os.Args); host {
+		os.Exit(runBrowserHost(os.Args, stateDir()))
 	}
 	if len(os.Args) > 1 {
 		var run func() error
@@ -74,6 +85,8 @@ func main() {
 			run = func() error { return installService(dataDir(), stateDir()) }
 		case "uninstall":
 			run = uninstallService
+		case "browser":
+			run = func() error { return runBrowserCmd(os.Args[2:], os.Stdout) }
 		case "idle", "active":
 			run = func() error { return runIdleHook(os.Args[1], os.Args[2:], stateDir(), time.Now()) }
 		}
@@ -97,6 +110,11 @@ func main() {
 		}
 		os.Exit(runDump(src, os.Stdout, os.Getppid()))
 	}
+
+	// trackd's budget is 40 MB. The live heap is a few MB, but rebuilding
+	// the history after a rule change allocates hundreds; a soft limit makes
+	// the collector work harder then instead of letting the heap grow.
+	debug.SetMemoryLimit(memoryLimit)
 
 	o := daemonOpts{
 		DataDir:   dataDir(),

@@ -1,6 +1,10 @@
 package classify
 
-import "tock/internal/span"
+import (
+	"sort"
+
+	"tock/internal/span"
+)
 
 // RemoteIDBase keeps remote view ids apart from away and meeting view ids:
 // a remote view has ID -(RemoteIDBase + remote row id).
@@ -74,13 +78,22 @@ func MarkRemote(views []SpanView, marks []RemoteMark, from, to int64) []SpanView
 // started later covers (see MarkRemote), so fill gives them to it.
 func yieldToRemote(views []SpanView, marks []RemoteMark) []SpanView {
 	out := make([]SpanView, 0, len(views))
+	sorted := sort.SliceIsSorted(marks, func(i, j int) bool { return marks[i].View.Start < marks[j].View.Start })
+	ends := runningEnds(len(marks), func(i int) int64 { return marks[i].View.End })
 	for _, v := range views {
 		if v.ID <= 0 || v.InCall || v.BundleID == span.IdleBundleID {
 			out = append(out, v)
 			continue
 		}
 		at := v.Start
-		for _, m := range marks { // in start order
+		first := 0
+		if sorted {
+			first = firstPast(ends, v.Start)
+		}
+		for _, m := range marks[first:] { // in start order
+			if sorted && m.View.Start >= v.End {
+				break
+			}
 			lo, hi := max(m.View.Start, at), min(m.View.End, v.End)
 			if m.View.Start <= v.Start+SwitchGraceMS || hi <= lo {
 				continue

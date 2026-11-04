@@ -78,6 +78,7 @@ func TestMergeNames(t *testing.T) {
 		t.Fatalf("names = %q, %q", m.From, m.To)
 	}
 	r, l := string(m.Rules), m.Learned
+	r, _, _ = strings.Cut(r, "\n[[renamed]]") // the log names the old spelling on purpose
 	if strings.Contains(r, "old spelling") || strings.Count(r, "[[category]]") != 2 ||
 		!strings.Contains(r, "category = \"Meetings\" # calls") || strings.Contains(r, `"Meeting"`) || strings.Contains(r, `"meeting"`) {
 		t.Fatalf("rules:\n%s", r)

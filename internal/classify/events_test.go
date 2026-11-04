@@ -132,3 +132,21 @@ category = "Code"
 		t.Fatalf("unknown category err = %v", err)
 	}
 }
+
+// TestMarkEventsClaimsCallTime: inside a calendar event, call time becomes
+// the meeting; outside it stays call time.
+func TestMarkEventsClaimsCallTime(t *testing.T) {
+	views := []SpanView{
+		{ID: 1, Start: 0, End: 50, BundleID: span.CallBundleID, App: span.CallApp, InCall: true},
+		{ID: 2, Start: 50, End: 60, BundleID: "term", App: "T", InCall: true},
+	}
+	got := MarkEvents(views, []EventMark{{ID: 9, Title: "1:1", Interval: Interval{20, 100}}}, 0, 100)
+	var b []string
+	for _, v := range got {
+		b = append(b, fmt.Sprintf("%d-%d %s", v.Start, v.End, v.BundleID))
+	}
+	want := "0-20 " + span.CallBundleID + ",20-50 " + span.MeetingBundleID + ",50-60 term,60-100 " + span.MeetingBundleID
+	if s := strings.Join(b, ","); s != want {
+		t.Fatalf("got %s\nwant %s", s, want)
+	}
+}

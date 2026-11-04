@@ -59,11 +59,21 @@ func (a *App) shareRules(dir string, mi *machineInfo) error {
 
 // takeRules replaces rules.toml with the newest other machine's copy when
 // that copy changed after this one, arrived whole, differs and parses with
-// this machine's learned.toml. The file it replaces is kept as
+// this machine's learned.toml once the copy's rename log is followed there:
+// learned.toml (kept as learned.toml.bak) and the hand tags then use the new
+// names. The file it replaces is kept as
 // rules.toml.bak and the new one keeps the other machine's change time, so
 // it is not passed back as newer. It returns the machine taken from, or a
 // copy it could not take and why.
 func (a *App) takeRules(dir, self string) (from, refused string, err error) {
+	err = a.withRulesLock(func() error {
+		from, refused, err = a.takeRulesLocked(dir, self)
+		return err
+	})
+	return from, refused, err
+}
+
+func (a *App) takeRulesLocked(dir, self string) (from, refused string, err error) {
 	local, localAt, err := a.localRules()
 	if err != nil {
 		return "", "", err
@@ -76,7 +86,8 @@ func (a *App) takeRules(dir, self string) (from, refused string, err error) {
 	if err != nil {
 		return "", "", fmt.Errorf("sync dir: %w", err)
 	}
-	var best []byte
+	var best, bestLearned []byte
+	var bestRS *classify.Ruleset
 	bestAt := localAt
 	for _, e := range entries {
 		if !e.IsDir() || e.Name() == self || strings.HasPrefix(e.Name(), ".") {
@@ -91,17 +102,40 @@ func (a *App) takeRules(dir, self string) (from, refused string, err error) {
 		if err != nil || rulesSum(b) != mi.RulesSum || bytes.Equal(b, local) {
 			continue // still arriving, or the same rules
 		}
-		if _, err := classify.Parse(b, learned); err != nil {
+		// Names merged or renamed there are renamed here too first.
+		lrn := learned
+		if f, _, err := classify.FollowRenames(b, learned); err == nil {
+			lrn = f
+		}
+		rs, err := classify.Parse(b, lrn)
+		if err != nil {
 			refused = e.Name() + ": " + err.Error()
 			continue
 		}
-		best, bestAt, from = b, mi.RulesAt, e.Name()
+		best, bestLearned, bestRS, bestAt, from = b, lrn, rs, mi.RulesAt, e.Name()
 	}
 	if best == nil {
 		return "", refused, nil
 	}
 	if err := os.WriteFile(a.paths.Rules+".bak", local, 0o600); err != nil {
 		return "", "", err
+	}
+	if !bytes.Equal(bestLearned, learned) {
+		if err := os.WriteFile(a.paths.Learned+".bak", learned, 0o600); err != nil {
+			return "", "", err
+		}
+		if err := classify.WriteFile(a.paths.Learned, bestLearned); err != nil {
+			return "", "", err
+		}
+	}
+	for _, r := range bestRS.Renamed {
+		to := bestRS.CurrentName(r.Kind, r.From)
+		if to == "" || strings.EqualFold(to, r.From) {
+			continue
+		}
+		if err := a.st.RenameLabel(r.Kind, r.From, to, a.nowMS()); err != nil {
+			return "", "", err
+		}
 	}
 	if err := classify.WriteFile(a.paths.Rules, best); err != nil {
 		return "", "", err

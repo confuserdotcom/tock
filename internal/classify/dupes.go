@@ -160,7 +160,7 @@ func MergeNames(rulesData, learnedData []byte, kind, from, to string) (Merged, e
 		return Merged{}, fmt.Errorf("merge: %q is the same name", src)
 	}
 
-	rules := []byte(dropTable(renameValues(string(rulesData), kind, src, dst), kind, src))
+	rules := []byte(logRename(dropTable(renameValues(string(rulesData), kind, src, dst), kind, src), kind, src, dst))
 	learned := []byte(renameValues(string(learnedData), kind, src, dst))
 	after, err := Parse(rules, learned)
 	if err != nil {

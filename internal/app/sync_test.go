@@ -10,6 +10,7 @@ import (
 
 	"tock/internal/apptest"
 	"tock/internal/classify"
+	"tock/internal/store"
 )
 
 // twoMachines is the seeded day on "mac" and 30 min of tock work on "ryuk"
@@ -202,4 +203,71 @@ func TestSyncSkipsThePublishedBuilds(t *testing.T) {
 	if _, ok, _ := mac.st.State(RemoteInputKey("bin")); ok {
 		t.Fatal("bin was read as a machine")
 	}
+}
+
+// TestSyncFollowsRenames: a category merged on the Mac reaches ryuk with its
+// rename: ryuk's learned rules and hand tags that name the old category
+// follow it, so ryuk takes the rules instead of refusing them.
+func TestSyncFollowsRenames(t *testing.T) {
+	mac, ryuk, _ := twoMachines(t)
+	old := time.Now().Add(-time.Hour)
+	if err := os.Chtimes(ryuk.paths.Rules, old, old); err != nil {
+		t.Fatal(err)
+	}
+	learned := "[[rule]]\nbundle = [\"mail\"]\ncategory = \"Communication\"\n"
+	if err := os.WriteFile(ryuk.paths.Learned, []byte(learned), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	ryuk.Reload()
+	if err := ryuk.st.SetOverrides([]store.Override{{SpanID: 1, Category: "Communication", At: 1}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := mac.MergeNames(classify.NameCategory, "Communication", "Code"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := mac.Sync(SyncDays); err != nil {
+		t.Fatal(err)
+	}
+	r, err := ryuk.Sync(SyncDays)
+	if err != nil || r.RulesFrom != "mac" || r.RulesRefused != "" || ryuk.Rules().HasCategory("Communication") {
+		t.Fatalf("ryuk sync = %+v, %v", r, err)
+	}
+	if b, _ := os.ReadFile(ryuk.paths.Learned); !strings.Contains(string(b), `category = "Code"`) {
+		t.Fatalf("learned:\n%s", b)
+	}
+	ovs, err := ryuk.st.Overrides()
+	if err != nil || ovs[1].Category != "Code" {
+		t.Fatalf("override = %+v, %v", ovs[1], err)
+	}
+}
+
+// TestRemoteLabelsFollowRenames: a label ryuk wrote before the Mac merged
+// its category shows on the Mac under the new name.
+func TestRemoteLabelsFollowRenames(t *testing.T) {
+	mac, ryuk, _ := twoMachines(t)
+	if err := ryuk.st.SetOverrides([]store.Override{{SpanID: 1, Category: "Communication", At: 1}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ryuk.Sync(SyncDays); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := mac.MergeNames(classify.NameCategory, "Communication", "Entertainment"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := mac.Sync(SyncDays); err != nil {
+		t.Fatal(err)
+	}
+	vs, labels, err := mac.labelled(mac.midnight(mac.now()).UnixMilli(), mac.nowMS(), mac.nowMS())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, v := range vs {
+		if classify.IsRemote(v) {
+			if labels[i].Category != "Entertainment" || labels[i].CategorySource != classify.SourceManual {
+				t.Fatalf("remote label = %+v", labels[i])
+			}
+			return
+		}
+	}
+	t.Fatal("no remote view")
 }

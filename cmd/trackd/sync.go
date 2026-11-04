@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"log/slog"
 	"time"
 
@@ -48,6 +49,9 @@ func (s *syncLoop) tick() {
 		return
 	}
 	s.lastErr = ""
+	if r.RulesRefused != "" {
+		s.warn("kept rules.toml, refused a newer one", errors.New(r.RulesRefused))
+	}
 	if r.Written > 0 || r.Read > 0 {
 		s.log.Info("synced", "written", r.Written, "read", r.Read, "machines", len(r.Machines))
 	}

@@ -14,6 +14,7 @@ import (
 	"tock/internal/app"
 	"tock/internal/classify"
 	"tock/internal/config"
+	"tock/internal/fronttab"
 	"tock/internal/gitlog"
 	"tock/internal/store"
 	"tock/internal/update"
@@ -139,6 +140,7 @@ func cmdDoctor(env Env, args []string) error {
 
 	if cfgErr == nil {
 		doctorAFK(env, cfg, ok, bad)
+		doctorBrowser(env, ok)
 		doctorSync(env, cfg.Sync, ok, bad)
 		doctorUpdates(env, cfg.Sync, ok, bad)
 		doctorGuard(env, cfg, ok, bad)
@@ -309,6 +311,19 @@ func doctorSync(env Env, s config.Sync, ok func(name, detail string), bad func(n
 			}
 		}
 		ok("rules sync", detail)
+		if st, err := openStore(env); err == nil {
+			if v, _, _ := st.State(app.KeyRulesRefused); v != "" {
+				bad("rules sync", "kept this machine's rules.toml: the newer one from "+v, "fix what it names, then tock sync")
+			}
+			if ms, err := st.RemoteMachines(); err == nil {
+				for _, m := range ms {
+					if v, _, _ := st.State(app.RemoteRulesRefusedKey(m.Name)); v != "" {
+						bad("rules sync", m.Name+" kept its rules.toml: the newer one from "+v, "on "+m.Name+": fix what it names, then tock sync")
+					}
+				}
+			}
+			st.Close()
+		}
 	}
 }
 
@@ -520,4 +535,18 @@ func doctorOCR(env Env, cfg config.OCR, h app.Health, ok func(name, detail strin
 	} else {
 		ok("ocr", detail)
 	}
+}
+
+// doctorBrowser says, on Linux, whether the tock browser extension sends
+// the front tab: without it browser windows have titles but no address.
+func doctorBrowser(env Env, ok func(name, detail string)) {
+	if !env.Linux {
+		return
+	}
+	st, found := fronttab.Read(filepath.Join(env.StateDir, fronttab.File))
+	if !found {
+		ok("browser", "off: browser windows get no web address (trackd browser install)")
+		return
+	}
+	ok("browser", "the tock extension sends the tab in front (last "+time.UnixMilli(st.AtMS).In(env.Now().Location()).Format("15:04")+")")
 }

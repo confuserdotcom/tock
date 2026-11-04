@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"os"
 	"strings"
 	"testing"
@@ -29,6 +30,7 @@ func TestCategoryCommand(t *testing.T) {
 		t.Fatalf("rm: %s", te.errb)
 	}
 	b, _ := os.ReadFile(te.rulesPath())
+	b, _, _ = bytes.Cut(b, []byte("\n[[renamed]]")) // the rename log keeps old names
 	if strings.Contains(string(b), "Books") {
 		t.Fatalf("rules still name Books:\n%s", b)
 	}

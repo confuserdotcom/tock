@@ -459,15 +459,16 @@ func (rs *Ruleset) genericRefs() map[string]bool {
 }
 
 // ApplyModel labels with m, in place:
-//   - a view no rule labelled gets m's category when it holds ModelFillMin
-//     of the posterior on ModelMinFeatures known features;
+//   - a view no rule labelled (or that a call labelled only because
+//     nothing else did) gets m's category when it holds ModelFillMin of the
+//     posterior on ModelMinFeatures known features;
 //   - a view labelled by a generic rule, or by another machine, gets
 //     another category when its title alone gives that one
 //     ModelOverrideMin, leaving out what that rule (or machine) taught,
 //     and ModelMinFeatures of its words are for it.
 //
-// Manual labels, calls, meetings, modules, the plan, time away and edits
-// are never touched. A project filed under another category is dropped.
+// Manual labels, call apps and call time, meetings, modules, the plan,
+// time away and edits are never touched. A project filed under another category is dropped.
 func (rs *Ruleset) ApplyModel(m *Model, views []SpanView, labels []Label) {
 	if m == nil {
 		return
@@ -480,7 +481,8 @@ func (rs *Ruleset) ApplyModel(m *Model, views []SpanView, labels []Label) {
 		}
 		pick := func(v SpanView) string {
 			switch src := l.CategorySource; {
-			case l.Category == "" && (src == SourceNone || src == ""):
+			case l.Category == "" && (src == SourceNone || src == ""),
+				src == SourceCall && !rs.isCallView(&v): // a call is context: activity first
 				c, _ := m.Fill(v)
 				return c
 			case (src == SourceRule || src == SourceLearned) && generic[l.CategoryRule],

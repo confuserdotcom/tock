@@ -860,25 +860,35 @@ time each labelled in the last 30 days. `tock doctor` mentions them.
 table from rules.toml, renames it in rules.toml and learned.toml, and
 renames manual tags, away labels and suggestions in tock.db. The old
 rules.toml is kept as rules.toml.bak. A project with repos or a rate must
-have them moved by hand first.
+have them moved by hand first. Merges and renames are logged at the end of
+rules.toml as `[[renamed]]` tables (kind, from, to), so your other machines
+follow them (see Sync).
 
 ## Calls
 
 trackd notices when a camera or microphone is in use, in any app. It only
 reads whether a device is running, so it needs no camera or microphone
 permission and records no audio or video, just start and end times. During
-a call, break and distraction nudges stay quiet. With this table in
-`rules.toml` (the starter rules have it), calls of at least two minutes are
-labelled, including time you only listened and would otherwise be idle:
+a call, break and distraction nudges stay quiet.
+
+A call is context, not an activity: what is on screen decides the label.
+With this table in `rules.toml` (the starter rules have it), calls of at
+least two minutes label the time that has no label of its own (including
+time you only listened and would otherwise be idle) and the time a call app
+or a Meet, Zoom or Teams page is in front. Chess, study or a video chat site
+your rules already label keep that label with the camera on.
 
 ```toml
 [calls]
 category = "Meeting"   # a declared category
+# apps = ["us.zoom.xos", "com.apple.FaceTime"]   # call apps; default: the
+#   common ones (FaceTime, Zoom, Teams, Discord, Telegram, WhatsApp, Skype,
+#   Signal). [] for none.
 ```
 
-A manual tag still wins, and so does a distraction: a video chat site your
-rules call Entertainment stays Entertainment with the camera on. `tock rules
-check` says whether calls are labelled.
+A calendar event is more specific than a call: call time inside it is the
+meeting. A manual tag still wins. `tock rules check` says whether calls are
+labelled.
 
 ## Commits
 
@@ -1291,6 +1301,22 @@ trackd runs as the systemd user unit `trackd.service` and starts with your
 graphical session. Its log is `~/.local/state/tock/trackd.log`, and
 `systemctl --user status trackd` shows the unit.
 
+Hyprland gives a window's title but no browser's address. A small tock
+extension sends the tab in front to trackd through the browser's native
+messaging (trackd is started by the browser and reads its stdin; nothing
+goes over the network). Run
+
+```sh
+trackd browser install
+```
+
+and follow what it prints: in Chromium, Chrome or Brave, Load unpacked the
+extension it wrote, then turn on "Allow in Incognito". The address is kept
+the same way as on the Mac (host and path; no query, no fragment). An
+incognito window, or a browser window the extension cannot see, counts as
+private: no title and no address. Firefox loads it only for one session
+(unsigned add-ons). `tock doctor` says when the extension last reported.
+
 Wayland gives no app the idle time, so hypridle tells trackd. Add this to
 hypridle's config, keeping your other listeners. That is
 `~/.config/hypr/hypridle.conf`, or the file hypridle runs with when it is
@@ -1394,8 +1420,12 @@ Every minute, trackd writes this machine's last two days to
 - **Rules.** Each machine also shares its `rules.toml`. When another
   machine's copy changed later than yours, has fully arrived and parses with
   your `learned.toml`, tock takes it and keeps yours as `rules.toml.bak`.
-  `learned.toml` stays per machine. Clocks decide which edit is newer, so
-  keep them in time. `rules = false` under `[sync]` turns this off.
+  `learned.toml` stays per machine, but a category or project merged or
+  renamed on the other machine is renamed in yours too (kept as
+  `learned.toml.bak`), and in your hand tags, so the new rules still parse.
+  A copy that does not parse is kept out; `tock doctor` on either machine
+  says so and why. Clocks decide which edit is newer, so keep them in time.
+  `rules = false` under `[sync]` turns this off.
 - **Commands.** `tock sync` syncs now and lists the machines. Use
   `tock sync --days 30` once to send older days. `tock doctor` shows a
   `sync` line.
