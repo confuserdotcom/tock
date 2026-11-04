@@ -237,7 +237,7 @@ type rulesTOML struct {
 		Rate     *float64 `toml:"rate"`
 		Repos    []string `toml:"repos"`
 	} `toml:"project"`
-	Rule  []ruleTOML `toml:"rule"`
+	Rule    []ruleTOML `toml:"rule"`
 	Renamed []struct {
 		Kind string `toml:"kind"`
 		From string `toml:"from"`

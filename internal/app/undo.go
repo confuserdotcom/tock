@@ -111,18 +111,19 @@ func (a *App) undo(accept func(store.Undo) error) (string, error) {
 		return "", fmt.Errorf("undo journal: %w", err)
 	}
 	if f := d.File; f != nil {
-		cur, err := os.ReadFile(f.Path)
-		if err != nil && !errors.Is(err, os.ErrNotExist) {
-			return "", err
-		}
-		if !bytes.Equal(cur, []byte(f.After)) {
-			return "", fmt.Errorf("cannot undo %q: %s changed since", u.What, f.Path)
-		}
-		if f.Existed {
-			err = os.WriteFile(f.Path, []byte(f.Before), 0o600)
-		} else {
-			err = os.Remove(f.Path)
-		}
+		err := a.withRulesLock(func() error {
+			cur, err := os.ReadFile(f.Path)
+			if err != nil && !errors.Is(err, os.ErrNotExist) {
+				return err
+			}
+			if !bytes.Equal(cur, []byte(f.After)) {
+				return fmt.Errorf("cannot undo %q: %s changed since", u.What, f.Path)
+			}
+			if f.Existed {
+				return os.WriteFile(f.Path, []byte(f.Before), 0o600)
+			}
+			return os.Remove(f.Path)
+		})
 		if err != nil {
 			return "", err
 		}

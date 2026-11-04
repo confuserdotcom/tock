@@ -26,6 +26,10 @@ func (a *App) Propose(key string, want classify.Want) ([]classify.Candidate, err
 // replaces, and reloads the rules, so the next read applies it to all
 // history.
 func (a *App) Learn(key string, c classify.Candidate, want classify.Want) error {
+	return a.withRulesLock(func() error { return a.learnLocked(key, c, want) })
+}
+
+func (a *App) learnLocked(key string, c classify.Candidate, want classify.Want) error {
 	before, existed, err := readFile(a.paths.Learned)
 	if err != nil {
 		return err

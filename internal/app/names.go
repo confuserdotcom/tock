@@ -42,7 +42,15 @@ func (a *App) Duplicates(days int) ([]Dup, error) {
 // are rewritten (rules.toml is kept as rules.toml.bak first), then manual
 // tags, away labels and suggestions are renamed. It returns the declared
 // spellings.
-func (a *App) MergeNames(kind, from, to string) (string, string, error) {
+func (a *App) MergeNames(kind, from, to string) (src, dst string, err error) {
+	err = a.withRulesLock(func() error {
+		src, dst, err = a.mergeNamesLocked(kind, from, to)
+		return err
+	})
+	return src, dst, err
+}
+
+func (a *App) mergeNamesLocked(kind, from, to string) (string, string, error) {
 	rules, err := os.ReadFile(a.paths.Rules)
 	if err != nil {
 		return "", "", err

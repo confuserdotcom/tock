@@ -66,6 +66,14 @@ func (a *App) shareRules(dir string, mi *machineInfo) error {
 // it is not passed back as newer. It returns the machine taken from, or a
 // copy it could not take and why.
 func (a *App) takeRules(dir, self string) (from, refused string, err error) {
+	err = a.withRulesLock(func() error {
+		from, refused, err = a.takeRulesLocked(dir, self)
+		return err
+	})
+	return from, refused, err
+}
+
+func (a *App) takeRulesLocked(dir, self string) (from, refused string, err error) {
 	local, localAt, err := a.localRules()
 	if err != nil {
 		return "", "", err

@@ -25,6 +25,10 @@ type CategorySpec struct {
 // each file that changed as <file>.bak, writes learned.toml (when it
 // changed) then rules.toml, and reloads.
 func (a *App) rewriteRules(edit func(rules, learned []byte) ([]byte, []byte, error)) error {
+	return a.withRulesLock(func() error { return a.rewriteRulesLocked(edit) })
+}
+
+func (a *App) rewriteRulesLocked(edit func(rules, learned []byte) ([]byte, []byte, error)) error {
 	rules, err := os.ReadFile(a.paths.Rules)
 	if err != nil {
 		return err
