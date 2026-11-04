@@ -59,8 +59,8 @@ func cmdTUIOn(env Env, tab string) error {
 	}
 	defer a.Close()
 	m := tui.New(a, env.Now).WithTab(tab)
-	if env.APIKey != "" {
-		m = m.WithSuggester(env.NewClient(env.APIKey))
+	if env.hasClaude() {
+		m = m.WithSuggester(env.suggester())
 	}
 	return runProgram(env, m)
 }

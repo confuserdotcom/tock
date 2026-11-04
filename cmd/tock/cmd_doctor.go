@@ -145,10 +145,10 @@ func cmdDoctor(env Env, args []string) error {
 		doctorOCR(env, cfg.OCR, h, ok, bad)
 	}
 
-	if env.APIKey != "" {
-		ok("suggestions", "on (ANTHROPIC_API_KEY set)")
+	if env.hasClaude() {
+		ok("suggestions", "on via "+env.claudeVia())
 	} else {
-		ok("suggestions", "off (set ANTHROPIC_API_KEY to enable)")
+		ok("suggestions", "off (install Claude Code and log in, or set ANTHROPIC_API_KEY)")
 	}
 
 	if problems > 0 {

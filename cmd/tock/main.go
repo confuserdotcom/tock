@@ -108,6 +108,11 @@ type Env struct {
 	APIKey string
 	// NewClient builds the Claude client; tests substitute a fake.
 	NewClient func(key string) suggest.Client
+	// ClaudeCLI is the claude binary used when APIKey is "": Claude on the
+	// user's subscription. "" means none was found.
+	ClaudeCLI string
+	// NewCLI builds the CLI backend; tests substitute a fake.
+	NewCLI func(path string) AI
 	// Open opens a URL with macOS open(1); Sleep waits. Tests substitute
 	// both.
 	Open  func(url string) error
@@ -158,6 +163,7 @@ func defaultEnv() Env {
 		StateDir:    envDir("TOCK_STATE_DIR", ".local", "state", "tock"),
 		ConfigDir:   envDir("TOCK_CONFIG_DIR", ".config", "tock"),
 		APIKey:      os.Getenv("ANTHROPIC_API_KEY"),
+		ClaudeCLI:   claude.FindCLI(),
 		SlackToken:  os.Getenv("TOCK_SLACK_TOKEN"),
 		ListShortcuts: func() ([]string, error) {
 			out, err := exec.Command("/usr/bin/shortcuts", "list").Output()

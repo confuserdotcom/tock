@@ -72,7 +72,7 @@ func TestSuggestCommand(t *testing.T) {
 func TestSuggestWithoutKeyAndErrors(t *testing.T) {
 	te := newTestEnv(t, testRules)
 	te.seed(t, daySpans()...)
-	if code, _ := te.run(t, "", "suggest"); code != 1 || te.errb.String() != "tock: ANTHROPIC_API_KEY is not set\n" {
+	if code, _ := te.run(t, "", "suggest"); code != 1 || !strings.HasPrefix(te.errb.String(), "tock: no Claude: install Claude Code") {
 		t.Fatalf("no key: code %d err %q", code, te.errb.String())
 	}
 	if code, _ := te.run(t, "", "suggest", "--dry-run", "--force"); code != 2 {
@@ -86,5 +86,37 @@ func TestSuggestWithoutKeyAndErrors(t *testing.T) {
 	// The failed attempt still holds the hour: no retry storm.
 	if _, out := te.run(t, "", "suggest"); !strings.HasPrefix(out, "next batch after 16:00") || fc.calls != 1 {
 		t.Fatalf("after failure: %q calls %d", out, fc.calls)
+	}
+}
+
+// fakeAI is the claude CLI backend in tests.
+type fakeAI struct{ fakeClient }
+
+func (f *fakeAI) Summarize(context.Context, string, []byte) (json.RawMessage, error) {
+	return nil, errors.New("not used")
+}
+
+func (f *fakeAI) Ask(context.Context, string, []byte) (json.RawMessage, error) {
+	return nil, errors.New("not used")
+}
+
+// TestSuggestThroughCLI: with no API key, suggestions go through the claude
+// CLI (the user's subscription).
+func TestSuggestThroughCLI(t *testing.T) {
+	te := newTestEnv(t, testRules)
+	te.seed(t, daySpans()...)
+	fa := &fakeAI{fakeClient{answer: `{"suggestions":[{"id":"k1","category":"Study","project":"tock"}]}`}}
+	te.ClaudeCLI = "/x/claude"
+	te.NewCLI = func(path string) AI {
+		if path != "/x/claude" {
+			panic("wrong path")
+		}
+		return fa
+	}
+	if code, out := te.run(t, "", "suggest"); code != 0 || out != "sent 3 keys · 1 suggested\n" || fa.calls != 1 {
+		t.Fatalf("suggest: code %d out %q err %q calls %d", code, out, te.errb.String(), fa.calls)
+	}
+	if _, out := te.run(t, "", "doctor"); !strings.Contains(out, "suggestions: on via your Claude subscription (claude CLI)") {
+		t.Fatalf("doctor:\n%s", out)
 	}
 }

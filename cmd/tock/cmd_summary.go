@@ -10,6 +10,7 @@ import (
 
 	"tock/internal/claude"
 	"tock/internal/report"
+	"tock/internal/suggest"
 )
 
 // LLM is the Claude client for summaries and questions; claude.Client is
@@ -19,11 +20,59 @@ type LLM interface {
 	Ask(ctx context.Context, model string, payload []byte) (json.RawMessage, error)
 }
 
+// AI is a Claude backend that does all three calls: the claude CLI, or
+// the API.
+type AI interface {
+	suggest.Client
+	LLM
+}
+
+// errNoClaude is returned when neither backend is there.
+var errNoClaude = errors.New("no Claude: install Claude Code (the claude command) and log in, or set ANTHROPIC_API_KEY")
+
+// hasClaude reports whether a backend is there: an API key, else the
+// claude CLI.
+func (e Env) hasClaude() bool { return e.APIKey != "" || e.ClaudeCLI != "" }
+
+// claudeVia names the backend for messages.
+func (e Env) claudeVia() string {
+	if e.APIKey != "" {
+		return "ANTHROPIC_API_KEY"
+	}
+	return "your Claude subscription (claude CLI)"
+}
+
+// claudeTimeout bounds one call on the backend in use.
+func (e Env) claudeTimeout() time.Duration {
+	if e.APIKey != "" {
+		return claude.Timeout
+	}
+	return claude.CLITimeout
+}
+
+func (e Env) cli() AI {
+	if e.NewCLI != nil {
+		return e.NewCLI(e.ClaudeCLI)
+	}
+	return claude.NewCLI(e.ClaudeCLI)
+}
+
 func (e Env) llm() LLM {
+	if e.APIKey == "" {
+		return e.cli()
+	}
 	if e.NewLLM != nil {
 		return e.NewLLM(e.APIKey)
 	}
 	return claude.New(e.APIKey)
+}
+
+// suggester is the backend for inbox suggestions.
+func (e Env) suggester() suggest.Client {
+	if e.APIKey == "" {
+		return e.cli()
+	}
+	return e.NewClient(e.APIKey)
 }
 
 // parseDay reads --date, default today.
@@ -125,10 +174,10 @@ func cmdSummary(env Env, args []string) error {
 		fmt.Fprintln(env.Stdout, "Claude is off: [llm] enabled = false in config.toml")
 		return nil
 	}
-	if env.APIKey == "" {
-		return errors.New("ANTHROPIC_API_KEY is not set")
+	if !env.hasClaude() {
+		return errNoClaude
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), claude.Timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), env.claudeTimeout())
 	defer cancel()
 	model := a.Config().LLM.Model
 	raw, err := env.llm().Summarize(ctx, model, b.Payload)

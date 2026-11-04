@@ -16,8 +16,10 @@ score your focus, run focus sessions and help you label what is left.
 - Private-browsing windows are recorded as "<app> (private)", with no title or
   URL.
 - Claude suggestions, summaries and `tock ask` are the only features that talk
-  to the internet, and they are off unless `ANTHROPIC_API_KEY` is set in the
-  shell that runs `tock`.
+  to the internet. They run through Claude Code (`claude -p`, on your Claude
+  subscription: no API key, no tools, no saved session), or through the API
+  when `ANTHROPIC_API_KEY` is set in the shell that runs `tock`. With neither,
+  they are off.
   - When on, at most once an hour, tock sends the grouped inbox keys: app name, URL host, cleaned title and minutes. It also sends your category and project names.
   - Password managers, mail and messaging apps, banks and webmail are never sent. Extend the deny lists in `config.toml [llm]`.
   - `tock summary` runs only when you type it. It sends the day's work blocks: the weekday (never the date), clock times, minutes, labels and, per block, at most 8 apps with their URL host or cleaned title, through the same deny lists. The answer is saved in tock.db.
@@ -78,7 +80,7 @@ ok  trackd: running (version 3f2a1c0)
 ok  accessibility: granted
 ok  notifications: native, with buttons (menu bar)
 ok  automation: no browser denied
-ok  suggestions: off (set ANTHROPIC_API_KEY to enable)
+ok  suggestions: on via your Claude subscription (claude CLI)
 ```
 
 Permissions are tied to the signing certificate, so they survive rebuilds.
@@ -222,9 +224,9 @@ tock model [why <app> "<title>" [<label>]]
 tock web [--port N] [--no-open] [--idle D]  the dashboard in your browser, on this machine only
 tock review [--week YYYY-MM-DD] [--plan TEXT]
                                        weekly recap, then next week's focus
-tock suggest [--dry-run | --force]     Claude label suggestions for the inbox (needs ANTHROPIC_API_KEY)
+tock suggest [--dry-run | --force]     Claude label suggestions for the inbox (claude CLI or ANTHROPIC_API_KEY)
 tock blocks [--date D]                 the day's work blocks: stretches of work on one thing
-tock summary [--date D] [--dry-run]    Claude writes what you worked on (needs ANTHROPIC_API_KEY)
+tock summary [--date D] [--dry-run]    Claude writes what you worked on (claude CLI or ANTHROPIC_API_KEY)
 tock ask [--dry-run] "<question>"      ask about your time in plain words; answered on this machine
 tock doctor [--wait] [--open]          check trackd, permissions, rules and config
 tock export [--from D] [--to D] [--format csv|json] [--by project]
@@ -328,7 +330,7 @@ emoji = ":dart:"
 dnd = true               # pause Slack notifications for the session
 
 [llm]
-enabled = true                # still needs ANTHROPIC_API_KEY
+enabled = true                # still needs Claude Code (claude) or ANTHROPIC_API_KEY
 model = "claude-haiku-5-5"
 min_minutes = 2               # inbox time a key needs before it is sent
 deny_apps = []                # bundle ids added to the built-in deny list
@@ -791,7 +793,8 @@ the TUI). Run it again to replace them; `--date` summarizes another day.
 totals by category, project, app, site, kind or day, over a range. Claude
 only turns the question into a query; tock runs it on your data.
 
-Both need `ANTHROPIC_API_KEY`, and `[llm] enabled = false` turns them off; see
+Both need Claude Code (the `claude` command, logged in) or `ANTHROPIC_API_KEY`,
+and `[llm] enabled = false` turns them off; see
 Privacy for what they send.
 
 ## Trends and review

@@ -2,11 +2,9 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
-	"tock/internal/claude"
 	"tock/internal/suggest"
 )
 
@@ -37,8 +35,8 @@ func cmdSuggest(env Env, args []string) error {
 		fmt.Fprintf(env.Stdout, "%s\n", b.Payload)
 		return nil
 	}
-	if env.APIKey == "" {
-		return errors.New("ANTHROPIC_API_KEY is not set")
+	if !env.hasClaude() {
+		return errNoClaude
 	}
 	p, err := a.SuggestPrepare(*force)
 	if err != nil {
@@ -56,9 +54,9 @@ func cmdSuggest(env Env, args []string) error {
 		fmt.Fprintf(env.Stdout, "next batch after %s (tock suggest --force)\n", at)
 		return nil
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), claude.Timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), env.claudeTimeout())
 	defer cancel()
-	raw, err := env.NewClient(env.APIKey).Suggest(ctx, p.Model, p.Batch.Payload)
+	raw, err := env.suggester().Suggest(ctx, p.Model, p.Batch.Payload)
 	if err != nil {
 		return fmt.Errorf("suggestions failed: %v", err)
 	}
