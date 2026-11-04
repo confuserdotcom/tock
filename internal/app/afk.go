@@ -189,12 +189,16 @@ func (a *App) base(rows []store.SpanRow, ovs map[int64]classify.Override, from, 
 		afk.TrustMS = a.cfg.AFK.TrustMS
 	}
 	out := classify.MarkAFK(vs, afk)
-	idle := map[int64]bool{}
+	// The stale rule's idle is the tail of a row that was not idle; a blip
+	// made idle whole is not cut time.
+	cut := map[int64]int64{}
 	for _, r := range rows {
-		idle[r.ID] = r.BundleID == span.IdleBundleID
+		if r.BundleID != span.IdleBundleID {
+			cut[r.ID] = r.Start
+		}
 	}
 	for _, v := range clipViews(out, from, to) {
-		if v.BundleID == span.IdleBundleID && v.ID > 0 && !idle[v.ID] {
+		if s, ok := cut[v.ID]; ok && v.BundleID == span.IdleBundleID && v.ID > 0 && v.Start > s {
 			a.cut.StaleMS += v.DurMS()
 		}
 	}

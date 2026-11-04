@@ -44,6 +44,32 @@ func TestAFKWindowKeepsShortPauseInReading(t *testing.T) {
 	}
 }
 
+// TestAFKJiggleIsNoReturn: one input event between two idle stretches (a
+// mouse jiggler) neither ends the absence nor stretches reading over it, and
+// is not counted as cut time.
+func TestAFKJiggleIsNoReturn(t *testing.T) {
+	e := apptest.New(t, afkRules)
+	e.Seed(t,
+		apptest.Span{ID: 1, Start: "09:00", End: "09:20", Bundle: "pdf", App: "PDF", Title: "book"},
+		apptest.Span{ID: 2, Start: "09:20", End: "09:40", Bundle: "tock.idle", App: "Idle"},
+		apptest.Span{ID: 3, Start: "09:40", End: "09:40", Bundle: "pdf", App: "PDF", Title: "book"},
+		apptest.Span{ID: 4, Start: "09:40", End: "09:50", Bundle: "tock.idle", App: "Idle"},
+		apptest.Span{ID: 5, Start: "09:50", End: "10:00", Bundle: "term", App: "WezTerm", Title: "x"},
+	)
+	a := open(t, e)
+	got := timeline(t, a)
+	if !strings.Contains(got, "09:20-09:50 Idle ") {
+		t.Errorf("the jiggle stretched reading over idle:\n%s", got)
+	}
+	d, err := a.Day(apptest.Now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d.Cut.StaleMS != 0 {
+		t.Fatalf("cut = %+v", d.Cut)
+	}
+}
+
 func TestAFKPauseAcrossMidnight(t *testing.T) {
 	e := apptest.New(t, afkRules)
 	e.Seed(t,
