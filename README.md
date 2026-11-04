@@ -860,7 +860,9 @@ time each labelled in the last 30 days. `tock doctor` mentions them.
 table from rules.toml, renames it in rules.toml and learned.toml, and
 renames manual tags, away labels and suggestions in tock.db. The old
 rules.toml is kept as rules.toml.bak. A project with repos or a rate must
-have them moved by hand first.
+have them moved by hand first. Merges and renames are logged at the end of
+rules.toml as `[[renamed]]` tables (kind, from, to), so your other machines
+follow them (see Sync).
 
 ## Calls
 
@@ -1418,8 +1420,12 @@ Every minute, trackd writes this machine's last two days to
 - **Rules.** Each machine also shares its `rules.toml`. When another
   machine's copy changed later than yours, has fully arrived and parses with
   your `learned.toml`, tock takes it and keeps yours as `rules.toml.bak`.
-  `learned.toml` stays per machine. Clocks decide which edit is newer, so
-  keep them in time. `rules = false` under `[sync]` turns this off.
+  `learned.toml` stays per machine, but a category or project merged or
+  renamed on the other machine is renamed in yours too (kept as
+  `learned.toml.bak`), and in your hand tags, so the new rules still parse.
+  A copy that does not parse is kept out; `tock doctor` on either machine
+  says so and why. Clocks decide which edit is newer, so keep them in time.
+  `rules = false` under `[sync]` turns this off.
 - **Commands.** `tock sync` syncs now and lists the machines. Use
   `tock sync --days 30` once to send older days. `tock doctor` shows a
   `sync` line.

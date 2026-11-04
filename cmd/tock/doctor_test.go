@@ -330,3 +330,16 @@ func TestDoctorGuardLines(t *testing.T) {
 		}
 	}
 }
+
+// TestDoctorRemoteRulesRefused: a machine that kept its rules.toml because
+// it could not take a newer one says so in machine.json; the doctor here
+// names it.
+func TestDoctorRemoteRulesRefused(t *testing.T) {
+	_, out := lagDoctor(t, `{"input":true,"rules_refused":"mac: learned.toml: unknown category \"Utilities\""}`, "", 0)
+	if !strings.Contains(out, `!!  rules sync: ryuk kept its rules.toml: the newer one from mac: learned.toml: unknown category "Utilities"`) {
+		t.Fatalf("doctor:\n%s", out)
+	}
+	if _, out := lagDoctor(t, `{"input":true}`, "", 0); strings.Contains(out, "kept its rules.toml") {
+		t.Fatalf("no refusal:\n%s", out)
+	}
+}

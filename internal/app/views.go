@@ -175,11 +175,12 @@ func (a *App) markRemote(vs []classify.SpanView, ovs map[int64]classify.Override
 		if p, _ := a.rs.ModuleFor(marks[i].View); p != "" {
 			continue // this machine's modules know better
 		}
-		if r.Category != "" && a.rs.HasCategory(r.Category) {
-			o.Category = r.Category
+		// Names the other machine used before a rename follow the log.
+		if r.Category != "" {
+			o.Category = a.rs.CurrentName(classify.NameCategory, r.Category)
 		}
-		if r.Project != "" && a.rs.HasProject(r.Project) {
-			o.Project = r.Project
+		if r.Project != "" {
+			o.Project = a.rs.CurrentName(classify.NameProject, r.Project)
 		}
 		if o != (classify.Override{}) {
 			ovs[-(classify.RemoteIDBase + r.ID)] = o

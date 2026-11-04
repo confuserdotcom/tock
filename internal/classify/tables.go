@@ -180,6 +180,7 @@ func RenameName(rulesData, learnedData []byte, kind, from, to string) (Merged, e
 	if err != nil {
 		return Merged{}, err
 	}
+	rules = logRename(rules, kind, src, to)
 	learned := []byte(renameValues(string(learnedData), kind, src, to))
 	after, err := Parse([]byte(rules), learned)
 	if err != nil {

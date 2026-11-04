@@ -64,6 +64,9 @@ func (a *App) Sync(days int) (SyncReport, error) {
 		if r.RulesFrom, r.RulesRefused, err = a.takeRules(dir, r.Machine); err != nil {
 			return r, err
 		}
+		if err := a.st.SetState(KeyRulesRefused, r.RulesRefused, a.nowMS()); err != nil {
+			return r, err
+		}
 	}
 	today := a.midnight(a.now())
 	for i := range max(days, 1) {

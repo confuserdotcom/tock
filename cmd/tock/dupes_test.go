@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"os"
 	"strings"
 	"testing"
@@ -32,6 +33,7 @@ func TestRulesDupesAndMerge(t *testing.T) {
 		t.Fatalf("exit %d:\n%s%s", code, out, te.errb)
 	}
 	body, _ := os.ReadFile(te.rulesPath())
+	body, _, _ = bytes.Cut(body, []byte("\n[[renamed]]")) // the rename log keeps old names
 	if strings.Contains(string(body), "Studies") {
 		t.Fatalf("rules.toml:\n%s", body)
 	}

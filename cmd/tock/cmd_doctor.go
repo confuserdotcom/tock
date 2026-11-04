@@ -311,6 +311,19 @@ func doctorSync(env Env, s config.Sync, ok func(name, detail string), bad func(n
 			}
 		}
 		ok("rules sync", detail)
+		if st, err := openStore(env); err == nil {
+			if v, _, _ := st.State(app.KeyRulesRefused); v != "" {
+				bad("rules sync", "kept this machine's rules.toml: the newer one from "+v, "fix what it names, then tock sync")
+			}
+			if ms, err := st.RemoteMachines(); err == nil {
+				for _, m := range ms {
+					if v, _, _ := st.State(app.RemoteRulesRefusedKey(m.Name)); v != "" {
+						bad("rules sync", m.Name+" kept its rules.toml: the newer one from "+v, "on "+m.Name+": fix what it names, then tock sync")
+					}
+				}
+			}
+			st.Close()
+		}
 	}
 }
 

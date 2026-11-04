@@ -28,6 +28,9 @@ type machineInfo struct {
 	// self-update.
 	Version     string `json:"version,omitempty"`
 	UpdateError string `json:"update_error,omitempty"`
+	// RulesRefused is the newer rules.toml this machine last could not
+	// take, as "<machine>: why"; "" when it took or had nothing to take.
+	RulesRefused string `json:"rules_refused,omitempty"`
 }
 
 // KeyInputSince is the daemon_state key holding when this Linux machine
@@ -80,6 +83,13 @@ func RemoteVersionKey(machine string) string { return "remote_version:" + machin
 // RemoteUpdateErrorKey is the daemon_state key holding a remote machine's
 // last failed self-update, "" when none.
 func RemoteUpdateErrorKey(machine string) string { return "remote_update_error:" + machine }
+
+// KeyRulesRefused is the daemon_state key holding the newer rules.toml this
+// machine last refused ("<machine>: why"), and RemoteRulesRefusedKey the
+// same for another machine, from its machine.json.
+const KeyRulesRefused = "rules_refused"
+
+func RemoteRulesRefusedKey(machine string) string { return "remote_rules_refused:" + machine }
 
 // inputKnown reports whether this machine reports input to trackd: always
 // on macOS; on Linux only once hypridle runs trackd idle.
@@ -243,6 +253,7 @@ func (a *App) writeMachineFile(dir string) error {
 	mi := machineInfo{Input: a.input, HID: a.goos != "linux"}
 	mi.Version, _, _ = a.st.State(store.KeyVersion)
 	mi.UpdateError, _, _ = a.st.State(update.KeyError)
+	mi.RulesRefused, _, _ = a.st.State(KeyRulesRefused)
 	if a.input && a.inputSince > math.MinInt64 {
 		mi.InputSince = a.inputSince
 	}
@@ -285,6 +296,9 @@ func (a *App) readMachineFile(dir, machine string) error {
 		return err
 	}
 	if err := a.st.SetState(RemoteUpdateErrorKey(machine), mi.UpdateError, a.nowMS()); err != nil {
+		return err
+	}
+	if err := a.st.SetState(RemoteRulesRefusedKey(machine), mi.RulesRefused, a.nowMS()); err != nil {
 		return err
 	}
 	return a.st.SetState(RemoteInputKey(machine), v, a.nowMS())
