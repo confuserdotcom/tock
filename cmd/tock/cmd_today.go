@@ -12,6 +12,9 @@ const (
 	keysPerRow  = 5
 	topProjects = 3
 	barCells    = 12
+	// The category column fits the widest name shown, within these cells.
+	nameMin = 14
+	nameMax = 30
 )
 
 func cmdToday(env Env, args []string) error {
@@ -63,9 +66,12 @@ func cmdToday(env Env, args []string) error {
 	}
 
 	var maxMS int64
+	names := make([]string, 0, len(d.Categories))
 	for _, r := range d.Categories {
 		maxMS = max(maxMS, r.MS)
+		names = append(names, r.Name)
 	}
+	nameW := report.NameWidth(names, nameMin, nameMax)
 	var listed []string
 	for _, r := range d.Categories {
 		extra := projectSummary(r.Projects)
@@ -75,7 +81,7 @@ func cmdToday(env Env, args []string) error {
 		if r.CallMS > 0 {
 			extra = strings.TrimLeft(extra+" · "+report.Dur(r.CallMS)+" on calls", " ·")
 		}
-		line := fmt.Sprintf("%s%5s  %s  %s", report.Pad(r.Name, 15), report.Dur(r.MS),
+		line := fmt.Sprintf("%s %5s  %s  %s", report.Fit(r.Name, nameW), report.Dur(r.MS),
 			report.Pad(report.Bar(r.MS, maxMS, barCells), barCells), extra)
 		fmt.Fprintln(env.Stdout, strings.TrimRight(line, " "))
 		if *withKeys {

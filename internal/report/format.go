@@ -5,6 +5,8 @@ package report
 import (
 	"fmt"
 	"strings"
+
+	"github.com/charmbracelet/x/ansi"
 )
 
 // Dur renders milliseconds as "2h14", "41m" or "45s".
@@ -38,6 +40,27 @@ func Pad(s string, n int) string {
 		return s + strings.Repeat(" ", k)
 	}
 	return s
+}
+
+// Fit pads s with spaces to w terminal cells, or cuts it to w cells ending
+// in "…". Widths are display widths: accents take no cell, wide runes two.
+func Fit(s string, w int) string {
+	n := ansi.StringWidth(s)
+	if n > w {
+		s = ansi.Truncate(s, w, "…")
+		n = ansi.StringWidth(s)
+	}
+	return s + strings.Repeat(" ", max(w-n, 0))
+}
+
+// NameWidth is the column width that fits the widest of names, at least lo
+// and at most hi cells.
+func NameWidth(names []string, lo, hi int) int {
+	w := lo
+	for _, s := range names {
+		w = max(w, ansi.StringWidth(s))
+	}
+	return min(w, hi)
 }
 
 // Safe replaces control characters so window titles cannot drive the

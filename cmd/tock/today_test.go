@@ -72,6 +72,29 @@ func TestTodayKeysNumbersAndSavesListing(t *testing.T) {
 	}
 }
 
+func TestTodayAlignsLongNames(t *testing.T) {
+	long := "Développement logiciel" // 22 cells, wider than the old 15-cell column
+	te := newTestEnv(t, strings.ReplaceAll(testRules, `"Code"`, `"`+long+`"`))
+	te.seed(t, daySpans()...)
+	code, out := te.run(t, "", "today")
+	if code != 0 {
+		t.Fatalf("code %d err %q", code, te.errb.String())
+	}
+	want := long + "  2h14  ████████████  tock 1h40\n" +
+		"Entertainment" + strings.Repeat(" ", 12) + "12m  █\n" +
+		"Unclassified" + strings.Repeat(" ", 13) + "28m  ██▌           3 keys → tock inbox\n"
+	if !strings.HasSuffix(out, want) {
+		t.Fatalf("today output:\n%s\nwant suffix:\n%s", out, want)
+	}
+
+	huge := "A category whose name runs on and on"
+	te = newTestEnv(t, strings.ReplaceAll(testRules, `"Code"`, `"`+huge+`"`))
+	te.seed(t, daySpans()...)
+	if _, out = te.run(t, "", "today"); !strings.Contains(out, "\nA category whose name runs on…  2h14  ") {
+		t.Fatalf("long name not cut at the cap:\n%s", out)
+	}
+}
+
 func TestMissingRulesAndDB(t *testing.T) {
 	te := newTestEnv(t, "")
 	te.seed(t)
