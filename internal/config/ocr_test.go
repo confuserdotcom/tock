@@ -1,6 +1,8 @@
 package config
 
 import (
+	"os"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -58,4 +60,44 @@ deny_titles = ["secret"]
 			t.Errorf("%s: err = %v, want %q", tc.in, err, tc.want)
 		}
 	}
+}
+
+// TestOCRDocDefaults: the [ocr] block in the README loads to DefaultOCR().
+func TestOCRDocDefaults(t *testing.T) {
+	readme, err := os.ReadFile("../../README.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var block []string
+	in := false
+	for _, l := range strings.Split(string(readme), "\n") {
+		switch {
+		case l == "[ocr]" || strings.HasPrefix(l, "[ocr] "):
+			in = true
+			block = append(block, "[ocr]")
+		case in && strings.TrimSpace(l) == "":
+			in = false
+		case in:
+			block = append(block, l)
+		}
+	}
+	doc := strings.Join(block, "\n") + "\n"
+	c, err := Load(write(t, doc))
+	if err != nil {
+		t.Fatalf("documented config:\n%s\n%v", doc, err)
+	}
+	if !reflect.DeepEqual(c.OCR, withEmptyDeny(DefaultOCR())) {
+		t.Fatalf("documented [ocr] = %+v, want %+v", c.OCR, DefaultOCR())
+	}
+	for _, key := range []string{"enabled", "apps", "interval", "min_dwell", "deny_apps", "deny_hosts", "deny_titles"} {
+		if !strings.Contains(doc, key+" =") {
+			t.Errorf("README block lacks %s", key)
+		}
+	}
+}
+
+// withEmptyDeny: deny_* = [] in a file are empty lists, not nil.
+func withEmptyDeny(o OCR) OCR {
+	o.DenyApps, o.DenyHosts, o.DenyTitles = []string{}, []string{}, []string{}
+	return o
 }

@@ -31,6 +31,10 @@ score your focus, run focus sessions and help you label what is left.
 - `tock export` prints titles and URLs to stdout. Where that output goes is up to you.
 - `[privacy] keep_titles = 30` deletes window titles, and cuts URLs to their
   host, once they are 30 days old (see Deleting old titles).
+- Screen reading (opt-in, `[ocr]`) reads the text of unclear windows with
+  Apple Vision on this Mac. Screenshots never touch the disk; only a few
+  plain keywords per window are kept, and they are never sent anywhere,
+  synced or exported (see Screen reading).
 - Calendar events (opt-in) are read through macOS Calendar, never fetched, and
   stay in tock.db. They are never sent to Claude.
 - Commit counts come from `git log` on your local repos: only author times
@@ -197,6 +201,7 @@ tock session [start [MIN] | stop]      focus session: show, start (default 25), 
 tock session snooze [MIN|off]          hold distraction notices back (default [focus] snooze), or resume them
 tock recap [YYYY-MM-DD|start|midday]   the daily recap, or a routine notice now
 tock recommend [accept | dismiss]      the pending suggestion: show it, take it, or not now
+tock ocr test [--now] | grant          read the front window's text once (in 3 s) | ask for Screen Recording
 tock trends [--month YYYY-MM] [--hours]  a month against the one before, your best focus hours and
                                        how you answered the suggestions; --hours: focus by weekday and hour
 tock top [--days N | --week | --month] [--by category|app|site|project] [--limit N]
@@ -282,6 +287,15 @@ enabled = true           # false: no suggestions, and the break reminder is the 
 max_per_day = 2          # focus suggestions a day (0 to 10, 0 = none)
 adaptive_break = true    # break reminder after your usual focus stretch
 min_days = 7             # active days of the last 28 the profile needs (3 to 28)
+
+[ocr]                    # read on-screen text of unclear windows, on this Mac only; see Screen reading
+enabled = false          # off unless set
+apps = ["com.apple.Terminal", "com.googlecode.iterm2", "com.mitchellh.ghostty", "net.kovidgoyal.kitty", "com.github.wez.wezterm", "com.apple.Preview", "net.sourceforge.skim-app.skim", "com.readdle.PDFExpert-Mac", "net.ankiweb.launcher", "com.apple.Safari", "com.google.Chrome", "org.mozilla.firefox", "company.thebrowser.Browser", "app.zen-browser.zen"]
+interval = 60            # seconds between reads of one window (15 to 3600)
+min_dwell = 20           # seconds a window stays in front before its first read (5 to 300)
+deny_apps = []           # bundle ids never read, on top of [llm] deny_apps
+deny_hosts = []          # RE2 patterns on the URL host, on top of [llm] deny_hosts
+deny_titles = []         # RE2 patterns on the title (any case), on top of [llm] deny_titles
 
 [privacy]
 keep_titles = 30         # off unless set: days window titles are kept
@@ -1124,6 +1138,66 @@ sent:
 
 On Linux the notices come through `notify-send` without buttons; answer with
 `tock recommend accept` or `tock recommend dismiss`.
+
+## Screen reading
+
+Some windows say little in their title: a terminal reading `zsh`, a PDF
+viewer, Anki, a browser tab named after a site. With `[ocr] enabled = true`
+trackd reads the text of such a window on screen, keeps a few keywords and
+lets the local model (see The model) label the time from them. It is off by
+default and macOS only.
+
+**Which windows.** A window is read when nothing labels it, or only a rule
+that names the app or site alone, or when its app is in `[ocr] apps`
+(terminals, PDF viewers, Anki and browsers by default). It is read once it
+has stayed in front `min_dwell` seconds (20), then at most every `interval`
+seconds (60) while it stays.
+
+**Never read:** private or incognito windows (and a browser window whose
+title trackd cannot see, in case it is private), anything in the `[llm]` or
+`[ocr]` deny lists, a locked screen, time away, and sign-in or password
+windows: a title or host with sign in, log in, password, 2FA and the like,
+or any moment a password field holds the keyboard (secure input). Each
+skip is counted in `tock doctor`.
+
+**What is kept.** The screenshot exists only in a short-lived worker
+(`trackd ocr-worker`) that trackd starts for one read and kills after 3
+seconds: nothing is written to disk, and trackd itself never holds the
+image or Vision's memory. Of the text, only plain words are kept: 3 to 24
+letters, no stop words, nothing with a digit, no emails, links, tokens or
+hex, nothing your deny title patterns match. At most 32 words per read and
+48 per span, newest first. They are deleted with their span and when
+`[privacy] keep_titles` deletes titles, and they are never sent to Claude,
+synced or exported.
+
+**How it labels.** Words read on screen count half as much as title words
+in the local model. A span the rules left unlabelled can get a category
+from them; when only the screen words decided it, `tock export` shows its
+source as `screen`.
+
+**Permission.** Screen reading needs Screen Recording for trackd. Run
+`tock ocr grant`: trackd asks macOS, which shows a prompt or opens System
+Settings › Privacy & Security › Screen & System Audio Recording, where you
+allow trackd. macOS asks you to confirm it again from time to time; until
+you do, reads are skipped as `no permission`. trackd never asks on its own.
+
+`tock ocr test` waits 3 seconds so you can switch to a window, then has
+trackd read it once and prints the keywords, or why it was skipped
+(`--now` reads at once). A test read is never stored. It needs trackd
+running.
+
+```
+$ tock ocr test
+capturing the front window in 3 s (switch to it now)...
+Ghostty · keywords: kubectl deployment rollout namespace pods · 142 ms
+$ tock doctor
+...
+ok  ocr: on · permission granted · today 37 reads, avg 138 ms · skipped: away 12, private window 4
+```
+
+One read costs about 0.2 s of CPU in the worker and nothing in trackd's
+memory; reading once a minute is well under 1 % CPU, and nothing runs while
+`enabled = false`.
 
 ## Menu bar and notifications
 
