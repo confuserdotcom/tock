@@ -19,11 +19,12 @@ func cmdWeb(env Env, args []string) error {
 	fs := newFlags("web")
 	port := fs.Int("port", 0, "port on 127.0.0.1 (default: any free port)")
 	noOpen := fs.Bool("no-open", false, "print the link without opening the browser")
+	idle := fs.Duration("idle", 0, "stop after this long with no request (0: run until interrupted)")
 	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
-	if fs.NArg() > 0 || *port < 0 || *port > 65535 {
-		return usagef("web: usage: tock web [--port N] [--no-open]")
+	if fs.NArg() > 0 || *port < 0 || *port > 65535 || *idle < 0 {
+		return usagef("web: usage: tock web [--port N] [--no-open] [--idle DURATION]")
 	}
 	a, err := openApp(env)
 	if err != nil {
@@ -39,8 +40,10 @@ func cmdWeb(env Env, args []string) error {
 		return err
 	}
 	p := ln.Addr().(*net.TCPAddr).Port
+	var act web.Activity
+	act.Touch(env.Now())
 	srv := &http.Server{
-		Handler:           web.New(a, token, p, env.Now).Handler(),
+		Handler:           act.Wrap(web.New(a, token, p, env.Now).Handler(), env.Now),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       10 * time.Second,
 		WriteTimeout:      60 * time.Second,
@@ -55,6 +58,9 @@ func cmdWeb(env Env, args []string) error {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+	if *idle > 0 {
+		go stopWhenIdle(ctx, stop, &act, *idle, env.Now)
+	}
 	errc := make(chan error, 1)
 	go func() { errc <- srv.Serve(ln) }()
 	select {
@@ -68,4 +74,21 @@ func cmdWeb(env Env, args []string) error {
 		_ = srv.Shutdown(shut)
 	}
 	return nil
+}
+
+// stopWhenIdle calls stop once no request has come for idle.
+func stopWhenIdle(ctx context.Context, stop func(), act *web.Activity, idle time.Duration, now func() time.Time) {
+	t := time.NewTicker(min(idle/10, 30*time.Second))
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			if act.Since(now()) >= idle {
+				stop()
+				return
+			}
+		}
+	}
 }
