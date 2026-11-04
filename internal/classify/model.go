@@ -13,6 +13,14 @@ import (
 // SourceModel marks a category the local model chose (see ApplyModel).
 const SourceModel Source = "model"
 
+// SourceScreen marks a category the local model chose only thanks to the
+// words read on screen (see SpanView.Screen).
+const SourceScreen Source = "screen"
+
+// screenWeight is the say of a word read on screen next to a title word:
+// the screen holds more noise than the title.
+const screenWeight = 0.5
+
 // Model thresholds: the share of the posterior a category needs, and the
 // fewest known features behind it.
 const (
@@ -111,6 +119,32 @@ func Features(v SpanView) (meta, title []string) {
 	return meta, title
 }
 
+// feature is one content word of a view and its weight.
+type feature struct {
+	t string
+	w float64
+}
+
+// content are a view's title words (weight 1) and the words read on its
+// screen that are not in the title (screenWeight), with the same stems so
+// what titles taught applies to screen text. A private view has none.
+func content(v SpanView) []feature {
+	_, title := Features(v)
+	out := make([]feature, 0, len(title))
+	for _, t := range title {
+		out = append(out, feature{t, 1})
+	}
+	if v.Private || len(v.Screen) == 0 {
+		return out
+	}
+	for _, t := range stems(strings.Join(v.Screen, " ")) {
+		if !platforms[t] && !slices.Contains(title, t) {
+			out = append(out, feature{t, screenWeight})
+		}
+	}
+	return out
+}
+
 // platforms are the stems of apps and sites that show in titles ("… -
 // YouTube - Chromium"): they say where a window is, not what it is about,
 // and the app and host features already carry that.
@@ -139,13 +173,14 @@ func Train(ex []Example, seed map[string][]string) *Model {
 			m.prior[c] = 0
 		}
 	}
-	addWords := func(c string, ws []string, w float64, n int) {
-		for _, t := range ws {
+	addWords := func(c string, ws []feature, w float64, n int) {
+		for _, f := range ws {
+			t := f.t
 			if m.word[t] == nil {
 				m.word[t] = map[string]float64{}
 			}
-			m.word[t][c] += w
-			m.wordAll[t] += w
+			m.word[t][c] += w * f.w
+			m.wordAll[t] += w * f.w
 			m.wordN[t] += n
 		}
 	}
@@ -156,7 +191,8 @@ func Train(ex []Example, seed map[string][]string) *Model {
 		cat(e.Category)
 		m.prior[e.Category] += e.Weight
 		m.all += e.Weight
-		meta, title := Features(e.View)
+		meta, _ := Features(e.View)
+		title := content(e.View)
 		for _, f := range meta {
 			if m.meta[f] == nil {
 				m.meta[f] = map[string]float64{}
@@ -171,11 +207,12 @@ func Train(ex []Example, seed map[string][]string) *Model {
 				b = map[string]map[string]float64{}
 				m.blind[e.Blind], m.blindN[e.Blind] = b, map[string]int{}
 			}
-			for _, t := range title {
+			for _, f := range title {
+				t := f.t
 				if b[t] == nil {
 					b[t] = map[string]float64{}
 				}
-				b[t][e.Category] += e.Weight
+				b[t][e.Category] += e.Weight * f.w
 				m.blindN[e.Blind][t]++
 			}
 		}
@@ -183,7 +220,9 @@ func Train(ex []Example, seed map[string][]string) *Model {
 	for c, ws := range seed {
 		cat(c)
 		for _, w := range ws {
-			addWords(c, stems(w), seedWeight, minSupport)
+			for _, t := range stems(w) {
+				addWords(c, []feature{{t, 1}}, seedWeight, minSupport)
+			}
 		}
 	}
 	slices.Sort(m.cats)
@@ -228,12 +267,12 @@ func (m *Model) Rank(v SpanView, titleOnly bool, blind string) ([]Scored, int) {
 	if len(m.cats) == 0 {
 		return nil, 0
 	}
-	meta, title := Features(v)
+	meta, _ := Features(v)
 	drop := m.blind[blind]
-	var known []string
-	for _, t := range title {
-		if m.knows(t, blind) {
-			known = append(known, t)
+	var known []feature
+	for _, f := range content(v) {
+		if m.knows(f.t, blind) {
+			known = append(known, f)
 		}
 	}
 	n := len(known)
@@ -263,9 +302,10 @@ func (m *Model) Rank(v SpanView, titleOnly bool, blind string) ([]Scored, int) {
 		// Each word's say: how much likelier c is among the views with that
 		// word than overall. Smoothing toward the prior keeps one stray word
 		// from making a small category win.
-		for _, t := range known {
+		for _, f := range known {
+			t := f.t
 			w, all := m.word[t][c]-drop[t][c], m.wordAll[t]-sum(drop[t])
-			s += math.Log((w + modelSmooth*prior) / (all + modelSmooth) / prior)
+			s += f.w * math.Log((w+modelSmooth*prior)/(all+modelSmooth)/prior)
 		}
 		out[i] = Scored{c, s}
 		top = max(top, s)
@@ -294,17 +334,17 @@ func (m *Model) Rank(v SpanView, titleOnly bool, blind string) ([]Scored, int) {
 // than overall (log odds; negative is against it), strongest first,
 // leaving out what blind taught.
 func (m *Model) Because(v SpanView, category, blind string) []Scored {
-	_, title := Features(v)
 	drop := m.blind[blind]
 	prior := (m.prior[category] + 1) / (m.all + float64(len(m.cats)))
 	var out []Scored
-	for _, t := range title {
+	for _, f := range content(v) {
+		t := f.t
 		if !m.knows(t, blind) {
 			continue
 		}
 		all := m.wordAll[t] - sum(drop[t])
 		w := m.word[t][category] - drop[t][category]
-		out = append(out, Scored{t, math.Log((w + modelSmooth*prior) / (all + modelSmooth) / prior)})
+		out = append(out, Scored{t, f.w * math.Log((w+modelSmooth*prior)/(all+modelSmooth)/prior)})
 	}
 	slices.SortStableFunc(out, func(a, b Scored) int {
 		switch {
@@ -438,24 +478,36 @@ func (rs *Ruleset) ApplyModel(m *Model, views []SpanView, labels []Label) {
 		if v.BundleID == span.IdleBundleID || strings.HasPrefix(v.BundleID, "tock.") || (v.ID <= 0 && !IsRemote(v)) {
 			continue
 		}
-		var c string
-		switch src := l.CategorySource; {
-		case l.Category == "" && (src == SourceNone || src == ""):
-			c, _ = m.Fill(v)
-		case (src == SourceRule || src == SourceLearned) && generic[l.CategoryRule],
-			src == SourceManual && IsRemote(v):
-			blind := l.CategoryRule
-			if src == SourceManual {
-				blind = RemoteBlind(v, l.Category)
+		pick := func(v SpanView) string {
+			switch src := l.CategorySource; {
+			case l.Category == "" && (src == SourceNone || src == ""):
+				c, _ := m.Fill(v)
+				return c
+			case (src == SourceRule || src == SourceLearned) && generic[l.CategoryRule],
+				src == SourceManual && IsRemote(v):
+				blind := l.CategoryRule
+				if src == SourceManual {
+					blind = RemoteBlind(v, l.Category)
+				}
+				if got, p, _ := m.PredictTitle(v, blind); got != l.Category && p >= ModelOverrideMin && m.backers(v, got, blind) >= ModelMinFeatures {
+					return got
+				}
 			}
-			if got, p, _ := m.PredictTitle(v, blind); got != l.Category && p >= ModelOverrideMin && m.backers(v, got, blind) >= ModelMinFeatures {
-				c = got
-			}
+			return ""
 		}
+		c := pick(v)
 		if c == "" || !rs.HasCategory(c) {
 			continue
 		}
-		l.Category, l.Kind, l.CategorySource, l.CategoryRule = c, rs.Kind(c), SourceModel, ""
+		source := SourceModel
+		if len(v.Screen) > 0 {
+			blindV := v
+			blindV.Screen = nil
+			if pick(blindV) != c {
+				source = SourceScreen // only the screen words decided it
+			}
+		}
+		l.Category, l.Kind, l.CategorySource, l.CategoryRule = c, rs.Kind(c), source, ""
 		l.Quiet = rs.quiet(c, "")
 		if pc := rs.ProjectCategory(l.Project); l.Project != "" && pc != "" && !strings.EqualFold(pc, c) {
 			l.Project, l.ProjectSource, l.ProjectRule = "", SourceNone, ""

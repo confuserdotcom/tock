@@ -20,6 +20,9 @@ type SpanView struct {
 	InCall         bool    // a camera or microphone was in use (see MarkCalls)
 	Kept           *Kept   // the label kept when the title was deleted; nil = none
 	Planned        string  // the module of the plan's task at this time (see MarkPlan); "" = none
+	// Screen are the keywords read on screen while the span ran (see
+	// Keywords); local only, never sent anywhere.
+	Screen []string
 }
 
 // DurMS returns End-Start, or 0 when End is before Start.
