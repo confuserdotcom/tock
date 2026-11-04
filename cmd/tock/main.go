@@ -26,6 +26,8 @@ import (
 
 const usage = `usage:
   tock                                   open the TUI (today, week, inbox, focus, rules, plan)
+  tock choice [<feature> on|off]         turn features on and off (screen text, break screen, Slack…),
+                                         open the dashboard; piped: each feature and whether it is on
   tock plan                              the TUI on the plan tab ([plan] todo.txt); piped: the open tasks
   tock status                            one line for a status bar
   tock init                              write starter ~/.config/tock/rules.toml
@@ -67,7 +69,6 @@ const usage = `usage:
                                          where the time went: top categories, apps and sites
   tock model [why <app> "<title>" [<label>]]
                                          how well the local model labels; why it labels a window so
-  tock web [--port N] [--no-open]       the dashboard in your browser, on this machine only
   tock review [--week YYYY-MM-DD] [--plan TEXT]
                                          weekly recap, then next week's focus
   tock report [--week YYYY-MM-DD] [-o FILE] [--open]
@@ -113,6 +114,9 @@ type Env struct {
 	ClaudeCLI string
 	// NewCLI builds the CLI backend; tests substitute a fake.
 	NewCLI func(path string) AI
+	// StartDashboard starts the web dashboard and returns its link; nil
+	// runs tock web on its own.
+	StartDashboard func() (string, error)
 	// Open opens a URL with macOS open(1); Sleep waits. Tests substitute
 	// both.
 	Open  func(url string) error
@@ -246,6 +250,7 @@ var commands = map[string]func(Env, []string) error{
 	"ask":        cmdAsk,
 	"undo":       cmdUndo,
 	"plan":       cmdPlan,
+	"choice":     cmdChoice,
 }
 
 // run executes one command and returns the exit code: 0 ok, 1 error, 2 usage.

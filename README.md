@@ -190,6 +190,7 @@ select text anyway.
 
 ```
 tock                                   open the TUI (today, week, inbox, focus, rules)
+tock choice [<feature> on|off]         turn features on and off, open the dashboard (see Choices)
 tock status                            one line for a status bar
 tock init                              write starter ~/.config/tock/rules.toml
 tock today [--date YYYY-MM-DD] [--keys]
@@ -242,6 +243,33 @@ The export has one row per span:
 `id,start,end,duration_s,app,bundle_id,title,url,private,category,kind,project,category_source,project_source,rate,amount`.
 Times are RFC 3339 with your local offset. `rate` and `amount` are empty
 (`null` in JSON) unless the row's project has a rate (see Billing).
+
+## Choices
+
+`tock choice` lists the features you can turn on and off: local model
+labels, Claude, screen text, calendar meetings, notifications, suggestions,
+the break screen, blocking, urge surfing, the daily notices, plan reminders
+and Slack. Space turns the feature under the cursor on or off, enter saves,
+q quits (changes not saved are said so). Each one is a setting in
+config.toml (`[ocr] enabled`, `[focus] break_screen`…); tock choice changes
+that line only and keeps your comments and every other line, and the old
+file stays as `config.toml.bak`. The running apps pick the change up by
+themselves.
+
+Turning screen text on asks for the Screen Recording permission; turning
+Slack on with no token tells you to run `tock slack login`.
+
+The last row, **Open dashboard**, starts the web dashboard and opens it in
+your browser after asking (Open, Not now, or Always to stop asking). It
+stops after 30 minutes unused.
+
+Not on a terminal, `tock choice` prints each feature and whether it is on;
+`tock choice <feature> on|off` sets one, for scripts and SSH:
+
+```
+$ tock choice break_screen on
+Break screen: on
+```
 
 ## Files
 
@@ -828,7 +856,8 @@ project` lists projects.
 ## Web dashboard
 
 `tock web` opens a dashboard in your browser and runs until you press
-ctrl-c:
+ctrl-c. The menu bar's Open dashboard and `tock choice` start one for you
+that stops by itself when unused.
 
 - **Today:** the focus score and its four parts, a timeline ribbon (hover a
   block for its app and title), time by hour, categories, goals and the
