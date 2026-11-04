@@ -1299,6 +1299,22 @@ trackd runs as the systemd user unit `trackd.service` and starts with your
 graphical session. Its log is `~/.local/state/tock/trackd.log`, and
 `systemctl --user status trackd` shows the unit.
 
+Hyprland gives a window's title but no browser's address. A small tock
+extension sends the tab in front to trackd through the browser's native
+messaging (trackd is started by the browser and reads its stdin; nothing
+goes over the network). Run
+
+```sh
+trackd browser install
+```
+
+and follow what it prints: in Chromium, Chrome or Brave, Load unpacked the
+extension it wrote, then turn on "Allow in Incognito". The address is kept
+the same way as on the Mac (host and path; no query, no fragment). An
+incognito window, or a browser window the extension cannot see, counts as
+private: no title and no address. Firefox loads it only for one session
+(unsigned add-ons). `tock doctor` says when the extension last reported.
+
 Wayland gives no app the idle time, so hypridle tells trackd. Add this to
 hypridle's config, keeping your other listeners. That is
 `~/.config/hypr/hypridle.conf`, or the file hypridle runs with when it is

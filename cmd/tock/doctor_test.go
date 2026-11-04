@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 	"tock/internal/config"
+	"tock/internal/fronttab"
 
 	"tock/internal/store"
 	"tock/internal/update"
@@ -199,6 +200,14 @@ func TestDoctorLinux(t *testing.T) {
 	if code != 0 || !strings.Contains(out, "ok  notifications: notify-send") ||
 		strings.Contains(out, "accessibility") || strings.Contains(out, "automation") || strings.Contains(out, "calendar") || len(*opened) != 0 {
 		t.Fatalf("exit %d:\n%s", code, out)
+	}
+	if !strings.Contains(out, "ok  browser: off: browser windows get no web address (trackd browser install)") {
+		t.Fatalf("no extension:\n%s", out)
+	}
+	os.MkdirAll(te.StateDir, 0o700)
+	os.WriteFile(filepath.Join(te.StateDir, fronttab.File), []byte(`{"at_ms":`+nowMS()+`,"focused":true}`), 0o600)
+	if _, out := te.run(t, "", "doctor"); !strings.Contains(out, "ok  browser: the tock extension sends the tab in front (last 15:00)") {
+		t.Fatalf("extension:\n%s", out)
 	}
 	te, _ = doctorEnv(t, testRules)
 	te.Linux = true

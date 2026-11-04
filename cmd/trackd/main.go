@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"tock/internal/collect"
+	"tock/internal/fronttab"
 )
 
 // version is set via -ldflags "-X main.version=...".
@@ -53,7 +54,10 @@ func stateDir() string {
 // (RESEARCH Q1).
 func newSource() (collect.Source, error) {
 	if runtime.GOOS == "linux" {
-		return collect.NewHyprland(collect.HyprOptions{IdleFile: filepath.Join(stateDir(), collect.IdleFile)})
+		return collect.NewHyprland(collect.HyprOptions{
+			IdleFile:    filepath.Join(stateDir(), collect.IdleFile),
+			BrowserFile: filepath.Join(stateDir(), fronttab.File),
+		})
 	}
 	underLaunchd := os.Getppid() == 1
 	return collect.NewDarwin(collect.Options{
@@ -67,6 +71,9 @@ func main() {
 	if len(os.Args) > 1 && os.Args[1] == "ocr-worker" {
 		os.Exit(runOCRWorker(os.Args[2:], os.Stdout))
 	}
+	if host, _ := browserHostCaller(os.Args); host {
+		os.Exit(runBrowserHost(os.Args, stateDir()))
+	}
 	if len(os.Args) > 1 {
 		var run func() error
 		switch os.Args[1] {
@@ -74,6 +81,8 @@ func main() {
 			run = func() error { return installService(dataDir(), stateDir()) }
 		case "uninstall":
 			run = uninstallService
+		case "browser":
+			run = func() error { return runBrowserCmd(os.Args[2:], os.Stdout) }
 		case "idle", "active":
 			run = func() error { return runIdleHook(os.Args[1], os.Args[2:], stateDir(), time.Now()) }
 		}

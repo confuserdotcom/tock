@@ -16,6 +16,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"tock/internal/fronttab"
 	"tock/internal/span"
 )
 
@@ -43,6 +44,9 @@ type HyprOptions struct {
 	IdleFile string
 	// Proc is the /proc dir scanned for screen lockers; "" means /proc.
 	Proc string
+	// BrowserFile is the front-tab file the browser host writes (see
+	// fronttab.RunHost); "" means browser windows get no address.
+	BrowserFile string
 	// Now returns wall-clock unix ms; nil means the system clock.
 	Now func() int64
 }
@@ -55,6 +59,9 @@ type hyprSource struct {
 	stop    sync.Once
 	mu      sync.Mutex
 	ev      net.Conn // the event socket, closed by Stop
+	// since is when the front window was activated (unix ms), so a
+	// browser verdict from before it is not applied to it.
+	since atomic.Int64
 }
 
 // NewHyprland returns the Hyprland source. It fails when no Hyprland
@@ -184,7 +191,9 @@ func (s *hyprSource) events(r io.Reader) error {
 		}
 		smp := s.base()
 		smp.Activation = true
+		s.since.Store(smp.TS)
 		setWindow(smp, class, title)
+		s.frontTab(smp)
 		s.trySend(span.Input{Sample: smp})
 	}
 	if err := sc.Err(); err != nil {
@@ -202,7 +211,18 @@ func (s *hyprSource) poll() {
 		return
 	}
 	setWindow(smp, class, title)
+	s.frontTab(smp)
 	s.trySend(span.Input{Sample: smp})
+}
+
+// frontTab adds the browser extension's front tab to a browser sample.
+func (s *hyprSource) frontTab(smp *span.Sample) {
+	if s.opts.BrowserFile == "" || !browserClasses[strings.ToLower(smp.BundleID)] {
+		return
+	}
+	if st, ok := fronttab.Read(s.opts.BrowserFile); ok {
+		applyFrontTab(smp, st, s.since.Load())
+	}
 }
 
 // base is a sample with the time, idle and lock state filled.

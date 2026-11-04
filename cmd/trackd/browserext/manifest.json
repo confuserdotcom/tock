@@ -1,0 +1,11 @@
+{
+  "manifest_version": 3,
+  "name": "tock",
+  "version": "1.0",
+  "description": "Tells tock's trackd, on this computer only, the address of the tab in front. Nothing goes over the network.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArNsftYrs2eQ4cF1sH7M9f1289bcC9D47YvjyQJszBlXvfW0uL8ME8o5n+UrniEgm1Kind/p6vCOUCQPulfkGbSiOGqtgsYfEspuQYGeoW7hiq6s38mixIsyHT5KkjGTumxCPegsNmBZLKXPX3Vjw90Rnsi/fLf0tdUD4qCeqkE7yHXXIA85/jCsZZTn3ksaw30UCLyHnWjeXE3DBGXPb2wk8NH+T3IesNnxyjo3nqp9iyzt3jtZB+mSgrsrwk5xxvgHD38l4R0aPbxFz5HQmcQsWIad5qT3slO0OwtwZ0KfC9Yp3xOjq9WvRRivCd3ejJjn0h3r5FPHfcK4NZRd9qwIDAQAB",
+  "permissions": ["tabs", "nativeMessaging"],
+  "background": { "service_worker": "background.js", "scripts": ["background.js"] },
+  "incognito": "spanning",
+  "browser_specific_settings": { "gecko": { "id": "browser@tock.local", "strict_min_version": "115.0" } }
+}
