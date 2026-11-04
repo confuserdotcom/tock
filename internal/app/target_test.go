@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -213,5 +214,61 @@ func TestOpenDayNotStored(t *testing.T) {
 	if err := e.RawDB(t).QueryRow(`SELECT count(*) FROM derived WHERE name = ?`,
 		dateKey(a.midnight(a.now()).AddDate(0, 0, -1))).Scan(&n); err != nil || n != 0 {
 		t.Fatalf("a day with an open span went to disk: %d %v", n, err)
+	}
+}
+
+// modelRules add a Study rule for PDFs titled "Physique…": the readings of
+// other PDFs no rule names are left to the local model.
+const modelRules = apptest.Rules + `
+[[rule]]
+bundle = ["zathura"]
+title = '^Physique'
+category = "Study"
+`
+
+// The target measures past days with the yardstick the day itself shows:
+// the local model's labels included. A model trained again later does not
+// put closed days back to work.
+func TestPastDaysLabelledLikeToday(t *testing.T) {
+	e := apptest.New(t, modelRules)
+	for day := -1; day <= 0; day++ {
+		id := int64(10 * (day + 2))
+		e.Seed(t,
+			apptest.Span{ID: id, Start: "09:00", End: "10:00", Bundle: "zathura", App: "Zathura", Title: "Physique thermodynamique exercices", Day: day},
+			apptest.Span{ID: id + 1, Start: "10:00", End: "11:00", Bundle: "zathura", App: "Zathura", Title: "thermodynamique exercices corriges", Day: day})
+	}
+	a := open(t, e)
+	if _, err := a.Day(a.now()); err != nil {
+		t.Fatal(err)
+	}
+	y := a.midnight(a.now()).AddDate(0, 0, -1)
+	shown := func(a *App) stats.Day {
+		t.Helper()
+		vs, ls, err := a.labelled(y.UnixMilli(), y.AddDate(0, 0, 1).UnixMilli(), a.nowMS())
+		if err != nil {
+			t.Fatal(err)
+		}
+		wFrom, wTo := a.cfg.Hours.Window(y)
+		return stats.Compute(stats.Clip(vs, ls, wFrom, wTo))
+	}
+	want := shown(a)
+	if want.FocusMS != 120*60_000 {
+		t.Fatalf("the model must fill the second hour: yesterday shows %s of focus", report.Dur(want.FocusMS))
+	}
+	if got := a.past[dateKey(y)].Stats; !reflect.DeepEqual(got, want) {
+		t.Fatalf("yesterday for the target %+v, as shown %+v", got, want)
+	}
+	// A later process, with a model trained again, reads the closed day
+	// from disk: its spans are gone, and only the stored day still has them.
+	if _, err := e.RawDB(t).Exec(`DELETE FROM span WHERE id IN (10, 11)`); err != nil {
+		t.Fatal(err)
+	}
+	e.Clock = e.Clock.Add(2 * modelEveryMS * time.Millisecond)
+	b := open(t, e)
+	if _, err := b.Day(b.now()); err != nil {
+		t.Fatal(err)
+	}
+	if got := b.past[dateKey(y)].Stats; !reflect.DeepEqual(got, want) {
+		t.Fatalf("a retrained model must not recompute a closed day: %+v, want %+v", got, want)
 	}
 }
