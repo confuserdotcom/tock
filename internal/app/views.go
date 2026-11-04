@@ -122,6 +122,9 @@ const CallMinMS = 2 * 60_000
 // the calendar events (MarkEvents) when the rules name a calendar category,
 // and last the timeline edits (ApplyEdits), whose labels go into ovs too.
 func (a *App) decorate(vs []classify.SpanView, ovs map[int64]classify.Override, from, to int64) ([]classify.SpanView, error) {
+	if err := a.markScreen(vs); err != nil {
+		return nil, err
+	}
 	vs, err := a.markCalls(vs, from, to)
 	if err != nil {
 		return nil, err
@@ -409,4 +412,28 @@ func (a *App) KeySpans(key string) ([]int64, int64, error) {
 		}
 	}
 	return ids, ms, nil
+}
+
+// markScreen attaches the keywords read on screen to this machine's views
+// (OCR-05). They stay local: no payload, sync or export reads them.
+func (a *App) markScreen(vs []classify.SpanView) error {
+	ids := make([]int64, 0, len(vs))
+	for _, v := range vs {
+		if v.ID > 0 && !v.Private {
+			ids = append(ids, v.ID)
+		}
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	words, err := a.st.SpanWords(ids)
+	if err != nil || len(words) == 0 {
+		return err
+	}
+	for i := range vs {
+		if w := words[vs[i].ID]; w != nil && vs[i].ID > 0 && !vs[i].Private {
+			vs[i].Screen = w
+		}
+	}
+	return nil
 }
