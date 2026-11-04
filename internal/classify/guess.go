@@ -79,10 +79,12 @@ func (v *vote) winner() (name string, share float64, reason string) {
 
 // Guesses infers labels for the keys of unlabelled, non-idle, non-private
 // views from the labelled ones, weighted by time:
-//   - the same URL host (x3) for keys with a URL;
+//   - the same site (x3) for keys with a URL;
 //   - the same bundle (x2) for keys without one;
 //   - shared title words (x1), each word shared by at most a quarter of the
-//     labelled views;
+//     labelled views, counted only from labelled views of the same site
+//     (keys with a URL) or the same app (keys without), since titles
+//     across sites and apps mislead (a shop and a course both say "Pro");
 //   - the label of the views directly before and after, within 2 minutes,
 //     when both share it (x1, for the unlabelled view's own time).
 //
@@ -142,7 +144,8 @@ func Guesses(views []SpanView, labels []Label) map[string]Guess {
 			proj.add(labels[j].Project, reason, weight, ms)
 		}
 		first := &views[idx[0]]
-		if h := hostOf(first); h != "" {
+		h := hostOf(first)
+		if h != "" {
 			for _, j := range byHost[h] {
 				add(j, GuessSite, weightSite)
 			}
@@ -163,6 +166,9 @@ func Guesses(views []SpanView, labels []Label) map[string]Guess {
 		for w := range ws {
 			if js := byWord[w]; len(js)*4 <= labelled {
 				for _, j := range js {
+					if hostOf(&views[j]) != h || (h == "" && views[j].BundleID != first.BundleID) {
+						continue // another site or app: shared words there mislead
+					}
 					if !seen[j] {
 						seen[j] = true
 						add(j, GuessTitle, weightTitle)
@@ -202,13 +208,13 @@ func Guesses(views []SpanView, labels []Label) map[string]Guess {
 	return out
 }
 
-// hostOf is v's URL host without "www.", or "".
+// hostOf is v's site (see siteOf), or "".
 func hostOf(v *SpanView) string {
 	if v.Private || v.URL == nil || *v.URL == "" {
 		return ""
 	}
-	h, _, _ := strings.Cut(strings.TrimPrefix(*v.URL, "www."), "/")
-	return strings.ToLower(h)
+	site, _ := siteOf(strings.ToLower(*v.URL))
+	return site
 }
 
 // neighbour is the index of the nearest non-idle view before (dir -1) or
