@@ -42,8 +42,8 @@ type Sources struct {
 // starts first wins (then the lower id). Remote views, absences, events and
 // edits stop at NowMS.
 //
-// Invariants (see TestResolveProperties): no two pieces of different
-// owners overlap, every instant of a view or claim inside [from, min(to,
+// Invariants (see TestResolveProperties): no two pieces overlap, even
+// where views do, every instant of a view or claim inside [from, min(to,
 // NowMS)) that no edit cuts is covered exactly once, and the result does
 // not depend on the order of any source slice. Adjacent pieces of one
 // owner with the same fields are merged.
@@ -138,22 +138,32 @@ func Resolve(views []SpanView, src Sources, from, to int64) []SpanView {
 		emit(p, s, e)
 	}
 
-	// Views may overlap (they should not); each is cut on its own, and
-	// gaps are what no view covers.
-	covered := from
-	for i := range vs {
-		v := &vs[i]
-		gapPieces(cuts, covered, v.Start, piece)
-		covered = max(covered, v.End)
-		at := v.Start
-		for _, c := range cutsIn(cuts, v.Start, v.End) {
-			piece(v, at, c)
-			at = c
+	// One sweep over the cuts: each piece has at most one view of this
+	// machine. Where views overlap (they should not), activity wins over
+	// idle time, then the view that started first.
+	var active []int
+	j := 0
+	for k := 0; k+1 < len(cuts); k++ {
+		s, e := cuts[k], cuts[k+1]
+		for j < len(vs) && vs[j].Start <= s {
+			active = append(active, j)
+			j++
 		}
-		piece(v, at, v.End)
+		n := 0
+		var v *SpanView
+		for _, i := range active {
+			if vs[i].End <= s {
+				continue
+			}
+			active[n] = i
+			n++
+			if v == nil || (v.BundleID == span.IdleBundleID && vs[i].BundleID != span.IdleBundleID) {
+				v = &vs[i]
+			}
+		}
+		active = active[:n]
+		piece(v, s, e)
 	}
-	gapPieces(cuts, covered, to, piece)
-	sort.SliceStable(out, func(i, j int) bool { return out[i].Start < out[j].Start })
 
 	if len(src.Edits) == 0 {
 		return out
@@ -161,29 +171,6 @@ func Resolve(views []SpanView, src Sources, from, to int64) []SpanView {
 	edits := append([]EditMark(nil), src.Edits...)
 	sort.SliceStable(edits, func(i, j int) bool { return edits[i].ID < edits[j].ID })
 	return ApplyEdits(out, edits, from, hi)
-}
-
-// gapPieces hands piece the parts of [lo, hi) cut at cuts, with no view.
-func gapPieces(cuts []int64, lo, hi int64, piece func(*SpanView, int64, int64)) {
-	if hi <= lo {
-		return
-	}
-	at := lo
-	for _, c := range cutsIn(cuts, lo, hi) {
-		piece(nil, at, c)
-		at = c
-	}
-	piece(nil, at, hi)
-}
-
-// cutsIn is the cuts strictly inside (lo, hi).
-func cutsIn(cuts []int64, lo, hi int64) []int64 {
-	i := sort.Search(len(cuts), func(i int) bool { return cuts[i] > lo })
-	j := sort.Search(len(cuts), func(i int) bool { return cuts[i] >= hi })
-	if j < i {
-		return nil
-	}
-	return cuts[i:j]
 }
 
 func meetingView(id int64, title *string) SpanView {

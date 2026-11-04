@@ -145,6 +145,11 @@ func TestResolveProperties(t *testing.T) {
 	r := rand.New(rand.NewSource(11))
 	for n := 0; n < 3000; n++ {
 		views := baseViews(r)
+		if n%3 == 0 { // spans that overlap, as a crash can leave them
+			for i := range views {
+				views[i].Start -= r.Int63n(10)
+			}
+		}
 		src := randSources(r, true)
 		from, to := int64(r.Intn(15)), 130+int64(r.Intn(30))
 		got := Resolve(cloneViews(views), src, from, to)
