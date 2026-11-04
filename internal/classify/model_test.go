@@ -209,3 +209,30 @@ func TestUnclear(t *testing.T) {
 		}
 	}
 }
+
+// TestApplyModelBeforeCall: in a call, the model's guess at the activity
+// comes before the call's own label; call apps and call time stay the call.
+func TestApplyModelBeforeCall(t *testing.T) {
+	rs := modelRules(t)
+	rs.CallCategory = "Entertainment"
+	inCall := func(v SpanView) SpanView { v.InCall = true; return v }
+	views := []SpanView{
+		inCall(tv("zathura", "Exercice thermodynamique PCSI.pdf", 60_000)),   // unlabelled, the model knows it
+		inCall(tv("com.apple.FaceTime", "Exercice thermodynamique", 60_000)), // the call app: the call
+	}
+	views[1].ID = 2
+	labels := rs.LabelAll(views, nil)
+	ex := []Example{
+		{View: tv("zathura", "Thermodynamique MPSI.pdf", 0), Category: "Study", Weight: 3},
+		{View: tv("obsidian", "Exercice thermodynamique - TD", 0), Category: "Study", Weight: 3},
+		{View: tv("obsidian", "Exercice 3 de thermodynamique", 0), Category: "Study", Weight: 3},
+		{View: tv("wez", "nvim main.go", 0), Category: "Code", Weight: 3},
+	}
+	rs.ApplyModel(Train(ex, nil), views, labels)
+	if l := labels[0]; l.Category != "Study" || l.CategorySource != SourceModel {
+		t.Fatalf("activity in call: %+v", l)
+	}
+	if l := labels[1]; l.CategorySource != SourceCall {
+		t.Fatalf("call app: %+v", l)
+	}
+}
