@@ -50,9 +50,13 @@ func stepStart(in Input, st *State) (Event, bool) {
 	return note(TopicStart, TitleStart, in.StartBody, false), true
 }
 
+// MiddayLateMin is how late the midday check-in may still go out: past it,
+// the day's first activity came too late for a "midday" notice.
+const MiddayLateMin = 180
+
 // MiddayDue reports whether this tick should send the midday check-in: it
 // is on, today is a work day, today's check-in has not gone out, its time
-// of day has come, the work day has not ended, no call is going on and today
+// of day has come and is at most MiddayLateMin past, the work day has not ended, no call is going on and today
 // has at least RecapMinActiveMS of activity inside the work window (the
 // whole day without a schedule). The cheap conditions come first so an idle
 // tick scans no views.
@@ -61,7 +65,7 @@ func MiddayDue(in Input) bool {
 		return false
 	}
 	t := time.UnixMilli(in.Now).In(in.Day.Location())
-	if t.Hour()*60+t.Minute() < in.Routine.MiddayAt {
+	if m := t.Hour()*60 + t.Minute(); m < in.Routine.MiddayAt || m > in.Routine.MiddayAt+MiddayLateMin {
 		return false
 	}
 	if in.Hours.Set {

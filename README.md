@@ -537,7 +537,7 @@ Yesterday: 6h12 tracked, score 74, goals 2/3 met. Today: 10:00 Standup.
 The "Today" part lists the timed items of your plan file.
 
 **Midday check-in** comes at `[routine] midday` (13:00 by default). It is
-skipped once the work hours have ended.
+skipped once the work hours have ended, or more than 3 hours after its time.
 
 ```
 3h05 tracked, 64% of 4h50 target · top: Coding · focus 1h40.

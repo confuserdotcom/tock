@@ -99,6 +99,12 @@ func TestMiddayDue(t *testing.T) {
 	if !MiddayDue(middayInput(at(15, 0, 0), vw{at(14, 0, 0), at(15, 0, 0), classify.KindDeep, "", ""})) {
 		t.Error("late start is not due")
 	}
+	if !MiddayDue(middayInput(at(16, 0, 0), vw{at(15, 0, 0), at(16, 0, 0), classify.KindDeep, "", ""})) {
+		t.Error("not due 3 h late")
+	}
+	if MiddayDue(middayInput(at(16, 1, 0), vw{at(15, 0, 0), at(16, 1, 0), classify.KindDeep, "", ""})) {
+		t.Error("due more than 3 h late, with no work hours to end it")
+	}
 	late := middayInput(at(15, 0, 0), vw{at(14, 0, 0), at(15, 0, 0), classify.KindDeep, "", ""})
 	late.Hours = allDays(9*60, 14*60)
 	if MiddayDue(late) {
