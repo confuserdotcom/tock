@@ -88,6 +88,7 @@ func newOCRSettings(c config.Config, rs *classify.Ruleset) (ocrSettings, error) 
 type ocrJob struct {
 	spanID int64 // 0 for a test read
 	bundle string
+	app    string // the app's name, shown by a test read
 	nonce  string // a tock ocr test or grant request; "" otherwise
 	grant  bool
 	deny   []*regexp.Regexp // deny title patterns, also applied to words
@@ -309,7 +310,7 @@ func (c *ocrCoord) request(s *span.Sample, now int64) bool {
 			c.answer(f[2], s.App+"\t"+r+"\t0\t", now)
 			return true
 		}
-		c.start(ocrJob{nonce: f[2], bundle: s.BundleID, deny: c.set.denyTitles}, now)
+		c.start(ocrJob{nonce: f[2], bundle: s.BundleID, app: s.App, deny: c.set.denyTitles}, now)
 		return true
 	}
 	c.clearRequest(now)
@@ -334,7 +335,7 @@ func (c *ocrCoord) start(j ocrJob, now int64) {
 	if c.busy {
 		c.mu.Unlock()
 		if j.nonce != "" {
-			c.answer(j.nonce, j.bundle+"\t"+collect.OCRBusy+"\t0\t", now)
+			c.answer(j.nonce, j.app+"\t"+collect.OCRBusy+"\t0\t", now)
 		} else {
 			c.count(collect.OCRBusy, 0, now)
 		}
@@ -385,7 +386,7 @@ func (c *ocrCoord) run(j ocrJob) {
 	}
 	words := classify.Keywords(r.Lines, j.deny)
 	if j.nonce != "" { // a test read is shown, never stored
-		c.answer(j.nonce, fmt.Sprintf("%s\t%s\t%d\t%s", j.bundle, r.Reason, r.CostMS, strings.Join(words, " ")), now)
+		c.answer(j.nonce, fmt.Sprintf("%s\t%s\t%d\t%s", j.app, r.Reason, r.CostMS, strings.Join(words, " ")), now)
 		return
 	}
 	if r.Reason != collect.OCROK {
