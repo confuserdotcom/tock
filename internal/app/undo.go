@@ -1,11 +1,10 @@
 package app
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
+	"tock/internal/rulesfile"
 
 	"tock/internal/store"
 )
@@ -112,17 +111,11 @@ func (a *App) undo(accept func(store.Undo) error) (string, error) {
 	}
 	if f := d.File; f != nil {
 		err := a.withRulesLock(func() error {
-			cur, err := os.ReadFile(f.Path)
-			if err != nil && !errors.Is(err, os.ErrNotExist) {
-				return err
-			}
-			if !bytes.Equal(cur, []byte(f.After)) {
+			err := a.rules().Restore(f.Path, f.Existed, []byte(f.Before), []byte(f.After))
+			if errors.Is(err, rulesfile.ErrChanged) {
 				return fmt.Errorf("cannot undo %q: %s changed since", u.What, f.Path)
 			}
-			if f.Existed {
-				return os.WriteFile(f.Path, []byte(f.Before), 0o600)
-			}
-			return os.Remove(f.Path)
+			return err
 		})
 		if err != nil {
 			return "", err

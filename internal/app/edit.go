@@ -85,12 +85,12 @@ func (a *App) RemoveEdit(id int64) error {
 		a.now().Location()), undoData{Edits: []store.Edit{e}})
 }
 
-// markEdits applies the edits over [from, to) to vs and puts their labels
-// in ovs under the edit view ids.
-func (a *App) markEdits(vs []classify.SpanView, ovs map[int64]classify.Override, from, to int64) ([]classify.SpanView, error) {
+// edits is the timeline edits over [from, to); their labels go into ovs
+// under the edit view ids.
+func (a *App) edits(ovs map[int64]classify.Override, from, to int64) ([]classify.EditMark, error) {
 	es, err := a.st.Edits(from, to)
 	if err != nil || len(es) == 0 {
-		return vs, err
+		return nil, err
 	}
 	marks := make([]classify.EditMark, len(es))
 	for i, e := range es {
@@ -99,5 +99,5 @@ func (a *App) markEdits(vs []classify.SpanView, ovs map[int64]classify.Override,
 			ovs[-(classify.EditIDBase + e.ID)] = classify.Override{Category: e.Category, Project: e.Project}
 		}
 	}
-	return classify.ApplyEdits(vs, marks, from, min(to, a.nowMS())), nil
+	return marks, nil
 }

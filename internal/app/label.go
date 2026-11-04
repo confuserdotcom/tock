@@ -3,7 +3,7 @@ package app
 import (
 	"errors"
 	"fmt"
-	"os"
+	"tock/internal/rulesfile"
 
 	"tock/internal/classify"
 	"tock/internal/report"
@@ -30,40 +30,36 @@ func (a *App) Learn(key string, c classify.Candidate, want classify.Want) error 
 }
 
 func (a *App) learnLocked(key string, c classify.Candidate, want classify.Want) error {
-	before, existed, err := readFile(a.paths.Learned)
+	f := a.rules()
+	cur, err := f.Read()
 	if err != nil {
 		return err
 	}
 	comment := fmt.Sprintf("learned %s from %q, %d spans", a.now().Format("2006-01-02"), key, c.ThisKey)
-	if err := classify.AppendLearned(a.paths.Learned, c.Rule, comment); err != nil {
+	learned, err := classify.AppendLearnedText(cur.Learned, c.Rule, comment)
+	if err != nil {
 		return err
 	}
 	// The new rule went in first, so the replaced ones moved down by one.
-	shifted := make([]int, len(c.Replaces))
-	for i, n := range c.Replaces {
-		shifted[i] = n + 1
+	if len(c.Replaces) > 0 {
+		shifted := make([]int, len(c.Replaces))
+		for i, n := range c.Replaces {
+			shifted[i] = n + 1
+		}
+		if learned, err = classify.RemoveRules(classify.LearnedFile, learned, shifted); err != nil {
+			return err
+		}
 	}
-	if err := classify.RemoveLearned(a.paths.Learned, shifted); err != nil {
+	next := cur
+	next.Learned = learned
+	if err := f.Write(cur, next, rulesfile.Options{}); err != nil {
 		return err
 	}
 	if _, err := a.Reload(); err != nil {
 		return err
 	}
-	after, _, err := readFile(a.paths.Learned)
-	if err != nil {
-		return err
-	}
 	return a.journal("learn "+c.Rule.Describe()+" → "+report.LabelText(want.Category, want.Project),
-		undoData{File: &undoFile{Path: a.paths.Learned, Existed: existed, Before: before, After: after}})
-}
-
-// readFile returns path's content and whether it exists.
-func readFile(path string) (string, bool, error) {
-	b, err := os.ReadFile(path)
-	if errors.Is(err, os.ErrNotExist) {
-		return "", false, nil
-	}
-	return string(b), err == nil, err
+		undoData{File: &undoFile{Path: a.paths.Learned, Existed: cur.HasLearned, Before: string(cur.Learned), After: string(learned)}})
 }
 
 // Tag sets a manual label on spans. An empty field of want keeps the span's

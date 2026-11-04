@@ -17,9 +17,9 @@ type SpanView struct {
 	Title, URL     *string
 	Private        bool
 	Dir            *string // the shell's working directory, for terminal views; "~/…" under home
-	InCall         bool    // a camera or microphone was in use (see MarkCalls)
+	InCall         bool    // a camera or microphone was in use (see Resolve)
 	Kept           *Kept   // the label kept when the title was deleted; nil = none
-	Planned        string  // the module of the plan's task at this time (see MarkPlan); "" = none
+	Planned        string  // the module of the plan's task at this time (see Resolve); "" = none
 	// Screen are the keywords read on screen while the span ran (see
 	// Keywords); local only, never sent anywhere.
 	Screen []string

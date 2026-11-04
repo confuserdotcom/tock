@@ -1,10 +1,14 @@
 package app
 
 import (
+	"bytes"
+	"encoding/gob"
+	"fmt"
 	"slices"
 	"strings"
 
 	"tock/internal/classify"
+	"tock/internal/store"
 )
 
 // modelEveryMS is how old the model may get while the labels stay the same:
@@ -24,7 +28,12 @@ func (a *App) labelModel() (*classify.Model, error) {
 	if a.model != nil && a.modelRS == a.rs && a.modelFP == a.pastKey && now-a.modelAt < modelEveryMS {
 		return a.model, nil
 	}
-	vs, labels, _, err := a.history()
+	key := a.modelKey()
+	if m, at := a.loadModel(key, now); m != nil {
+		a.model, a.modelRS, a.modelFP, a.modelAt = m, a.rs, a.pastKey, at
+		return m, nil
+	}
+	ex, err := a.trainingSet()
 	if err != nil {
 		return nil, err
 	}
@@ -32,12 +41,71 @@ func (a *App) labelModel() (*classify.Model, error) {
 	if c := a.rs.SeedCategory(); c != "" {
 		seed = map[string][]string{c: classify.SeedWords}
 	}
-	ex := a.rs.TrainingSet(vs, labels)
 	if len(ex) == 0 && seed == nil {
 		return nil, nil
 	}
 	a.model, a.modelRS, a.modelFP, a.modelAt = classify.Train(ex, seed), a.rs, a.pastKey, now
+	a.saveModel(key, a.model, now)
 	return a.model, nil
+}
+
+// modelName is the derived row of the trained model.
+const modelName = "model"
+
+// modelKey is the key the model is kept under: the inputs every derived
+// result depends on and the labels (pastKey). New activity is not in it:
+// a model is used for modelEveryMS, as within one process. "" when an
+// input cannot be read.
+func (a *App) modelKey() string {
+	h, ok := a.inputsHash()
+	if !ok {
+		return ""
+	}
+	return fmt.Sprintf("%016x-%016x", h, a.pastKey)
+}
+
+// modelRow is the model as the derived table keeps it.
+type modelRow struct {
+	AtMS  int64
+	Model []byte
+}
+
+// loadModel is the model a process (trackd, usually) trained under key
+// less than modelEveryMS ago, and when; nil when there is none.
+func (a *App) loadModel(key string, now int64) (*classify.Model, int64) {
+	if key == "" {
+		return nil, 0
+	}
+	rows, err := a.st.DerivedRows([]string{modelName})
+	if err != nil || rows[modelName].Key != key {
+		return nil, 0
+	}
+	var r modelRow
+	if gob.NewDecoder(bytes.NewReader(rows[modelName].Data)).Decode(&r) != nil || r.AtMS > now || now-r.AtMS >= modelEveryMS {
+		return nil, 0
+	}
+	m := new(classify.Model)
+	if m.UnmarshalBinary(r.Model) != nil {
+		return nil, 0
+	}
+	return m, r.AtMS
+}
+
+// saveModel keeps m for other processes. A cache: a failed write only
+// costs the next one a training.
+func (a *App) saveModel(key string, m *classify.Model, now int64) {
+	if key == "" {
+		return
+	}
+	b, err := m.MarshalBinary()
+	if err != nil {
+		return
+	}
+	var buf bytes.Buffer
+	if gob.NewEncoder(&buf).Encode(modelRow{AtMS: now, Model: b}) != nil {
+		return
+	}
+	_ = a.st.PutDerived(map[string]store.Derived{modelName: {Key: key, Data: buf.Bytes()}}, now)
 }
 
 // ModelStats is how well the local model does on labels it was not trained

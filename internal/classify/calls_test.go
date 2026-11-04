@@ -58,11 +58,11 @@ func TestMarkCalls(t *testing.T) {
 		{"no calls", []SpanView{{ID: 7, Start: 0, End: 100, BundleID: "a"}}, nil,
 			"7:0-100 a"},
 	} {
-		if got := pieces(MarkCalls(c.views, c.calls)); got != c.want {
+		if got := pieces(passCalls(c.views, c.calls)); got != c.want {
 			t.Errorf("%s: got %s, want %s", c.name, got, c.want)
 		}
 	}
-	vs := MarkCalls([]SpanView{{ID: 2, Start: 0, End: 100, BundleID: span.IdleBundleID, App: span.IdleApp}}, []Interval{{0, 100}})
+	vs := passCalls([]SpanView{{ID: 2, Start: 0, End: 100, BundleID: span.IdleBundleID, App: span.IdleApp}}, []Interval{{0, 100}})
 	if vs[0].App != span.CallApp || vs[0].Title != nil || vs[0].URL != nil {
 		t.Fatalf("call view = %+v", vs[0])
 	}

@@ -1,7 +1,6 @@
 package classify
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -61,19 +60,13 @@ func renderRule(r Rule, comment string) string {
 	return b.String() + "\n"
 }
 
-// AppendLearned adds r as the newest (first) rule of the learned file at
-// path, keeping everything already in it. A file that does not parse is
-// never modified. The write is atomic and the file is 0600 in a 0700 dir.
-func AppendLearned(path string, r Rule, comment string) error {
-	old, err := os.ReadFile(path)
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return err
-	}
+// AppendLearnedText is old, the learned file's content, with r added as
+// its newest (first) rule. Content that does not parse is an error.
+func AppendLearnedText(old []byte, r Rule, comment string) ([]byte, error) {
 	var lf learnedTOML
 	if err := decodeStrict(LearnedFile, old, &lf); err != nil {
-		return fmt.Errorf("%w (not modified)", err)
+		return nil, fmt.Errorf("%w (not modified)", err)
 	}
-
 	block := renderRule(r, comment)
 	text := string(old)
 	var out string
@@ -92,8 +85,7 @@ func AppendLearned(path string, r Rule, comment string) error {
 		}
 		out = text[:start] + block + text[start:]
 	}
-
-	return writeAtomic(path, ".learned-*.toml", []byte(out))
+	return []byte(out), nil
 }
 
 // WriteFile replaces the rule file at path atomically (see writeAtomic).

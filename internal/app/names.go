@@ -1,8 +1,7 @@
 package app
 
 import (
-	"errors"
-	"os"
+	"tock/internal/rulesfile"
 
 	"tock/internal/classify"
 )
@@ -51,31 +50,22 @@ func (a *App) MergeNames(kind, from, to string) (src, dst string, err error) {
 }
 
 func (a *App) mergeNamesLocked(kind, from, to string) (string, string, error) {
-	rules, err := os.ReadFile(a.paths.Rules)
+	f := a.rules()
+	cur, err := f.Read()
 	if err != nil {
 		return "", "", err
 	}
-	learned, err := os.ReadFile(a.paths.Learned)
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return "", "", err
-	}
-	m, err := classify.MergeNames(rules, learned, kind, from, to)
+	m, err := classify.MergeNames(cur.Rules, cur.Learned, kind, from, to)
 	if err != nil {
 		return "", "", err
 	}
-	if err := os.WriteFile(a.paths.Rules+".bak", rules, 0o600); err != nil {
-		return "", "", err
-	}
-	// learned.toml first: it then names only declared names in both states.
-	if len(learned) > 0 {
-		if err := classify.WriteFile(a.paths.Learned, m.Learned); err != nil {
-			return "", "", err
-		}
-	}
-	if err := classify.WriteFile(a.paths.Rules, m.Rules); err != nil {
-		return "", "", err
-	}
-	if err := a.st.RenameLabel(kind, m.From, m.To, a.nowMS()); err != nil {
+	next := cur
+	next.Rules, next.Learned = m.Rules, m.Learned
+	// The tags take the new name before rules.toml does: a crash leaves
+	// the old rules, and merging again finishes.
+	if err := f.Write(cur, next, rulesfile.Options{BeforeRules: func() error {
+		return a.st.RenameLabel(kind, m.From, m.To, a.nowMS())
+	}}); err != nil {
 		return "", "", err
 	}
 	_, err = a.Reload()

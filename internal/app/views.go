@@ -59,31 +59,43 @@ func (a *App) spans(from, to int64) ([]store.SpanRow, map[int64]classify.Overrid
 	if err != nil {
 		return nil, nil, err
 	}
-	ovs, err := a.st.Overrides()
+	ovs, err := a.refreshPast()
 	if err != nil {
 		return nil, nil, err
+	}
+	return rows, overrides(ovs), nil
+}
+
+// refreshPast drops the cached past days when what labels them changed:
+// the overrides, the away rows, the events, the other machines' views, the
+// edits, the plan or when input began to be known. It returns the
+// overrides.
+func (a *App) refreshPast() (map[int64]store.Override, error) {
+	ovs, err := a.st.Overrides()
+	if err != nil {
+		return nil, err
 	}
 	n, lastAt, err := a.st.AwayStamp()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	en, eid, err := a.st.EventStamp()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	rn, rid, err := a.st.RemoteStamp()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	dn, dsum, err := a.st.EditStamp()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	if fp := fingerprint(ovs) ^ uint64(n)<<48 ^ uint64(lastAt) ^ uint64(en)<<32 ^ uint64(eid)<<8 ^
 		uint64(rn)<<40 ^ uint64(rid)<<16 ^ uint64(dn)<<52 ^ uint64(dsum)*31 ^ a.planStamp()*17 ^ uint64(a.inputSince)*13; fp != a.pastKey {
 		a.past, a.pastKey = nil, fp
 	}
-	return rows, overrides(ovs), nil
+	return ovs, nil
 }
 
 // labelled loads the spans overlapping [from, to), clipped, with their
@@ -115,57 +127,59 @@ func (a *App) labelled(from, to, nowMS int64) ([]classify.SpanView, []classify.L
 const CallMinMS = 2 * 60_000
 
 // decorate adds what is not in the span table to views clipped to
-// [from, to) by base: the calls
-// (MarkCalls) when the rules name a call category, the other machines'
-// activity in idle time (MarkRemote), the labelled time away
-// (MarkAway), whose labels it adds to ovs under the views' negative ids,
-// the calendar events (MarkEvents) when the rules name a calendar category,
-// and last the timeline edits (ApplyEdits), whose labels go into ovs too.
+// [from, to) by base: the keywords read on screen, then every source that
+// claims time (see classify.Resolve): the calls when the rules name a call
+// category, the other machines' views, the labelled time away, the plan,
+// the calendar events when the rules name a calendar category, and the
+// timeline edits. The labels of away rows, remote views and edits go into
+// ovs under their views' negative ids.
 func (a *App) decorate(vs []classify.SpanView, ovs map[int64]classify.Override, from, to int64) ([]classify.SpanView, error) {
 	if err := a.markScreen(vs); err != nil {
 		return nil, err
 	}
-	vs, err := a.markCalls(vs, from, to)
-	if err != nil {
+	src := classify.Sources{NowMS: a.nowMS(), Plan: a.planSlots(from, to)}
+	var err error
+	if src.Calls, err = a.calls(vs, from, to); err != nil {
 		return nil, err
 	}
-	if vs, err = a.markRemote(vs, ovs, from, to); err != nil {
+	if src.Remote, err = a.remote(vs, src.Calls, ovs, from, to); err != nil {
 		return nil, err
 	}
 	aw, err := a.st.Aways(from, to)
 	if err != nil {
 		return nil, err
 	}
-	var marks []classify.AwayMark
 	for _, r := range aw {
 		if r.Category != "" || r.Project != "" {
-			marks = append(marks, classify.AwayMark{ID: r.ID, Interval: classify.Interval{From: r.StartMS, To: r.EndMS}})
+			src.Away = append(src.Away, classify.AwayMark{ID: r.ID, Interval: classify.Interval{From: r.StartMS, To: r.EndMS}})
 			ovs[-r.ID] = classify.Override{Category: r.Category, Project: r.Project}
 		}
 	}
-	vs = classify.MarkPlan(classify.MarkAway(vs, marks, from, to), a.planSlots(from, to))
-	if a.rs.CalendarCategory == "" {
-		return a.markEdits(vs, ovs, from, to)
+	if a.rs.CalendarCategory != "" {
+		evs, err := a.st.Events(from, to)
+		if err != nil {
+			return nil, err
+		}
+		src.Events = make([]classify.EventMark, len(evs))
+		for i, e := range evs {
+			src.Events[i] = classify.EventMark{ID: e.ID, Title: e.Title, Interval: classify.Interval{From: e.StartMS, To: e.EndMS}}
+		}
 	}
-	evs, err := a.st.Events(from, to)
-	if err != nil {
+	if src.Edits, err = a.edits(ovs, from, to); err != nil {
 		return nil, err
 	}
-	em := make([]classify.EventMark, len(evs))
-	for i, e := range evs {
-		em[i] = classify.EventMark{ID: e.ID, Title: e.Title, Interval: classify.Interval{From: e.StartMS, To: e.EndMS}}
-	}
-	return a.markEdits(classify.MarkEvents(vs, em, from, min(to, a.nowMS())), ovs, from, to)
+	return classify.Resolve(vs, src, from, to), nil
 }
 
-// markRemote fills idle time and gaps with the other machines' views. Their
-// labels go into ovs under the views' ids when the category and project
-// exist here, unless a module here names the view; otherwise this
-// machine's rules label them.
-func (a *App) markRemote(vs []classify.SpanView, ovs map[int64]classify.Override, from, to int64) ([]classify.SpanView, error) {
+// remote is the other machines' views over [from, to), with the stale rule
+// applied. Their labels go into ovs under the views' ids when the category
+// and project exist here, unless a module here names the view; otherwise
+// this machine's rules label them. It counts in a.cut the time the stale
+// rule took and the local time they took.
+func (a *App) remote(vs []classify.SpanView, calls []classify.Interval, ovs map[int64]classify.Override, from, to int64) ([]classify.RemoteMark, error) {
 	rv, err := a.st.RemoteViews(from, to)
 	if err != nil || len(rv) == 0 {
-		return vs, err
+		return nil, err
 	}
 	whole := remoteMarks(rv)
 	rv = a.staleRemote(rv)
@@ -186,12 +200,13 @@ func (a *App) markRemote(vs []classify.SpanView, ovs map[int64]classify.Override
 			ovs[-(classify.RemoteIDBase + r.ID)] = o
 		}
 	}
-	hi := min(to, a.nowMS())
-	out := classify.MarkRemote(vs, marks, from, hi)
 	// What the stale rule took is what the uncut views would have added.
-	a.cut.StaleMS += remoteMS(classify.MarkRemote(vs, whole, from, hi)) - remoteMS(out)
-	a.cut.OtherMS += localMS(vs) - localMS(out)
-	return out, nil
+	now := a.nowMS()
+	out := classify.Resolve(vs, classify.Sources{Calls: calls, Remote: marks, NowMS: now}, from, to)
+	all := classify.Resolve(vs, classify.Sources{Calls: calls, Remote: whole, NowMS: now}, from, to)
+	a.cut.StaleMS += remoteMS(all) - remoteMS(out)
+	a.cut.OtherMS += localMS(clipViews(vs, from, to)) - localMS(out)
+	return marks, nil
 }
 
 func remoteMarks(rv []store.RemoteView) []classify.RemoteMark {
@@ -203,11 +218,12 @@ func remoteMarks(rv []store.RemoteView) []classify.RemoteMark {
 	return marks
 }
 
-// localMS is the time of this machine's recorded, non-idle views.
+// localMS is the time of this machine's recorded activity: not idle, not
+// a call over idle time.
 func localMS(vs []classify.SpanView) int64 {
 	var ms int64
 	for _, v := range vs {
-		if v.ID > 0 && v.BundleID != span.IdleBundleID {
+		if v.ID > 0 && v.BundleID != span.IdleBundleID && v.BundleID != span.CallBundleID {
 			ms += v.DurMS()
 		}
 	}
@@ -237,10 +253,11 @@ func (a *App) attachShell(vs []classify.SpanView) {
 	}
 }
 
-// markCalls marks the calls of at least CallMinMS.
-func (a *App) markCalls(vs []classify.SpanView, from, to int64) ([]classify.SpanView, error) {
+// calls is the calls of at least CallMinMS, when the rules name a call
+// category.
+func (a *App) calls(vs []classify.SpanView, from, to int64) ([]classify.Interval, error) {
 	if a.rs.CallCategory == "" || len(vs) == 0 {
-		return vs, nil
+		return nil, nil
 	}
 	cs, err := a.st.Calls(from, to)
 	if err != nil {
@@ -252,7 +269,7 @@ func (a *App) markCalls(vs []classify.SpanView, from, to int64) ([]classify.Span
 			iv = append(iv, classify.Interval{From: c.StartMS, To: c.EndMS})
 		}
 	}
-	return classify.MarkCalls(vs, iv), nil
+	return iv, nil
 }
 
 // history is every span, labelled, with the overrides.

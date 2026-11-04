@@ -46,7 +46,7 @@ func TestMarkAway(t *testing.T) {
 	}
 	// Mark 7 covers an idle span and the gap after it; mark 8 only part of
 	// span 4's idle time and the gap after it. Each becomes one away view.
-	got := MarkAway(views, []AwayMark{{7, Interval{10, 40}}, {8, Interval{60, 90}}}, 0, 100)
+	got := passAway(views, []AwayMark{{7, Interval{10, 40}}, {8, Interval{60, 90}}}, 0, 100)
 	if want := "1:0-10 a, -7:10-40 tock.away, 3:40-50 a, 4:50-60 tock.idle, -8:60-90 tock.away, 5:90-100 b"; pieces(got) != want {
 		t.Fatalf("got  %s\nwant %s", pieces(got), want)
 	}
@@ -54,11 +54,11 @@ func TestMarkAway(t *testing.T) {
 		t.Fatalf("away view = %+v", got[1])
 	}
 	// The window clips the filled gaps.
-	got = MarkAway([]SpanView{{ID: 1, Start: 50, End: 60, BundleID: "a"}}, []AwayMark{{3, Interval{0, 50}}}, 20, 100)
+	got = passAway([]SpanView{{ID: 1, Start: 50, End: 60, BundleID: "a"}}, []AwayMark{{3, Interval{0, 50}}}, 20, 100)
 	if want := "-3:20-50 tock.away, 1:50-60 a"; pieces(got) != want {
 		t.Fatalf("clipped: %s", pieces(got))
 	}
-	if got := MarkAway(views, nil, 0, 100); !reflect.DeepEqual(got, views) {
+	if got := passAway(views, nil, 0, 100); !reflect.DeepEqual(got, views) {
 		t.Fatal("no marks must keep views")
 	}
 }

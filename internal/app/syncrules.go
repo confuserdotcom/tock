@@ -5,13 +5,13 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
+	"tock/internal/rulesfile"
 
 	"tock/internal/classify"
 )
@@ -78,10 +78,12 @@ func (a *App) takeRulesLocked(dir, self string) (from, refused string, err error
 	if err != nil {
 		return "", "", err
 	}
-	learned, err := os.ReadFile(a.paths.Learned)
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
+	f := a.rules()
+	cur, err := f.Read()
+	if err != nil {
 		return "", "", err
 	}
+	learned := cur.Learned
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return "", "", fmt.Errorf("sync dir: %w", err)
@@ -117,31 +119,23 @@ func (a *App) takeRulesLocked(dir, self string) (from, refused string, err error
 	if best == nil {
 		return "", refused, nil
 	}
-	if err := os.WriteFile(a.paths.Rules+".bak", local, 0o600); err != nil {
-		return "", "", err
-	}
-	if !bytes.Equal(bestLearned, learned) {
-		if err := os.WriteFile(a.paths.Learned+".bak", learned, 0o600); err != nil {
-			return "", "", err
+	next := cur
+	next.Rules, next.Learned = best, bestLearned
+	// The tags take the new names before rules.toml changes: a crash leaves
+	// the old rules, and the next sync takes them again.
+	err = f.Write(cur, next, rulesfile.Options{At: time.UnixMilli(bestAt), BeforeRules: func() error {
+		for _, r := range bestRS.Renamed {
+			to := bestRS.CurrentName(r.Kind, r.From)
+			if to == "" || strings.EqualFold(to, r.From) {
+				continue
+			}
+			if err := a.st.RenameLabel(r.Kind, r.From, to, a.nowMS()); err != nil {
+				return err
+			}
 		}
-		if err := classify.WriteFile(a.paths.Learned, bestLearned); err != nil {
-			return "", "", err
-		}
-	}
-	for _, r := range bestRS.Renamed {
-		to := bestRS.CurrentName(r.Kind, r.From)
-		if to == "" || strings.EqualFold(to, r.From) {
-			continue
-		}
-		if err := a.st.RenameLabel(r.Kind, r.From, to, a.nowMS()); err != nil {
-			return "", "", err
-		}
-	}
-	if err := classify.WriteFile(a.paths.Rules, best); err != nil {
-		return "", "", err
-	}
-	at := time.UnixMilli(bestAt)
-	if err := os.Chtimes(a.paths.Rules, at, at); err != nil {
+		return nil
+	}})
+	if err != nil {
 		return "", "", err
 	}
 	if err := a.st.SetState(KeyRulesFrom, from+" "+strconv.FormatInt(bestAt, 10), a.nowMS()); err != nil {

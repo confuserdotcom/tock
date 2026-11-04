@@ -199,7 +199,7 @@ func TestMarkRuleQuietStale(t *testing.T) {
 	})
 	t.Run("learned rule renumbered", func(t *testing.T) {
 		e := distracted(t)
-		if err := classify.AppendLearned(e.Learned, classify.Rule{URL: "reddit", Category: "Entertainment"}, "first"); err != nil {
+		if err := appendLearned(e.Learned, classify.Rule{URL: "reddit", Category: "Entertainment"}, "first"); err != nil {
 			t.Fatal(err)
 		}
 		a := open(t, e)
@@ -207,7 +207,7 @@ func TestMarkRuleQuietStale(t *testing.T) {
 		if !ok {
 			t.Fatal("no learned.toml#1")
 		}
-		if err := classify.AppendLearned(e.Learned, classify.Rule{URL: "twitch", Category: "Entertainment"}, "second"); err != nil {
+		if err := appendLearned(e.Learned, classify.Rule{URL: "twitch", Category: "Entertainment"}, "second"); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := a.Reload(); err != nil {
@@ -330,4 +330,17 @@ func TestAppAddUrge(t *testing.T) {
 	if err := a.AddUrge(s.ID+100, false); !errors.Is(err, store.ErrSessionGone) {
 		t.Fatalf("unknown session: %v, want store.ErrSessionGone", err)
 	}
+}
+
+// appendLearned adds r to the learned file at path, as Learn would.
+func appendLearned(path string, r classify.Rule, comment string) error {
+	old, err := os.ReadFile(path)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	out, err := classify.AppendLearnedText(old, r, comment)
+	if err != nil {
+		return err
+	}
+	return classify.WriteFile(path, out)
 }
