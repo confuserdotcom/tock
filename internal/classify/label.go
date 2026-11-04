@@ -87,6 +87,13 @@ func (rs *Ruleset) Label(v SpanView, o *Override) Label {
 		l.Project = o.Project
 		l.ProjectSource, l.ProjectRule = SourceManual, ""
 	}
+	// A project filed under a category labels only time in that category:
+	// a lecture on a video site is not the Video project.
+	if l.Project != "" && l.Category != "" && (l.ProjectSource == SourceRule || l.ProjectSource == SourceLearned) {
+		if c := rs.ProjectCategory(l.Project); c != "" && !strings.EqualFold(c, l.Category) {
+			l.Project, l.ProjectSource, l.ProjectRule = "", SourceNone, ""
+		}
+	}
 	if l.Project == "" && v.Planned != "" {
 		if c := rs.ProjectCategory(v.Planned); c != "" && strings.EqualFold(c, l.Category) {
 			l.Project, l.ProjectSource, l.ProjectRule = v.Planned, SourcePlan, ""
