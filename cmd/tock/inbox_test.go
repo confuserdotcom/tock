@@ -133,3 +133,26 @@ func TestInboxSiteRow(t *testing.T) {
 		}
 	}
 }
+
+// TestInboxNoiseFloor: keys under [inbox] min_minutes are summed in one line;
+// --all lists them.
+func TestInboxNoiseFloor(t *testing.T) {
+	te := newTestEnv(t, testRules)
+	te.seed(t,
+		seedSpan{1, "09:00", "09:10", "arc", "Arc", "Noctie", "app.noctie.ai/x", false},
+		seedSpan{2, "09:10", "09:11", "arc", "Arc", "Kitea", "kitea.com/x", false},
+		seedSpan{3, "09:11", "09:12", "arc", "Arc", "Steelcase", "steelcase.com/x", false},
+		seedSpan{4, "09:12", "09:30", "term", "Term", "x", "", false},
+	)
+	_, out := te.run(t, "", "inbox")
+	want := "Inbox  last 7 days · 1 key · 10m unlabelled\n" +
+		"  1    10m  Arc · app.noctie.ai  \"Noctie\"\n" +
+		"+ 2 small keys under 2m (2m) · tock inbox --all\n" +
+		"tag: tock tag <n> <Category>[/<Project>]   accept →: tock tag <n>   hide: tock ignore <n>\n"
+	if out != want {
+		t.Fatalf("inbox:\n%s\nwant:\n%s", out, want)
+	}
+	if _, out := te.run(t, "", "inbox", "--all"); !strings.Contains(out, "3 keys · 12m") || !strings.Contains(out, "steelcase.com") {
+		t.Fatalf("--all:\n%s", out)
+	}
+}

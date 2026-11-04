@@ -118,6 +118,7 @@ type loadedMsg struct {
 	health    app.Health
 	healthErr error
 	items     []classify.Item
+	small     []classify.Item // under [inbox] min_minutes
 	day       *report.Day
 	week      *report.Week
 	month     *report.Month
@@ -170,6 +171,7 @@ func (m *Model) load() tea.Cmd {
 			if msg.items, msg.err = a.Inbox(InboxDays); msg.err != nil {
 				return
 			}
+			msg.items, msg.small = classify.Floor(msg.items, a.Config().Inbox.MinMS)
 			if msg.sugg, msg.err = a.Suggestions(); msg.err != nil {
 				return
 			}
@@ -258,7 +260,7 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.err != nil {
 			m.setFlash("load failed: "+msg.err.Error(), true)
 		} else {
-			m.inbox.set(msg.items)
+			m.inbox.set(msg.items, msg.small)
 			m.inbox.sugg = msg.sugg
 			m.today.sugg, m.today.trackdUp = msg.sugg, msg.health.TrackdUp
 			if msg.day != nil {

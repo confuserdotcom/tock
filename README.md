@@ -91,7 +91,10 @@ forgets the grants on every rebuild.
 2. `tock inbox` lists time no rule labels yet, grouped by key: one row per
    app and site (`Arc · youtube.com · 4 pages`), one per app and cleaned
    title otherwise. Numbered CDN or viewer hosts fold into their domain
-   (`doc-0o-bs.googleusercontent.com` is `googleusercontent.com`). Label a key with
+   (`doc-0o-bs.googleusercontent.com` is `googleusercontent.com`). Keys with
+   less than 2 minutes in the window are summed in one line
+   (`+ 46 small keys under 2m`); `tock inbox --all` lists them, and
+   `[inbox] min_minutes` sets the floor. Label a key with
    `tock tag 1 Code/tock`. This also writes a rule to
    `~/.config/tock/learned.toml`, so the same activity is labelled from now on.
    In the TUI, use the inbox tab's `enter`.
@@ -278,6 +281,9 @@ start = "09:00"          # start and end are both required
 end = "18:00"
 over_grace = 30          # minutes of work past end before the overworking notice (5 to 240)
 over_repeat = 60         # minutes between overworking notices while you keep going (15 to 480)
+
+[inbox]
+min_minutes = 2          # a key needs this much time in the window for its own inbox row; 0 lists all (0 to 60)
 
 [routine]                # notices that mark the day; see Routines
 start = true             # start of day notice on the first activity of a work day

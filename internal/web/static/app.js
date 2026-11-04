@@ -709,7 +709,7 @@
   function renderInbox(d) {
     const nodes = [h('div', { class: 'toolrow' },
       h('div', null, h('h1', null, 'Inbox'),
-        h('p', { class: 'sub', style: { margin: 0 } }, d.items.length ? `${d.items.length} unlabelled · ${dur(d.totalMS)}` : `Last ${d.days} days`)),
+        h('p', { class: 'sub', style: { margin: 0 } }, (d.items.length ? `${d.items.length} unlabelled · ${dur(d.totalMS)}` : `Last ${d.days} days`) + (d.smallKeys ? ` · ${d.smallKeys} small (${dur(d.smallMS)}) hidden` : ''))),
       smallSeg([[7, '7 days'], [30, '30 days'], [90, '90 days']], state.inboxDays, (v) => { state.inboxDays = v; localSet('tock-inbox-days', String(v)); state.sel = -1; load({}); }, 'Days'))];
     if (!d.items.length) {
       nodes.push(emptyState('All labelled', `Everything in the last ${d.days} days has a label.`));

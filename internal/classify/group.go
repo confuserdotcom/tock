@@ -99,3 +99,19 @@ func Inbox(views []SpanView, labels []Label, ignored map[string]bool) []Item {
 			!ignored[LegacyKey(views[i])]
 	})
 }
+
+// Floor splits items into those with at least minMS of time, which keep
+// their own inbox row, and the small rest. minMS <= 0 keeps every item.
+func Floor(items []Item, minMS int64) (rows, small []Item) {
+	if minMS <= 0 {
+		return items, nil
+	}
+	for _, it := range items {
+		if it.TotalMS >= minMS {
+			rows = append(rows, it)
+		} else {
+			small = append(small, it)
+		}
+	}
+	return rows, small
+}

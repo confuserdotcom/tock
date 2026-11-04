@@ -63,3 +63,14 @@ func TestGroupBundlesAndKind(t *testing.T) {
 		t.Fatalf("private item = %+v", it)
 	}
 }
+
+func TestFloor(t *testing.T) {
+	items := []Item{{Key: "a", TotalMS: 300_000}, {Key: "b", TotalMS: 120_000}, {Key: "c", TotalMS: 119_999}}
+	rows, small := Floor(items, 120_000)
+	if len(rows) != 2 || rows[1].Key != "b" || len(small) != 1 || small[0].Key != "c" {
+		t.Fatalf("rows = %+v small = %+v", rows, small)
+	}
+	if rows, small := Floor(items, 0); len(rows) != 3 || small != nil {
+		t.Fatalf("floor 0: rows = %d small = %+v", len(rows), small)
+	}
+}

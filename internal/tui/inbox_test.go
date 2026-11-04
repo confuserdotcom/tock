@@ -106,3 +106,21 @@ func TestNoSafeRuleOffersTagOnce(t *testing.T) {
 		t.Fatal("no rule must be learned")
 	}
 }
+
+// TestInboxNoiseFloor: keys under [inbox] min_minutes leave the list; the
+// header counts them.
+func TestInboxNoiseFloor(t *testing.T) {
+	e := apptest.New(t, apptest.Rules)
+	e.Seed(t,
+		apptest.Span{ID: 1, Start: "09:00", End: "09:10", Bundle: "arc", App: "Arc", Title: "Noctie", URL: "app.noctie.ai/x"},
+		apptest.Span{ID: 2, Start: "09:10", End: "09:11", Bundle: "arc", App: "Arc", Title: "Kitea", URL: "kitea.com/x"},
+		apptest.Span{ID: 3, Start: "09:11", End: "09:12", Bundle: "arc", App: "Arc", Title: "Steel", URL: "steelcase.com/x"},
+		apptest.Span{ID: 4, Start: "09:12", End: "09:30", Bundle: "term", App: "Term", Title: "x"},
+	)
+	m := newModel(t, e)
+	m = press(t, m, "3")
+	mustContain(t, m, "10m unlabelled · 1 key · 2 small (2m) hidden · last 7 days", "inbox ¹")
+	if strings.Contains(m.View().Content, "kitea") {
+		t.Fatal("small key listed")
+	}
+}
