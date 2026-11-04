@@ -12,6 +12,7 @@ import (
 
 	"tock/internal/apptest"
 	"tock/internal/store"
+	"tock/internal/syncdir"
 	"tock/internal/update"
 )
 
@@ -145,7 +146,7 @@ func TestStaleRemoteMachine(t *testing.T) {
 	}
 	write("ryuk", line("01:00", "04:00"))
 	write("box", line("05:00", "08:00"))
-	os.WriteFile(filepath.Join(dir, "box", machineFile), []byte(`{"input":true}`), 0o600)
+	os.WriteFile(filepath.Join(dir, "box", syncdir.MachineFile), []byte(`{"input":true}`), 0o600)
 	a := open(t, e)
 	if _, err := a.Sync(1); err != nil {
 		t.Fatal(err)
@@ -162,7 +163,7 @@ func TestStaleRemoteMachine(t *testing.T) {
 	if d.Cut.StaleMS != 3*3_600_000-10*60_000 {
 		t.Fatalf("cut = %+v", d.Cut)
 	}
-	b, err := os.ReadFile(filepath.Join(dir, "mac", machineFile))
+	b, err := os.ReadFile(filepath.Join(dir, "mac", syncdir.MachineFile))
 	if err != nil || !strings.HasPrefix(string(b), `{"input":true,"hid":true,"rules_at":`) {
 		t.Fatalf("machine.json = %q, %v", b, err)
 	}
@@ -192,7 +193,7 @@ func TestStaleRemoteBeforeInputBegan(t *testing.T) {
 	e.Seed(t, apptest.Span{ID: 1, Start: "14:00", End: "14:10", Bundle: "term", App: "WezTerm", Title: "x"})
 	a := open(t, e)
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, machineFile), []byte(`{"input":true,"input_since":`+
+	os.WriteFile(filepath.Join(dir, syncdir.MachineFile), []byte(`{"input":true,"input_since":`+
 		strconv.FormatInt(apptest.At(t, "08:00", 0), 10)+"}\n"), 0o600)
 	if err := a.readMachineFile(dir, "ryuk"); err != nil {
 		t.Fatal(err)
@@ -242,7 +243,7 @@ func TestSyncNoticesHypridleStop(t *testing.T) {
 	if a.input || a.inputSince != math.MaxInt64 {
 		t.Fatalf("input = %v since %d after hypridle stopped", a.input, a.inputSince)
 	}
-	b, _ := os.ReadFile(filepath.Join(dir, "ryuk", machineFile))
+	b, _ := os.ReadFile(filepath.Join(dir, "ryuk", syncdir.MachineFile))
 	if !strings.HasPrefix(string(b), `{"input":false`) {
 		t.Fatalf("machine.json = %q", b)
 	}
@@ -254,7 +255,7 @@ func TestTrustRemoteWithoutHID(t *testing.T) {
 	a := open(t, e)
 	for machine, body := range map[string]string{"ryuk": `{"input":true}`, "air": `{"input":true,"hid":true}`} {
 		dir := t.TempDir()
-		os.WriteFile(filepath.Join(dir, machineFile), []byte(body), 0o600)
+		os.WriteFile(filepath.Join(dir, syncdir.MachineFile), []byte(body), 0o600)
 		if err := a.readMachineFile(dir, machine); err != nil {
 			t.Fatal(err)
 		}
@@ -296,7 +297,7 @@ func TestCutToOtherMachine(t *testing.T) {
 	os.MkdirAll(filepath.Join(dir, "ryuk"), 0o700)
 	os.WriteFile(filepath.Join(dir, "ryuk", "2026-10-10.jsonl"), []byte(`{"s":`+strconv.FormatInt(apptest.At(t, "14:30", 0), 10)+
 		`,"e":`+strconv.FormatInt(apptest.At(t, "14:45", 0), 10)+`,"b":"pdf","a":"zathura","t":"book","c":"Reading"}`+"\n"), 0o600)
-	os.WriteFile(filepath.Join(dir, "ryuk", machineFile), []byte(`{"input":true}`), 0o600)
+	os.WriteFile(filepath.Join(dir, "ryuk", syncdir.MachineFile), []byte(`{"input":true}`), 0o600)
 	a := open(t, e)
 	if _, err := a.Sync(1); err != nil {
 		t.Fatal(err)
@@ -321,7 +322,7 @@ func TestMachineFileCarriesVersionAndUpdateError(t *testing.T) {
 	if err := a.writeMachineFile(dir); err != nil {
 		t.Fatal(err)
 	}
-	if b, _ := os.ReadFile(filepath.Join(dir, machineFile)); strings.Contains(string(b), "version") || strings.Contains(string(b), "update_error") {
+	if b, _ := os.ReadFile(filepath.Join(dir, syncdir.MachineFile)); strings.Contains(string(b), "version") || strings.Contains(string(b), "update_error") {
 		t.Fatalf("machine.json = %q", b)
 	}
 	a.st.SetState(store.KeyVersion, "v1", 1)
@@ -329,7 +330,7 @@ func TestMachineFileCarriesVersionAndUpdateError(t *testing.T) {
 	if err := a.writeMachineFile(dir); err != nil {
 		t.Fatal(err)
 	}
-	mi, ok := readMachineInfo(dir)
+	mi, ok := syncdir.ReadMachineInfo(dir)
 	if !ok || mi.Version != "v1" || mi.UpdateError != "update: key changed" {
 		t.Fatalf("machine info = %+v", mi)
 	}
@@ -343,7 +344,7 @@ func TestMachineFileCarriesVersionAndUpdateError(t *testing.T) {
 		t.Fatalf("remote update error = %q", v)
 	}
 	// a machine.json without them clears both
-	os.WriteFile(filepath.Join(dir, machineFile), []byte(`{"input":true}`), 0o600)
+	os.WriteFile(filepath.Join(dir, syncdir.MachineFile), []byte(`{"input":true}`), 0o600)
 	if err := a.readMachineFile(dir, "ryuk"); err != nil {
 		t.Fatal(err)
 	}

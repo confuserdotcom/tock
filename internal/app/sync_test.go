@@ -11,6 +11,7 @@ import (
 	"tock/internal/apptest"
 	"tock/internal/classify"
 	"tock/internal/store"
+	"tock/internal/syncdir"
 )
 
 // twoMachines is the seeded day on "mac" and 30 min of tock work on "ryuk"
@@ -92,7 +93,7 @@ func TestSyncOffAndBadLines(t *testing.T) {
 	}
 	p := filepath.Join(t.TempDir(), "2026-10-10.jsonl")
 	os.WriteFile(p, []byte("{\"s\":1,\"e\":2,\"b\":\"x\",\"a\":\"X\"}\nnot json\n{\"s\":5,\"e\":5,\"b\":\"x\"}\n{\"s\":1,\"e\":9,\"b\":\"\"}\n"), 0o600)
-	vs, err := readDayFile(p)
+	vs, err := syncdir.ReadDayFile(p)
 	if err != nil || len(vs) != 1 || vs[0].App != "X" {
 		t.Fatalf("parsed = %+v, %v", vs, err)
 	}
@@ -112,18 +113,18 @@ func TestSyncTakesNewerRules(t *testing.T) {
 	if r, err := mac.Sync(SyncDays); err != nil || r.RulesFrom != "" {
 		t.Fatalf("mac sync = %+v, %v", r, err)
 	}
-	if b, _ := os.ReadFile(filepath.Join(dir, "mac", rulesCopy)); string(b) != newer {
+	if b, _ := os.ReadFile(filepath.Join(dir, "mac", syncdir.RulesCopy)); string(b) != newer {
 		t.Fatalf("shared copy = %q", b)
 	}
 
 	// A copy that has not fully arrived is left alone.
-	if err := os.WriteFile(filepath.Join(dir, "mac", rulesCopy), []byte(newer[:20]), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "mac", syncdir.RulesCopy), []byte(newer[:20]), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if r, err := ryuk.Sync(SyncDays); err != nil || r.RulesFrom != "" || ryuk.Rules().HasCategory("Reading") {
 		t.Fatalf("partial copy taken: %+v, %v", r, err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "mac", rulesCopy), []byte(newer), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "mac", syncdir.RulesCopy), []byte(newer), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	r, err := ryuk.Sync(SyncDays)
@@ -178,7 +179,7 @@ func TestSyncRulesOff(t *testing.T) {
 	if _, err := mac.Sync(SyncDays); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, "mac", rulesCopy)); !errors.Is(err, os.ErrNotExist) {
+	if _, err := os.Stat(filepath.Join(dir, "mac", syncdir.RulesCopy)); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("rules shared with [sync] rules = false: %v", err)
 	}
 	if r, err := ryuk.Sync(SyncDays); err != nil || r.RulesFrom != "" || ryuk.Rules().HasCategory("Reading") {

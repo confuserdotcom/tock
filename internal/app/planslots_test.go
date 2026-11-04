@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"tock/internal/apptest"
+	"tock/internal/syncdir"
 )
 
 const moduleRules = apptest.Rules + `
@@ -66,7 +67,7 @@ func TestModuleBeatsRemoteLabel(t *testing.T) {
 		`{"s":` + strconv.FormatInt(apptest.At(t, "09:15", 0), 10) + `,"e":` + strconv.FormatInt(apptest.At(t, "09:20", 0), 10) +
 		`,"b":"zathura","a":"zathura","t":"notes.pdf","c":"Study","p":"Licence"}` + "\n"
 	os.WriteFile(filepath.Join(dir, "ryuk", "2026-10-10.jsonl"), []byte(rec), 0o600)
-	os.WriteFile(filepath.Join(dir, "ryuk", machineFile), []byte(`{"input":true}`), 0o600)
+	os.WriteFile(filepath.Join(dir, "ryuk", syncdir.MachineFile), []byte(`{"input":true}`), 0o600)
 	a := open(t, e)
 	if _, err := a.Sync(1); err != nil {
 		t.Fatal(err)

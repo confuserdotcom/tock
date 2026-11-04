@@ -1,40 +1,23 @@
 package app
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"time"
 
 	"tock/internal/classify"
 	"tock/internal/store"
+	"tock/internal/syncdir"
 	"tock/internal/update"
 )
 
 // SyncDays is how many days, today included, each sync writes.
 const SyncDays = 2
-
-// dayFileRE is a day file's name in a machine's sync folder.
-var dayFileRE = regexp.MustCompile(`^(\d{4}-\d{2}-\d{2})\.jsonl$`)
-
-// syncRecord is one line of a day file: a view of this machine and its
-// label here.
-type syncRecord struct {
-	S int64   `json:"s"`
-	E int64   `json:"e"`
-	B string  `json:"b"`
-	A string  `json:"a"`
-	T *string `json:"t,omitempty"`
-	U *string `json:"u,omitempty"`
-	C string  `json:"c,omitempty"`
-	P string  `json:"p,omitempty"`
-}
 
 // SyncReport says what one sync did.
 type SyncReport struct {
@@ -75,7 +58,7 @@ func (a *App) Sync(days int) (SyncReport, error) {
 		if err != nil {
 			return r, err
 		}
-		wrote, err := writeIfChanged(filepath.Join(dir, r.Machine, dateKey(day)+".jsonl"), b)
+		wrote, err := syncdir.WriteIfChanged(filepath.Join(dir, r.Machine, dateKey(day)+".jsonl"), b)
 		if err != nil {
 			return r, err
 		}
@@ -110,7 +93,7 @@ func (a *App) exportDay(day time.Time) ([]byte, error) {
 		if v.ID <= 0 || strings.HasPrefix(v.BundleID, "tock.") || v.End <= v.Start {
 			continue
 		}
-		rec := syncRecord{S: v.Start, E: v.End, B: v.BundleID, A: v.App, T: v.Title, U: v.URL,
+		rec := syncdir.Record{S: v.Start, E: v.End, B: v.BundleID, A: v.App, T: v.Title, U: v.URL,
 			C: labels[i].Category, P: labels[i].Project}
 		if v.Private {
 			rec.T, rec.U = nil, nil
@@ -120,27 +103,6 @@ func (a *App) exportDay(day time.Time) ([]byte, error) {
 		}
 	}
 	return b.Bytes(), nil
-}
-
-// writeIfChanged replaces path with b unless it already holds b. The new
-// file is written beside it and renamed, so a syncing tool never sees half
-// a file.
-func writeIfChanged(path string, b []byte) (bool, error) {
-	if old, err := os.ReadFile(path); err == nil && bytes.Equal(old, b) {
-		return false, nil
-	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		return false, err
-	}
-	tmp := filepath.Join(filepath.Dir(path), "."+filepath.Base(path)+".tmp")
-	if err := os.WriteFile(tmp, b, 0o600); err != nil {
-		return false, err
-	}
-	if err := os.Rename(tmp, path); err != nil {
-		os.Remove(tmp)
-		return false, err
-	}
-	return true, nil
 }
 
 // importRemote reads every other machine's day files that changed since
@@ -166,7 +128,7 @@ func (a *App) importRemote(dir, self string) (int, error) {
 			return read, err
 		}
 		for _, f := range files {
-			match := dayFileRE.FindStringSubmatch(f.Name())
+			match := syncdir.DayFileRE.FindStringSubmatch(f.Name())
 			if match == nil {
 				continue
 			}
@@ -182,7 +144,7 @@ func (a *App) importRemote(dir, self string) (int, error) {
 			if ok && seen == cur {
 				continue
 			}
-			vs, err := readDayFile(filepath.Join(dir, m.Name(), f.Name()))
+			vs, err := syncdir.ReadDayFile(filepath.Join(dir, m.Name(), f.Name()))
 			if err != nil {
 				return read, err
 			}
@@ -193,28 +155,6 @@ func (a *App) importRemote(dir, self string) (int, error) {
 		}
 	}
 	return read, nil
-}
-
-// readDayFile parses a day file. Lines that do not parse are skipped: a
-// newer tock may write more.
-func readDayFile(path string) ([]store.RemoteView, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-	var out []store.RemoteView
-	sc := bufio.NewScanner(f)
-	sc.Buffer(make([]byte, 64*1024), 4*1024*1024)
-	for sc.Scan() {
-		var r syncRecord
-		if json.Unmarshal(sc.Bytes(), &r) != nil || r.E <= r.S || r.B == "" {
-			continue
-		}
-		out = append(out, store.RemoteView{StartMS: r.S, EndMS: r.E, Bundle: r.B, App: r.A, Title: r.T, URL: r.U,
-			Category: r.C, Project: r.P})
-	}
-	return out, sc.Err()
 }
 
 // IsRemoteView reports whether id is another machine's view.

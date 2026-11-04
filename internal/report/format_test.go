@@ -49,6 +49,36 @@ func TestSafeStripsControls(t *testing.T) {
 	}
 }
 
+func TestFitPadsAndCutsByDisplayWidth(t *testing.T) {
+	for _, c := range []struct {
+		in   string
+		w    int
+		want string
+	}{
+		{"Code", 6, "Code  "},
+		{"été", 5, "été  "}, // combining accents take no cell
+		{"Développement", 13, "Développement"},
+		{"Développement logiciel", 10, "Développe…"},
+		{"日本語の名前", 7, "日本語…"}, // wide runes take two cells
+	} {
+		if got := Fit(c.in, c.w); got != c.want {
+			t.Errorf("Fit(%q, %d) = %q, want %q", c.in, c.w, got, c.want)
+		}
+	}
+}
+
+func TestNameWidth(t *testing.T) {
+	if got := NameWidth([]string{"Code", "Fun"}, 14, 30); got != 14 {
+		t.Fatalf("short names keep the floor: %d", got)
+	}
+	if got := NameWidth([]string{"Code", "Développement logiciel"}, 14, 30); got != 22 {
+		t.Fatalf("widest name by display width: %d", got)
+	}
+	if got := NameWidth([]string{"A category name far longer than any cap"}, 14, 30); got != 30 {
+		t.Fatalf("capped: %d", got)
+	}
+}
+
 func TestLabelText(t *testing.T) {
 	for _, c := range []struct{ cat, proj, want string }{
 		{"Study", "ATLAS", "Study / ATLAS"}, {"Study", "", "Study"}, {"", "ATLAS", "project ATLAS"},
