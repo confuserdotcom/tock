@@ -288,14 +288,14 @@ func TestFoldNeverIdle(t *testing.T) {
 		// Idle 300 s: the start clamps to B's start, so B is zero-length and
 		// folds into A, and the idle span opens at t0+20000.
 		S(t0+21000, "B", "", 300.0),
-		// Back after 500 ms of idle time: the idle span lasts 1500 ms but is
-		// idle, so it is kept.
+		// Input 500 ms ago: a return once more input follows. The idle span
+		// lasts 1500 ms but is idle, so it is kept.
 		S(t0+22000, "C", "", 0.5),
 	)
-	// C lived 1000 ms right after the idle span: it cannot extend idle, so it
-	// folds into the next span.
+	// The input goes on: idle ends at C's first event, and the span opened
+	// there is the sample's, D. Idle is closed, never folded.
 	ops := opsOf(m, S(t0+23000, "D", "", 0))
-	wantKinds(t, "post-idle fold", ops, OpDelete, OpOpen)
+	wantKinds(t, "post-idle return", ops, OpClose, OpOpen)
 	all = append(all, ops...)
 	all = append(all, feedAll(m, S(t0+30000, "D", "", 0))...)
 	all = append(all, m.Flush()...)
