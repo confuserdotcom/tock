@@ -24,6 +24,7 @@ type fakeUI struct {
 	posts         []string
 	auth          []bool
 	urls          []string
+	dashboards    []string
 	curtains      []string
 	prompts       []string
 	hotkeys       []bool
@@ -40,12 +41,13 @@ func (f *fakeUI) Post(id int64, title, body, cat, cats string) {
 func (f *fakeUI) Curtain(id int64, title, body, word string, fromMS, untilMS int64, buttons string) {
 	f.curtains = append(f.curtains, fmt.Sprintf("%d|%s|%s|%s|%d|%d|%s", id, title, body, word, fromMS, untilMS, buttons))
 }
-func (f *fakeUI) CheckAuth(prompt bool) { f.auth = append(f.auth, prompt) }
-func (f *fakeUI) OpenURL(u string)      { f.urls = append(f.urls, u) }
-func (f *fakeUI) Quit()                 { f.quit = true }
-func (f *fakeUI) Prompt(s string)       { f.prompts = append(f.prompts, s) }
-func (f *fakeUI) SetHotkey(on bool)     { f.hotkeys = append(f.hotkeys, on) }
-func (f *fakeUI) Island(s string)       { f.islands = append(f.islands, s) }
+func (f *fakeUI) CheckAuth(prompt bool)  { f.auth = append(f.auth, prompt) }
+func (f *fakeUI) OpenURL(u string)       { f.urls = append(f.urls, u) }
+func (f *fakeUI) OpenDashboard(u string) { f.dashboards = append(f.dashboards, u) }
+func (f *fakeUI) Quit()                  { f.quit = true }
+func (f *fakeUI) Prompt(s string)        { f.prompts = append(f.prompts, s) }
+func (f *fakeUI) SetHotkey(on bool)      { f.hotkeys = append(f.hotkeys, on) }
+func (f *fakeUI) Island(s string)        { f.islands = append(f.islands, s) }
 func (f *fakeUI) NotchOptions(sharing, all, hover bool) {
 	f.options = append(f.options, fmt.Sprintf("sharing=%v all=%v hover=%v", sharing, all, hover))
 }
@@ -280,11 +282,12 @@ func TestRunnerOpensDashboard(t *testing.T) {
 	r.handle(event{kind: evMenu, id: bar.IDDashboard})
 	r.handle(event{kind: evMenu, id: bar.IDInbox})
 	r.handle(event{kind: evMenu, id: bar.IDAccess})
-	if len(u.urls) != 3 {
-		t.Fatalf("urls = %v\n%s", u.urls, logb)
+	// The dashboard opens in tock's own window; settings links in the browser.
+	if len(u.dashboards) != 2 || len(u.urls) != 1 {
+		t.Fatalf("dashboards = %v urls = %v\n%s", u.dashboards, u.urls, logb)
 	}
-	if !strings.HasPrefix(u.urls[0], "http://127.0.0.1:") || !strings.Contains(u.urls[1], "/?v=inbox#") || u.urls[2] != bar.AccessibilityURL {
-		t.Fatalf("urls = %v", u.urls)
+	if !strings.HasPrefix(u.dashboards[0], "http://127.0.0.1:") || !strings.Contains(u.dashboards[1], "/?v=inbox#") || u.urls[0] != bar.AccessibilityURL {
+		t.Fatalf("dashboards = %v urls = %v", u.dashboards, u.urls)
 	}
 }
 
@@ -607,12 +610,12 @@ func TestRunnerRecapOpensToday(t *testing.T) {
 	}
 	ids := r.noticeIDs(t)
 	r.handle(event{kind: evResponse, notice: ids[1], id: defaultAction})
-	if len(u.urls) != 0 {
-		t.Fatalf("Break over opened %q", u.urls)
+	if len(u.dashboards) != 0 {
+		t.Fatalf("Break over opened %q", u.dashboards)
 	}
 	r.handle(event{kind: evResponse, notice: ids[0], id: defaultAction})
-	if len(u.urls) != 1 || !strings.HasPrefix(u.urls[0], "http://127.0.0.1:") || strings.Contains(u.urls[0], "?v=") {
-		t.Fatalf("recap opened %q, want the dashboard on Today", u.urls)
+	if len(u.dashboards) != 1 || !strings.HasPrefix(u.dashboards[0], "http://127.0.0.1:") || strings.Contains(u.dashboards[0], "?v=") || len(u.urls) != 0 {
+		t.Fatalf("recap opened %q (urls %q), want the dashboard window on Today", u.dashboards, u.urls)
 	}
 }
 

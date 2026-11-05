@@ -4,10 +4,11 @@ package main
 
 /*
 #cgo CFLAGS: -fobjc-arc
-#cgo LDFLAGS: -framework Cocoa -framework Carbon -framework UserNotifications -framework QuartzCore
+#cgo LDFLAGS: -framework Cocoa -framework Carbon -framework UserNotifications -framework QuartzCore -framework WebKit
 #include <stdlib.h>
 #include "ui_darwin.h"
 #include "notch_darwin.h"
+#include "dash_darwin.h"
 */
 import "C"
 
@@ -75,11 +76,12 @@ func cstr(s string, f func(*C.char)) {
 	f(c)
 }
 
-func (cocoa) SetTitle(t string) { cstr(t, func(c *C.char) { C.bar_set_title(c) }) }
-func (cocoa) SetMenu(s string)  { cstr(s, func(c *C.char) { C.bar_set_menu(c) }) }
-func (cocoa) OpenURL(u string)  { cstr(u, func(c *C.char) { C.bar_open_url(c) }) }
-func (cocoa) Quit()             { C.bar_quit() }
-func (cocoa) Prompt(s string)   { cstr(s, func(c *C.char) { C.bar_prompt(c) }) }
+func (cocoa) SetTitle(t string)      { cstr(t, func(c *C.char) { C.bar_set_title(c) }) }
+func (cocoa) SetMenu(s string)       { cstr(s, func(c *C.char) { C.bar_set_menu(c) }) }
+func (cocoa) OpenURL(u string)       { cstr(u, func(c *C.char) { C.bar_open_url(c) }) }
+func (cocoa) OpenDashboard(u string) { cstr(u, func(c *C.char) { C.bar_open_dashboard(c) }) }
+func (cocoa) Quit()                  { C.bar_quit() }
+func (cocoa) Prompt(s string)        { cstr(s, func(c *C.char) { C.bar_prompt(c) }) }
 
 func (cocoa) SetHotkey(on bool) {
 	v := 0

@@ -46,6 +46,9 @@ type ui interface {
 	Curtain(id int64, title, body, word string, fromMS, untilMS int64, buttons string)
 	CheckAuth(prompt bool)
 	OpenURL(url string)
+	// OpenDashboard shows the dashboard link in tock's own window (the
+	// browser where there is none).
+	OpenDashboard(link string)
 	// Prompt shows the start prompt: "start\ttitle\tdetail\t<min>,<min>…"
 	// or "stop\ttitle\tdetail"; the answer comes back as a menu click.
 	Prompt(spec string)
@@ -512,7 +515,7 @@ func (r *runner) handle(ev event) {
 			}
 			link, err := r.dash.URL(view)
 			if err == nil {
-				r.ui.OpenURL(link)
+				r.ui.OpenDashboard(link)
 			}
 			r.done("menu "+ev.id, "opened the dashboard", err)
 			return
@@ -549,7 +552,7 @@ func (r *runner) handle(ev event) {
 			if n, _, err := r.a.Notice(ev.notice); err == nil && n.Topic == focus.TopicRecap {
 				link, err := r.dash.URL("")
 				if err == nil {
-					r.ui.OpenURL(link)
+					r.ui.OpenDashboard(link)
 				}
 				r.done("recap", "opened the dashboard", err)
 			}
