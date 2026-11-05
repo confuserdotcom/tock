@@ -117,6 +117,7 @@ bundle-bar:
 	cp packaging/bar/Info.plist "$(BAR_BUNDLE)/Contents/Info.plist"
 	@mkdir -p "$(BAR_BUNDLE)/Contents/Resources"
 	cp packaging/bar/AppIcon.icns "$(BAR_BUNDLE)/Contents/Resources/AppIcon.icns"
+	cp packaging/bar/MenuGlyph.png packaging/bar/MenuGlyph@2x.png "$(BAR_BUNDLE)/Contents/Resources/"
 	chmod -R go-w "$(BAR_BUNDLE)"
 	@id="$(SIGN_ID)"; \
 	if [ "$(SIGN_MODE)" = adhoc ] || ! security find-identity -v -p codesigning 2>/dev/null | grep -q '"$(SIGN_ID)"'; then \
@@ -134,8 +135,9 @@ bundle-bar:
 # packaging/bar/icon/gen.go (same as icon.svg). Commit the result.
 icon:
 	@rm -rf build/AppIcon.iconset && mkdir -p build
-	cd packaging/bar/icon && go run gen.go $(CURDIR)/build/AppIcon.iconset
+	cd packaging/bar/icon && go run gen.go $(CURDIR)/build/AppIcon.iconset $(CURDIR)/packaging/bar $(CURDIR)/web/public
 	iconutil -c icns -o packaging/bar/AppIcon.icns build/AppIcon.iconset
+	cp packaging/bar/icon/icon.svg web/public/favicon.svg
 
 print-dr:
 	@codesign -d -r- "$(BUNDLE)" 2>&1 | grep -E '^designated|# designated' || true

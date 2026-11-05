@@ -11,6 +11,9 @@ What changed for you in each release. Dates are UTC.
   when you focus and a projects donut; a new **Trends** view shows the
   month as a calendar, deep time per day and your best hours. ⌘K jumps to
   a view or a date, and every change can be undone from its toast.
+- A new icon, the day ring: a clock whose ring is split into deep, shallow
+  and distracted time. It shows in the menu bar next to today's time, in
+  the Dock while the dashboard is open, and as the dashboard's tab icon.
 - tock lives in the notch. The menu bar app draws its own panel there: the
   running session, a break or a
   meeting either side of the notch, and moments that open from it and go

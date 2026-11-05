@@ -109,6 +109,20 @@ func TestFontsAreServedFromThePage(t *testing.T) {
 	}
 }
 
+func TestFaviconServed(t *testing.T) {
+	f := newFixture(t)
+	for p, ct := range map[string]string{"/favicon.svg": "image/svg+xml", "/favicon.png": "image/png", "/apple-touch-icon.png": "image/png"} {
+		code, h, b := f.do("GET", p, "-", nil)
+		if code != 200 || len(b) < 200 || !strings.HasPrefix(h.Get("Content-Type"), ct) {
+			t.Fatalf("%s: %d, %d bytes, %q", p, code, len(b), h.Get("Content-Type"))
+		}
+	}
+	_, _, page := f.do("GET", "/", "-", nil)
+	if !strings.Contains(string(page), `favicon.svg`) {
+		t.Fatal("page has no favicon link")
+	}
+}
+
 func TestAPINeedsToken(t *testing.T) {
 	f := newFixture(t)
 	for _, tok := range []string{"-", "", "wrong"} {

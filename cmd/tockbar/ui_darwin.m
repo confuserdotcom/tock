@@ -19,6 +19,7 @@ static NSString *str(const char *s) {
 @end
 
 static TockBar *bar;
+static void applyTitle(NSString *t);
 
 @implementation TockBar
 // tock:// links (Shortcuts, Raycast) arrive as Apple events; register
@@ -42,7 +43,7 @@ static TockBar *bar;
 - (void)applicationDidFinishLaunching:(NSNotification *)n {
     (void)n;
     self.item = [[NSStatusBar systemStatusBar] statusItemWithLength:NSVariableStatusItemLength];
-    self.item.button.title = @"◷";
+    applyTitle(@"◷");
     self.item.menu = [NSMenu new];
     // Outside an app bundle (the notch demo from a terminal) the notification
     // center throws; nothing there posts notifications.
@@ -89,10 +90,40 @@ void bar_run(void) {
     }
 }
 
+// menuGlyph is the day ring template image from the bundle's Resources,
+// or nil outside a bundle (then the ◷ text stays).
+static NSImage *menuGlyph(void) {
+    static NSImage *g;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        g = [[NSBundle mainBundle] imageForResource:@"MenuGlyph"];
+        g.template = YES; // macOS tints it for light, dark and highlighted
+        g.size = NSMakeSize(16, 16);
+    });
+    return g;
+}
+
+// applyTitle shows a title from Go. A leading ◷ becomes the glyph image;
+// a session's ◉ countdown stays text.
+static void applyTitle(NSString *t) {
+    NSStatusBarButton *b = bar.item.button;
+    NSImage *g = menuGlyph();
+    if (g != nil && [t hasPrefix:@"◷"]) {
+        NSString *rest = [[t substringFromIndex:1]
+            stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
+        b.image = g;
+        b.imagePosition = rest.length > 0 ? NSImageLeading : NSImageOnly;
+        b.title = rest;
+        return;
+    }
+    b.image = nil;
+    b.title = t;
+}
+
 void bar_set_title(const char *title) {
     NSString *t = str(title);
     dispatch_async(dispatch_get_main_queue(), ^{
-        bar.item.button.title = t;
+        applyTitle(t);
     });
 }
 
