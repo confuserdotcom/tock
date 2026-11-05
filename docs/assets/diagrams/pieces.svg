@@ -1,0 +1,104 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 470" width="860" height="470" role="img" aria-label="trackd records events from the desktop into tock.db; tock and tockbar read tock.db and label it with the rules files; only tock reaches the internet, for Claude and Slack, when you turn them on.">
+<style>
+  .bx { fill: #f7f7f8; stroke: #d8d8d8; }
+  .hl { fill: #ffffff; stroke: #1b1f24; stroke-width: 1.2; }
+  .net { fill: none; stroke: #b3423f; stroke-dasharray: 5 4; }
+  .t { font: 600 14px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #1b1f24; }
+  .s { font: 12.5px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #5b636e; }
+  .k { font: 600 11px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #6b7280; letter-spacing: .06em; }
+  .m { font: 11.5px ui-monospace, SFMono-Regular, Menlo, monospace; fill: #5b636e; }
+  .a { stroke: #7e828b; stroke-width: 1.4; fill: none; }
+  .d { stroke-dasharray: 4 4; }
+  .ah { fill: #7e828b; }
+  .r { fill: #b3423f; }
+  @media (prefers-color-scheme: dark) {
+    .bx { fill: #16171a; stroke: #33373d; }
+    .hl { fill: #0f1011; stroke: #e6e6e8; }
+    .net { stroke: #d98078; }
+    .t { fill: #e6e6e8; }
+    .s, .m { fill: #8b8d93; }
+    .k { fill: #8b8d93; }
+    .a { stroke: #7d8088; }
+    .ah { fill: #7d8088; }
+    .r { fill: #d98078; }
+  }
+</style>
+<defs>
+  <marker id="h" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <path class="ah" d="M0,1 L10,5 L0,9 z"/>
+  </marker>
+</defs>
+
+  <!-- the desktop -->
+  <text class="k" x="20" y="34">YOUR MAC OR HYPRLAND</text>
+  <rect class="bx" x="20" y="46" width="190" height="196" rx="8"/>
+  <text class="t" x="36" y="74">What happens on screen</text>
+  <text class="s" x="36" y="100">front app, sleep, lock</text>
+  <text class="m" x="36" y="117">NSWorkspace</text>
+  <text class="s" x="36" y="141">window title</text>
+  <text class="m" x="36" y="158">Accessibility API</text>
+  <text class="s" x="36" y="182">browser URL</text>
+  <text class="m" x="36" y="199">AppleScript</text>
+  <text class="s" x="36" y="223">Hyprland: socket2, hypridle</text>
+
+  <!-- trackd -->
+  <text class="k" x="250" y="34">ALWAYS RUNNING</text>
+  <rect class="hl" x="250" y="46" width="190" height="196" rx="8"/>
+  <text class="t" x="266" y="74">trackd</text>
+  <text class="s" x="266" y="96">launchd or systemd agent</text>
+  <text class="s" x="266" y="124">merges events into spans:</text>
+  <text class="s" x="266" y="141">one row per stretch of the</text>
+  <text class="s" x="266" y="158">same app, title and URL</text>
+  <text class="s" x="266" y="186">heartbeat every 10 s</text>
+  <text class="s" x="266" y="203">runs focus sessions</text>
+  <text class="s" x="266" y="225">no network code</text>
+  <line class="a" x1="210" y1="144" x2="248" y2="144" marker-end="url(#h)"/>
+
+  <!-- tock.db -->
+  <path class="hl" d="M465,80 a85,14 0 0 1 170,0 v120 a85,14 0 0 1 -170,0 z"/>
+  <path class="a" d="M465,80 a85,14 0 0 0 170,0"/>
+  <text class="t" x="550" y="124" text-anchor="middle">tock.db</text>
+  <text class="s" x="550" y="146" text-anchor="middle">SQLite, mode 0600</text>
+  <text class="m" x="550" y="166" text-anchor="middle">~/.local/share/tock</text>
+  <line class="a" x1="440" y1="144" x2="463" y2="144" marker-end="url(#h)"/>
+  <text class="s" x="452" y="270" text-anchor="middle"></text>
+
+  <!-- config files -->
+  <rect class="bx" x="470" y="290" width="160" height="104" rx="8"/>
+  <text class="t" x="486" y="316">Your files</text>
+  <text class="m" x="486" y="340">rules.toml</text>
+  <text class="m" x="486" y="358">learned.toml</text>
+  <text class="m" x="486" y="376">config.toml</text>
+  <text class="s" x="470" y="418">~/.config/tock, read by tock</text>
+  <text class="s" x="470" y="435">and tockbar to label each day</text>
+
+  <!-- readers -->
+  <text class="k" x="670" y="34">WHAT YOU USE</text>
+  <rect class="hl" x="670" y="46" width="170" height="92" rx="8"/>
+  <text class="t" x="686" y="74">tock</text>
+  <text class="s" x="686" y="96">CLI and terminal UI</text>
+  <text class="m" x="686" y="120">tock web</text>
+  <text class="s" x="752" y="120">127.0.0.1</text>
+
+  <rect class="hl" x="670" y="168" width="170" height="112" rx="8"/>
+  <text class="t" x="686" y="196">tockbar</text>
+  <text class="s" x="686" y="218">menu bar and notch</text>
+  <text class="s" x="686" y="238">the dashboard window,</text>
+  <text class="s" x="686" y="255">from a tock web child</text>
+  <text class="s" x="686" y="272">macOS only</text>
+
+  <path class="a" d="M635,112 C652,112 652,92 668,92" marker-end="url(#h)"/>
+  <path class="a" d="M635,170 C652,170 652,210 668,210" marker-end="url(#h)"/>
+  
+  <line class="a d" x1="755" y1="168" x2="755" y2="140" marker-end="url(#h)"/>
+  <text class="s" x="764" y="158">runs</text>
+  <path class="a" d="M630,330 H650 V250 H668" marker-end="url(#h)"/>
+
+  <!-- network -->
+  <rect class="net" x="670" y="318" width="170" height="92" rx="8"/>
+  <text class="t" x="686" y="346">The internet</text>
+  <text class="s" x="686" y="368">Claude, Slack status</text>
+  <text class="s" x="686" y="388">from tock only, when</text>
+  <text class="s" x="686" y="404">you turn them on</text>
+  <path class="a d" d="M840,92 H852 V364 H842" marker-end="url(#h)"/>
+</svg>

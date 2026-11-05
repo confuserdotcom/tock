@@ -9,11 +9,16 @@ does, how data moves between them, and what it costs to run.
 | --- | --- | --- |
 | `trackd` | always, as a launchd agent (macOS) or a systemd user service (Linux) | records the front app, window title, browser URL and idle time; runs focus sessions |
 | `tock` | when you call it | the CLI, the terminal UI, and `tock web` for the dashboard |
-| `tockbar` | at login, macOS only | the menu bar: today's time, sessions, `⌥⌘F` |
+| `tockbar` | at login, macOS only | the menu bar and the notch: today's time, sessions, `⌥⌘F`, the dashboard window |
+
+<img src="assets/diagrams/pieces.svg" width="100%" alt="trackd takes events from the desktop (NSWorkspace, the Accessibility API, AppleScript, or Hyprland's socket) and writes spans to tock.db. tock and tockbar read tock.db and label it with rules.toml, learned.toml and config.toml. tockbar runs tock web as a child for the dashboard window. Only tock reaches the internet, for Claude and Slack, when you turn them on.">
 
 All three open the same database, `~/.local/share/tock/tock.db`. They don't
 talk to each other over a socket. trackd writes a heartbeat to the database
 every 10 seconds, and the others read it to tell whether trackd is running.
+The dashboard window in tockbar shows a `tock web` that tockbar starts as a
+child and stops when nobody has used it for a while, so tockbar itself links
+no HTTP code.
 
 ## Recording
 
@@ -37,12 +42,28 @@ Spans are stored without labels. Every time a day is read, the rules in
 `rules.toml`, your own tags and the local model label it again. That's why a
 new rule applies to past days too.
 
+<img src="assets/diagrams/labels.svg" width="100%" alt="For each span, when a day is read: your tags first, then the rules in rules.toml and learned.toml, then the local model when it is sure; what is left goes to the inbox. tock tag on an inbox entry writes a learned rule, and the model learns from your tags every 15 minutes.">
+
 The order: your own tags first, then the rules, then the model when it is
 sure. What is left goes to the inbox. Labelling an inbox entry writes a
 learned rule (`~/.config/tock/learned.toml`), so the next match is labelled by a rule.
 
 The model is a small classifier trained on this machine from your labels. It
 retrains every 15 minutes and when you tag something.
+
+## The menu bar and the notch
+
+tockbar is one process with two halves. The Go half reads the database
+and decides what to show; the AppKit half draws it and has no clock and no
+database of its own. They pass JSON across cgo: the Go half sends the
+island, what the notch shows now with its pages and buttons, and the AppKit
+half sends back what you did.
+
+<img src="assets/diagrams/notch.svg" width="100%" alt="tock.db feeds the Go runner in cmd/tockbar/runner.go, which ticks every second, reads today every 30 seconds, and reads the day, week and usual day only while the panel is open, once a minute; internal/bar builds the island. The island goes as JSON to the AppKit notch in notch_darwin.m, one window per display, which moves on springs and sends back notch:open, notch:shut, notch:seen and button ids.">
+
+The pages in the open notch need the week and your usual day, which cost
+more to build than today alone. The runner reads them when the panel opens
+and once a minute while it stays open, and never while it is closed.
 
 ## Code layout
 
@@ -55,9 +76,23 @@ retrains every 15 minutes and when you tag something.
 - **`internal/app`:** what the CLI, TUI, web page and menu bar share: opening
   the store, loading rules and config, and building a day, a week or the
   inbox.
-- **`internal/tui`, `internal/web`:** the two interfaces. The dashboard is
-  plain JavaScript with no framework and no build step, embedded in the
-  binary.
+- **`internal/tui`, `internal/web`:** the terminal UI and the dashboard's
+  server. The dashboard itself is React with shadcn/ui and Recharts, in
+  `web/`. `make web` builds it into `internal/web/static`, which is
+  committed, so building tock needs Go only.
+- **`internal/bar`:** what the menu bar and the notch show, as plain data,
+  so it is tested without AppKit. `cmd/tockbar` draws it.
+
+## Installing
+
+<img src="assets/diagrams/install.svg" width="100%" alt="brew install downloads the source and builds it with Go. tock setup makes a code-signing certificate in the login keychain once, then signs trackd.app and tock.app with it, puts them in ~/.local/share/tock, starts their launchd agents and runs tock doctor. After brew upgrade tock, tock setup runs again; the certificate stays the same, so macOS keeps the Accessibility grant.">
+
+tock has no Apple Developer ID, so there is no notarized download. A build
+made on your own Mac is not quarantined, so Gatekeeper doesn't stop it.
+macOS ties a permission like Accessibility to the app's signature. Signing
+every build with the same local certificate keeps that signature the same
+from one version to the next, so updates keep the grant. `make install`
+does the same from a clone, with `make cert` making the certificate.
 
 ## Network
 

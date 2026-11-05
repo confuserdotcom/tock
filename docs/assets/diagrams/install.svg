@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 300" width="860" height="300" role="img" aria-label="brew builds tock from source; tock setup makes a local signing certificate once, signs and installs trackd.app and tock.app, starts their agents and runs tock doctor.">
+<style>
+  .bx { fill: #f7f7f8; stroke: #d8d8d8; }
+  .hl { fill: #ffffff; stroke: #1b1f24; stroke-width: 1.2; }
+  .net { fill: none; stroke: #b3423f; stroke-dasharray: 5 4; }
+  .t { font: 600 14px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #1b1f24; }
+  .s { font: 12.5px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #5b636e; }
+  .k { font: 600 11px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #6b7280; letter-spacing: .06em; }
+  .m { font: 11.5px ui-monospace, SFMono-Regular, Menlo, monospace; fill: #5b636e; }
+  .a { stroke: #7e828b; stroke-width: 1.4; fill: none; }
+  .d { stroke-dasharray: 4 4; }
+  .ah { fill: #7e828b; }
+  .r { fill: #b3423f; }
+  @media (prefers-color-scheme: dark) {
+    .bx { fill: #16171a; stroke: #33373d; }
+    .hl { fill: #0f1011; stroke: #e6e6e8; }
+    .net { stroke: #d98078; }
+    .t { fill: #e6e6e8; }
+    .s, .m { fill: #8b8d93; }
+    .k { fill: #8b8d93; }
+    .a { stroke: #7d8088; }
+    .ah { fill: #7d8088; }
+    .r { fill: #d98078; }
+  }
+</style>
+<defs>
+  <marker id="h" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <path class="ah" d="M0,1 L10,5 L0,9 z"/>
+  </marker>
+</defs>
+
+  <text class="k" x="20" y="34">INSTALLING WITH HOMEBREW</text>
+
+  <rect class="hl" x="20" y="56" width="190" height="150" rx="8"/>
+  <text class="m" x="36" y="84">brew install</text>
+  <text class="s" x="36" y="108">downloads the source</text>
+  <text class="s" x="36" y="125">and builds it with Go,</text>
+  <text class="s" x="36" y="142">so it was built on this Mac:</text>
+  <text class="s" x="36" y="166">no Gatekeeper warning</text>
+  <text class="m" x="36" y="190">bin/  libexec/tock/</text>
+
+  <rect class="hl" x="250" y="56" width="190" height="150" rx="8"/>
+  <text class="m" x="266" y="84">tock setup</text>
+  <text class="s" x="266" y="108">once: a code-signing</text>
+  <text class="s" x="266" y="125">certificate in your login</text>
+  <text class="s" x="266" y="142">keychain, trusted with</text>
+  <text class="s" x="266" y="159">your password</text>
+  <text class="s" x="266" y="183">each run: the next two steps</text>
+
+  <rect class="bx" x="480" y="56" width="170" height="150" rx="8"/>
+  <text class="t" x="496" y="84">The apps</text>
+  <text class="s" x="496" y="108">trackd.app, tock.app</text>
+  <text class="s" x="496" y="125">signed with that</text>
+  <text class="s" x="496" y="142">certificate, put in</text>
+  <text class="m" x="496" y="162">~/.local/share/tock</text>
+
+  <rect class="bx" x="690" y="56" width="150" height="150" rx="8"/>
+  <text class="t" x="706" y="84">Running</text>
+  <text class="s" x="706" y="108">launchd agents</text>
+  <text class="s" x="706" y="125">start at login</text>
+  <text class="m" x="706" y="149">tock doctor</text>
+  <text class="s" x="706" y="166">checks the</text>
+  <text class="s" x="706" y="183">permissions</text>
+
+  <line class="a" x1="210" y1="131" x2="248" y2="131" marker-end="url(#h)"/>
+  <line class="a" x1="440" y1="131" x2="478" y2="131" marker-end="url(#h)"/>
+  <line class="a" x1="650" y1="131" x2="688" y2="131" marker-end="url(#h)"/>
+
+  <path class="a d" d="M115,206 V250 H345 V208" marker-end="url(#h)"/>
+  <text class="s" x="230" y="270" text-anchor="middle">brew upgrade tock, then tock setup again</text>
+  <text class="s" x="480" y="238">The certificate stays the same, so macOS keeps</text>
+  <text class="s" x="480" y="255">the Accessibility grant across updates.</text>
+</svg>

@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 330" width="860" height="330" role="img" aria-label="tockbar's Go side reads tock.db and sends the notch what to show as JSON; the AppKit side draws it on springs and sends back what you did.">
+<style>
+  .bx { fill: #f7f7f8; stroke: #d8d8d8; }
+  .hl { fill: #ffffff; stroke: #1b1f24; stroke-width: 1.2; }
+  .net { fill: none; stroke: #b3423f; stroke-dasharray: 5 4; }
+  .t { font: 600 14px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #1b1f24; }
+  .s { font: 12.5px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #5b636e; }
+  .k { font: 600 11px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #6b7280; letter-spacing: .06em; }
+  .m { font: 11.5px ui-monospace, SFMono-Regular, Menlo, monospace; fill: #5b636e; }
+  .a { stroke: #7e828b; stroke-width: 1.4; fill: none; }
+  .d { stroke-dasharray: 4 4; }
+  .ah { fill: #7e828b; }
+  .r { fill: #b3423f; }
+  @media (prefers-color-scheme: dark) {
+    .bx { fill: #16171a; stroke: #33373d; }
+    .hl { fill: #0f1011; stroke: #e6e6e8; }
+    .net { stroke: #d98078; }
+    .t { fill: #e6e6e8; }
+    .s, .m { fill: #8b8d93; }
+    .k { fill: #8b8d93; }
+    .a { stroke: #7d8088; }
+    .ah { fill: #7d8088; }
+    .r { fill: #d98078; }
+  }
+</style>
+<defs>
+  <marker id="h" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <path class="ah" d="M0,1 L10,5 L0,9 z"/>
+  </marker>
+</defs>
+
+  <text class="k" x="20" y="34">TOCKBAR, ONE PROCESS</text>
+
+  <path class="hl" d="M20,92 a60,12 0 0 1 120,0 v84 a60,12 0 0 1 -120,0 z"/>
+  <path class="a" d="M20,92 a60,12 0 0 0 120,0"/>
+  <text class="t" x="80" y="134" text-anchor="middle">tock.db</text>
+  <text class="s" x="80" y="156" text-anchor="middle">read only</text>
+
+  <rect class="hl" x="200" y="56" width="270" height="168" rx="8"/>
+  <text class="t" x="216" y="84">Go: the runner</text>
+  <text class="m" x="216" y="104">cmd/tockbar/runner.go</text>
+  <text class="s" x="216" y="130">ticks every second; reads today</text>
+  <text class="s" x="216" y="147">every 30 s</text>
+  <text class="s" x="216" y="171">day, week and usual day only while</text>
+  <text class="s" x="216" y="188">the panel is open, once a minute</text>
+  <text class="m" x="216" y="212">internal/bar</text>
+  <text class="s" x="306" y="212">builds the island</text>
+
+  <rect class="hl" x="570" y="56" width="270" height="168" rx="8"/>
+  <text class="t" x="586" y="84">AppKit: the notch</text>
+  <text class="m" x="586" y="104">cmd/tockbar/notch_darwin.m</text>
+  <text class="s" x="586" y="130">one window per display, a notch</text>
+  <text class="s" x="586" y="147">drawn where there is none</text>
+  <text class="s" x="586" y="171">size, corners and pages move on</text>
+  <text class="s" x="586" y="188">springs; swipe, drag, pinch, grips</text>
+  <text class="s" x="586" y="212">no clock, no database</text>
+
+  <line class="a" x1="140" y1="134" x2="198" y2="134" marker-end="url(#h)"/>
+  <line class="a" x1="470" y1="110" x2="568" y2="110" marker-end="url(#h)"/>
+  <text class="s" x="519" y="100" text-anchor="middle">island JSON</text>
+  <line class="a" x1="568" y1="170" x2="472" y2="170" marker-end="url(#h)"/>
+  <text class="s" x="519" y="190" text-anchor="middle">events</text>
+
+  <rect class="bx" x="200" y="252" width="640" height="56" rx="8"/>
+  <text class="s" x="216" y="276">island: what to show now (quiet, focus session, a moment), its pages, buttons</text>
+  <text class="s" x="216" y="296">events:</text>
+  <text class="m" x="270" y="296">notch:open  notch:shut  notch:seen</text>
+  <text class="s" x="508" y="296">and the id of a button you press</text>
+</svg>
