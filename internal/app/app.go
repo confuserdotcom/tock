@@ -16,6 +16,11 @@ import (
 	"tock/internal/store"
 )
 
+// HostOS is the system App.Open assumes: runtime.GOOS. Linux has no
+// input reporting by default, so its long windows are cut; test packages
+// pin HostOS so their fixtures mean the same on every runner.
+var HostOS = runtime.GOOS
+
 // ErrNoDB means trackd has not created the database yet. tock never creates
 // it.
 var ErrNoDB = errors.New("no data yet: is trackd running? (make install)")
@@ -113,7 +118,7 @@ func Open(p Paths, now func() time.Time) (*App, error) {
 	a := &App{paths: p, now: now, st: st, rs: rs, stamp: st0, cfg: config.Default(),
 		shell: shell.Log{Path: p.ShellLog}}
 	a.home, _ = os.UserHomeDir()
-	a.goos = runtime.GOOS
+	a.goos = HostOS
 	a.inputCheck = func() bool { return inputKnown(a.goos, a.home) }
 	a.refreshInput()
 	a.loadConfig()

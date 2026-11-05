@@ -3,7 +3,6 @@ package main
 import (
 	"log/slog"
 	"path/filepath"
-	"runtime"
 	"time"
 
 	"tock/internal/app"
@@ -50,7 +49,7 @@ func newFocusLoop(o daemonOpts, log *slog.Logger) *focusLoop {
 	return &focusLoop{
 		open:   func() (*app.App, error) { return app.Open(paths, now) },
 		camera: o.Camera, mic: o.Mic, notify: o.Notifier, remover: o.Remover,
-		tock: o.Tock, goos: runtime.GOOS, log: log,
+		tock: o.Tock, goos: app.HostOS, log: log,
 	}
 }
 
