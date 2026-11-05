@@ -53,7 +53,9 @@ The full list is in [Privacy in detail](docs/guide.md#privacy-in-detail).
 **macOS, with Homebrew:**
 
 ```sh
-brew install confuserdotcom/tock/tock
+brew tap confuserdotcom/tock
+brew trust confuserdotcom/tock   # Homebrew loads no other tap until you trust it
+brew install tock
 tock setup
 ```
 

@@ -1,7 +1,8 @@
 # Homebrew formula for tock. make formula renders it from this template
 # (@TAG@, @SHA256@); the release attaches the result. It goes in the tap
 # repo homebrew-tock as Formula/tock.rb:
-#   brew install confuserdotcom/tock/tock && tock setup
+#   brew tap confuserdotcom/tock && brew trust confuserdotcom/tock
+#   brew install tock && tock setup
 class Tock < Formula
   desc "Time tracker that lives in your menu bar and notch"
   homepage "https://github.com/confuserdotcom/tock"
