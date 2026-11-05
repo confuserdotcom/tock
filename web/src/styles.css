@@ -1,0 +1,78 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face { font-family: Inter; font-weight: 400; font-display: swap; src: url("./fonts/inter-400.woff2") format("woff2"); }
+@font-face { font-family: Inter; font-weight: 500; font-display: swap; src: url("./fonts/inter-500.woff2") format("woff2"); }
+@font-face { font-family: Inter; font-weight: 600; font-display: swap; src: url("./fonts/inter-600.woff2") format("woff2"); }
+
+/* Variant A, "Instrument panel": dark first. Kind colours are data. */
+@layer base {
+  :root {
+    --background: 220 6% 6%;      /* #0f1011 */
+    --foreground: 240 3% 90%;     /* #e6e6e8 */
+    --card: 228 7% 9.4%;          /* #16171a */
+    --card-foreground: 240 3% 90%;
+    --popover: 228 7% 11%;
+    --popover-foreground: 240 3% 90%;
+    --primary: 240 3% 90%;
+    --primary-foreground: 220 6% 6%;
+    --secondary: 228 6% 15%;
+    --secondary-foreground: 240 3% 90%;
+    --muted: 228 6% 13%;
+    --muted-foreground: 228 4% 56%; /* #8b8d93 */
+    --faint: 228 5% 38%;          /* #5d5f66 */
+    --accent: 228 6% 15%;
+    --accent-foreground: 240 3% 90%;
+    --destructive: 4 50% 57%;
+    --destructive-foreground: 240 3% 90%;
+    --border: 228 5% 16%;         /* #26272b */
+    --input: 228 5% 18%;
+    --ring: 172 36% 48%;
+    --radius: 0.5rem;
+    --good: 158 41% 59%;          /* #6cc3a3 */
+    --bad: 5 56% 66%;             /* #d98078 */
+    --k-deep: 172 36% 48%;        /* #4fa89a */
+    --k-shallow: 220 32% 57%;     /* #6f86b5 */
+    --k-browse: 286 24% 59%;      /* #a07fb0 */
+    --k-neutral: 225 4% 51%;      /* #7d8088 */
+    --k-distract: 5 50% 57%;      /* #c9625a */
+    --hatch-a: 228 5% 16%;
+    --hatch-b: 228 6% 12%;
+    color-scheme: dark;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --background: 0 0% 100%; --foreground: 228 9% 10%; --card: 220 14% 98%; --card-foreground: 228 9% 10%;
+      --popover: 0 0% 100%; --popover-foreground: 228 9% 10%; --primary: 228 9% 10%; --primary-foreground: 0 0% 100%;
+      --secondary: 220 13% 94%; --secondary-foreground: 228 9% 10%; --muted: 220 13% 95%; --muted-foreground: 225 6% 40%;
+      --faint: 225 5% 48%; --accent: 220 13% 94%; --accent-foreground: 228 9% 10%; --border: 220 13% 89%; --input: 220 13% 86%;
+      --good: 158 45% 32%; --bad: 5 55% 45%; --k-deep: 172 45% 36%; --k-shallow: 220 38% 48%; --k-browse: 286 28% 48%;
+      --k-neutral: 225 5% 52%; --k-distract: 5 55% 50%; --hatch-a: 220 13% 88%; --hatch-b: 220 13% 95%; color-scheme: light;
+    }
+  }
+  :root[data-theme="light"] {
+    --background: 0 0% 100%; --foreground: 228 9% 10%; --card: 220 14% 98%; --card-foreground: 228 9% 10%;
+    --popover: 0 0% 100%; --popover-foreground: 228 9% 10%; --primary: 228 9% 10%; --primary-foreground: 0 0% 100%;
+    --secondary: 220 13% 94%; --secondary-foreground: 228 9% 10%; --muted: 220 13% 95%; --muted-foreground: 225 6% 40%;
+    --faint: 225 5% 48%; --accent: 220 13% 94%; --accent-foreground: 228 9% 10%; --border: 220 13% 89%; --input: 220 13% 86%;
+    --good: 158 45% 32%; --bad: 5 55% 45%; --k-deep: 172 45% 36%; --k-shallow: 220 38% 48%; --k-browse: 286 28% 48%;
+    --k-neutral: 225 5% 52%; --k-distract: 5 55% 50%; --hatch-a: 220 13% 88%; --hatch-b: 220 13% 95%; color-scheme: light;
+  }
+  * { @apply border-border; }
+  html, body, #root { height: 100%; }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-size: 13px; line-height: 1.45;
+    font-feature-settings: "tnum", "cv11";
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  }
+}
+
+@layer components {
+  .lbl { @apply text-[11px] font-medium uppercase tracking-[0.06em] text-faint; }
+  .hatch { background: repeating-linear-gradient(135deg, hsl(var(--hatch-a)) 0 4px, hsl(var(--hatch-b)) 4px 8px); }
+  .num { font-variant-numeric: tabular-nums; }
+}

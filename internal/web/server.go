@@ -29,7 +29,9 @@ const TokenHeader = "X-Tock-Token"
 // maxBody is the largest POST body accepted.
 const maxBody = 4 << 10
 
-const csp = "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; " +
+// csp allows inline styles because the chart and toast libraries inject
+// <style> tags; scripts stay limited to the embedded app.js.
+const csp = "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; " +
 	"connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
 
 // Server answers the dashboard's requests. One request at a time uses the

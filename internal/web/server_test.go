@@ -98,7 +98,7 @@ func TestPageNeedsNoTokenAndCarriesHeaders(t *testing.T) {
 
 func TestFontsAreServedFromThePage(t *testing.T) {
 	f := newFixture(t)
-	for _, p := range []string{"/fonts/ibm-plex-sans-400.woff2", "/fonts/ibm-plex-sans-600.woff2", "/fonts/ibm-plex-mono-500.woff2"} {
+	for _, p := range []string{"/fonts/inter-400.woff2", "/fonts/inter-500.woff2", "/fonts/inter-600.woff2"} {
 		code, h, b := f.do("GET", p, "-", nil)
 		if code != 200 || len(b) < 1000 {
 			t.Fatalf("%s: %d, %d bytes", p, code, len(b))
