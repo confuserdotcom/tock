@@ -82,6 +82,7 @@ const usage = `usage:
   tock summary [--date D] [--dry-run]    Claude writes what you worked on (needs ANTHROPIC_API_KEY)
   tock ask [--dry-run] "<question>"      ask about your time in plain words; answered on this machine
   tock doctor [--wait] [--open]          check trackd, permissions, rules and config
+  tock version                           the version of this build
   tock export [--from D] [--to D] [--format csv|json] [--by project]
                                          labelled spans, default the last 7 days as csv
   tock prune [--days N] [--dry-run]      delete window titles (and URL paths) older than N days
@@ -269,6 +270,9 @@ func run(args []string, env Env) int {
 	switch {
 	case len(args) == 0 && env.Interactive:
 		err = cmdTUI(env)
+	case len(args) == 1 && (args[0] == "version" || args[0] == "--version"):
+		fmt.Fprintf(env.Stdout, "tock %s\n", version)
+		return 0
 	case len(args) == 0 || args[0] == "help" || args[0] == "-h" || args[0] == "--help":
 		fmt.Fprint(env.Stdout, usage)
 		return 0
@@ -291,6 +295,9 @@ func run(args []string, env Env) int {
 	fmt.Fprintf(env.Stderr, "tock: %v\n", err)
 	return 1
 }
+
+// version is set at build time with -ldflags "-X main.version=...".
+var version = "dev"
 
 func main() {
 	os.Exit(run(os.Args[1:], defaultEnv()))

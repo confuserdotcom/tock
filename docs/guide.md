@@ -170,6 +170,7 @@ tock blocks [--date D]                 the day's work blocks: stretches of work 
 tock summary [--date D] [--dry-run]    Claude writes what you worked on (claude CLI or ANTHROPIC_API_KEY)
 tock ask [--dry-run] "<question>"      ask about your time in plain words; answered on this machine
 tock doctor [--wait] [--open]          check trackd, permissions, rules and config
+tock version                           the version of this build
 tock export [--from D] [--to D] [--format csv|json] [--by project]
                                        labelled spans, default the last 7 days as csv
 tock backup [--out FILE]               archive tock.db and the rule, config and shell files
@@ -347,10 +348,10 @@ calendars = []                # calendar names to read; empty = all
 auto_open = false              # open a Meet/Zoom/Teams link by itself when its event starts
 
 [score]                       # weights of the focus score; they sum to 1
-depth = 0.5
-blocks = 0.3
-calm = 0.2
-stretch = 0.0                 # longest run without a context switch, full at 1h30
+depth = 0.5                   # "deep time": focus against your target
+blocks = 0.3                  # "long blocks": time in blocks of 25m or more
+calm = 0.2                    # "few switches": app switches an hour, none at 20
+stretch = 0.0                 # "longest run": longest run without a switch, full at 1h30
 ```
 
 ## Plan

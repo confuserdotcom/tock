@@ -38,7 +38,7 @@ WITH_TIMEOUT = perl -e 'alarm shift; exec @ARGV or exit 127'
 
 build:
 	CGO_ENABLED=1 go build -ldflags "$(LDFLAGS)" -o bin/trackd ./cmd/trackd
-	CGO_ENABLED=0 go build -o bin/tock ./cmd/tock
+	CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)" -o bin/tock ./cmd/tock
 	CGO_ENABLED=1 go build -ldflags "$(LDFLAGS)" -o bin/tockbar ./cmd/tockbar
 
 test-quick:
@@ -207,7 +207,7 @@ install-mac:
 	-launchctl bootout gui/$$(id -u)/$(AGENT_LABEL) 2>/dev/null
 	@$(call UNLOADED,$(AGENT_LABEL))
 	$(MAKE) bundle
-	CGO_ENABLED=0 go build -o build/tock ./cmd/tock
+	CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)" -o build/tock ./cmd/tock
 	install -d -m 755 "$(BIN_DIR)"
 	install -m 755 build/tock "$(BIN_DIR)/tock"
 	"$(BUNDLE)/Contents/MacOS/trackd" install
@@ -238,7 +238,7 @@ uninstall:
 # trackd.service. Add the hypridle listener from the README for idle time.
 install-linux:
 	CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)" -o build/trackd ./cmd/trackd
-	CGO_ENABLED=0 go build -o build/tock ./cmd/tock
+	CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)" -o build/tock ./cmd/tock
 	install -d -m 755 "$(BIN_DIR)"
 	install -m 755 build/trackd "$(BIN_DIR)/trackd"
 	install -m 755 build/tock "$(BIN_DIR)/tock"
@@ -254,7 +254,7 @@ install-linux:
 deploy-linux:
 	@[ -n "$(LINUX_HOST)" ] || { echo "deploy-linux: set LINUX_HOST, e.g. make deploy-linux LINUX_HOST=myhost" >&2; exit 1; }
 	GOOS=linux GOARCH=$(LINUX_ARCH) CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)" -o build/linux/trackd ./cmd/trackd
-	GOOS=linux GOARCH=$(LINUX_ARCH) CGO_ENABLED=0 go build -o build/linux/tock ./cmd/tock
+	GOOS=linux GOARCH=$(LINUX_ARCH) CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)" -o build/linux/tock ./cmd/tock
 	ssh $(LINUX_HOST) 'bash -c "mkdir -p ~/.local/bin"'
 	scp -q build/linux/trackd $(LINUX_HOST):.local/bin/trackd.new
 	scp -q build/linux/tock $(LINUX_HOST):.local/bin/tock.new
@@ -274,7 +274,7 @@ publish-linux:
 	@for a in amd64 arm64; do \
 		mkdir -p build/linux-$$a && \
 		GOOS=linux GOARCH=$$a CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)" -o build/linux-$$a/trackd ./cmd/trackd && \
-		GOOS=linux GOARCH=$$a CGO_ENABLED=0 go build -o build/linux-$$a/tock ./cmd/tock || exit 1; \
+		GOOS=linux GOARCH=$$a CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)" -o build/linux-$$a/tock ./cmd/tock || exit 1; \
 	done
 	go run ./cmd/tockpub -version "$(VERSION)" -built-at "$(BUILT_AT)" -key "$(UPDATE_KEY)" $(if $(SYNC_DIR),-sync "$(SYNC_DIR)") build/linux-amd64 build/linux-arm64
 
@@ -333,7 +333,7 @@ release:
 	@for a in amd64 arm64; do \
 		d=dist/tock-$(VERSION)-linux-$$a; mkdir -p $$d && \
 		GOOS=linux GOARCH=$$a CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o $$d/trackd ./cmd/trackd && \
-		GOOS=linux GOARCH=$$a CGO_ENABLED=0 go build -trimpath -o $$d/tock ./cmd/tock && \
+		GOOS=linux GOARCH=$$a CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o $$d/tock ./cmd/tock && \
 		cp LICENSE README.md CHANGELOG.md $$d/ && \
 		tar -C dist -czf $$d.tar.gz $$(basename $$d) && rm -rf $$d || exit 1; \
 	done

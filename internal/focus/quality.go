@@ -3,6 +3,7 @@ package focus
 import (
 	"fmt"
 	"math"
+	"strings"
 )
 
 // Weights are the shares of the four quality parts in the score.
@@ -93,18 +94,21 @@ func Quality(s Session, w Weights) QualityScore {
 	return q
 }
 
-// Line is the breakdown of the score, parts in the fixed order share,
-// longest, calm, steady: "share 82 · longest 70 · calm 50 · steady 36".
+// Line is the breakdown of the score in plain words, parts in the fixed
+// order share, longest, calm, steady:
+// "on task 82 · longest 70 · few interruptions 50 · few switches 36". An
+// auto session leaves out the interruptions part.
 func (q QualityScore) Line() string {
-	calm := fmt.Sprintf("calm %d", q.Parts[2].Value)
-	if q.Parts[2].Auto {
-		calm = "calm n/a (auto)"
+	parts := []string{fmt.Sprintf("on task %d", q.Parts[0].Value), fmt.Sprintf("longest %d", q.Parts[1].Value)}
+	if !q.Parts[2].Auto { // an auto session has no interruption count
+		parts = append(parts, fmt.Sprintf("few interruptions %d", q.Parts[2].Value))
 	}
-	steady := fmt.Sprintf("steady %d", q.Parts[3].Value)
 	if q.Parts[3].NA {
-		steady = "steady n/a"
+		parts = append(parts, "switches n/a")
+	} else {
+		parts = append(parts, fmt.Sprintf("few switches %d", q.Parts[3].Value))
 	}
-	return fmt.Sprintf("share %d · longest %d · %s · %s", q.Parts[0].Value, q.Parts[1].Value, calm, steady)
+	return strings.Join(parts, " · ")
 }
 
 // InterruptionsText is "no interruptions", "1 interruption" or "3

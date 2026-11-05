@@ -23,8 +23,11 @@ var browsers = map[string]string{
 
 // Health is what the TUI banner and tock status need to know.
 type Health struct {
-	TrackdUp      bool
-	LastSeenMS    int64    // 0 when trackd never ran
+	TrackdUp   bool
+	LastSeenMS int64 // 0 when trackd never ran
+	// Recorded says the store holds any activity at all; false on the
+	// first run, before trackd's first span.
+	Recorded      bool
 	AXTrusted     *bool    // nil when unknown
 	AutomationOff []string // browsers whose Automation permission is denied, sorted
 	Version       string
@@ -60,6 +63,9 @@ func ReadHealth(st *store.Store, nowMS int64) (Health, error) {
 	}
 	h.LastSeenMS = last
 	h.TrackdUp = last > 0 && nowMS-last <= DownAfterMS
+	if _, h.Recorded, err = st.FirstMS(); err != nil {
+		return h, err
+	}
 	states, err := st.States()
 	if err != nil {
 		return h, err

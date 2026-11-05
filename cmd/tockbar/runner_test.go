@@ -183,7 +183,7 @@ func TestRunnerDrawsSubmenu(t *testing.T) {
 	menu := last(u.menus)
 	var at int
 	for _, want := range []string{
-		"\n\tLast session · 25m · Q", "\n>\t15:00–15:25 · ", "\n>\tshare ", "\n>-\n",
+		"\n\tLast session · 25m · Q", "\n>\t15:00–15:25 · ", "\n>\ton task ", "\n>-\n",
 		"\n>rate:5:" + id + "\tRate ★5\n", "\n>rate:4:" + id + "\tRate ★4\tc\n", "\n>rate:1:" + id + "\tRate ★1",
 	} {
 		i := strings.Index(menu[at:], want)

@@ -19,10 +19,13 @@ type inboxTab struct {
 	items  []classify.Item
 	small  []classify.Item // keys under [inbox] min_minutes, not listed
 	loaded bool
-	cursor int
-	top    int
-	height int                      // list rows that fit; set by Model.Update
-	sugg   map[string]classify.Want // valid suggestions by key
+	// recorded is false until anything at all has been recorded: an empty
+	// inbox then is not "inbox zero".
+	recorded bool
+	cursor   int
+	top      int
+	height   int                      // list rows that fit; set by Model.Update
+	sugg     map[string]classify.Want // valid suggestions by key
 }
 
 func (t *inboxTab) count() int { return len(t.items) }
@@ -147,6 +150,10 @@ func (t inboxTab) view(w, h int) []string {
 	var smallMS int64
 	for _, it := range t.small {
 		smallMS += it.TotalMS
+	}
+	if len(t.items) == 0 && !t.recorded {
+		return emptyState(w, "Inbox", sText.Render("Nothing recorded yet."),
+			sDim.Render("Time no rule covers lands here, to label once."))
 	}
 	if len(t.items) == 0 {
 		rest := fmt.Sprintf("Everything from the last %d days is labelled.", InboxDays)

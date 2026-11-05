@@ -265,6 +265,7 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.inbox.set(msg.items, msg.small)
 			m.inbox.sugg = msg.sugg
+			m.inbox.recorded = msg.health.Recorded
 			m.today.sugg, m.today.trackdUp = msg.sugg, msg.health.TrackdUp
 			if msg.day != nil {
 				m.today.set(*msg.day, m.now())

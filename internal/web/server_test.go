@@ -27,8 +27,14 @@ type fixture struct {
 
 func newFixture(t *testing.T) *fixture {
 	t.Helper()
+	return newFixtureWith(t, apptest.DaySpans()...)
+}
+
+// newFixtureWith serves a store holding only spans.
+func newFixtureWith(t *testing.T, spans ...apptest.Span) *fixture {
+	t.Helper()
 	e := apptest.New(t, apptest.Rules)
-	e.Seed(t, apptest.DaySpans()...)
+	e.Seed(t, spans...) // with none, an empty store: trackd ran, nothing recorded
 	a, err := app.Open(app.Paths{DB: e.DB, Rules: e.Rules, Learned: e.Learned, Config: e.Config, ShellLog: e.ShellLog}, e.NowFunc())
 	if err != nil {
 		t.Fatal(err)
@@ -320,6 +326,24 @@ func TestStatus(t *testing.T) {
 	f.get("/api/status", &st)
 	if st.Session == nil || st.Session.Goal != "Ship the release" || st.Session.PlannedMS <= st.Session.StartMS {
 		t.Fatalf("session %+v", st.Session)
+	}
+}
+
+func TestDayFirstRun(t *testing.T) {
+	var d dayJSON
+	newFixtureWith(t).get("/api/day", &d)
+	if !d.FirstRun {
+		t.Fatal("an empty store is not a first run")
+	}
+	var in inboxJSON
+	newFixtureWith(t).get("/api/inbox", &in)
+	if !in.FirstRun {
+		t.Fatal("the inbox of an empty store is not a first run")
+	}
+	var seeded dayJSON
+	newFixture(t).get("/api/day?date=2026-10-03", &seeded)
+	if seeded.FirstRun {
+		t.Fatal("a store with spans is a first run")
 	}
 }
 

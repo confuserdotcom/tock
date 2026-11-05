@@ -124,3 +124,11 @@ func TestInboxNoiseFloor(t *testing.T) {
 		t.Fatal("small key listed")
 	}
 }
+
+func TestInboxFirstRun(t *testing.T) {
+	e := apptest.New(t, apptest.Rules)
+	e.Seed(t)
+	m := press(t, newModel(t, e), "3")
+	mustContain(t, m, "Nothing recorded yet.")
+	mustNotContain(t, m, "Inbox zero")
+}

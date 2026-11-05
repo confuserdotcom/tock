@@ -110,6 +110,8 @@ type dayJSON struct {
 	// Usual is the same weekday over the last weeks, nil when there are
 	// fewer than two such days to compare with.
 	Usual *usualJSON `json:"usual"`
+	// FirstRun is true until anything at all has been recorded.
+	FirstRun bool `json:"firstRun"`
 }
 
 type usualJSON struct {
@@ -211,6 +213,8 @@ type inboxJSON struct {
 	// listed.
 	SmallKeys int   `json:"smallKeys"`
 	SmallMS   int64 `json:"smallMS"`
+	// FirstRun is true until anything at all has been recorded.
+	FirstRun bool `json:"firstRun"`
 }
 
 type kindName struct {
@@ -292,6 +296,11 @@ func (s *Server) day(r *http.Request) (any, error) {
 	if d.Work.Set {
 		out.Work = &workJSON{From: d.From, To: d.To, Off: d.Off, OutsideMS: d.OutsideMS, Closed: d.Closed}
 	}
+	h, err := s.a.Health()
+	if err != nil {
+		return nil, err
+	}
+	out.FirstRun = !h.Recorded
 	u, err := s.a.Usual(date)
 	if err != nil {
 		return nil, err
@@ -436,6 +445,13 @@ func (s *Server) inbox(r *http.Request) (any, error) {
 		return nil, err
 	}
 	out := inboxJSON{Days: days, Items: make([]itemJSON, len(items)), SmallKeys: len(small)}
+	if len(items) == 0 {
+		h, err := s.a.Health()
+		if err != nil {
+			return nil, err
+		}
+		out.FirstRun = !h.Recorded
+	}
 	for _, it := range small {
 		out.SmallMS += it.TotalMS
 	}

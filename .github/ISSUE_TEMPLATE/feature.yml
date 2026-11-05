@@ -1,0 +1,14 @@
+name: Idea
+description: Something tock should do
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What you are trying to do
+      description: The situation, not the solution. What do you do today instead?
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would help

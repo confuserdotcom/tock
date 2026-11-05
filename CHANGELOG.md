@@ -10,12 +10,23 @@ What changed for you in each release. Dates are UTC.
 - The dashboard's sidebar shows a month calendar and whether trackd is
   recording and rules.toml loads; a running session shows its goal and time
   left.
+- `tock version` prints the build's version.
+- A first run says what happens next: the dashboard shows three steps
+  until anything is recorded, and `tock today`, `tock inbox` and the terminal
+  inbox say "Nothing recorded yet" instead of "everything is labelled".
+- CONTRIBUTING.md, SECURITY.md (private reporting through GitHub) and issue
+  forms.
 
 ### Changed
 - A new look for the dashboard: IBM Plex, greys, colour only for kinds of
   time, a timeline row per category, and tables with totals instead of bar
   lists. The terminal UI and the menu strip use the same kind colours.
 - The README is short; the full manual moved to `docs/guide.md`.
+- The score breakdown in the terminal says what each part is: deep time,
+  long blocks, few switches, longest run. Session cards read "on task ·
+  longest · few interruptions · few switches". The config keys are the same.
+- The dashboard's hint when trackd is down points to `tock doctor`; it named
+  a `tock install` command that does not exist.
 - trackd uses about 10 MB less memory: its focus, sync and title-deletion
   loops share one database session.
 - Pushing a version tag publishes the GitHub release with the Linux tarballs.

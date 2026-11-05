@@ -325,6 +325,19 @@
     render([emptyState('Open tock from the terminal', 'This page needs the private link that tock web prints. Run tock web and use the link it opens.')]);
   }
 
+  // firstRun is Today before anything has been recorded: what happens next,
+  // in the order it happens. The page refreshes itself every minute.
+  function firstRun() {
+    const step = (title, text) => h('li', null, h('div', { class: 'big' }, title), h('div', null, text));
+    return h('div', { class: 'empty first' },
+      h('div', { class: 'big' }, 'Nothing recorded yet'),
+      h('div', null, 'trackd records the app in front as you work. This page updates every minute.'),
+      h('ol', { class: 'steps' },
+        step('Work as usual', 'The first entries show up here within a minute or two.'),
+        step('Label what no rule covers', 'It goes to the Inbox. Labelling an entry there also writes a rule, so you label each thing once.'),
+        step('Write broader rules', 'They live in ~/.config/tock/rules.toml and apply to past days too.')));
+  }
+
   function emptyState(title, text) {
     return h('div', { class: 'empty' }, h('div', { class: 'big' }, title), h('div', null, text));
   }
@@ -394,7 +407,7 @@
     const gone = Date.now() - st.lastSeenMS;
     const ago = gone >= 48 * 3600e3 ? `${Math.floor(gone / 86400e3)} days` : dur(gone);
     el.replaceChildren(...[
-      st.recording ? line('good', 'trackd recording') : line('bad', st.lastSeenMS ? `trackd stopped ${ago} ago` : 'trackd has not run yet', 'Start it with: tock install'),
+      st.recording ? line('good', 'trackd recording') : line('bad', st.lastSeenMS ? `trackd stopped ${ago} ago` : 'trackd has not run yet', 'Run tock doctor to see why'),
       st.rulesError ? line('bad', 'rules.toml has an error', st.rulesError) : line('good', 'rules.toml OK'),
       st.configError ? line('bad', 'config.toml has an error', st.configError) : null].filter(Boolean));
   }
@@ -525,6 +538,10 @@
     nodes.push(h('div', { class: 'toolrow' },
       h('h1', null, longDate(d.date)),
       h('span', { class: 'sub' }, (d.trackedMS ? `${dur(d.trackedMS)} tracked${d.idleMS ? `, ${dur(d.idleMS)} away` : ''}` : 'Nothing tracked') + workText(d.work))));
+    if (d.firstRun) {
+      nodes.push(firstRun());
+      return nodes;
+    }
     if (!d.trackedMS && !d.timeline.length) {
       nodes.push(emptyState(d.today ? 'Nothing yet today' : 'Nothing tracked this day', d.today ? 'trackd records as you work. Check back in a few minutes.' : 'Pick another day in the calendar.'));
       return nodes;
@@ -781,7 +798,9 @@
         h('p', { class: 'sub', style: { margin: 0 } }, (d.items.length ? `${d.items.length} unlabelled · ${dur(d.totalMS)}` : `Last ${d.days} days`) + (d.smallKeys ? ` · ${d.smallKeys} small (${dur(d.smallMS)}) hidden` : ''))),
       smallSeg([[7, '7 days'], [30, '30 days'], [90, '90 days']], state.inboxDays, (v) => { state.inboxDays = v; localSet('tock-inbox-days', String(v)); state.sel = -1; load({}); }, 'Days'))];
     if (!d.items.length) {
-      nodes.push(emptyState('All labelled', `Everything in the last ${d.days} days has a label.`));
+      nodes.push(d.firstRun
+        ? emptyState('Nothing recorded yet', 'Time no rule covers lands here, to label once.')
+        : emptyState('All labelled', `Everything in the last ${d.days} days has a label.`));
       return nodes;
     }
     const list = h('div', { class: 'inbox', role: 'list' });

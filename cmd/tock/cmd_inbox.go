@@ -51,6 +51,14 @@ func cmdInbox(env Env, args []string) error {
 		return err
 	}
 	if len(items) == 0 {
+		h, err := a.Health()
+		if err != nil {
+			return err
+		}
+		if !h.Recorded {
+			fmt.Fprintln(env.Stdout, "Nothing recorded yet. Time no rule covers lands here, to label once.")
+			return saveListing(env, nil)
+		}
 		fmt.Fprintf(env.Stdout, "Inbox empty: everything in the last %d days is labelled.\n", *days)
 		autoLine(env, today)
 		return saveListing(env, nil)
