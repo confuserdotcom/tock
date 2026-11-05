@@ -53,6 +53,9 @@ type Privacy struct {
 	// KeepTitles is how many days window titles are kept; older spans
 	// lose their title and the path of their URL. 0 = forever.
 	KeepTitles int
+	// HideApps (bundle ids) and HideSites (hosts, with their subdomains)
+	// are tracked as time only, and are never sent to Claude or read by OCR.
+	HideApps, HideSites []string
 }
 
 // Plan is the [plan] section: the todo.txt file the plan tab shows, and a
@@ -300,7 +303,9 @@ type modelTOML struct {
 }
 
 type privacyTOML struct {
-	KeepTitles *int `toml:"keep_titles"`
+	KeepTitles *int      `toml:"keep_titles"`
+	HideApps   *[]string `toml:"hide_apps"`
+	HideSites  *[]string `toml:"hide_sites"`
 }
 
 type planTOML struct {
@@ -448,6 +453,9 @@ func Parse(name string, b []byte) (Config, error) {
 			return Default(), fmt.Errorf("%s: [privacy] keep_titles = %d, want 1 to %d days", name, *k, MaxKeepTitles)
 		}
 		c.Privacy.KeepTitles = *k
+	}
+	if err := decodePrivacy(f.Privacy, &c); err != nil {
+		return Default(), fmt.Errorf("%s: %w", name, err)
 	}
 	if err := decodeInvoice(f.Invoice, &c.Invoice); err != nil {
 		return Default(), fmt.Errorf("%s: %w", name, err)

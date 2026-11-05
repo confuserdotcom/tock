@@ -150,3 +150,9 @@ func (a *App) BarReady() bool {
 func (a *App) LastNoticeAt(topic string, sinceMS int64) (int64, error) {
 	return a.st.LastNoticeAt(topic, sinceMS)
 }
+
+// LastActive is the newest app (and site) that was not idle, or nil.
+func (a *App) LastActive() (*store.Active, error) { return a.st.LastActive() }
+
+// AppName is the newest name recorded for a bundle id, or "".
+func (a *App) AppName(bundle string) (string, error) { return a.st.AppName(bundle) }

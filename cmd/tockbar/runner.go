@@ -174,6 +174,9 @@ func (r *runner) tick() {
 				if s.DistractErr != nil {
 					r.warn("reading the last distraction notice failed", s.DistractErr)
 				}
+				if s.PrivacyErr != nil {
+					r.warn("reading the privacy menu failed", s.PrivacyErr)
+				}
 			}
 		}
 	}

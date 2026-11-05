@@ -99,3 +99,29 @@ func TestFeaturesDefaults(t *testing.T) {
 		}
 	}
 }
+
+func TestSetList(t *testing.T) {
+	for _, tc := range []struct{ name, src, want string }{
+		{"no table", "[focus]\nnotify = true\n",
+			"[focus]\nnotify = true\n\n[privacy]\nhide_apps = [\"a\", \"b\"]\n"},
+		{"no key", "[privacy]\nkeep_titles = 30 # a month\n\n[focus]\n",
+			"[privacy]\nkeep_titles = 30 # a month\nhide_apps = [\"a\", \"b\"]\n\n[focus]\n"},
+		{"one line", "[privacy]\nhide_apps = [\"x\", \"y]\"] # mine\nkeep_titles = 30\n",
+			"[privacy]\nhide_apps = [\"a\", \"b\"] # mine\nkeep_titles = 30\n"},
+		{"several lines", "[privacy]\n  hide_apps = [\n    \"x\", # one\n    \"y]\",\n  ]\nkeep_titles = 30\n",
+			"[privacy]\n  hide_apps = [\"a\", \"b\"]\nkeep_titles = 30\n"},
+	} {
+		got, err := SetList([]byte(tc.src), "privacy", "hide_apps", []string{"a", "b"})
+		if err != nil {
+			t.Errorf("%s: %v", tc.name, err)
+			continue
+		}
+		if string(got) != tc.want {
+			t.Errorf("%s:\ngot  %q\nwant %q", tc.name, got, tc.want)
+		}
+	}
+	got, err := SetList([]byte("[privacy]\nhide_apps = [\"a\"]\n"), "privacy", "hide_apps", nil)
+	if err != nil || string(got) != "[privacy]\nhide_apps = []\n" {
+		t.Errorf("empty list: %q, %v", got, err)
+	}
+}

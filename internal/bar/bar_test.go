@@ -92,6 +92,9 @@ func settingsTitles(s Snapshot) string {
 	if len(s.Features) > 0 {
 		out += "\n  --"
 	}
+	for _, l := range strings.Split(titles([]Item{s.privacy()}), "\n") {
+		out += "\n  " + l
+	}
 	return out + "\n  Notifications… [notify-settings]\n  Accessibility… [ax]\n  --\n  Quit tock menu bar [quit]"
 }
 
@@ -1654,5 +1657,71 @@ func TestMenuFeature(t *testing.T) {
 	}
 	if _, err := Menu(a, IDFeature+"nope"); !errors.Is(err, ErrUnknown) {
 		t.Fatalf("unknown = %v", err)
+	}
+}
+
+func TestPrivacyItems(t *testing.T) {
+	url := func(s string) *string { return &s }
+	for _, tc := range []struct {
+		name string
+		p    PrivacyState
+		want string
+	}{
+		{"nothing", PrivacyState{}, "Privacy ▸\n  Nothing to hide yet"},
+		{"own app", PrivacyState{Front: &store.Active{Bundle: "com.tock.bar", App: "tock"}}, "Privacy ▸\n  Nothing to hide yet"},
+		{"app and site", PrivacyState{Front: &store.Active{Bundle: "com.apple.Safari", App: "Safari", URL: url("www.bank.com/acct")}},
+			"Privacy ▸\n  Hide Safari [hide:app:com.apple.Safari]\n  Hide bank.com [hide:site:bank.com]"},
+		{"hidden", PrivacyState{
+			Front: &store.Active{Bundle: "com.apple.Safari", App: "Safari", URL: url("bank.com/")},
+			Apps:  []HiddenApp{{Bundle: "com.example.diary", Name: "Diary"}}, Sites: []string{"bank.com"}},
+			"Privacy ▸\n  Hide Safari [hide:app:com.apple.Safari]\n  --\n  ✓ Diary [unhide:app:com.example.diary]\n  ✓ bank.com [unhide:site:bank.com]"},
+		{"front app hidden", PrivacyState{
+			Front: &store.Active{Bundle: "com.example.diary", App: "Diary"},
+			Apps:  []HiddenApp{{Bundle: "com.example.diary", Name: "Diary"}}},
+			"Privacy ▸\n  ✓ Diary [unhide:app:com.example.diary]"},
+	} {
+		if got := titles([]Item{Snapshot{Privacy: tc.p}.privacy()}); got != tc.want {
+			t.Errorf("%s:\ngot\n%s\nwant\n%s", tc.name, got, tc.want)
+		}
+	}
+}
+
+func TestMenuHide(t *testing.T) {
+	e, a := seeded(t)
+	s, err := Load(a, e.Clock, app.NotifyGranted)
+	if err != nil || s.PrivacyErr != nil {
+		t.Fatal(err, s.PrivacyErr)
+	}
+	if s.Privacy.Front == nil || s.Privacy.Front.Bundle != "mail" {
+		t.Fatalf("front = %+v", s.Privacy.Front)
+	}
+	menu := titles(s.Items(e.Clock.UnixMilli()))
+	if !strings.Contains(menu, "    Hide Mail [hide:app:mail]") {
+		t.Fatalf("menu offers no hide:\n%s", menu)
+	}
+	if msg, err := Menu(a, IDHide+"app:mail"); err != nil || msg != "Mail hidden" {
+		t.Fatalf("hide = %q, %v", msg, err)
+	}
+	if got := a.Config().Privacy.HideApps; len(got) != 1 || got[0] != "mail" {
+		t.Fatalf("hide_apps = %v", got)
+	}
+	s, _ = Load(a, e.Clock, app.NotifyGranted)
+	menu = titles(s.Items(e.Clock.UnixMilli()))
+	if !strings.Contains(menu, "✓ Mail [unhide:app:mail]") || strings.Contains(menu, "Hide Mail") {
+		t.Fatalf("menu after hide:\n%s", menu)
+	}
+	if msg, err := Menu(a, IDHide+"site:chatgpt.com"); err != nil || msg != "chatgpt.com hidden" {
+		t.Fatalf("hide site = %q, %v", msg, err)
+	}
+	if msg, err := Menu(a, IDUnhide+"app:mail"); err != nil || msg != "Mail shown again" {
+		t.Fatalf("unhide = %q, %v", msg, err)
+	}
+	if c := a.Config().Privacy; len(c.HideApps) != 0 || len(c.HideSites) != 1 {
+		t.Fatalf("privacy = %+v", c)
+	}
+	for _, id := range []string{IDHide + "window:x", IDHide + "app:", IDUnhide + "site"} {
+		if _, err := Menu(a, id); !errors.Is(err, ErrUnknown) {
+			t.Errorf("%s: err = %v, want ErrUnknown", id, err)
+		}
 	}
 }
