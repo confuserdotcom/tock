@@ -84,11 +84,11 @@ static NSColor *kindColor(NSString *k) {
     static dispatch_once_t once;
     dispatch_once(&once, ^{
         m = @{
-            @"deep" : hexc(0x5fa3c4, 1),
-            @"shallow" : hexc(0x8fa1ba, 1),
-            @"browse" : hexc(0xb39cc6, 1),
-            @"neutral" : hexc(0x6b7079, 1),
-            @"distract" : hexc(0xe0726f, 1),
+            @"deep" : hexc(0x4fa89a, 1),
+            @"shallow" : hexc(0x6f86b5, 1),
+            @"browse" : hexc(0xa07fb0, 1),
+            @"neutral" : hexc(0x7d8088, 1),
+            @"distract" : hexc(0xc9625a, 1),
             @"none" : hexc(0x3a3d42, 1),
             @"good" : hexc(0x5cc38a, 1),
             @"break" : hexc(0xe3a446, 1),

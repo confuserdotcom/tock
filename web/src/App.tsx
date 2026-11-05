@@ -43,6 +43,21 @@ export default function App() {
     document.title = `tock · ${TITLES[route.view]}`;
   }, [route.view]);
 
+  // 1-5 switch views, ← → move between days, outside text fields and dialogs.
+  useEffect(() => {
+    const on = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey || (e.target as HTMLElement).closest("input,textarea,[role=dialog]")) return;
+      const n = Number(e.key);
+      if (n >= 1 && n <= VIEWS.length) go({ view: VIEWS[n - 1] });
+      else if (e.key === "ArrowLeft" && route.view !== "inbox") step(-1);
+      else if (e.key === "ArrowRight" && route.view !== "inbox" && !isToday) step(1);
+      else return;
+      e.preventDefault();
+    };
+    window.addEventListener("keydown", on);
+    return () => window.removeEventListener("keydown", on);
+  });
+
   return (
     <TooltipProvider delayDuration={150}>
       <div className="flex min-h-full flex-col">

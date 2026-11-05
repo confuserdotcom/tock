@@ -8,6 +8,8 @@ export default defineConfig({
   plugins: [react()],
   resolve: { alias: { "@": path.resolve(__dirname, "src") } },
   base: "./",
+  // npm run dev: the API comes from the demo server (see docs/guide.md).
+  server: { proxy: { "/api": "http://127.0.0.1:7788" } },
   build: {
     outDir: "../internal/web/static",
     emptyOutDir: true,

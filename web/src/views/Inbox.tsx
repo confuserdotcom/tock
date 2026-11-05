@@ -11,7 +11,7 @@ import { kindColor } from "@/lib/kinds";
 import { cn } from "@/lib/utils";
 
 /** Inbox: what tock could not file by itself. j/k move, Return accepts the
- *  guess and learns a rule, l opens the label sheet, i ignores, u undoes. */
+ *  guess (a does too) and learns a rule, l opens the label sheet, i ignores, u undoes. */
 export default function Inbox({ onChange }: { onChange: () => void }) {
   const { data, error, loading, reload } = useApi<InboxT>("/api/inbox?days=7");
   const labels = useApi<Labels>("/api/labels");
@@ -50,7 +50,7 @@ export default function Inbox({ onChange }: { onChange: () => void }) {
       const it = items[at];
       if (e.key === "j" || e.key === "ArrowDown") setAt((a) => Math.min(items.length - 1, a + 1));
       else if (e.key === "k" || e.key === "ArrowUp") setAt((a) => Math.max(0, a - 1));
-      else if (e.key === "Enter" && it) accept(it);
+      else if ((e.key === "Enter" || e.key === "a") && it) accept(it);
       else if (e.key === "l" && it) setTarget({ title: it.key, sub: it.example, key: it.key });
       else if (e.key === "i" && it) ignore(it);
       else if (e.key === "u") {

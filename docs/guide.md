@@ -853,43 +853,58 @@ project` lists projects.
 
 ## Web dashboard
 
-`tock web` opens a dashboard in your browser and runs until you press
-ctrl-c. The menu bar's Open dashboard and `tock choice` start one for you
-that stops by itself when unused.
+The menu bar's **Open dashboard** shows the dashboard in its own tock
+window. While the window is open tock has a Dock icon and a menu (⌘W
+closes it, ⌘R reloads); closing it puts tock back in the menu bar only.
+Links that leave the page open in your browser. `tock web` serves the same
+page to your browser and runs until you press ctrl-c.
 
-- **Today:** a row of the day's numbers (score, deep focus, longest block,
-  distraction, switches, time tracked), each with its change against your
-  usual same weekday (the middle of the last four). Then a timeline with
-  one row per category on a shared hour axis (hover a bar for its app and
-  title), tables of categories and apps with totals, work blocks, goals and
-  the day's activity. Click any bar or row to label it. Use the arrows,
-  ← → or the calendar in the sidebar to move between days.
-- **Sidebar:** the views, a month calendar, and whether trackd is
-  recording and rules.toml loads. A running focus session shows its goal
-  and time left at the top of the page.
-- **Week:** each day's time by kind and score (click a day to open it),
-  categories, projects, apps and sites, distractions, goals and the plan.
-- **Top:** `tock top` for today, 7 days, this week, this month or 30 days.
+- **Today:** the timeline, with one row per category on a shared hour axis
+  (hover a bar for its app and title, click it to label those entries).
+  Then the focus score with its change against your usual same weekday
+  (the middle of the last four), and four stats with their changes:
+  focus time, longest block, distraction and switches per hour. Next to it,
+  minutes per hour stacked by kind and a donut of the kinds of time. Then
+  goal rings, tables of categories and apps with totals, and the work
+  blocks.
+- **Week:** hours per day by kind, a donut of the week's kinds, the score
+  per day against its mean, a weekday × hour heat map of when you focus,
+  a donut of projects, goal rings (days held), distractions, and
+  categories and apps.
+- **Trends:** a month at a time (pick it top right). Tracked, focus,
+  average score and switches against last month; a calendar shaded by
+  deep time; deep time per day with its 7-day mean; the score per day;
+  categories against last month; and your best hours.
+- **Top:** categories, apps, sites and projects for today, the week or the
+  month.
 - **Inbox:** unlabelled activity with the local guess or Claude's
   suggestion. **Accept** learns the suggestion's broadest safe rule, as
-  `tock tag <n>` does. **Label…** picks a category and project, then
-  labels just these spans or previews the rules to learn. **Ignore** has
-  an undo. Keys: `j`/`k` move, `a` accept, `l` label, `i` ignore.
+  `tock tag <n>` does. **Other…** opens the label sheet: search a category
+  (type `Category / project` for a project) and Return. **Ignore** has an
+  undo. Keys: `j`/`k` move, Return or `a` accept, `l` label, `i` ignore,
+  `u` undo.
 
-Keys `1`–`4` switch views, `r` refreshes and `u` undoes the last change. Today refreshes itself every
-minute.
+The status strip under the views shows whether trackd is recording, whether
+rules.toml loads, and a running focus session with its progress. Keys `1`–`5`
+switch views, ← → move between days, and ⌘K opens a palette for views,
+dates and the light or dark theme. Every change shows a toast with **Undo**.
+The page refreshes itself every minute.
 
 The server listens on 127.0.0.1 only, on a free port (`--port N` to choose
 one). The link it prints carries a random token after the `#`. Browsers
 never send that part to a server, and the page keeps it for the tab only.
 Every request needs the token, so other sites open in your browser can
 neither read nor label anything, and requests that name another host are
-refused. The page, its styles and scripts are built into `tock` and load
+refused. The page, its styles, scripts and fonts are built into `tock` and load
 nothing from the internet. trackd is not involved. `--no-open` prints the
 link without opening a browser. `--idle 30m` stops the server after 30
 minutes with no request; the menu bar's **Open dashboard** uses it.
 
-For working on the page, `TOCK_DEMO_PORT=7788 go test -tags demo -run
+For working on the page: its source is in `web/` (React, shadcn/ui,
+Recharts). With the demo server below running, `cd web && npm run dev`
+serves it with hot reload at `http://localhost:5173/#` followed by 64
+zeros; `make web` tests it and rebuilds `internal/web/static`, which is committed so
+Go builds need no Node. `TOCK_DEMO_PORT=7788 go test -tags demo -run
 TestDemo -timeout 0 ./internal/web` serves synthetic data at
 `http://127.0.0.1:7788/#` followed by 64 zeros.
 

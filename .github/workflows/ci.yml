@@ -25,6 +25,20 @@ jobs:
       - name: test
         run: CGO_ENABLED=0 go test ./... -count=1
 
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: test and build the dashboard
+        run: cd web && npm ci && npm test && npm run build
+      - name: the committed build is current
+        run: git diff --exit-code --stat internal/web/static
+
   macos:
     runs-on: macos-latest
     steps:

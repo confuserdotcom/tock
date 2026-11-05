@@ -8,7 +8,7 @@ import { Timeline } from "@/components/charts/Timeline";
 import { TimeTable } from "@/components/Tables";
 import { LabelSheet, type Target } from "@/components/LabelSheet";
 import { useApi, type Day } from "@/lib/api";
-import { delta, dur, hhmm } from "@/lib/format";
+import { addDays, delta, dur, hhmm, parseDate } from "@/lib/format";
 import { byKindRows, kindColor, kindLabel } from "@/lib/kinds";
 
 export default function Today({ date, tick }: { date: string; tick: number }) {
@@ -18,10 +18,13 @@ export default function Today({ date, tick }: { date: string; tick: number }) {
   const apps = useMemo(() => {
     if (!d) return [];
     const m = new Map<string, { ms: number; kind: string }>();
+    const day0 = parseDate(d.date).getTime(), day1 = addDays(parseDate(d.date), 1).getTime();
     for (const r of d.timeline) {
       if (r.idle) continue;
+      const ms = Math.min(r.end, day1) - Math.max(r.start, day0); // a run from before midnight counts from midnight
+      if (ms <= 0) continue;
       const a = m.get(r.app) ?? { ms: 0, kind: r.kind };
-      a.ms += r.end - r.start;
+      a.ms += ms;
       m.set(r.app, a);
     }
     return [...m.entries()].map(([name, a]) => ({ name, ...a })).sort((a, b) => b.ms - a.ms);

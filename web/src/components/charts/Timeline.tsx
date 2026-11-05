@@ -18,16 +18,17 @@ export function Timeline({ rows, date, first, last, today, onPick }: {
   const [hover, setHover] = useState<{ r: Row; left: number; lane: number } | null>(null);
 
   const lanes = useMemo(() => {
+    // The lane totals count only this day: a run from before midnight starts at midnight.
     const m = new Map<string, Lane>();
     for (const r of rows) {
       const name = r.idle ? "Away" : r.category || "Unlabelled";
       const l = m.get(name) ?? { name, kind: r.idle ? "away" : r.kind, ms: 0, rows: [], away: r.idle };
-      l.ms += r.end - r.start;
+      l.ms += Math.max(0, Math.min(r.end, day + 86_400_000) - Math.max(r.start, day));
       l.rows.push(r);
       m.set(name, l);
     }
     return [...m.values()].sort((a, b) => Number(!!a.away) - Number(!!b.away) || b.ms - a.ms);
-  }, [rows]);
+  }, [rows, day]);
 
   const hours = [];
   for (let h = first; h <= last + 1; h++) hours.push(h);

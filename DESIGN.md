@@ -1,7 +1,7 @@
 ---
 # gstack: design-md-format=spec
 name: tock
-description: A ledger of your working day. White page, plain type, numbers that line up, colour only for the kind of time.
+description: An instrument panel for your working day. Dark first, one typeface, numbers that line up, colour only for the kind of time.
 colors:
   light-bg: "#ffffff"
   light-side: "#f7f7f8"
@@ -12,49 +12,54 @@ colors:
   light-text: "#2b3038"
   light-muted: "#5b636e"
   light-faint: "#6b7280"
-  dark-bg: "#111315"
-  dark-side: "#16181b"
+  dark-bg: "#0f1011"
+  dark-side: "#16171a"
   dark-sunk: "#1d2024"
-  dark-line: "#25282d"
+  dark-line: "#26272b"
   dark-line-strong: "#33373d"
-  dark-ink: "#eceef1"
+  dark-ink: "#e6e6e8"
   dark-text: "#d5d8dd"
-  dark-muted: "#9aa1ab"
-  dark-faint: "#868d97"
+  dark-muted: "#8b8d93"
+  dark-faint: "#5d5f66"
   focus: "#2f6fdb"
   good-light: "#2e7d4f"
-  good-dark: "#5cc38a"
+  good-dark: "#6cc3a3"
   bad-light: "#b3423f"
-  bad-dark: "#e0726f"
-  deep-light: "#2f6f8f"
-  deep-dark: "#5fa3c4"
-  shallow-light: "#7d8fa8"
-  shallow-dark: "#8fa1ba"
-  browse-light: "#8a6d9e"
-  browse-dark: "#b39cc6"
-  neutral-light: "#a3a8b0"
-  neutral-dark: "#6b7079"
-  distract-light: "#c0504d"
-  distract-dark: "#e0726f"
+  bad-dark: "#d98078"
+  deep-light: "#32857a"
+  deep-dark: "#4fa89a"
+  shallow-light: "#4c6ba9"
+  shallow-dark: "#6f86b5"
+  browse-light: "#8d589d"
+  browse-dark: "#a07fb0"
+  neutral-light: "#7e828b"
+  neutral-dark: "#7d8088"
+  distract-light: "#c64539"
+  distract-dark: "#c9625a"
   curtain: "#0d0b09"
   curtain-track: "#2b241b"
   curtain-text: "#f1e4cf"
   curtain-muted: "#8a7d68"
 typography:
   title:
-    fontFamily: IBM Plex Sans
+    fontFamily: Inter
     fontWeight: 600
     fontSize: 1.25rem
+  score:
+    fontFamily: Inter
+    fontWeight: 600
+    fontSize: 3.5rem
+    letterSpacing: -0.03em
   body:
-    fontFamily: IBM Plex Sans
+    fontFamily: Inter
     fontSize: 0.8125rem
     lineHeight: 1.45
   label:
-    fontFamily: IBM Plex Sans
+    fontFamily: Inter
     fontWeight: 500
     fontSize: 0.6875rem
   number:
-    fontFamily: IBM Plex Mono
+    fontFamily: Inter
     fontWeight: 500
     fontFeature: tnum
 rounded:
@@ -85,71 +90,76 @@ components:
 
 ## Overview
 
-**North star:** a ledger. tock writes your day down; the page reads like a well-kept account book. Facts in rows, numbers aligned, totals at the bottom, nothing performed.
-**Product context:** a local time tracker for one person on a Mac (and a headless Linux box): a daemon, a menu bar app, a terminal UI and a local web page. No accounts, no cloud, nothing loaded from the internet.
-**References:** Timing.app (rows per category on a time axis), Linear (density, hairlines), plain accounting tables.
+**North star:** an instrument panel. tock reads your day back to you the way a good gauge cluster does: one big reading, the charts that explain it, the tables underneath. Dense, calm, dark.
+**Product context:** a local time tracker for one person on a Mac (and a headless Linux box): a daemon, a menu bar app with a notch, a terminal UI and a dashboard that opens in its own tock window. No accounts, no cloud, nothing loaded from the internet.
+**References:** variant A "Instrument panel" (`~/.gstack/projects/tock/designs/dashboard-20261105/variant-A.html`), Linear (density, hairlines), Timing.app (rows per category on a time axis).
 **Key characteristics:**
-- No hero number. The score is one figure in a row of figures, each with its change against your usual day.
+- One big number: the focus score, with its change against your usual day. Everything else is a chart or a table.
+- Charts carry the analysis: a donut of the kinds of time, goal rings, minutes per hour, an hour heat map, a month calendar.
 - Time runs left to right on one shared axis; each category gets its own row.
-- Lists are tables: name left, time and share right-aligned in mono, a bold totals row.
 - Colour means a kind of time. Everything else is grey.
 
 ## Colors
 
-**Strategy:** neutral greys, one ink, kind colours as data. No accent colour.
-**Light or dark:** follows the system; both are first-class. Light is the default in screenshots.
+**Strategy:** near-black neutrals, one light ink, kind colours as data. No accent colour.
+**Light or dark:** dark first (screenshots, the native window's first paint); light follows the system or the ⌘K switch and is first-class too.
 
-- Ink is the only "accent": the selected day, the primary button, the active nav item (on a sunk grey).
-- Kind colours are data, never decoration: deep (blue-teal), shallow (slate), browsing (mauve), neutral (grey), distracting (brick). Unlabelled is grey hatching. The same colours on every surface, a lighter set in dark mode.
+- Ink is the only "accent": the selected nav item (on a sunk grey), the primary button, the score line.
+- Kind colours are data, never decoration: deep (teal), shallow (blue), browsing (mauve), neutral (grey), distracting (brick). Unlabelled is faint grey; away is hatching. The same colours on every surface: dashboard, TUI, menu strip, notch.
 - Good and bad are for changes against the usual day, and follow meaning, not direction: less distraction is good.
-- `focus` is only the keyboard focus ring.
-- Text: ink for names and numbers, muted for secondary, faint (still 4.5:1) for axes and captions.
+- Text: ink for names and numbers, muted for secondary, faint for axes and captions.
 - The break screen keeps its fixed curtain colours (always dark).
 
 ## Typography
 
-- IBM Plex Sans for all text: 13px body, 11px labels in muted (sentence case, no caps), 20px semibold page titles. No serif anywhere.
-- IBM Plex Mono for every time, duration, count and percentage, tabular figures, so columns line up.
-- Durations in tables read 2:24 (h:mm); in prose and the number row 2h24.
-- Both faces are bundled in `internal/web/static/fonts` (OFL, latin subset). The menu bar and break screen use the system fonts; the TUI uses the terminal's.
+- Inter for everything, with tabular figures (`tnum`) and `cv11`, so numbers line up without a mono face. 13px body, 11px labels in faint small caps with 0.06em tracking, 20px semibold page titles, 56px semibold score.
+- Durations read 2h24 in cards and charts, 2:24 (h:mm) in tables.
+- Inter is bundled in `internal/web/static/fonts` (OFL, latin subset). The menu bar, notch and break screen use the system fonts; the TUI uses the terminal's.
 
 ## Layout
 
-- Web: a 216px sidebar (logo, nav, month calendar, status) and a main column up to 1200px wide.
-- Today, in order: title line with the running session; the number row; the category timeline; two tables side by side (categories, apps); then work blocks, goals and the activity log.
-- The whole of Today above the activity log fits a 1280x800 window.
-- Below 860px the sidebar becomes a top bar and tables stack.
-- 24px between sections, 16px inside.
+- Dashboard: a 44px top bar (logo, nav, date stepper, ⌘K), a 34px status strip (recording, rules, running session), then a content column up to 1400px.
+- In the tock window the top bar is the title bar: it drags the window and leaves room for the traffic lights.
+- Today, in order: timeline; score card, minutes per hour, kinds donut; goals, categories, apps; work blocks.
+- Week: hours per day and kinds donut; score line and focus heat map; projects donut, goals, distractions; categories and apps.
+- Trends: month stat cards; month calendar beside deep-time area and score line; categories against last month; best hours.
+- Panels sit in grids with 20px gaps and 20px padding. Below 1024px grids stack.
 
 ## Elevation & Depth
 
-Flat. Hairline borders group things; no shadows except the tooltip, the label sheet and the toast.
+Flat. Panels are surface-coloured with a hairline border; no shadows except popovers, tooltips, the sheet and toasts.
 
 ## Shapes
 
-2px on bars in the timeline, 6px on buttons, inputs and grouped boxes, 8px on the sheet.
+2px on chart bars and timeline bars, 3px on heat cells, 6px on buttons and inputs, 8px on panels and the sheet. Donuts and rings use round caps.
 
 ## Components
 
-- Number row: one bordered strip split by hairlines. Each cell: label, mono value, change vs usual in good or bad (hidden when there is no usual day).
-- Category timeline: an hour axis on top, one row per category plus Away, bars in the kind colour, a 1px ink line for now. Hover shows app, title, time and label; click opens the label sheet.
-- Tables: header in faint 11px, hairline rows, right-aligned mono time and share, a bold totals row with a stronger rule above.
-- Sidebar status: a dot and a line each for trackd, rules and the session.
-- Buttons: primary ink, secondary hairline outline, ghost text. Focus ring 2px `focus`.
+Built from shadcn/ui (Radix) and Recharts in `web/`; the build is committed to `internal/web/static`.
+- Score card: label, the score at 56px, change vs usual, then four stats each with its change.
+- Kind donut: 66% inner radius, total in the middle, a legend with time and share.
+- Goal rings: one ring per goal (at most four), inner first; at-most goals turn brick once passed.
+- Category timeline: an hour axis on top, one lane per category plus Away, bars in the kind colour, a 1px ink line for now. Hover shows app, title, time and label; click opens the label sheet.
+- Heat map: weekday x hour, deep teal by mean focus minutes. Month calendar: weeks as rows, days shaded by deep time, non-workdays hatched.
+- Tables: faint 11px header, hairline rows, right-aligned tabular time and share, a bold totals row.
+- Label sheet: a side sheet with a command search over categories; Return labels and learns a rule.
+- ⌘K palette: views, dates, theme.
+- Toasts: every change has an Undo.
 
 ## Do's and Don'ts
 
 - Do give every number a unit and, where it exists, a comparison.
-- Do keep numbers in mono and right-aligned.
-- Do use the same kind colours in web, TUI, menu strip and summaries.
-- Don't add a big number, a ring, a gauge or a gradient.
-- Don't put a card around every section or an icon on every row.
+- Do keep numbers in tabular figures and right-aligned in tables.
+- Do use the same kind colours in the dashboard, TUI, menu strip and notch.
+- Do use rings and donuts for shares and goals; bars for time over time.
+- Don't add a second big number, a gauge or a decorative gradient (a chart's area fill is fine).
+- Don't put an icon on every row.
 - Don't use colour for anything that is not a kind of time or a good/bad change.
 - Don't load anything from the internet, fonts included.
 
 ## Motion
 
-- Minimal: 120ms hover, 160ms view change, no counting numbers, no growing bars.
+- Minimal: 120ms hover, 160ms view change, no counting numbers, no growing bars (charts draw without animation).
 - The label sheet keeps its spring; reduced motion turns everything off.
 - The notch panel is the exception: it grows out of the hardware, so its
   shape and content move on springs that start from where they are. Moments
@@ -171,3 +181,4 @@ Flat. Hairline borders group things; no shadows except the tooltip, the label sh
 | 2026-11-05 | Replaced by the Ledger system: IBM Plex Sans + Mono, white and grey, ink as the only accent, sidebar, per-category timeline, tables with totals, comparisons with the usual day | The owner picked the Ledger direction from four mockups; the serif-and-brass look read as made by AI |
 | 2026-11-05 | A drawn notch on displays without one | Owner asked for the island on every display, as notch apps do; one shape everywhere instead of a pill that looks like another product |
 | 2026-11-05 | The notch panel moves on springs | Owner approved the notch prototype; a surface that grows out of hardware reads as physical only with springs. Kept to the notch |
+| 2026-11-05 | Dashboard moves to variant A "Instrument panel": React + shadcn/ui + Recharts, Inter, dark first, a big score, donuts and rings, in a native tock window; kind colours change on every surface | Owner: "I don't like the GUI at all", wants components, many charts and a circular one, and an app feel. Supersedes the Ledger rules on hero numbers and rings |

@@ -5,6 +5,12 @@ What changed for you in each release. Dates are UTC.
 ## Unreleased
 
 ### Added
+- A new dashboard, in its own tock window from the menu bar (with a Dock
+  icon while it's open). Today has a donut of the kinds of time, goal
+  rings and minutes per hour next to the timeline; Week adds a heat map of
+  when you focus and a projects donut; a new **Trends** view shows the
+  month as a calendar, deep time per day and your best hours. ⌘K jumps to
+  a view or a date, and every change can be undone from its toast.
 - tock lives in the notch. The menu bar app draws its own panel there: the
   running session, a break or a
   meeting either side of the notch, and moments that open from it and go
@@ -22,6 +28,11 @@ What changed for you in each release. Dates are UTC.
   a two-finger swipe down; a quick pass does nothing. A panel goes back once
   the pointer leaves it, and a session end or recap nobody saw waits as a
   dot. In full screen a drawn notch steps aside while nothing runs.
+
+### Changed
+- New kind colours everywhere (dashboard, terminal UI, menu bar and notch):
+  teal for deep work, blue for shallow, mauve for browsing, brick for
+  distraction.
 
 ## v5.1.0 — 2026-11-05
 
