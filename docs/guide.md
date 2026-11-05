@@ -1334,7 +1334,8 @@ titles).
 for how long, from any app, and starts the session; while one runs it
 offers Stop and Keep going. The goal shows in the menu and on the break
 screen. Shortcuts, Raycast and scripts can do the same with links:
-`tock://start?min=50&goal=…`, `tock://stop` and `tock://prompt`.
+`tock://start?min=50&goal=…`, `tock://stop`, `tock://prompt` and
+`tock://dashboard`.
 `tock session start --goal "…"` sets it from the terminal.
 
 With the app running and allowed to notify, focus notifications come from

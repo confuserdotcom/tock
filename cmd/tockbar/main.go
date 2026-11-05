@@ -50,13 +50,28 @@ func barAgent() service.Agent {
 	}
 }
 
-// tockBin is the tock command the dashboard runs: $TOCK_BIN, else the one
-// make install puts in ~/.local/bin (launchd's PATH does not reach it).
+// tockBin is the tock command the dashboard runs: $TOCK_BIN, else the
+// first that exists of the one make install and the .dmg put in
+// ~/.local/bin and Homebrew's (launchd's PATH reaches none of them).
 func tockBin() string {
 	if b := os.Getenv("TOCK_BIN"); b != "" {
 		return b
 	}
-	return filepath.Join(home(), ".local", "bin", "tock")
+	return findTock([]string{
+		filepath.Join(home(), ".local", "bin", "tock"),
+		"/opt/homebrew/bin/tock",
+		"/usr/local/bin/tock",
+	})
+}
+
+// findTock is the first of paths that exists, else the first.
+func findTock(paths []string) string {
+	for _, p := range paths {
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
+	}
+	return paths[0]
 }
 
 func paths() app.Paths {

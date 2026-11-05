@@ -1788,6 +1788,7 @@ func TestURLAction(t *testing.T) {
 		"tock://stop":                     "stop",
 		"tock://prompt":                   "hotkey",
 		"TOCK://Stop":                     "stop",
+		"tock://dashboard":                "dash",
 	} {
 		if got, ok := URLAction(raw); !ok || got != want {
 			t.Errorf("URLAction(%q) = %q, %v; want %q", raw, got, ok, want)

@@ -67,7 +67,8 @@ func startGoal(a *app.App, id string) (int, string, error) {
 }
 
 // URLAction is the menu id a tock:// link runs, for Shortcuts and Raycast:
-// tock://start?min=50&goal=…, tock://stop and tock://prompt.
+// tock://start?min=50&goal=…, tock://stop, tock://prompt and
+// tock://dashboard.
 func URLAction(raw string) (string, bool) {
 	u, err := url.Parse(raw)
 	if err != nil || !strings.EqualFold(u.Scheme, "tock") {
@@ -87,6 +88,8 @@ func URLAction(raw string) (string, bool) {
 		return IDStop, true
 	case "prompt":
 		return IDHotkey, true
+	case "dashboard":
+		return IDDashboard, true
 	}
 	return "", false
 }
