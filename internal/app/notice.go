@@ -49,6 +49,8 @@ type NoticeData struct {
 	Mine      bool            `json:"mine,omitempty"`   // with Join: the owner accepted or organizes the event, so [calendar] auto_open may open the link
 	Rec       int64           `json:"rec,omitempty"`    // recommend: the recommend row the buttons answer
 	RecAt     int64           `json:"rec_at,omitempty"` // recommend: that row's send time (ms), 0 = any (queued by an older trackd)
+	Key       string          `json:"key,omitempty"`    // wake: the front view's key This is work files, "" = none
+	Idle      bool            `json:"idle,omitempty"`   // wake: idle in front, I'm on paper is offered
 }
 
 // Enqueue queues the notification ev for the menu bar app.
@@ -72,6 +74,11 @@ func (a *App) Enqueue(ev focus.Event) error {
 	}
 	if (ev.Topic == focus.TopicRecommend || ev.Topic == focus.TopicBreak) && ev.RecID != 0 {
 		d.Rec, d.RecAt = ev.RecID, ev.RecAtMS
+	}
+	if ev.Topic == focus.TopicWake || ev.Topic == focus.TopicWakeWarn {
+		d.Session, d.SnoozeMin = ev.Sess.ID, int(a.cfg.Focus.SnoozeMS/60_000)
+		d.From, d.Key, d.Idle = ev.OffFrom, ev.Key, ev.Idle
+		d.Category, d.Project = ev.Target.Category, ev.Target.Project
 	}
 	if ev.Topic == focus.TopicBreakScreen {
 		d.From, d.To = ev.Break.From, ev.Break.To

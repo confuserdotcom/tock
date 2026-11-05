@@ -252,13 +252,19 @@ func (a *App) focusState() (focus.State, error) {
 	screen, _ := strconv.ParseInt(m[store.KeyFocusBreakScreen], 10, 64)
 	nudges, _ := strconv.Atoi(m[store.KeyFocusNudges])
 	nudgeAt, _ := strconv.ParseInt(m[store.KeyFocusNudgeAt], 10, 64)
-	return focus.State{BreakScreenAt: screen, NudgeDay: m[store.KeyFocusNudgeDay], Nudges: nudges, NudgeAt: nudgeAt, BreakTakenAt: taken, BreakUntil: until, BreakOverAt: over, OverDay: m[store.KeyFocusOverDay], OverAt: overAt, BreakFrom: from, BreakAt: at, RecapDay: m[store.KeyFocusRecapDay], StartDay: m[store.KeyFocusStartDay], MiddayDay: m[store.KeyFocusMiddayDay], AwayAt: away,
+	wake := make([]int64, 5)
+	for i, k := range []string{store.KeyFocusWakeRun, store.KeyFocusWakeWarn, store.KeyFocusWakeAt, store.KeyFocusWakeCheck, store.KeyFocusPaper} {
+		wake[i], _ = strconv.ParseInt(m[k], 10, 64)
+	}
+	return focus.State{WakeRun: wake[0], WakeWarn: wake[1], WakeAt: wake[2], WakeCheck: wake[3], PaperSession: wake[4],
+		BreakScreenAt: screen, NudgeDay: m[store.KeyFocusNudgeDay], Nudges: nudges, NudgeAt: nudgeAt, BreakTakenAt: taken, BreakUntil: until, BreakOverAt: over, OverDay: m[store.KeyFocusOverDay], OverAt: overAt, BreakFrom: from, BreakAt: at, RecapDay: m[store.KeyFocusRecapDay], StartDay: m[store.KeyFocusStartDay], MiddayDay: m[store.KeyFocusMiddayDay], AwayAt: away,
 		SnoozeUntil: snooze, DistractSnoozeUntil: distract}, nil
 }
 
 func (a *App) setFocusState(s focus.State, nowMS int64) error {
-	// store.KeyFocusDistractSnooze, store.KeyFocusBreakTaken and
-	// store.KeyFocusBreakUntil are not saved here: tock owns them and Step never changes them.
+	// store.KeyFocusDistractSnooze, store.KeyFocusBreakTaken,
+	// store.KeyFocusBreakUntil and store.KeyFocusPaper are not saved here: tock
+	// owns them and Step never changes them.
 	for _, kv := range [][2]string{
 		{store.KeyFocusBreakFrom, strconv.FormatInt(s.BreakFrom, 10)},
 		{store.KeyFocusBreakAt, strconv.FormatInt(s.BreakAt, 10)},
@@ -274,6 +280,10 @@ func (a *App) setFocusState(s focus.State, nowMS int64) error {
 		{store.KeyFocusNudgeDay, s.NudgeDay},
 		{store.KeyFocusNudges, strconv.Itoa(s.Nudges)},
 		{store.KeyFocusNudgeAt, strconv.FormatInt(s.NudgeAt, 10)},
+		{store.KeyFocusWakeRun, strconv.FormatInt(s.WakeRun, 10)},
+		{store.KeyFocusWakeWarn, strconv.FormatInt(s.WakeWarn, 10)},
+		{store.KeyFocusWakeAt, strconv.FormatInt(s.WakeAt, 10)},
+		{store.KeyFocusWakeCheck, strconv.FormatInt(s.WakeCheck, 10)},
 	} {
 		if err := a.st.SetState(kv[0], kv[1], nowMS); err != nil {
 			return err
