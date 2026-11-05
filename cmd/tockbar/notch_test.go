@@ -226,3 +226,34 @@ func TestNotchPagesOnlyWhileOpen(t *testing.T) {
 		t.Fatal("pages were read while the panel was closed")
 	}
 }
+
+func TestNotchSessionPageFollowsTheSession(t *testing.T) {
+	e := seededEnv(t)
+	r, u, _ := testRunner(t, e)
+	r.handle(event{kind: evReady})
+	r.handle(event{kind: evNotch, id: "1"})
+	r.handle(event{kind: evMenu, id: bar.IDNotchOpen})
+	if p := island(t, u).Hover.Pages; p[0].ID != "today" {
+		t.Fatalf("pages = %v", p[0].ID)
+	}
+	// a session starts while the panel is open: its page shows at once,
+	// without waiting for the pages to be read again
+	sess := focus.Session{StartMS: r.now().UnixMilli(), PlannedMS: r.now().UnixMilli() + 25*60_000, Goal: "write"}
+	r.snap.Session = &sess
+	r.render(r.now())
+	if p := island(t, u).Hover.Pages; p[0].ID != "session" || p[0].Lead != "write" {
+		t.Fatalf("pages with a session = %+v", p[0])
+	}
+}
+
+func TestNotchOffForgetsTheOpenPanel(t *testing.T) {
+	e := seededEnv(t)
+	r, _, _ := testRunner(t, e)
+	r.handle(event{kind: evReady})
+	r.handle(event{kind: evNotch, id: "1"})
+	r.handle(event{kind: evMenu, id: bar.IDNotchOpen})
+	r.handle(event{kind: evNotch, id: "0"}) // the panel went away
+	if r.panelOpen {
+		t.Fatal("still reading pages with no notch panel")
+	}
+}

@@ -14,6 +14,7 @@ import (
 	"tock/internal/bar"
 	"tock/internal/classify"
 	"tock/internal/focus"
+	"tock/internal/report"
 	"tock/internal/store"
 )
 
@@ -113,10 +114,14 @@ type runner struct {
 	// quiet notch until opened, replaced or missedKeepMS old.
 	missed   *bar.Island
 	missedMS int64
-	// pages are the swipeable pages of the open quiet panel, read when it
-	// opens and every pagesEvery while it stays open; kept when it folds,
-	// so the next open shows them at once.
-	pages     []bar.Page
+	// The open quiet panel's pages are built at every render from today,
+	// the week and the usual day, read when it opens and every pagesEvery
+	// while it stays open. They are kept when it folds, so the next open
+	// shows them at once; the session page follows the snapshot.
+	pageDay   report.Day
+	pageWeek  report.Week
+	pageUsual app.Usual
+	hasPages  bool
 	pagesAt   time.Time
 	panelOpen bool
 }
@@ -142,7 +147,7 @@ func (r *runner) loadPages(now time.Time) {
 		r.warn("reading the week for the notch failed", err)
 		return
 	}
-	r.pages = bar.TodayPages(r.snap, d, w, u, now.UnixMilli())
+	r.pageDay, r.pageWeek, r.pageUsual, r.hasPages = d, w, u, true
 }
 
 // loop runs until events closes.
@@ -359,9 +364,9 @@ func (r *runner) renderNotch(nowMS int64) {
 			r.missed = nil
 		}
 		i := r.snap.IslandBase(nowMS)
-		if i.Hover != nil && (i.State == bar.IslandQuiet || i.State == bar.IslandFocus) && len(r.pages) > 0 {
+		if i.Hover != nil && (i.State == bar.IslandQuiet || i.State == bar.IslandFocus) && r.hasPages {
 			h := *i.Hover
-			h.Pages = r.pages
+			h.Pages = bar.TodayPages(r.snap, r.pageDay, r.pageWeek, r.pageUsual, nowMS)
 			i.Hover = &h
 		}
 		switch {
@@ -374,6 +379,7 @@ func (r *runner) renderNotch(nowMS int64) {
 		spec = i.JSON()
 	} else {
 		r.moment, r.labels, r.missed = nil, nil, nil
+		r.panelOpen = false
 	}
 	if spec != r.island {
 		r.island = spec
@@ -517,6 +523,7 @@ func (r *runner) handle(ev event) {
 		r.log.Warn("notification failed", "notice", ev.notice, "err", ev.id)
 	case evNotch:
 		r.notchUI = ev.id == "1"
+		r.panelOpen = r.panelOpen && r.notchUI
 		r.log.Info("notch panel", "ready", r.notchUI)
 		r.island = "-" // draw it again
 		r.tick()

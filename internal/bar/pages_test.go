@@ -137,3 +137,30 @@ func TestPagesJSON(t *testing.T) {
 		t.Fatalf("pages did not round-trip:\n%+v\n%+v", back.Hover.Pages, i.Hover.Pages)
 	}
 }
+
+func TestTodayPagesDayOff(t *testing.T) {
+	d, w, u := pagesDay()
+	d.Off = true
+	ps := TodayPages(Snapshot{OK: true, Loc: islandLoc}, d, w, u, d.Date.Add(15*time.Hour).UnixMilli())
+	if c := ps[0].Cells[0]; c != (Cell{K: "Score", V: "day off"}) {
+		t.Fatalf("score on a day off = %+v", c)
+	}
+}
+
+func TestSessionPageMovesByTheMinute(t *testing.T) {
+	d, w, u := pagesDay()
+	start := d.Date.Add(14 * time.Hour).UnixMilli()
+	s := Snapshot{OK: true, Loc: islandLoc, Session: &focus.Session{StartMS: start, PlannedMS: start + 50*60_000}, Live: focus.Live{Level: -1}}
+	a := TodayPages(s, d, w, u, start+20*60_000+1_000)[0]
+	b := TodayPages(s, d, w, u, start+20*60_000+59_000)[0]
+	if !reflect.DeepEqual(a, b) {
+		t.Fatalf("the session page changed within a minute:\n%+v\n%+v", a, b)
+	}
+	if a.Lead != "Focus session" || len(a.Cells) != 2 {
+		t.Fatalf("no goal, no level: %+v", a)
+	}
+	open := Snapshot{OK: true, Loc: islandLoc, Session: &focus.Session{StartMS: start}, Live: focus.Live{Level: -1}}
+	if r := TodayPages(open, d, w, u, start+90*60_000)[0].Rings[0]; r.Value != "1h30 so far" || r.Frac != 1 {
+		t.Fatalf("open-ended session ring = %+v", r)
+	}
+}

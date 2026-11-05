@@ -86,7 +86,10 @@ func TodayPages(s Snapshot, d report.Day, w report.Week, u app.Usual, nowMS int6
 	return append(out, todayPage(d, u, s.loc()), weekPage(w, nowMS), goalsPage(d))
 }
 
+// sessionPage is the running session at nowMS, to the minute: the page
+// changes once a minute, so the notch is not drawn again every second.
 func (s Snapshot) sessionPage(nowMS int64) Page {
+	nowMS -= nowMS % 60_000
 	ss := s.Session
 	p := Page{ID: "session", Title: "Session", Lead: ss.Goal}
 	if p.Lead == "" {
@@ -117,7 +120,9 @@ func todayPage(d report.Day, u app.Usual, loc *time.Location) Page {
 	}
 	has := u.Days > 0
 	score := Cell{K: "Score", V: strconv.Itoa(d.Score.Value)}
-	if has && d.Score.Value != u.Score {
+	if d.Off { // nothing is scored on a day off
+		score.V = "day off"
+	} else if has && d.Score.Value != u.Score {
 		score.C, score.Tone = fmt.Sprintf("%+d", d.Score.Value-u.Score), "good"
 		if d.Score.Value < u.Score {
 			score.C, score.Tone = "−"+strconv.Itoa(u.Score-d.Score.Value), "bad"
