@@ -89,6 +89,19 @@ func TestPageNeedsNoTokenAndCarriesHeaders(t *testing.T) {
 	}
 }
 
+func TestFontsAreServedFromThePage(t *testing.T) {
+	f := newFixture(t)
+	for _, p := range []string{"/fonts/instrument-serif.woff2", "/fonts/source-sans-3.woff2", "/fonts/jetbrains-mono.woff2"} {
+		code, h, b := f.do("GET", p, "-", nil)
+		if code != 200 || len(b) < 1000 {
+			t.Fatalf("%s: %d, %d bytes", p, code, len(b))
+		}
+		if !strings.Contains(h.Get("Content-Security-Policy"), "font-src 'self'") {
+			t.Fatalf("%s: csp %q has no font-src", p, h.Get("Content-Security-Policy"))
+		}
+	}
+}
+
 func TestAPINeedsToken(t *testing.T) {
 	f := newFixture(t)
 	for _, tok := range []string{"-", "", "wrong"} {

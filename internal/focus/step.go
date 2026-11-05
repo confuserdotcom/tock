@@ -266,10 +266,26 @@ func stepBreakScreen(in Input, st *State) (Event, bool) {
 	if n := len(in.Views); current(in) != nil && !isIdle(in.Views[n-1]) && in.Labels[n-1].Kind == classify.KindDeep {
 		return Event{}, false
 	}
-	n := note(TopicBreakScreen, TitleBreakScreen, fmt.Sprintf("Your %d min break ran %d min over.",
+	title := TitleBreakScreen
+	if g := goalBefore(in.Sessions, st.BreakTakenAt); g != "" {
+		title = "Back to " + g + "?"
+	}
+	n := note(TopicBreakScreen, title, fmt.Sprintf("Your %d min break ran %d min over.",
 		minutes(until-st.BreakTakenAt), minutes(in.Now-until)), false)
 	n.Break = classify.Interval{From: st.BreakTakenAt, To: until}
 	return n, true
+}
+
+// goalBefore is the goal of the manual session that ended in the half hour
+// before a break began, or "".
+func goalBefore(ss []Session, breakMS int64) string {
+	goal, end := "", int64(0)
+	for _, s := range ss {
+		if s.Kind == KindManual && s.EndMS > end && s.EndMS <= breakMS+60_000 && breakMS-s.EndMS <= 30*60_000 {
+			goal, end = s.Goal, s.EndMS
+		}
+	}
+	return goal
 }
 
 // stepSession measures the running session, alerts on distraction and ends
