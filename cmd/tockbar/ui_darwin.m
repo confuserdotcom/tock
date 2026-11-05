@@ -111,12 +111,12 @@ static NSColor *kindColor(NSString *k) {
                           }];
         };
         m = @{
-            @"deep" : pair(0x2b7564, 0x63bfa8),
-            @"shallow" : pair(0x5a78a3, 0x8fa9d1),
-            @"neutral" : pair(0x858991, 0x7d828c),
-            @"browse" : pair(0x9a6585, 0xc993b4),
-            @"distract" : pair(0xb5462c, 0xe57d62),
-            @"none" : pair(0xb0aea6, 0x56554f),
+            @"deep" : pair(0x2f6f8f, 0x5fa3c4),
+            @"shallow" : pair(0x7d8fa8, 0x8fa1ba),
+            @"neutral" : pair(0xa3a8b0, 0x6b7079),
+            @"browse" : pair(0x8a6d9e, 0xb39cc6),
+            @"distract" : pair(0xc0504d, 0xe0726f),
+            @"none" : pair(0xc4c7cc, 0x4a4e55),
         };
     });
     NSColor *c = m[k];
