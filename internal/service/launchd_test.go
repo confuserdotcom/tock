@@ -13,6 +13,9 @@ import (
 // plist that plutil rejects.
 func plistJSON(t *testing.T, c Agent) map[string]any {
 	t.Helper()
+	if _, err := exec.LookPath("plutil"); err != nil {
+		t.Skip("plutil is macOS only")
+	}
 	b, err := Render(c)
 	if err != nil {
 		t.Fatal(err)
