@@ -36,6 +36,8 @@ var Features = []Feature{
 		func(c Config) bool { return c.Focus.Block }},
 	{"urge_surf", "Focus", "Urge surfing", "the distraction notice asks what you feel", "focus", "urge_surf",
 		func(c Config) bool { return c.Focus.UrgeSurf }},
+	{"notch", "Focus", "Notch", "sessions, recaps and labelling in the notch", "notch", "enabled",
+		func(c Config) bool { return c.Notch.Enabled }},
 	{"start", "Day", "Start of day", "a notice when your day starts", "routine", "start",
 		func(c Config) bool { return c.Routine.Start }},
 	{"recap", "Day", "Evening recap", "the day in one notice", "routine", "end",

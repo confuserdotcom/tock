@@ -40,6 +40,7 @@ type Config struct {
 	Recommend Recommend
 	Model     Model
 	OCR       OCR
+	Notch     Notch
 }
 
 // Model is the [model] section: the local classifier that labels what the
@@ -227,7 +228,7 @@ func DefaultLLM() LLM {
 // Default is the configuration used when there is no file.
 func Default() Config {
 	return Config{Score: stats.DefaultWeights, Focus: DefaultFocus(), LLM: DefaultLLM(), Shell: DefaultShell(), Away: DefaultAway(), AFK: DefaultAFK(), Slack: DefaultSlack(), Routine: DefaultRoutine(), Inbox: DefaultInbox(),
-		Recommend: DefaultRecommend(), Plan: DefaultPlan(), Model: Model{Enabled: true}, OCR: DefaultOCR()}
+		Recommend: DefaultRecommend(), Plan: DefaultPlan(), Model: Model{Enabled: true}, OCR: DefaultOCR(), Notch: DefaultNotch()}
 }
 
 type scoreTOML struct {
@@ -335,6 +336,7 @@ type fileTOML struct {
 	Recommend recommendTOML `toml:"recommend"`
 	Model     modelTOML     `toml:"model"`
 	OCR       ocrTOML       `toml:"ocr"`
+	Notch     notchTOML     `toml:"notch"`
 }
 
 // Load reads path. A missing file is Default() and no error. Any other
@@ -436,6 +438,7 @@ func Parse(name string, b []byte) (Config, error) {
 	if err := decodeRecommend(f.Recommend, &c.Recommend); err != nil {
 		return Default(), fmt.Errorf("%s: %w", name, err)
 	}
+	decodeNotch(f.Notch, &c.Notch)
 	if err := decodeOCR(f.OCR, &c.OCR); err != nil {
 		return Default(), fmt.Errorf("%s: %w", name, err)
 	}
