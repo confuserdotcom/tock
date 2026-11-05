@@ -111,7 +111,7 @@ static NSColor *kindColor(NSString *k) {
                           }];
         };
         m = @{
-            @"deep" : pair(0x2d7a68, 0x63bfa8),
+            @"deep" : pair(0x2b7564, 0x63bfa8),
             @"shallow" : pair(0x5a78a3, 0x8fa9d1),
             @"neutral" : pair(0x858991, 0x7d828c),
             @"browse" : pair(0x9a6585, 0xc993b4),

@@ -16,7 +16,7 @@
   --text-3: #696d75;
   --line: #dcdcd5;
   --line-2: #c6c6be;
-  --accent: #94661b;
+  --accent: #8a5e18;
   --accent-fill: #d9993a;
   --accent-text: #1d1c19;
   --bar: var(--bg);
@@ -24,14 +24,14 @@
   --shadow: none;
   --shadow-lg: 0 18px 48px rgba(29, 28, 25, 0.16), 0 0 0 1px var(--line-2);
 
-  --k-deep: #2d7a68;
+  --k-deep: #2b7564;
   --k-shallow: #5a78a3;
   --k-distract: #b5462c;
   --k-neutral: #858991;
   --k-browse: #9a6585;
   --k-none: #858991;
   --k-idle: rgba(29, 28, 25, 0.07);
-  --good: #2d7a68;
+  --good: #2b7564;
   --bad: #b5462c;
 
   --r: 6px;

@@ -41,15 +41,15 @@ func setTheme(dark bool) {
 	colFaint = hex("#696d75", "#7e838e")
 	colSurface = hex("#e6e6e0", "#2a2822")
 	colHover = hex("#f0f0ec", "#1a1915")
-	colBrand = hex("#94661b", "#e3a446")
-	colDeep = hex("#2d7a68", "#63bfa8")
+	colBrand = hex("#8a5e18", "#e3a446")
+	colDeep = hex("#2b7564", "#63bfa8")
 	colShallow = hex("#5a78a3", "#8fa9d1")
 	colNeutral = hex("#858991", "#7d828c")
 	colAccent = hex("#b5462c", "#e57d62")
 	colBrowse = hex("#9a6585", "#c993b4")
 	// Unlabelled: the web hatches grey; a terminal cannot, so a lighter grey.
 	colUnlabelled = hex("#b0aea6", "#56554f")
-	colGood = hex("#2d7a68", "#63bfa8")
+	colGood = hex("#2b7564", "#63bfa8")
 
 	fg := func(c color.Color) lipgloss.Style { return lipgloss.NewStyle().Foreground(c) }
 	sText, sBright, sDim, sFaint = fg(colText), fg(colBright), fg(colDim), fg(colFaint)
