@@ -640,3 +640,11 @@ func TestRunnerShowsWakeScreen(t *testing.T) {
 		t.Fatalf("curtain = %q", u.curtains[0])
 	}
 }
+
+func TestSpecLinesStrip(t *testing.T) {
+	got := specLines([]bar.Item{{Title: "x"}, {Strip: []string{"deep", "", "distract"}}}, 0, nil)
+	want := []string{"\tx", "\t\t\ts:deep,none,distract"}
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("lines = %q, want %q", got, want)
+	}
+}

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"cmp"
 	"errors"
 	"log/slog"
 	"os"
@@ -241,13 +242,22 @@ func (r *runner) render(now time.Time) {
 }
 
 // specLines flattens items into menu spec lines: one ">" per depth, then "-"
-// for a separator, else "id\ttitle" with a third field "c" for a check mark.
+// for a separator, else "id\ttitle" with a third field "c" for a check mark;
+// a strip row is "\t\t\ts:k1,k2,…" (an unlabelled cell is "none").
 // A submenu parent is written first, with no id, then its rows one deeper.
 func specLines(items []bar.Item, depth int, lines []string) []string {
 	prefix := strings.Repeat(">", depth)
 	for _, it := range items {
 		if it.Separator {
 			lines = append(lines, prefix+"-")
+			continue
+		}
+		if len(it.Strip) > 0 {
+			ks := make([]string, len(it.Strip))
+			for i, k := range it.Strip {
+				ks[i] = cmp.Or(clean(k), "none")
+			}
+			lines = append(lines, prefix+"\t\t\ts:"+strings.Join(ks, ","))
 			continue
 		}
 		line := prefix + it.ID + "\t" + clean(it.Title)

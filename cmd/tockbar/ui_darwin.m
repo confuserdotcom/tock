@@ -71,8 +71,45 @@ void bar_set_title(const char *title) {
     });
 }
 
+// kindColor is the web dashboard's --k-* colour of a kind; an unknown kind
+// is tertiary grey.
+static NSColor *kindColor(NSString *k) {
+    static NSDictionary<NSString *, NSColor *> *m;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        NSColor * (^hex)(unsigned) = ^(unsigned v) {
+            return [NSColor colorWithSRGBRed:((v >> 16) & 0xff) / 255.0
+                                       green:((v >> 8) & 0xff) / 255.0
+                                        blue:(v & 0xff) / 255.0
+                                       alpha:1];
+        };
+        m = @{
+            @"deep" : hex(0x1f8a73),
+            @"shallow" : hex(0xa07818),
+            @"neutral" : hex(0x6b7487),
+            @"browse" : hex(0xb8692a),
+            @"distract" : hex(0xc4503a),
+            @"none" : hex(0x7652c9),
+        };
+    });
+    NSColor *c = m[k];
+    return c ? c : [NSColor tertiaryLabelColor];
+}
+
+// stripTitle draws kinds ("k1,k2,…") as one coloured block each.
+static NSAttributedString *stripTitle(NSString *kinds) {
+    NSMutableAttributedString *s = [NSMutableAttributedString new];
+    NSFont *font = [NSFont monospacedSystemFontOfSize:13 weight:NSFontWeightRegular];
+    for (NSString *k in [kinds componentsSeparatedByString:@","]) {
+        NSDictionary *attrs = @{NSForegroundColorAttributeName : kindColor(k), NSFontAttributeName : font};
+        [s appendAttributedString:[[NSAttributedString alloc] initWithString:@"▮" attributes:attrs]];
+    }
+    return s;
+}
+
 // spec: one line per item, "id\ttitle[\tc]"; an empty id is a disabled label,
-// a line "-" a separator and a third field "c" a check mark. Each leading ">"
+// a line "-" a separator and a third field "c" a check mark. A fourth field
+// "s:k1,k2,…" makes the row a colour strip, one block per kind. Each leading ">"
 // is one level of submenu: the rows deeper than the item above them are its
 // submenu.
 void bar_set_menu(const char *spec) {
@@ -112,6 +149,14 @@ void bar_set_menu(const char *spec) {
             }
             NSArray *f = [line componentsSeparatedByString:@"\t"];
             if (f.count < 2) {
+                continue;
+            }
+            if (f.count >= 4 && [f[3] hasPrefix:@"s:"]) {
+                // Enabled with no action: a disabled item would grey the colours.
+                NSMenuItem *it = [[NSMenuItem alloc] initWithTitle:@"" action:nil keyEquivalent:@""];
+                it.attributedTitle = stripTitle([f[3] substringFromIndex:2]);
+                it.enabled = YES;
+                [top addItem:it];
                 continue;
             }
             NSMenuItem *it = [[NSMenuItem alloc] initWithTitle:f[1] action:nil keyEquivalent:@""];
