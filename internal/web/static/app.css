@@ -215,7 +215,7 @@ h2 { font: 600 0.9375rem/1.3 var(--sans); color: var(--text-bright); margin: 0 0
 .ribbon > i.hot { filter: brightness(1.15); }
 .ribbon > i.sel { box-shadow: inset 0 0 0 2px var(--text-bright); }
 .ribbon .now { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--accent-fill); pointer-events: none; }
-.ticks { position: relative; height: 1.25rem; margin-top: 0.4rem; font: 0.6875rem var(--mono); color: var(--text-3); }
+.ticks { position: relative; height: 1.25rem; margin-top: 0.4rem; font: 0.75rem var(--mono); color: var(--text-3); }
 .ticks span { position: absolute; transform: translateX(-50%); }
 
 /* Hour columns. */
@@ -224,7 +224,7 @@ h2 { font: 600 0.9375rem/1.3 var(--sans); color: var(--text-bright); margin: 0 0
 .hours .col i { display: block; background: var(--k); transform-origin: bottom; animation: grow 500ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
 .hours .col i + i { box-shadow: 0 1px 0 var(--bg); }
 @keyframes grow { from { transform: scaleY(0); } }
-.hours-l { display: flex; gap: 4px; margin-top: 0.4rem; font: 0.6875rem var(--mono); color: var(--text-3); }
+.hours-l { display: flex; gap: 4px; margin-top: 0.4rem; font: 0.75rem var(--mono); color: var(--text-3); }
 .hours-l span { flex: 1; text-align: center; }
 
 /* Lists with bars. */
@@ -267,7 +267,7 @@ h2 { font: 600 0.9375rem/1.3 var(--sans); color: var(--text-bright); margin: 0 0
   background: color-mix(in srgb, var(--k) 13%, transparent); color: color-mix(in srgb, var(--k) 80%, var(--text));
 }
 .chip.k-none { background: color-mix(in srgb, var(--k-none) 11%, transparent); color: var(--k-none); }
-.chip .src { font: 400 0.6875rem var(--mono); opacity: 0.7; }
+.chip .src { font: 400 0.75rem var(--mono); opacity: 0.85; }
 
 .toggle { font-size: 0.8125rem; color: var(--accent); font-weight: 500; padding: 0.2rem 0.5rem; border-radius: var(--r-sm); }
 .toggle:hover { background: var(--card-2); }
