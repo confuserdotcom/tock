@@ -666,7 +666,7 @@ static void haptic(NSHapticFeedbackPattern p) {
 }
 @property(strong) NotchPanel *win;
 @property NSRect screenFrame;
-@property CGDirectDisplayID display;
+@property CGDirectDisplayID displayID; // not display: that is NSView's redraw
 @property BOOL real;      // a camera cutout: the island hides behind it at rest
 @property BOOL barHidden; // its menu bar is away (full screen)
 @property CGFloat notchW, notchH, midX, top;
@@ -848,6 +848,9 @@ static void haptic(NSHapticFeedbackPattern p) {
 
 // goPage settles the track on page to, carrying the swipe's speed v.
 - (void)goPage:(NSInteger)to velocity:(double)v {
+    if (self.pageCount <= 0) { // the pages went away under the gesture
+        return;
+    }
     to = MIN(MAX(to, 0), self.pageCount - 1);
     if (to != self.pageAt) {
         haptic(NSHapticFeedbackPatternAlignment);
@@ -1324,6 +1327,16 @@ static void haptic(NSHapticFeedbackPattern p) {
         wheelFired = NO;
         wheel = 0;
     }
+}
+
+// endPageGesture drops a swipe, a page drag or a resize the content went
+// away under.
+- (void)endPageGesture {
+    if (hswipe || pageArmed || self.resizing || self.gripCursor) {
+        [[NSCursor arrowCursor] set];
+    }
+    hswipe = pageArmed = NO;
+    self.resizing = self.gripCursor = NO;
 }
 
 // dragPages moves the pages with the mouse held down, as two fingers do: it
@@ -1916,6 +1929,7 @@ static void haptic(NSHapticFeedbackPattern p) {
         }
         if (self.pageCount == 0) {
             [self placeTrack];
+            [self endPageGesture];
         }
         [self aimGrips];
         return;
@@ -1923,8 +1937,7 @@ static void haptic(NSHapticFeedbackPattern p) {
     self.track = nil;
     self.pageCount = 0;
     self.dots = nil;
-    self.resizing = NO;
-    hswipe = pageArmed = NO;
+    [self endPageGesture];
     [self aimGrips];
     if (wasPanel) {
         self.engaged = NO;
@@ -2120,6 +2133,9 @@ static void haptic(NSHapticFeedbackPattern p) {
 }
 
 - (void)teardown {
+    if (self.userOpen && !bval(spec, @"pending")) {
+        notchSend(@"notch:shut"); // the display went away with the panel open
+    }
     for (NSTimer *t in @[ self.intentTimer ?: [NSNull null], self.leaveTimer ?: [NSNull null], self.slideTimer ?: [NSNull null] ]) {
         if ([t isKindOfClass:[NSTimer class]]) {
             [t invalidate];
@@ -2293,7 +2309,7 @@ static void rebuild(void) {
         NSRect f = s.frame;
         Island *i = [[Island alloc] initWithFrame:NSMakeRect(0, 0, 10, 10)];
         i.screenFrame = f;
-        i.display = [s.deviceDescription[@"NSScreenNumber"] unsignedIntValue];
+        i.displayID = [s.deviceDescription[@"NSScreenNumber"] unsignedIntValue];
         i.top = NSMaxY(f);
         i.real = s == camera;
         if (i.real) {
