@@ -40,6 +40,10 @@ const (
 	IDNotchMenu = "notch:menu:"
 	// IDNotchSeen is sent when a missed moment was opened and put away.
 	IDNotchSeen = "notch:seen"
+	// IDNotchOpen and IDNotchShut are sent when you open the quiet or
+	// running panel and when it folds: the pages are read only while open.
+	IDNotchOpen = "notch:open"
+	IDNotchShut = "notch:shut"
 )
 
 // Dot kinds beyond the kinds of time.
@@ -121,6 +125,9 @@ type Panel struct {
 	Buttons []NButton   `json:"buttons,omitempty"`
 	Entries []Entry     `json:"entries,omitempty"`
 	At      int         `json:"at,omitempty"` // the entry shown
+	// Pages replace Lead to Rows in the open quiet notch: you swipe between
+	// them, and the panel can be resized (see Page).
+	Pages []Page `json:"pages,omitempty"`
 }
 
 // Cell is one figure of a number row: label, value, change and its tone.

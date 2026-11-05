@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"tock/internal/bar"
 	"tock/internal/focus"
@@ -194,5 +195,34 @@ func TestNotchMissedMomentWaits(t *testing.T) {
 	r.handle(event{kind: evMenu, id: bar.IDNotchClose})
 	if island(t, u).Pending {
 		t.Fatal("a closed moment must not wait")
+	}
+}
+
+func TestNotchPagesOnlyWhileOpen(t *testing.T) {
+	e := seededEnv(t)
+	r, u, _ := testRunner(t, e)
+	r.handle(event{kind: evReady})
+	r.handle(event{kind: evNotch, id: "1"})
+	if i := island(t, u); i.Hover == nil || len(i.Hover.Pages) != 0 {
+		t.Fatalf("closed notch has pages: %+v", i.Hover)
+	}
+	r.handle(event{kind: evMenu, id: bar.IDNotchOpen})
+	i := island(t, u)
+	if i.Hover == nil || len(i.Hover.Pages) < 3 || i.Hover.Pages[0].ID != "today" {
+		t.Fatalf("open notch pages = %+v", i.Hover)
+	}
+	at := r.pagesAt
+	r.tick()
+	if r.pagesAt != at {
+		t.Fatal("pages were read again within the minute")
+	}
+	r.handle(event{kind: evMenu, id: bar.IDNotchShut})
+	if r.panelOpen {
+		t.Fatal("still open after notch:shut")
+	}
+	e.Clock = e.Clock.Add(2 * time.Minute)
+	r.tick()
+	if r.pagesAt != at {
+		t.Fatal("pages were read while the panel was closed")
 	}
 }

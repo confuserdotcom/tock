@@ -113,6 +113,36 @@ type runner struct {
 	// quiet notch until opened, replaced or missedKeepMS old.
 	missed   *bar.Island
 	missedMS int64
+	// pages are the swipeable pages of the open quiet panel, read when it
+	// opens and every pagesEvery while it stays open; kept when it folds,
+	// so the next open shows them at once.
+	pages     []bar.Page
+	pagesAt   time.Time
+	panelOpen bool
+}
+
+// pagesEvery is how often the pages are read again while the panel is open.
+const pagesEvery = time.Minute
+
+// loadPages reads today, the usual day and the week for the notch pages.
+func (r *runner) loadPages(now time.Time) {
+	r.pagesAt = now
+	d, err := r.a.Day(now)
+	if err != nil {
+		r.warn("reading today for the notch failed", err)
+		return
+	}
+	u, err := r.a.Usual(now)
+	if err != nil {
+		r.warn("reading the usual day for the notch failed", err)
+		return
+	}
+	w, err := r.a.Week(now)
+	if err != nil {
+		r.warn("reading the week for the notch failed", err)
+		return
+	}
+	r.pages = bar.TodayPages(r.snap, d, w, u, now.UnixMilli())
 }
 
 // loop runs until events closes.
@@ -215,6 +245,9 @@ func (r *runner) tick() {
 		}
 	}
 	r.snap.Access = r.access
+	if r.a != nil && r.panelOpen && now.Sub(r.pagesAt) >= pagesEvery {
+		r.loadPages(now)
+	}
 	r.render(now)
 }
 
@@ -326,6 +359,11 @@ func (r *runner) renderNotch(nowMS int64) {
 			r.missed = nil
 		}
 		i := r.snap.IslandBase(nowMS)
+		if i.Hover != nil && (i.State == bar.IslandQuiet || i.State == bar.IslandFocus) && len(r.pages) > 0 {
+			h := *i.Hover
+			h.Pages = r.pages
+			i.Hover = &h
+		}
 		switch {
 		case r.moment != nil:
 			i = *r.moment
@@ -360,6 +398,12 @@ func (r *runner) notch(id string) {
 			r.moment, r.labels = nil, nil
 		}
 		r.done("notch expire", "", nil)
+	case id == bar.IDNotchOpen:
+		r.panelOpen = true
+		r.loadPages(r.now())
+		r.render(r.now())
+	case id == bar.IDNotchShut:
+		r.panelOpen = false
 	case id == bar.IDNotchSeen:
 		r.missed = nil
 		r.done("notch seen", "", nil)
