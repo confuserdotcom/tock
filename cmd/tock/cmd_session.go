@@ -73,6 +73,19 @@ func sessionShow(env Env) error {
 }
 
 func sessionStart(env Env, args []string) error {
+	paper := false
+	var rest []string
+	for _, a := range args {
+		switch {
+		case a == "--paper":
+			paper = true
+		case strings.HasPrefix(a, "-"):
+			return usagef("session start: unknown flag %q (--paper: idle time is paper work)", a)
+		default:
+			rest = append(rest, a)
+		}
+	}
+	args = rest
 	if len(args) > 1 {
 		return usagef("session start takes one length in minutes")
 	}
@@ -92,12 +105,16 @@ func sessionStart(env Env, args []string) error {
 	if n == 0 {
 		n = a.Config().Focus.Presets[0]
 	}
-	s, err := a.StartSession(n)
+	s, err := a.StartSessionPaper(n, paper)
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(env.Stdout, "session started: %d min, ends %s\n", n,
-		time.UnixMilli(s.PlannedMS).In(env.Now().Location()).Format("15:04"))
+	onPaper := ""
+	if paper {
+		onPaper = ", on paper"
+	}
+	fmt.Fprintf(env.Stdout, "session started: %d min, ends %s%s\n", n,
+		time.UnixMilli(s.PlannedMS).In(env.Now().Location()).Format("15:04"), onPaper)
 	if h, err := a.Health(); err == nil && !h.TrackdUp {
 		fmt.Fprintln(env.Stderr, "warning: trackd not running, no alerts")
 	}
@@ -395,6 +412,9 @@ func sessionList(env Env) error {
 			ints = strconv.Itoa(s.Interruptions)
 		}
 		note, _ := report.CleanNote(s.Note)
+		if w := report.WakeText(s); w != "" {
+			note = strings.TrimSuffix(w+" · "+note, " · ")
+		}
 		fmt.Fprintf(tw, "%*d\t%s\t%s\t%s\t%d%%\t%d\t%s\t%s\t%s\n", width, s.ID,
 			time.UnixMilli(s.StartMS).In(loc).Format("Mon 15:04"), s.Kind, report.Dur(s.EndMS-s.StartMS),
 			report.DeepPct(s, f.NowMS), focus.Quality(s, w).Score, star, ints, note)

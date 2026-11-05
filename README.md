@@ -211,7 +211,9 @@ tock rules check | tock rules stats [--days N]   validate | time each rule decid
 tock rules dupes                       look-alike category and project names
 tock rules merge [--project] <from> <into>
                                        fold one name into another everywhere
-tock session [start [MIN] | stop]      focus session: show, start (default 25), stop
+tock session [start [MIN] [--paper] | stop]
+                                       focus session: show, start (default 25; --paper: idle is paper work), stop
+tock break [MIN]                       take a break now (default 5 min)
 tock session snooze [MIN|off]          hold distraction notices back (default [focus] snooze), or resume them
 tock recap [YYYY-MM-DD|start|midday]   the daily recap, or a routine notice now
 tock recommend [accept | dismiss]      the pending suggestion: show it, take it, or not now
@@ -248,7 +250,7 @@ Times are RFC 3339 with your local offset. `rate` and `amount` are empty
 
 `tock choice` lists the features you can turn on and off: local model
 labels, Claude, screen text, calendar meetings, notifications, suggestions,
-the break screen, blocking, urge surfing, the daily notices, plan reminders
+the break screen, the wake screen, blocking, urge surfing, the daily notices, plan reminders
 and Slack. Space turns the feature under the cursor on or off, enter saves,
 q quits (changes not saved are said so). Each one is a setting in
 config.toml (`[ocr] enabled`, `[focus] break_screen`…); tock choice changes
@@ -310,6 +312,15 @@ break_screen = false     # a break you took that runs over covers the screens un
                          # you click Back to work or 5 more minutes, or press Esc;
                          # never locks, never during a call, not once back at deep work
 break_screen_grace = 5   # minutes past the break's end before it shows (1 to 60)
+wake_screen = false      # a session gone off task (distraction, browsing, long idle)
+                         # gets a banner at wake_warn minutes, then covers the screens
+                         # at wake_after: Back to work, This is work (files the site
+                         # under your work label; tock undo takes it back), I'm on
+                         # paper (idle stops counting), Snooze, End session. Two a
+                         # session at most; never during a call; Esc closes it
+wake_warn = 5            # minutes off task before the banner (1 to 60)
+wake_after = 10          # minutes off task before the screen, and between two (2 to 120)
+wake_idle = 15           # minutes idle before idle counts as off task (1 to 120)
 # meeting_apps / meeting_hosts replace the built-in lists of meeting apps
 # (bundle ids) and hosts during which break and distraction nudges stay quiet
 block = false            # close distracting tabs and hide distracting apps in sessions

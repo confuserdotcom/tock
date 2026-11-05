@@ -121,7 +121,19 @@ func SessionLine(s focus.Session, loc *time.Location, withDay bool) string {
 	if s.Kind == focus.KindManual {
 		line += fmt.Sprintf("  %d int", s.Interruptions)
 	}
+	if w := WakeText(s); w != "" {
+		line += "  " + w
+	}
 	return line
+}
+
+// WakeText is "woken 2× · back 1×" for a session that showed wake screens,
+// else "".
+func WakeText(s focus.Session) string {
+	if s.Wakes == 0 {
+		return ""
+	}
+	return fmt.Sprintf("woken %d× · back %d×", s.Wakes, s.WakesBack)
 }
 
 // Recap is the daily recap shared by the notification and tock recap:
