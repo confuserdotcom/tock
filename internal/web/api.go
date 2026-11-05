@@ -677,19 +677,19 @@ func (s *Server) undo(r *http.Request) (any, error) {
 }
 
 type monthSideJSON struct {
-	TrackedMS       int64   `json:"tracked_ms"`
-	FocusMS         int64   `json:"focus_ms"`
+	TrackedMS       int64   `json:"trackedMS"`
+	FocusMS         int64   `json:"focusMS"`
 	Workdays        int     `json:"workdays"`
-	AvgScore        float64 `json:"avg_score"`
-	SwitchesPerHour float64 `json:"switches_per_hour"`
+	AvgScore        float64 `json:"avgScore"`
+	SwitchesPerHour float64 `json:"switchesPerHour"`
 }
 
 type monthDayJSON struct {
 	Date      string `json:"date"`
-	TrackedMS int64  `json:"tracked_ms"`
-	FocusMS   int64  `json:"focus_ms"`
-	DeepMS    int64  `json:"deep_ms"`
-	LongestMS int64  `json:"longest_ms"`
+	TrackedMS int64  `json:"trackedMS"`
+	FocusMS   int64  `json:"focusMS"`
+	DeepMS    int64  `json:"deepMS"`
+	LongestMS int64  `json:"longestMS"`
 	Score     int    `json:"score"` // -1: not a workday
 }
 
@@ -697,7 +697,7 @@ type trendJSON struct {
 	Name   string `json:"name"`
 	Kind   string `json:"kind"`
 	MS     int64  `json:"ms"`
-	PrevMS int64  `json:"prev_ms"`
+	PrevMS int64  `json:"prevMS"`
 }
 
 type monthJSON struct {
@@ -745,7 +745,7 @@ func (s *Server) month(r *http.Request) (any, error) {
 
 type hoursJSON struct {
 	Thin       bool    `json:"thin"`
-	ActiveDays int     `json:"active_days"`
+	ActiveDays int     `json:"activeDays"`
 	Grid       [][]int `json:"grid"` // [weekday, Monday first][hour]: mean focus minutes
 }
 
