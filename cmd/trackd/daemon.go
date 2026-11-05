@@ -207,16 +207,18 @@ func runWithStore(o daemonOpts, log *slog.Logger, st *store.Store) int {
 	var updated atomic.Bool
 	stopUpdate := func() {} // called by hand once the source stops
 	if o.ConfigDir != "" {
-		stopFocus := startFocus(o, log)
+		f := newFocusLoop(o, log)
+		sh := &shared{open: f.open}
+		defer sh.close() // deferred first: closes after every loop stopped
+		stopFocus := startFocus(f, sh, o.FocusEvery, log)
 		defer stopFocus()
 		every := o.SyncEvery
 		if every <= 0 {
 			every = syncEvery
 		}
-		f := newFocusLoop(o, log) // only for its app opener
-		stopSync := startLoop(&syncLoop{open: f.open, log: log}, every)
+		stopSync := startLoop(sh.turn(&syncLoop{open: sh.opener, log: log}), every)
 		defer stopSync()
-		stopPrune := startLoop(&pruneLoop{open: f.open, log: log}, pruneEvery)
+		stopPrune := startLoop(sh.turn(&pruneLoop{open: sh.opener, log: log}), pruneEvery)
 		defer stopPrune()
 		if o.Calendar != nil {
 			every := o.CalendarEvery

@@ -1713,8 +1713,10 @@ make update                                # reinstall the Mac and publish for L
 
 Checklists for things only a person at the Mac can verify are in
 `docs/*-checklist.md`. CI runs gofmt, vet, the no-cgo build and the tests on
-Linux, and the cgo build and tests on macOS. `git tag v5.0.0 && make release`
-builds the Linux tarballs and `dist/SHA256SUMS` for a GitHub release.
+Linux, and the cgo build and tests on macOS. To release, add a `## vX.Y.Z`
+section to CHANGELOG.md and push the tag (`git tag v5.1.0 && git push origin
+v5.1.0`): CI tests it, builds the Linux tarballs and `SHA256SUMS` with
+`make release`, and publishes the GitHub release with that section as notes.
 
 ## License
 
