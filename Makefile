@@ -34,7 +34,7 @@ CODESIGN_TIMEOUT ?= 60
 # receives SIGALRM and exits 142 when it overruns.
 WITH_TIMEOUT = perl -e 'alarm shift; exec @ARGV or exit 127'
 
-.PHONY: web icon release install-linux uninstall-linux deploy-linux build test test-quick vet clean bundle bundle-bar print-dr cert cert-trust dump dump-bg dump-stop install install-mac uninstall update update-here hooks publish-linux bootstrap-hint
+.PHONY: src formula dist-mac dist-linux web icon release install-linux uninstall-linux deploy-linux build test test-quick vet clean bundle bundle-bar print-dr cert cert-trust dump dump-bg dump-stop install install-mac uninstall update update-here hooks publish-linux bootstrap-hint
 
 build:
 	CGO_ENABLED=1 go build -ldflags "$(LDFLAGS)" -o bin/trackd ./cmd/trackd
@@ -341,6 +341,41 @@ release:
 	done
 	cd dist && shasum -a 256 *.tar.gz > SHA256SUMS
 	@ls -1 dist
+
+# dist-mac / dist-linux: build into PREFIX the way a package installs tock:
+# PREFIX/bin/tock, and the files tock setup turns into the apps (macOS) or
+# copies (Linux) in PREFIX/libexec/tock. Nothing is signed or started here.
+# The Homebrew formula runs these with its own PREFIX and VERSION.
+PREFIX ?= $(CURDIR)/dist/prefix
+LIBEXEC = $(PREFIX)/libexec/tock
+
+dist-mac:
+	@mkdir -p "$(PREFIX)/bin" "$(LIBEXEC)"
+	CGO_ENABLED=1 go build -trimpath \
+		-ldflags "$(LDFLAGS) -extldflags=-Wl,-sectcreate,__TEXT,__info_plist,$(CURDIR)/packaging/Info.plist" \
+		-o "$(LIBEXEC)/trackd" ./cmd/trackd
+	CGO_ENABLED=1 go build -trimpath -ldflags "$(LDFLAGS)" -o "$(LIBEXEC)/tockbar" ./cmd/tockbar
+	CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o "$(PREFIX)/bin/tock" ./cmd/tock
+	cp packaging/Info.plist "$(LIBEXEC)/trackd.plist"
+	cp packaging/bar/Info.plist "$(LIBEXEC)/tockbar.plist"
+	cp packaging/bar/AppIcon.icns packaging/bar/MenuGlyph.png packaging/bar/MenuGlyph@2x.png "$(LIBEXEC)/"
+
+dist-linux:
+	@mkdir -p "$(PREFIX)/bin" "$(LIBEXEC)"
+	CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o "$(LIBEXEC)/trackd" ./cmd/trackd
+	CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o "$(PREFIX)/bin/tock" ./cmd/tock
+
+# src / formula: the release's source tarball and the Homebrew formula that
+# builds it (packaging/homebrew/tock.rb.in). VERSION must be a tag.
+src:
+	@case "$(VERSION)" in v[0-9]*) ;; *) echo "src: VERSION $(VERSION) is not a tag like v6.0.0" >&2; exit 1;; esac
+	@mkdir -p dist
+	git archive --format=tar.gz --prefix=tock-$(VERSION)/ -o dist/tock-$(VERSION)-src.tar.gz $(VERSION)
+
+formula: src
+	sum=$$(shasum -a 256 dist/tock-$(VERSION)-src.tar.gz | cut -d' ' -f1) && \
+		sed -e 's|@TAG@|$(VERSION)|g' -e "s|@SHA256@|$$sum|" packaging/homebrew/tock.rb.in > dist/tock.rb
+	@echo "dist/tock.rb: copy it to Formula/tock.rb in the homebrew-tock tap"
 
 # web: rebuild the dashboard (web/, React) into internal/web/static, which is
 # committed so Go builds need no Node. Run after changing anything in web/.
