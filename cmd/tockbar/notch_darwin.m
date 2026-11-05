@@ -406,6 +406,155 @@ static void pillDone(NSWindow *w);
 }
 @end
 
+// Bars is a stacked bar chart: one column per day or hour, parts by kind
+// from the bottom, the label (and a sub line) under each column.
+@interface Bars : FlipView
+@property(strong) NSArray<NSDictionary *> *bars;
+@end
+@implementation Bars
++ (CGFloat)heightFor:(NSArray *)bars {
+    BOOL sub = NO;
+    for (NSDictionary *b in bars) {
+        sub = sub || sval(b, @"sub").length > 0;
+    }
+    return 48 + 15 + (sub ? 13 : 0);
+}
+- (void)drawRect:(NSRect)r {
+    (void)r;
+    NSUInteger n = self.bars.count;
+    if (!n) {
+        return;
+    }
+    CGFloat w = self.bounds.size.width, ch = 48;
+    CGFloat slot = w / n, cw = MIN(MAX(slot - 6, 3), 30);
+    double top = 1;
+    for (NSDictionary *b in self.bars) {
+        double t = 0;
+        for (NSDictionary *pt in aval(b, @"parts")) {
+            t += ival(pt, @"ms");
+        }
+        top = MAX(top, t);
+    }
+    NSDictionary *la = @{NSFontAttributeName : digits(10, NSFontWeightRegular), NSForegroundColorAttributeName : white(0.45)};
+    NSDictionary *ha = @{NSFontAttributeName : digits(10, NSFontWeightSemibold), NSForegroundColorAttributeName : white(0.95)};
+    CGFloat lw = [@"Mon" sizeWithAttributes:la].width + 4;
+    NSUInteger every = MAX((NSUInteger)ceil(lw / slot), 1u);
+    for (NSUInteger i = 0; i < n; i++) {
+        NSDictionary *b = self.bars[i];
+        CGFloat x = floor(i * slot + (slot - cw) / 2);
+        // the empty column, so a day with nothing still has its place
+        [white(0.06) setFill];
+        [[NSBezierPath bezierPathWithRoundedRect:NSMakeRect(x, 0, cw, ch) xRadius:2 yRadius:2] fill];
+        double t = 0;
+        for (NSDictionary *pt in aval(b, @"parts")) {
+            t += ival(pt, @"ms");
+        }
+        CGFloat h = round(ch * t / top);
+        if (h > 0) {
+            [NSGraphicsContext saveGraphicsState];
+            [[NSBezierPath bezierPathWithRoundedRect:NSMakeRect(x, ch - h, cw, h) xRadius:2 yRadius:2] addClip];
+            CGFloat y = ch;
+            for (NSDictionary *pt in aval(b, @"parts")) {
+                CGFloat ph = h * ival(pt, @"ms") / t;
+                [kindColor(sval(pt, @"kind")) setFill];
+                NSRectFill(NSMakeRect(x, y - ph, cw, ph + 0.5));
+                y -= ph;
+            }
+            [NSGraphicsContext restoreGraphicsState];
+        }
+        BOOL hi = bval(b, @"hi");
+        if (i % every == 0 || hi) {
+            NSString *l = sval(b, @"label");
+            NSSize ls = [l sizeWithAttributes:la];
+            [l drawAtPoint:NSMakePoint(round(i * slot + (slot - ls.width) / 2), ch + 3) withAttributes:hi ? ha : la];
+        }
+        NSString *sub = sval(b, @"sub");
+        if (sub.length) {
+            NSDictionary *sa = @{NSFontAttributeName : digits(9.5, NSFontWeightRegular), NSForegroundColorAttributeName : white(hi ? 0.75 : 0.4)};
+            NSSize ss = [sub sizeWithAttributes:sa];
+            [sub drawAtPoint:NSMakePoint(round(i * slot + (slot - ss.width) / 2), ch + 16) withAttributes:sa];
+        }
+    }
+}
+@end
+
+// Rings are progress rings side by side: label, value and a sub line under
+// each.
+@interface Rings : FlipView
+@property(strong) NSArray<NSDictionary *> *rings;
+@end
+@implementation Rings
++ (CGFloat)heightFor:(NSArray *)rings {
+    BOOL sub = NO;
+    for (NSDictionary *g in rings) {
+        sub = sub || sval(g, @"sub").length > 0;
+    }
+    return 46 + 6 + 15 + 15 + (sub ? 13 : 0);
+}
+- (void)drawRect:(NSRect)r {
+    (void)r;
+    NSUInteger n = self.rings.count;
+    if (!n) {
+        return;
+    }
+    CGFloat slot = self.bounds.size.width / MAX(n, 2u), d = 46, lw = 5;
+    for (NSUInteger i = 0; i < n; i++) {
+        NSDictionary *g = self.rings[i];
+        CGFloat cx = i * slot + slot / 2, cy = d / 2;
+        NSBezierPath *track = [NSBezierPath bezierPath];
+        [track appendBezierPathWithArcWithCenter:NSMakePoint(cx, cy) radius:(d - lw) / 2 startAngle:0 endAngle:360];
+        track.lineWidth = lw;
+        [white(0.12) setStroke];
+        [track stroke];
+        double f = MIN(MAX([g[@"frac"] doubleValue], 0), 1);
+        if (f > 0) {
+            // clockwise from 12 o'clock; the view is flipped
+            NSBezierPath *arc = [NSBezierPath bezierPath];
+            [arc appendBezierPathWithArcWithCenter:NSMakePoint(cx, cy) radius:(d - lw) / 2 startAngle:-90 endAngle:-90 + 360 * f clockwise:NO];
+            arc.lineWidth = lw;
+            arc.lineCapStyle = NSLineCapStyleRound;
+            [kindColor(sval(g, @"kind")) setStroke];
+            [arc stroke];
+        }
+        NSMutableParagraphStyle *ps = [NSMutableParagraphStyle new];
+        ps.alignment = NSTextAlignmentCenter;
+        ps.lineBreakMode = NSLineBreakByTruncatingTail;
+        CGFloat y = d + 6;
+        NSArray *lines = @[
+            @[ sval(g, @"label"), sys(11, NSFontWeightRegular), white(0.62) ],
+            @[ sval(g, @"value"), digits(12, NSFontWeightMedium), white(0.95) ],
+            @[ sval(g, @"sub"), sys(10, NSFontWeightRegular), white(0.45) ],
+        ];
+        for (NSArray *ln in lines) {
+            if ([ln[0] length]) {
+                [ln[0] drawInRect:NSMakeRect(i * slot + 2, y, slot - 4, 15)
+                   withAttributes:@{NSFontAttributeName : ln[1], NSForegroundColorAttributeName : ln[2], NSParagraphStyleAttributeName : ps}];
+            }
+            y += 15;
+        }
+    }
+}
+@end
+
+// PageDots shows which page of the open notch is in view.
+@interface PageDots : FlipView
+@property NSInteger count, at;
+@end
+@implementation PageDots
+- (void)drawRect:(NSRect)r {
+    (void)r;
+    if (self.count < 2) {
+        return;
+    }
+    CGFloat d = 5, gap = 7, w = self.count * d + (self.count - 1) * gap;
+    CGFloat x = (self.bounds.size.width - w) / 2;
+    for (NSInteger i = 0; i < self.count; i++) {
+        [white(i == self.at ? 0.9 : 0.28) setFill];
+        [[NSBezierPath bezierPathWithOvalInRect:NSMakeRect(x + i * (d + gap), 1, d, d)] fill];
+    }
+}
+@end
+
 // ---------- shared state ----------
 
 @class Island;
@@ -415,6 +564,36 @@ static Island *active;                    // where tock's moments open
 static NSDictionary *spec;                // what Go asked for; nil = hidden
 static BOOL optSharing, optAll = YES, optHover;
 static BOOL reduceMotion;
+
+// The open quiet panel has three sizes you drag or pinch between: S, M and
+// L. The size and the page in view are remembered per Mac (UI state, not
+// config).
+static NSString *const kSizeKey = @"NotchPanelSize";
+static NSString *const kPageKey = @"NotchPanelPage";
+static const CGFloat kLevelW[3] = {440, 580, 740};
+static const CGFloat kGrip = 18; // the resize grips at the bottom corners
+static NSInteger sizeLevel = -1;
+static NSInteger panelSize(void) {
+    if (sizeLevel < 0) {
+        sizeLevel = MIN(MAX([[NSUserDefaults standardUserDefaults] integerForKey:kSizeKey], 0), 2);
+    }
+    return sizeLevel;
+}
+static void setPanelSize(NSInteger l) {
+    sizeLevel = MIN(MAX(l, 0), 2);
+    [[NSUserDefaults standardUserDefaults] setInteger:sizeLevel forKey:kSizeKey];
+}
+
+// rubber is how far past an end a drag of d goes: less and less.
+static double rubber(double d, double scale) { return scale * d / (d + scale) * 0.55; }
+
+static NSCursor *resizeCursor(int side) {
+    if (@available(macOS 15.0, *)) {
+        return [NSCursor frameResizeCursorFromPosition:side > 0 ? NSCursorFrameResizePositionBottomRight : NSCursorFrameResizePositionBottomLeft
+                                          inDirections:NSCursorFrameResizeDirectionsAll];
+    }
+    return [NSCursor crosshairCursor];
+}
 static NSTimer *frameTimer, *clockTimer, *autoTimer;
 static id clickMonitor;
 static CFTimeInterval lastFrame;
@@ -422,7 +601,7 @@ static CFTimeInterval lastFrame;
 static const CGFloat kEar = 8;      // the fillets that join the menu bar
 static const CGFloat kPad = 18;     // panel side padding
 static const CGFloat kGap = 6;      // between the face band and the body
-static const CGFloat kMaxW = 720;   // the window never needs more
+static const CGFloat kMaxW = 960;   // the window never needs more
 static const CGFloat kMaxH = 640;
 static const CGFloat kSlop = 24;    // room for overshoot while moving
 static const CGFloat kDrawnW = 185; // a drawn notch with no real one to copy
@@ -462,8 +641,20 @@ static void haptic(NSHapticFeedbackPattern p) {
 
 @interface Island : FlipView {
   @public
-    Spring W, H, R, O, CO, CY, TX; // width, height, radius, opacity, content opacity, content y, track x
+    Spring W, H, R, O, CO, CY, TX, G; // width, height, radius, opacity, content opacity, content y, track x, grips
     double leavingAlpha;
+    // swiping pages: where the fingers put the track, unbounded, and its speed
+    BOOL hswipe;
+    double swipeRaw, swipeV;
+    CFTimeInterval swipeT;
+    // resizing by a grip: where the drag started and the size then
+    NSPoint dragAt;
+    CGSize dragFrom;
+    int dragSide;
+    double dragVW, dragVH, dragEq, dragVE;
+    CFTimeInterval dragT;
+    double pinch;
+    BOOL pinchFired;
     double wheel;
     BOOL wheelFired;
     NSPoint lastP;
@@ -490,6 +681,12 @@ static void haptic(NSHapticFeedbackPattern p) {
 @property(strong) NSTimer *intentTimer, *leaveTimer, *slideTimer;
 @property CGSize target;
 @property NSSize contentSize;
+@property(strong) PageDots *dots;      // the pages' dots; nil = no pages
+@property NSInteger pageCount, pageAt; // the pages, the one in view
+@property(strong) NSArray<NSString *> *pageIDs;
+@property BOOL resizing;      // a grip is being dragged
+@property NSInteger dragLevel; // the size the content is laid out for meanwhile
+@property BOOL gripCursor;
 - (void)render:(SpringParams)p;
 - (void)paint;
 - (void)layoutWindow:(BOOL)settle;
@@ -584,6 +781,174 @@ static void haptic(NSHapticFeedbackPattern p) {
     [p curveToPoint:NSMakePoint(x0 - e, 0) controlPoint1:NSMakePoint(x0, ey * (1 - k)) controlPoint2:NSMakePoint(x0 - e * k, 0)];
     [p closePath];
     [p fill];
+    // the resize grips: a quarter arc inside each bottom corner
+    CGFloat ga = MIN(MAX(G.x, 0), 1) * MIN(MAX(O.x, 0), 1);
+    if (ga > 0.01 && s.size.height > 80) {
+        CGFloat rr = MAX(r - 6, 6);
+        for (int side = -1; side <= 1; side += 2) {
+            NSPoint c = NSMakePoint(side > 0 ? x1 - r : x0 + r, y1 - r);
+            NSBezierPath *a = [NSBezierPath bezierPath];
+            [a appendBezierPathWithArcWithCenter:c radius:rr startAngle:side > 0 ? 20 : 110 endAngle:side > 0 ? 70 : 160];
+            a.lineWidth = 2;
+            a.lineCapStyle = NSLineCapStyleRound;
+            [white(0.4 * ga) setStroke];
+            [a stroke];
+        }
+    }
+}
+
+// ----- pages and sizes -----
+
+- (BOOL)pagesShown {
+    return self.panelShown && self.pageCount > 0 && !self.momentHere;
+}
+
+- (NSInteger)level {
+    return self.resizing ? self.dragLevel : panelSize();
+}
+
+- (CGFloat)levelWidth:(NSInteger)l {
+    CGFloat w = MAX(kLevelW[MIN(MAX(l, 0), 2)], self.notchW + 220);
+    return MIN(w, self.screenFrame.size.width * 0.9);
+}
+
+// gripAt is the grip under p: 1 the right one, -1 the left one, 0 none.
+- (int)gripAt:(NSPoint)p {
+    if (!self.pagesShown) {
+        return 0;
+    }
+    NSRect s = [self shapeRect];
+    if (p.y < NSMaxY(s) - kGrip - 4 || p.y > NSMaxY(s) + 3) {
+        return 0;
+    }
+    if (p.x >= NSMaxX(s) - kGrip - 4 && p.x <= NSMaxX(s) + 3) {
+        return 1;
+    }
+    if (p.x <= NSMinX(s) + kGrip + 4 && p.x >= NSMinX(s) - 3) {
+        return -1;
+    }
+    return 0;
+}
+
+// aimGrips shows the grips while the pointer is on a panel with pages.
+- (void)aimGrips {
+    double t = self.pagesShown && (self.inside || self.resizing) ? 1 : 0;
+    if (G.t != t) {
+        if (reduceMotion) {
+            springJump(&G, t);
+        } else {
+            springTo(&G, t, kFade);
+        }
+        kick();
+    }
+}
+
+// goPage settles the track on page to, carrying the swipe's speed v.
+- (void)goPage:(NSInteger)to velocity:(double)v {
+    to = MIN(MAX(to, 0), self.pageCount - 1);
+    if (to != self.pageAt) {
+        haptic(NSHapticFeedbackPatternAlignment);
+        self.pageAt = to;
+        if (to < (NSInteger)self.pageIDs.count) {
+            [[NSUserDefaults standardUserDefaults] setObject:self.pageIDs[to] forKey:kPageKey];
+        }
+    }
+    if (reduceMotion) {
+        springJump(&TX, to);
+    } else {
+        TX.v = v;
+        springTo(&TX, to, kSlide);
+    }
+    kick();
+}
+
+- (void)mouseDragged:(NSEvent *)e {
+    if (!self.resizing) {
+        return;
+    }
+    // like scaling a picture: the corner sets one scale for both sides
+    NSPoint m = [NSEvent mouseLocation];
+    CGFloat dx = (m.x - dragAt.x) * dragSide, dy = dragAt.y - m.y;
+    double scale = MAX((dragFrom.width + 2 * dx) / MAX(dragFrom.width, 1), (dragFrom.height + dy) / MAX(dragFrom.height, 1));
+    CGFloat minW = [self levelWidth:0] * 0.9, maxW = MIN(self.screenFrame.size.width * 0.9, kMaxW - kEar * 2 - kSlop);
+    CGFloat minH = self.notchH + 90, maxH = MIN(self.screenFrame.size.height * 0.45, kMaxH - kSlop);
+    CGFloat w = dragFrom.width * scale, h = dragFrom.height * scale;
+    if (w < minW) {
+        w = minW - rubber(minW - w, 60);
+    } else if (w > maxW) {
+        w = maxW + rubber(w - maxW, 60);
+    }
+    if (h < minH) {
+        h = minH - rubber(minH - h, 40);
+    } else if (h > maxH) {
+        h = maxH + rubber(h - maxH, 40);
+    }
+    double eq = dragFrom.width * scale, dt = e.timestamp - dragT;
+    if (dt > 0) {
+        dragVW = 0.6 * dragVW + 0.4 * (w - W.x) / dt;
+        dragVH = 0.6 * dragVH + 0.4 * (h - H.x) / dt;
+        dragVE = 0.6 * dragVE + 0.4 * (eq - dragEq) / dt;
+    }
+    dragT = e.timestamp;
+    dragEq = eq;
+    springJump(&W, w);
+    springJump(&H, h);
+    self.target = CGSizeMake(w, h);
+    NSInteger lv = 0;
+    for (NSInteger l = 1; l < 3; l++) {
+        if (fabs([self levelWidth:l] - eq) < fabs([self levelWidth:lv] - eq)) {
+            lv = l;
+        }
+    }
+    if (lv != self.dragLevel) { // lay the content out for the size it nears
+        self.dragLevel = lv;
+        haptic(NSHapticFeedbackPatternAlignment);
+        [self render:kUser];
+    }
+    [self layoutWindow:NO];
+    [self paint];
+}
+
+- (void)mouseUp:(NSEvent *)e {
+    if (!self.resizing) {
+        return;
+    }
+    // settle on the size nearest to where the drag was heading
+    double proj = dragEq + dragVE * 0.2;
+    NSInteger lv = 0;
+    for (NSInteger l = 1; l < 3; l++) {
+        if (fabs([self levelWidth:l] - proj) < fabs([self levelWidth:lv] - proj)) {
+            lv = l;
+        }
+    }
+    self.resizing = NO;
+    setPanelSize(lv);
+    W.v = MAX(MIN(dragVW, 3000), -3000);
+    H.v = MAX(MIN(dragVH, 3000), -3000);
+    [self render:kUser];
+    [self setPointerInside:[self inShape:[self convertPoint:e.locationInWindow fromView:nil]]];
+    [self aimGrips];
+}
+
+// A pinch on the open panel steps its size, one size per pinch.
+- (void)magnifyWithEvent:(NSEvent *)e {
+    if (!self.pagesShown || self.resizing) {
+        return;
+    }
+    if (e.phase == NSEventPhaseBegan) {
+        pinch = 0;
+        pinchFired = NO;
+    }
+    pinch += e.magnification;
+    if (!pinchFired && fabs(pinch) > 0.18) {
+        pinchFired = YES;
+        NSInteger l = panelSize() + (pinch > 0 ? 1 : -1);
+        if (l >= 0 && l <= 2) {
+            setPanelSize(l);
+            haptic(NSHapticFeedbackPatternAlignment);
+            [self render:kUser];
+        }
+    }
 }
 
 // Clicks on text go to the island; buttons keep theirs.
@@ -621,6 +986,14 @@ static void haptic(NSHapticFeedbackPattern p) {
     lastP = p;
     lastT = e.timestamp;
     [self setPointerInside:[self inShape:p]];
+    int g = [self gripAt:p];
+    if (g) {
+        [resizeCursor(g) set];
+        self.gripCursor = YES;
+    } else if (self.gripCursor) {
+        [[NSCursor arrowCursor] set];
+        self.gripCursor = NO;
+    }
 }
 
 - (void)mouseEntered:(NSEvent *)e {
@@ -631,6 +1004,10 @@ static void haptic(NSHapticFeedbackPattern p) {
 }
 - (void)mouseExited:(NSEvent *)e {
     (void)e;
+    if (self.gripCursor && !self.resizing) {
+        [[NSCursor arrowCursor] set];
+        self.gripCursor = NO;
+    }
     [self setPointerInside:NO];
 }
 
@@ -639,10 +1016,14 @@ static void haptic(NSHapticFeedbackPattern p) {
         return;
     }
     self.inside = in;
+    [self aimGrips];
     if (in) {
         [self.leaveTimer invalidate];
         self.leaveTimer = nil;
         [self armIntent:kIntent];
+        return;
+    }
+    if (self.resizing || hswipe) { // the drag goes on outside; mouse-up decides
         return;
     }
     [self.intentTimer invalidate];
@@ -756,6 +1137,9 @@ static void haptic(NSHapticFeedbackPattern p) {
     self.userOpen = YES;
     self.byHover = byHover;
     self.peek = NO;
+    if (!bval(spec, @"pending")) {
+        notchSend(@"notch:open"); // Go reads the pages while it is open
+    }
     [self render:p];
     watchClicks();
 }
@@ -766,8 +1150,11 @@ static void haptic(NSHapticFeedbackPattern p) {
         return;
     }
     self.userOpen = self.byHover = NO;
+    self.resizing = NO;
     if (bval(spec, @"pending")) {
         notchSend(@"notch:seen");
+    } else {
+        notchSend(@"notch:shut");
     }
     [self render:p];
     watchClicks();
@@ -789,6 +1176,26 @@ static void haptic(NSHapticFeedbackPattern p) {
 
 - (void)mouseDown:(NSEvent *)e {
     NSPoint p = [self convertPoint:e.locationInWindow fromView:nil];
+    int g = [self gripAt:p];
+    if (g) {
+        if (e.clickCount == 2) { // back to the small size
+            self.resizing = NO;
+            setPanelSize(0);
+            [self render:kUser];
+            return;
+        }
+        self.resizing = YES;
+        self.dragLevel = panelSize();
+        dragSide = g;
+        dragAt = [NSEvent mouseLocation];
+        dragFrom = CGSizeMake(W.x, H.x);
+        dragEq = W.x;
+        dragVW = dragVH = dragVE = 0;
+        dragT = e.timestamp;
+        [self.leaveTimer invalidate];
+        self.leaveTimer = nil;
+        return;
+    }
     if (![self inShape:p]) {
         return;
     }
@@ -813,6 +1220,10 @@ static void haptic(NSHapticFeedbackPattern p) {
     NSString *c = e.charactersIgnoringModifiers;
     if (e.keyCode == 53) { // Esc
         [self dismiss];
+        return;
+    }
+    if (self.pagesShown && (e.keyCode == 123 || e.keyCode == 124)) { // ← →
+        [self goPage:self.pageAt + (e.keyCode == 124 ? 1 : -1) velocity:0];
         return;
     }
     if ([sval(spec, @"state") isEqualToString:@"label"] && self.momentHere) {
@@ -843,7 +1254,15 @@ static void haptic(NSHapticFeedbackPattern p) {
 // flick counts as much as a long swipe, and its speed carries into the
 // height spring.
 - (void)scrollWheel:(NSEvent *)e {
-    if (e.momentumPhase != NSEventPhaseNone || ![self inShape:[self convertPoint:e.locationInWindow fromView:nil]]) {
+    if (e.momentumPhase != NSEventPhaseNone) {
+        return;
+    }
+    if (hswipe || (self.pagesShown && self.track && e.phase != NSEventPhaseNone)) {
+        if ([self swipe:e]) {
+            return;
+        }
+    }
+    if (![self inShape:[self convertPoint:e.locationInWindow fromView:nil]]) {
         return;
     }
     if (e.phase == NSEventPhaseBegan || e.phase == NSEventPhaseMayBegin) {
@@ -875,6 +1294,56 @@ static void haptic(NSHapticFeedbackPattern p) {
         wheelFired = NO;
         wheel = 0;
     }
+}
+
+// swipe pages with two fingers sideways: the track follows the fingers,
+// stretches past the ends, and on release settles on the page the flick
+// points to. Returns NO for a gesture that is not a sideways swipe.
+- (BOOL)swipe:(NSEvent *)e {
+    if (e.phase == NSEventPhaseBegan || e.phase == NSEventPhaseMayBegin) {
+        hswipe = NO;
+        return NO;
+    }
+    double dx = e.scrollingDeltaX, dy = e.scrollingDeltaY;
+    if (!hswipe) {
+        if (e.phase != NSEventPhaseChanged || wheelFired || fabs(dx) <= fabs(dy) || fabs(dx) < 1.5 ||
+            ![self inShape:[self convertPoint:e.locationInWindow fromView:nil]]) {
+            return NO;
+        }
+        hswipe = YES;
+        swipeRaw = TX.x;
+        swipeV = 0;
+        swipeT = e.timestamp;
+        [self.leaveTimer invalidate];
+        self.leaveTimer = nil;
+    }
+    double w = MAX(self.contentSize.width, 1);
+    if (e.phase == NSEventPhaseChanged) {
+        double fdx = e.isDirectionInvertedFromDevice ? dx : -dx; // the fingers' move, + = right
+        swipeRaw -= fdx / w;
+        double dt = e.timestamp - swipeT;
+        if (dt > 0) {
+            swipeV = 0.6 * swipeV + 0.4 * (-fdx / w) / dt;
+        }
+        swipeT = e.timestamp;
+        double hi = MAX(self.pageCount - 1, 0), x = swipeRaw;
+        if (x < 0) {
+            x = -rubber(-x, 0.5);
+        } else if (x > hi) {
+            x = hi + rubber(x - hi, 0.5);
+        }
+        springJump(&TX, x);
+        [self paint];
+        return YES;
+    }
+    hswipe = NO; // ended or cancelled
+    double proj = swipeRaw + swipeV * 0.2;
+    NSInteger to = lround(MIN(MAX(proj, self.pageAt - 1), self.pageAt + 1));
+    [self goPage:to velocity:MAX(MIN(swipeV, 12), -12)];
+    if (!self.inside) {
+        [self armLeave];
+    }
+    return YES;
 }
 
 // ----- content -----
@@ -1063,8 +1532,153 @@ static void haptic(NSHapticFeedbackPattern p) {
     return c;
 }
 
+// section lays out d's figures from y in a column x, w: cells, rings,
+// bars, the strip, then rows. Returns the y under them.
+- (CGFloat)section:(NSDictionary *)d in:(NSView *)v x:(CGFloat)x y:(CGFloat)y width:(CGFloat)w {
+    NSArray *cells = aval(d, @"cells");
+    if (cells.count) {
+        Cells *c = [[Cells alloc] initWithFrame:NSMakeRect(x, y, w, 56)];
+        c.cells = cells;
+        [v addSubview:c];
+        y += 56 + 12;
+    }
+    NSArray *rings = aval(d, @"rings");
+    if (rings.count) {
+        CGFloat h = [Rings heightFor:rings];
+        Rings *g = [[Rings alloc] initWithFrame:NSMakeRect(x, y, w, h)];
+        g.rings = rings;
+        [v addSubview:g];
+        y += h + 8;
+    }
+    NSArray *bars = aval(d, @"bars");
+    if (bars.count) {
+        CGFloat h = [Bars heightFor:bars];
+        Bars *b = [[Bars alloc] initWithFrame:NSMakeRect(x, y, w, h)];
+        b.bars = bars;
+        [v addSubview:b];
+        y += h + 10;
+    }
+    NSArray *strip = aval(d, @"strip");
+    if (strip.count) {
+        Strip *st = [[Strip alloc] initWithFrame:NSMakeRect(x, y + 2, w, 26)];
+        st.kinds = strip;
+        st.axis = aval(d, @"axis");
+        [v addSubview:st];
+        y += 30 + 8;
+    }
+    NSArray *rows = aval(d, @"rows");
+    if (rows.count) {
+        Rows *r = [[Rows alloc] initWithFrame:NSMakeRect(x, y, w, rows.count * 21)];
+        r.rows = rows;
+        [v addSubview:r];
+        y += rows.count * 21 + 6;
+    }
+    return y;
+}
+
+// pageView lays out one page for size level lv: the page, its Mid from M
+// on, its Big in a second column at L.
+- (NSView *)pageView:(NSDictionary *)pg level:(NSInteger)lv width:(CGFloat)w height:(CGFloat *)outH {
+    FlipView *c = [[FlipView alloc] initWithFrame:NSMakeRect(0, 0, w, 10)];
+    CGFloat inner = w - kPad * 2;
+    NSDictionary *big = lv >= 2 ? dval(pg, @"big") : nil;
+    CGFloat colW = big ? floor(inner * 0.6) : inner;
+    NSFont *lf = sys(10.5, NSFontWeightSemibold);
+    NSTextField *t = text(sval(pg, @"title").uppercaseString, lf, white(0.45));
+    t.frame = NSMakeRect(kPad, 0, colW, t.frame.size.height);
+    [c addSubview:t];
+    CGFloat y = t.frame.size.height + 6, top = y;
+    NSString *lead = sval(pg, @"lead"), *note = sval(pg, @"note");
+    if (lead.length) {
+        NSTextField *l = text(lead, sys(14, NSFontWeightSemibold), white(1));
+        l.frame = NSMakeRect(kPad, y, colW, l.frame.size.height);
+        l.lineBreakMode = NSLineBreakByTruncatingTail;
+        [c addSubview:l];
+        y += l.frame.size.height + 8;
+    }
+    if (note.length) {
+        NSTextField *n = wrapped(note, sys(13, NSFontWeightRegular), white(0.62), colW, 2);
+        n.frame = NSMakeRect(kPad, y, colW, n.frame.size.height);
+        [c addSubview:n];
+        y += n.frame.size.height + 10;
+    }
+    y = [self section:pg in:c x:kPad y:y width:colW];
+    NSDictionary *mid = lv >= 1 ? dval(pg, @"mid") : nil;
+    if (mid) {
+        y = [self section:mid in:c x:kPad y:y width:colW];
+    }
+    if (big) {
+        CGFloat bx = kPad + colW + 20, bw = inner - colW - 20;
+        if (sval(big, @"title").length) {
+            NSTextField *bt = text(sval(big, @"title").uppercaseString, lf, white(0.45));
+            bt.frame = NSMakeRect(bx, 0, bw, bt.frame.size.height);
+            [c addSubview:bt];
+        }
+        y = MAX(y, [self section:big in:c x:bx y:top width:bw]);
+    }
+    c.frame = NSMakeRect(0, 0, w, y);
+    *outH = y;
+    return c;
+}
+
+// pagesPanel is the open quiet panel with pages: the face, the pages side
+// by side in a track you swipe, their dots, then the buttons. It is as wide
+// as its size and as tall as its tallest page.
+- (NSView *)pagesPanel:(NSDictionary *)p size:(NSSize *)out {
+    NSArray *pages = aval(p, @"pages");
+    NSInteger lv = [self level];
+    CGFloat w = [self levelWidth:lv];
+    FlipView *v = [[FlipView alloc] initWithFrame:NSMakeRect(0, 0, w, 100)];
+    [v addSubview:[self wingsWidth:w face:dval(p, @"face")]];
+    CGFloat y = self.notchH + kGap + 4;
+    // the same page stays in view when the pages are read again
+    NSMutableArray<NSString *> *ids = [NSMutableArray new];
+    for (NSDictionary *pg in pages) {
+        [ids addObject:sval(pg, @"id")];
+    }
+    NSString *cur = self.pageAt < (NSInteger)self.pageIDs.count ? self.pageIDs[self.pageAt]
+                                                                : [[NSUserDefaults standardUserDefaults] stringForKey:kPageKey];
+    NSUInteger k = cur ? [ids indexOfObject:cur] : NSNotFound;
+    self.pageAt = k == NSNotFound ? 0 : (NSInteger)k;
+    self.pageIDs = ids;
+    self.pageCount = (NSInteger)pages.count;
+    FlipView *clip = [[FlipView alloc] initWithFrame:NSMakeRect(0, y, w, 10)];
+    clip.wantsLayer = YES;
+    clip.layer.masksToBounds = YES;
+    FlipView *track = [[FlipView alloc] initWithFrame:NSZeroRect];
+    CGFloat ch = 0;
+    for (NSUInteger i = 0; i < pages.count; i++) {
+        CGFloat h = 0;
+        NSView *pv = [self pageView:pages[i] level:lv width:w height:&h];
+        pv.frame = NSMakeRect(i * w, 0, w, h);
+        [track addSubview:pv];
+        ch = MAX(ch, h);
+    }
+    track.frame = NSMakeRect(0, 0, w * pages.count, ch);
+    clip.frame = NSMakeRect(0, y, w, ch);
+    [clip addSubview:track];
+    [v addSubview:clip];
+    self.track = track;
+    y += ch + 4;
+    PageDots *d = [[PageDots alloc] initWithFrame:NSMakeRect(0, y, w, 8)];
+    d.count = (NSInteger)pages.count;
+    d.at = self.pageAt;
+    [v addSubview:d];
+    self.dots = d;
+    y += 8 + 12;
+    CGFloat bh = [self addButtons:aval(p, @"buttons") to:v y:y width:w];
+    y += bh ? bh + 16 : 4;
+    y = MIN(y, MIN(kMaxH - kSlop, MAX(self.screenFrame.size.height * 0.45, 240)));
+    v.frame = NSMakeRect(0, 0, w, y);
+    *out = NSMakeSize(w, y);
+    return v;
+}
+
 // panelView lays out the open panel for state; returns it with its size.
 - (NSView *)panelView:(NSDictionary *)p state:(NSString *)state size:(NSSize *)out {
+    if (aval(p, @"pages").count && !self.momentHere) {
+        return [self pagesPanel:p size:out];
+    }
     CGFloat w = [self panelWidth:state];
     FlipView *v = [[FlipView alloc] initWithFrame:NSMakeRect(0, 0, w, 100)];
     [v addSubview:[self wingsWidth:w face:dval(p, @"face")]];
@@ -1213,7 +1827,8 @@ static void haptic(NSHapticFeedbackPattern p) {
     NSDictionary *pd = [self panelDict];
     NSDictionary *f = dval(spec, @"face");
     BOOL bare = !spec || faceEmpty(f);
-    NSString *look = pd ? [NSString stringWithFormat:@"panel|%@|%lld|%d|%d", state, ival(spec, @"notice"), self.momentHere, bval(spec, @"pending")]
+    NSString *look = pd ? [NSString stringWithFormat:@"panel|%@|%lld|%d|%d|%lu|%ld", state, ival(spec, @"notice"), self.momentHere,
+                                                     bval(spec, @"pending"), (unsigned long)aval(pd, @"pages").count, (long)[self level]]
                         : [NSString stringWithFormat:@"face|%@|%d|%d", spec ? state : @"-", bare, ival(f, @"end_ms") > 0 ? 1 : 0];
     BOOL fade = ![look isEqualToString:self.look ?: @""];
     self.look = look;
@@ -1223,14 +1838,33 @@ static void haptic(NSHapticFeedbackPattern p) {
         if (fade) {
             self.trackAt = 0;
         }
+        self.pageCount = 0;
+        self.dots = nil;
         NSSize sz;
         NSView *v = [self panelView:pd state:state size:&sz];
         [self show:v size:sz fade:fade];
-        [self aimWidth:sz.width height:sz.height radius:24 alpha:1 params:p];
-        [self placeTrack];
+        if (self.pageCount > 0 && !hswipe) {
+            springJump(&TX, self.pageAt);
+        }
+        if (self.resizing) { // the grip sets the shape; only the content changes
+            [self layoutWindow:NO];
+            [self paint];
+            kick();
+        } else {
+            [self aimWidth:sz.width height:sz.height radius:24 alpha:1 params:p];
+        }
+        if (self.pageCount == 0) {
+            [self placeTrack];
+        }
+        [self aimGrips];
         return;
     }
     self.track = nil;
+    self.pageCount = 0;
+    self.dots = nil;
+    self.resizing = NO;
+    hswipe = NO;
+    [self aimGrips];
     if (wasPanel) {
         self.engaged = NO;
         if (self.win.isKeyWindow) {
@@ -1333,7 +1967,14 @@ static void haptic(NSHapticFeedbackPattern p) {
         l.alphaValue = leavingAlpha * MIN(MAX(O.x, 0), 1);
     }
     if (self.track) {
-        self.track.frameOrigin = NSMakePoint(-TX.x * self.contentSize.width, 0);
+        self.track.frameOrigin = NSMakePoint(round(-TX.x * self.contentSize.width), 0);
+    }
+    if (self.dots) {
+        NSInteger at = lround(MIN(MAX(TX.x, 0), MAX(self.pageCount - 1, 0)));
+        if (at != self.dots.at) {
+            self.dots.at = at;
+            self.dots.needsDisplay = YES;
+        }
     }
     [CATransaction commit];
     self.needsDisplay = YES;
@@ -1378,7 +2019,7 @@ static void haptic(NSHapticFeedbackPattern p) {
 }
 
 - (BOOL)atRest {
-    Spring *ss[] = {&W, &H, &R, &O, &CO, &CY, &TX};
+    Spring *ss[] = {&W, &H, &R, &O, &CO, &CY, &TX, &G};
     for (size_t i = 0; i < sizeof ss / sizeof ss[0]; i++) {
         if (!springRest(ss[i])) {
             return NO;
@@ -1391,7 +2032,7 @@ static void haptic(NSHapticFeedbackPattern p) {
     if ([self atRest]) {
         return;
     }
-    Spring *ss[] = {&W, &H, &R, &O, &CO, &CY, &TX};
+    Spring *ss[] = {&W, &H, &R, &O, &CO, &CY, &TX, &G};
     for (int k = 0; k < 4; k++) {
         for (size_t i = 0; i < sizeof ss / sizeof ss[0]; i++) {
             springStep(ss[i], dt / 4);

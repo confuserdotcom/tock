@@ -38,7 +38,11 @@ func demoSteps() []demoStep {
 		return &focus.Session{ID: 1, StartMS: ms(now) - 6*60_000, PlannedMS: ms(now) + 19*60_000, Goal: "tock notch"}
 	}
 	quiet := func(now time.Time) bar.Island {
-		return bar.Snapshot{OK: true, TrackedMS: 4*3600_000 + 12*60_000, Score: 78, Active: true, UnlabelledMS: 85 * 60_000}.IslandBase(ms(now))
+		s := bar.Snapshot{OK: true, TrackedMS: 4*3600_000 + 12*60_000, Score: 78, Active: true, UnlabelledMS: 85 * 60_000}
+		i := s.IslandBase(ms(now))
+		d, w, u := demoDay(now)
+		i.Hover.Pages = bar.TodayPages(s, d, w, u, ms(now))
+		return i
 	}
 	done := func(now time.Time) bar.Island {
 		end := ms(now)
@@ -86,6 +90,50 @@ func demoSteps() []demoStep {
 		// a session end nobody saw waits as a dot
 		{func(now time.Time) bar.Island { return bar.Missed(quiet(now), done(now)) }, 4 * time.Second},
 	}
+}
+
+// demoDay is a made-up day and week for the demo's notch pages.
+func demoDay(now time.Time) (report.Day, report.Week, app.Usual) {
+	day := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local)
+	at := func(h, m int) int64 {
+		return day.Add(time.Duration(h)*time.Hour + time.Duration(m)*time.Minute).UnixMilli()
+	}
+	kinds := []string{"shallow", "deep", "deep", "browse", "deep", "neutral", "shallow", "deep", "deep", "distract", "shallow", "deep", "browse", "deep"}
+	var rows []report.Row
+	hours := map[string][24]int64{}
+	for i, k := range kinds {
+		start := at(9, 0) + int64(i)*45*60_000
+		rows = append(rows, report.Row{Start: start, End: start + 45*60_000, Label: classify.Label{Kind: k}})
+		h := hours[k]
+		h[time.UnixMilli(start).In(time.Local).Hour()] += 45 * 60_000
+		hours[k] = h
+	}
+	d := report.Day{Date: day, TrackedMS: 6*3600_000 + 48*60_000, Score: stats.Score{Value: 81},
+		Stats:    stats.Day{FocusMS: 192 * 60_000, LongestMS: 94 * 60_000, DistractMS: 14 * 60_000},
+		Hours:    report.Heatmap{First: 9, Last: 19, MS: hours},
+		Projects: []report.Share{{Name: "tock", MS: 242 * 60_000}, {Name: "Licence", MS: 91 * 60_000}, {Name: "", MS: 75 * 60_000}},
+		Timeline: rows,
+		Goals: []report.GoalRow{
+			{Goal: classify.Goal{Project: "tock", MS: 3 * 3600_000}, DoneMS: 242 * 60_000, State: "met", Streak: 4},
+			{Goal: classify.Goal{Category: "Study", MS: 2 * 3600_000}, DoneMS: 50 * 60_000, State: "short"},
+			{Goal: classify.Goal{Category: "Entertainment", AtMost: true, MS: 45 * 60_000}, DoneMS: 14 * 60_000, State: "ok", Streak: 2},
+		}}
+	w := report.Week{Monday: report.MondayOf(day), ByKind: map[string]int64{}}
+	for i := range w.Days {
+		w.Days[i].Date = w.Monday.AddDate(0, 0, i)
+		w.Days[i].Future = w.Days[i].Date.After(day)
+		if w.Days[i].Future || i > 4 {
+			continue
+		}
+		by := map[string]int64{"deep": int64(2+i%3) * 3600_000, "shallow": int64(1+i%2) * 3600_000, "distract": int64(20+10*i) * 60_000, "": 30 * 60_000}
+		w.Days[i].ByKind, w.Days[i].Score = by, stats.Score{Value: 64 + 5*i}
+		for k, ms := range by {
+			w.Days[i].TrackedMS += ms
+			w.ByKind[k] += ms
+			w.TrackedMS += ms
+		}
+	}
+	return d, w, app.Usual{Days: 4, Score: 75, FocusMS: 168 * 60_000}
 }
 
 // runDemo plays the demo islands in a loop on u, for recordings: no
@@ -159,6 +207,10 @@ func runDemo(u ui, events <-chan event) {
 					pick(j)
 					show()
 				}
+			case id == bar.IDNotchOpen:
+				timer = nil // swiping the quiet panel's pages: stay on it
+			case id == bar.IDNotchShut:
+				timer = time.After(2 * time.Second)
 			case strings.HasPrefix(id, bar.IDNotchSkip):
 				if at < len(entries) {
 					at++
