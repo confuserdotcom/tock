@@ -344,6 +344,8 @@ deny_titles = []         # RE2 patterns on the title (any case), on top of [llm]
 [notch]                  # the menu bar app's panel in the notch; see The notch
 enabled = true           # false: banners instead, as before
 show_in_recordings = false # true lets screen sharing and recordings see it
+all_displays = true      # a notch on every display; false: only the built-in one
+open_on_hover = false    # true: resting the pointer opens it, no click needed
 
 [privacy]
 keep_titles = 30         # off unless set: days window titles are kept
@@ -1345,10 +1347,18 @@ notification text.
 
 ## The notch
 
-The menu bar app also draws a panel in the notch. On a Mac without one, or
-when the built-in screen is closed, it hangs as a pill under the menu bar.
-Nothing shows while nothing runs: hover the notch to see today's time,
-score and how much is left to label.
+The menu bar app also draws a panel in the notch. A display without a
+notch, such as a monitor beside the MacBook or a Mac without one, gets a
+notch drawn at the top of its menu bar, as tall as the menu bar. Every
+display shows the same island; moments open on the display your pointer is
+on, and a click on any notch opens it there (`[notch] all_displays = false`
+keeps it on the built-in display, else the main one).
+
+Nothing shows while nothing runs. Rest the pointer on the notch and it grows
+a little (and ticks the trackpad); click it, or swipe down on it with two
+fingers, to see today's time, score and how much is left to label. A quick
+pass of the pointer on its way to a menu does nothing. With
+`[notch] open_on_hover = true` the rest alone opens it.
 
 - **A focus session** shows its goal on the left of the notch and the time
   left on the right. The dot is the live focus level in its kind colour:
@@ -1357,19 +1367,24 @@ score and how much is left to label.
 - **A break** counts down in the break screen's brass.
 - **A plan item or meeting** shows 10 minutes before it starts, with
   **Join** for a meeting link.
-- **Moments** open by themselves and stay until you answer: a drift nudge
-  (it closes after 12 seconds), a session ending, with the session's
-  numbers and **Start again**, a meeting starting, and the evening recap,
-  with the day's numbers against your usual same weekday.
+- **Moments** open by themselves: a drift nudge, a session ending, with the
+  session's numbers and **Start again**, a meeting starting, and the evening
+  recap, with the day's numbers against your usual same weekday. A moment
+  stays while you point at it and goes back once you move away. Nobody
+  there, it folds by itself (a drift nudge after 12 seconds, a session end
+  after 30, the recap after a minute); a session end or recap you missed
+  then waits as a dot in the notch until you open it.
 - **Labelling** never opens by itself. **Label** on a session end, the
   recap or the quiet notch shows the biggest unlabelled entries one at a
   time, with the model's guess first. Press 1 to 3 to pick, ⏎ for the
   guess, S to skip. Each pick saves a rule when one is safe, and says how
   many past entries it labelled too.
 
-Esc, a swipe up or a click elsewhere sends an open panel back. The panel
-never takes the focus from the app you work in: keys reach it only after
-you click it. A session ending and a saved label tick the trackpad once.
+Esc, a swipe up, a click on its top band or a click elsewhere sends an
+open panel back, and so does moving the pointer away from a panel you
+opened. The panel never takes the focus from the app you work in: keys
+reach it only after you click it. When an app is in full screen, a drawn
+notch steps aside while nothing runs. A session ending and a saved label tick the trackpad once.
 With **Reduce motion** on, the panel fades instead of moving.
 
 While the panel is on, these notices come only through the notch, not as

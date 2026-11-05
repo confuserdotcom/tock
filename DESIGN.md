@@ -153,16 +153,21 @@ Flat. Hairline borders group things; no shadows except the tooltip, the label sh
 - The label sheet keeps its spring; reduced motion turns everything off.
 - The notch panel is the exception: it grows out of the hardware, so its
   shape and content move on springs that start from where they are. Moments
-  tock opens: response 0.46 s, damping 0.78. Hover: 0.32 s, 1.0. Closing:
-  0.36 s, 1.0, back up into the notch. Content fades in behind the shape.
+  tock opens: response 0.46 s, damping 0.78. A click opens: 0.40 s, 0.86.
+  Hover: 0.32 s, 1.0. Closing: 0.36 s, 1.0, back up into the notch. A
+  resting pointer grows the closed notch by 18 × 3 pt, never more. Content fades in behind the shape.
   Numbers still never count and bars never grow. Reduced motion: the shape
   jumps and content cross-fades in 150 ms.
 - The notch is always black, like the hardware, with the dark set of kind
   colours and system fonts, as the menu bar uses.
+- A display without a notch gets one drawn: the width of the built-in notch
+  (185 pt without one), the height of its menu bar, the same fillets. Face
+  text keeps to the edges of the shape and never sits under the camera.
 
 ## Decisions Log
 | Date | Decision | Rationale |
 |------|----------|-----------|
 | 2026-11-05 | Initial design system: paper/ink neutrals, brass accent, Instrument Serif + Source Sans 3 + JetBrains Mono | v5 Phase 5d. Unified the web page, TUI and menu with the break screen |
 | 2026-11-05 | Replaced by the Ledger system: IBM Plex Sans + Mono, white and grey, ink as the only accent, sidebar, per-category timeline, tables with totals, comparisons with the usual day | The owner picked the Ledger direction from four mockups; the serif-and-brass look read as made by AI |
+| 2026-11-05 | A drawn notch on displays without one | Owner asked for the island on every display, as notch apps do; one shape everywhere instead of a pill that looks like another product |
 | 2026-11-05 | The notch panel moves on springs | Owner approved the notch prototype; a surface that grows out of hardware reads as physical only with springs. Kept to the notch |
