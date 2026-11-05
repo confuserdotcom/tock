@@ -98,51 +98,9 @@ func onOffWord(v bool) string {
 	return "off"
 }
 
-// saveFeatures writes changes (feature id to value) into config.toml,
-// keeping everything else in it. The result must load, or nothing is
-// written. The old file is kept as config.toml.bak.
+// saveFeatures writes changes into config.toml; see config.SaveFeatures.
 func saveFeatures(env Env, changes map[string]bool) error {
-	path := env.configPath()
-	src, err := os.ReadFile(path)
-	existed := err == nil
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("choice: %w", err)
-	}
-	if existed {
-		if _, err := config.Parse(config.File, src); err != nil {
-			return fmt.Errorf("choice: fix config.toml first: %w", err)
-		}
-	}
-	b := src
-	for _, f := range config.Features {
-		v, ok := changes[f.ID]
-		if !ok {
-			continue
-		}
-		if b, err = config.SetBool(b, f.Table, f.Key, v); err != nil {
-			return err
-		}
-	}
-	if _, err := config.Parse(config.File, b); err != nil {
-		return fmt.Errorf("choice: %w", err)
-	}
-	if err := os.MkdirAll(env.ConfigDir, 0o700); err != nil {
-		return fmt.Errorf("choice: %w", err)
-	}
-	if existed {
-		if err := os.WriteFile(path+".bak", src, 0o600); err != nil {
-			return fmt.Errorf("choice: backup: %w", err)
-		}
-	}
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, b, 0o600); err != nil {
-		return fmt.Errorf("choice: %w", err)
-	}
-	if err := os.Rename(tmp, path); err != nil {
-		os.Remove(tmp)
-		return fmt.Errorf("choice: %w", err)
-	}
-	return nil
+	return config.SaveFeatures(env.configPath(), changes)
 }
 
 // afterSave does what a feature needs once it is on: the Screen Recording
