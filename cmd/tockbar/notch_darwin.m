@@ -655,6 +655,9 @@ static void haptic(NSHapticFeedbackPattern p) {
     CFTimeInterval dragT;
     double pinch;
     BOOL pinchFired;
+    // dragging pages with the mouse: pressed on a page, where the track was
+    BOOL pageArmed;
+    double pageBase;
     double wheel;
     BOOL wheelFired;
     NSPoint lastP;
@@ -863,6 +866,10 @@ static void haptic(NSHapticFeedbackPattern p) {
 }
 
 - (void)mouseDragged:(NSEvent *)e {
+    if (pageArmed) {
+        [self dragPages:e];
+        return;
+    }
     if (!self.resizing) {
         return;
     }
@@ -910,6 +917,21 @@ static void haptic(NSHapticFeedbackPattern p) {
 }
 
 - (void)mouseUp:(NSEvent *)e {
+    if (pageArmed) {
+        pageArmed = NO;
+        if (hswipe) { // let go of a page drag: settle like a swipe
+            hswipe = NO;
+            [[NSCursor arrowCursor] set];
+            double proj = swipeRaw + swipeV * 0.2;
+            NSInteger to = lround(MIN(MAX(proj, self.pageAt - 1), self.pageAt + 1));
+            [self goPage:to velocity:MAX(MIN(swipeV, 12), -12)];
+            [self setPointerInside:[self inShape:[self convertPoint:e.locationInWindow fromView:nil]]];
+            if (!self.inside) {
+                [self armLeave];
+            }
+        }
+        return;
+    }
     if (!self.resizing) {
         return;
     }
@@ -1200,6 +1222,14 @@ static void haptic(NSHapticFeedbackPattern p) {
         return;
     }
     [self.window makeFirstResponder:self]; // Esc and the label keys come here
+    if (self.pagesShown && p.y >= self.notchH) { // maybe a drag through the pages
+        pageArmed = YES;
+        pageBase = swipeRaw = TX.x;
+        dragAt = [NSEvent mouseLocation];
+        swipeV = 0;
+        swipeT = e.timestamp;
+        return;
+    }
     if (!self.panelShown) {
         [self openUser:NO params:kOpen];
         return;
@@ -1294,6 +1324,37 @@ static void haptic(NSHapticFeedbackPattern p) {
         wheelFired = NO;
         wheel = 0;
     }
+}
+
+// dragPages moves the pages with the mouse held down, as two fingers do: it
+// starts once the pointer has gone a few points sideways.
+- (void)dragPages:(NSEvent *)e {
+    NSPoint m = [NSEvent mouseLocation];
+    double dx = m.x - dragAt.x;
+    if (!hswipe) {
+        if (fabs(dx) < 4) {
+            return;
+        }
+        hswipe = YES;
+        [self.leaveTimer invalidate];
+        self.leaveTimer = nil;
+        [[NSCursor closedHandCursor] set];
+    }
+    double w = MAX(self.contentSize.width, 1);
+    double raw = pageBase - dx / w, dt = e.timestamp - swipeT;
+    if (dt > 0) {
+        swipeV = 0.6 * swipeV + 0.4 * (raw - swipeRaw) / dt;
+    }
+    swipeT = e.timestamp;
+    swipeRaw = raw;
+    double hi = MAX(self.pageCount - 1, 0), x = raw;
+    if (x < 0) {
+        x = -rubber(-x, 0.5);
+    } else if (x > hi) {
+        x = hi + rubber(x - hi, 0.5);
+    }
+    springJump(&TX, x);
+    [self paint];
 }
 
 // swipe pages with two fingers sideways: the track follows the fingers,
@@ -1863,7 +1924,7 @@ static void haptic(NSHapticFeedbackPattern p) {
     self.pageCount = 0;
     self.dots = nil;
     self.resizing = NO;
-    hswipe = NO;
+    hswipe = pageArmed = NO;
     [self aimGrips];
     if (wasPanel) {
         self.engaged = NO;

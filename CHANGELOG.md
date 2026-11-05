@@ -12,8 +12,8 @@ What changed for you in each release. Dates are UTC.
   month as a calendar, deep time per day and your best hours. ⌘K jumps to
   a view or a date, and every change can be undone from its toast.
 - The open notch has pages: Today, This week and Goals, plus the session
-  while one runs. Swipe sideways with two fingers to move between them, or
-  use ← and →. Drag a bottom corner to make the panel bigger, like
+  while one runs. Swipe sideways with two fingers, drag with the mouse, or
+  use ← and → to move between them. Drag a bottom corner to make the panel bigger, like
   resizing a picture, or pinch: medium adds a chart per hour (or per day),
   large adds a second column. It remembers the size and the page.
 - A new icon, the day ring: a clock whose ring is split into deep, shallow
