@@ -40,6 +40,13 @@ func demoSteps() []demoStep {
 	quiet := func(now time.Time) bar.Island {
 		return bar.Snapshot{OK: true, TrackedMS: 4*3600_000 + 12*60_000, Score: 78, Active: true, UnlabelledMS: 85 * 60_000}.IslandBase(ms(now))
 	}
+	done := func(now time.Time) bar.Island {
+		end := ms(now)
+		return bar.DoneIsland(store.Notice{ID: 3, Topic: focus.TopicDone, Title: "Session done"}, app.NoticeData{Session: 1, Minutes: 25},
+			&report.SessionDetail{Sess: focus.Session{ID: 1, StartMS: end - 25*60_000, PlannedMS: end, EndMS: end,
+				DeepMS: 21 * 60_000, LongestMS: 14 * 60_000, Switches: 3, DistractMS: 2 * 60_000, Goal: "tock notch"}},
+			time.Local, 85*60_000)
+	}
 	return []demoStep{
 		{quiet, 4 * time.Second},
 		{func(now time.Time) bar.Island {
@@ -53,13 +60,7 @@ func demoSteps() []demoStep {
 		{func(now time.Time) bar.Island {
 			return bar.Snapshot{OK: true, Session: session(now), Live: focus.Live{Level: 71}}.IslandBase(ms(now))
 		}, 3 * time.Second},
-		{func(now time.Time) bar.Island {
-			end := ms(now)
-			return bar.DoneIsland(store.Notice{ID: 3, Topic: focus.TopicDone, Title: "Session done"}, app.NoticeData{Session: 1, Minutes: 25},
-				&report.SessionDetail{Sess: focus.Session{ID: 1, StartMS: end - 25*60_000, PlannedMS: end, EndMS: end,
-					DeepMS: 21 * 60_000, LongestMS: 14 * 60_000, Switches: 3, DistractMS: 2 * 60_000, Goal: "tock notch"}},
-				time.Local, 85*60_000)
-		}, 6 * time.Second},
+		{done, 6 * time.Second},
 		{func(time.Time) bar.Island { return bar.LabelIsland(demoEntries(), 0, "") }, 0}, // until done
 		{func(now time.Time) bar.Island {
 			return bar.Snapshot{OK: true, Slots: []focus.Slot{{Kind: focus.SlotEvent, StartMS: ms(now) + 2*60_000, EndMS: ms(now) + 15*60_000,
@@ -82,6 +83,8 @@ func demoSteps() []demoStep {
 			return bar.RecapIsland(store.Notice{ID: 4, Topic: focus.TopicRecap}, d,
 				app.Usual{Days: 4, Score: 75, FocusMS: 168 * 60_000, LongestMS: 76 * 60_000, DistractMS: 23 * 60_000}, 85*60_000, time.Local)
 		}, 8 * time.Second},
+		// a session end nobody saw waits as a dot
+		{func(now time.Time) bar.Island { return bar.Missed(quiet(now), done(now)) }, 4 * time.Second},
 	}
 }
 
@@ -97,7 +100,7 @@ func runDemo(u ui, events <-chan event) {
 	}
 	u.SetTitle("◷ demo")
 	u.SetMenu("quit\tQuit the demo")
-	u.NotchSharing(true) // the demo exists to be recorded
+	u.NotchOptions(true, true, false) // the demo exists to be recorded
 	step, at := 0, 0
 	entries := demoEntries()
 	var timer <-chan time.Time

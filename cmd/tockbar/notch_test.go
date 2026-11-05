@@ -31,8 +31,8 @@ func TestNotchOnlyAfterThePanelIsReady(t *testing.T) {
 	if i := island(t, u); i.State != bar.IslandQuiet || i.Hover == nil {
 		t.Fatalf("quiet = %+v", i)
 	}
-	if len(u.sharing) != 1 || u.sharing[0] {
-		t.Fatalf("sharing = %v, want hidden from recordings", u.sharing)
+	if len(u.options) != 1 || u.options[0] != "sharing=false all=true hover=false" {
+		t.Fatalf("options = %v, want hidden from recordings, every display, click to open", u.options)
 	}
 	n := len(u.islands)
 	r.tick()
@@ -164,5 +164,35 @@ func TestNotchDriftExpires(t *testing.T) {
 	r.handle(event{kind: evMenu, id: bar.IDNotchExpire + strconv.FormatInt(i.Notice, 10)})
 	if r.moment != nil {
 		t.Fatal("expire left the moment open")
+	}
+}
+
+func TestNotchMissedMomentWaits(t *testing.T) {
+	e := seededEnv(t)
+	r, u, _ := testRunner(t, e)
+	r.handle(event{kind: evReady})
+	r.handle(event{kind: evNotch, id: "1"})
+	if err := r.a.Enqueue(focus.Event{Topic: focus.TopicDone, Title: focus.TitleDone, Body: "25 min: done.", Minutes: 25}); err != nil {
+		t.Fatal(err)
+	}
+	r.tick()
+	done := island(t, u)
+	r.handle(event{kind: evMenu, id: bar.IDNotchExpire + strconv.FormatInt(done.Notice, 10)})
+	q := island(t, u)
+	if q.State != bar.IslandQuiet || !q.Pending || q.Hover == nil || q.Hover.Lead != done.Panel.Lead {
+		t.Fatalf("an unseen session end must wait in the notch: %+v", q)
+	}
+	r.handle(event{kind: evMenu, id: bar.IDNotchSeen})
+	if island(t, u).Pending {
+		t.Fatal("seen left the dot")
+	}
+	// a moment put away by hand was seen: nothing waits
+	if err := r.a.Enqueue(focus.Event{Topic: focus.TopicDone, Title: focus.TitleDone, Body: "25 min: done.", Minutes: 25}); err != nil {
+		t.Fatal(err)
+	}
+	r.tick()
+	r.handle(event{kind: evMenu, id: bar.IDNotchClose})
+	if island(t, u).Pending {
+		t.Fatal("a closed moment must not wait")
 	}
 }

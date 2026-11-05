@@ -27,6 +27,9 @@ const (
 	reopenEvery = 30 * time.Second
 	// keepCategories is how many notification categories stay registered.
 	keepCategories = 8
+	// missedKeepMS is how long a session end or recap that folded unseen
+	// waits in the notch.
+	missedKeepMS = 3 * 60 * 60_000
 )
 
 // defaultAction is the action of a click on a notification itself.
@@ -49,8 +52,9 @@ type ui interface {
 	SetHotkey(on bool) // ⌥⌘F opens the start prompt
 	// Island draws the notch from bar.Island JSON; "" hides it.
 	Island(spec string)
-	// NotchSharing lets screen sharing and recordings see the notch panel.
-	NotchSharing(visible bool)
+	// NotchOptions sets how the notch panel behaves: seen by screen sharing
+	// and recordings, drawn on every display, opened by resting the pointer.
+	NotchOptions(sharing, allDisplays, openOnHover bool)
 	Quit()
 }
 
@@ -101,7 +105,11 @@ type runner struct {
 	labels  []bar.Entry // the labelling round the moment shows
 	labelAt int
 	island  string // what Island was last told
-	sharing *bool  // what NotchSharing was last told; nil = never
+	options string // what NotchOptions was last told; "" = never
+	// missed is a session end or recap that folded unseen; it waits in the
+	// quiet notch until opened, replaced or missedKeepMS old.
+	missed   *bar.Island
+	missedMS int64
 }
 
 // loop runs until events closes.
@@ -281,7 +289,7 @@ func (r *runner) toNotch(n store.Notice, d app.NoticeData) bool {
 	if r.moment != nil && bar.Rank(r.moment.State) > bar.Rank(i.State) {
 		return false
 	}
-	r.moment, r.labels = &i, nil
+	r.moment, r.labels, r.missed = &i, nil, nil
 	r.log.Info("notch moment", "state", i.State, "notice", n.ID)
 	return true
 }
@@ -306,18 +314,25 @@ func (r *runner) renderNotch(nowMS int64) {
 	}
 	spec := ""
 	if r.notchOn() && r.snap.OK {
-		if v := r.a.Config().Notch.ShowInRecordings; r.sharing == nil || *r.sharing != v {
-			r.sharing = &v
-			r.ui.NotchSharing(v)
+		c := r.a.Config().Notch
+		if o := fmt.Sprint(c.ShowInRecordings, c.AllDisplays, c.OpenOnHover); o != r.options {
+			r.options = o
+			r.ui.NotchOptions(c.ShowInRecordings, c.AllDisplays, c.OpenOnHover)
+		}
+		if r.missed != nil && nowMS-r.missedMS > missedKeepMS {
+			r.missed = nil
 		}
 		i := r.snap.IslandBase(nowMS)
-		if r.moment != nil {
+		switch {
+		case r.moment != nil:
 			i = *r.moment
 			r.moment.Haptic = "" // played once
+		case r.missed != nil:
+			i = bar.Missed(i, *r.missed)
 		}
 		spec = i.JSON()
 	} else {
-		r.moment, r.labels = nil, nil
+		r.moment, r.labels, r.missed = nil, nil, nil
 	}
 	if spec != r.island {
 		r.island = spec
@@ -335,13 +350,20 @@ func (r *runner) notch(id string) {
 		r.moment, r.labels = nil, nil
 		r.done("notch close", "", nil)
 	case strings.HasPrefix(id, bar.IDNotchExpire):
-		if r.moment != nil && strconv.FormatInt(r.moment.Notice, 10) == strings.TrimPrefix(id, bar.IDNotchExpire) {
+		if m := r.moment; m != nil && strconv.FormatInt(m.Notice, 10) == strings.TrimPrefix(id, bar.IDNotchExpire) {
+			if m.State == bar.IslandDone || m.State == bar.IslandRecap {
+				r.missed, r.missedMS = m, r.now().UnixMilli()
+			}
 			r.moment, r.labels = nil, nil
 		}
 		r.done("notch expire", "", nil)
+	case id == bar.IDNotchSeen:
+		r.missed = nil
+		r.done("notch seen", "", nil)
 	case id == bar.IDNotchLabel:
 		es, err := bar.LoadLabels(r.a, r.now())
 		if err == nil {
+			r.missed = nil
 			r.labels, r.labelAt = es, 0
 			i := bar.LabelIsland(es, 0, "")
 			r.moment = &i
@@ -357,10 +379,10 @@ func (r *runner) notch(id string) {
 			r.log.Warn("unknown notch action", "id", id)
 			return
 		}
-		r.moment, r.labels = nil, nil
+		r.moment, r.labels, r.missed = nil, nil, nil
 		r.handle(event{kind: evResponse, notice: nid, id: action})
 	case strings.HasPrefix(id, bar.IDNotchMenu):
-		r.moment, r.labels = nil, nil
+		r.moment, r.labels, r.missed = nil, nil, nil
 		r.handle(event{kind: evMenu, id: strings.TrimPrefix(id, bar.IDNotchMenu)})
 	default:
 		r.log.Warn("unknown notch action", "id", id)

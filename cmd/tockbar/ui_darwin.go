@@ -121,12 +121,14 @@ func (cocoa) Post(id int64, title, body, category, categories string) {
 
 func (cocoa) Island(s string) { cstr(s, func(c *C.char) { C.bar_island(c) }) }
 
-func (cocoa) NotchSharing(v bool) {
-	n := 0
-	if v {
-		n = 1
+func (cocoa) NotchOptions(sharing, all, hover bool) {
+	b := func(v bool) C.int {
+		if v {
+			return 1
+		}
+		return 0
 	}
-	C.bar_notch_sharing(C.int(n))
+	C.bar_notch_options(b(sharing), b(all), b(hover))
 }
 
 // runDemoUI plays the notch demo on Cocoa until it quits.
