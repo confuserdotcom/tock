@@ -98,8 +98,12 @@ static NSColor *kindColor(NSString *k) {
     return c ? c : m[@"none"];
 }
 
-static NSFont *sys(CGFloat size, NSFontWeight w) { return [NSFont systemFontOfSize:size weight:w]; }
-static NSFont *digits(CGFloat size, NSFontWeight w) { return [NSFont monospacedDigitSystemFontOfSize:size weight:w]; }
+// kType sets the notch's type size: every font is its size here times
+// kType, and the fixed line heights scale with it through scaled().
+static const CGFloat kType = 1.18;
+static CGFloat scaled(CGFloat x) { return round(x * kType); }
+static NSFont *sys(CGFloat size, NSFontWeight w) { return [NSFont systemFontOfSize:size * kType weight:w]; }
+static NSFont *digits(CGFloat size, NSFontWeight w) { return [NSFont monospacedDigitSystemFontOfSize:size * kType weight:w]; }
 
 static NSString *sval(NSDictionary *d, NSString *k) {
     id v = d[k];
@@ -307,7 +311,7 @@ static void pillDone(NSWindow *w);
         NSDictionary *ha = @{NSFontAttributeName : sys(10, NSFontWeightMedium),
                              NSForegroundColorAttributeName : self.primary ? [NSColor colorWithWhite:0 alpha:0.5] : white(0.5)};
         NSSize hs = [self.hint sizeWithAttributes:ha];
-        NSRect cap = NSMakeRect(x, (b.size.height - 15) / 2, MAX(15, hs.width + 8), 15);
+        NSRect cap = NSMakeRect(x, (b.size.height - scaled(15)) / 2, MAX(scaled(15), hs.width + 8), scaled(15));
         [(self.primary ? [NSColor colorWithWhite:0 alpha:0.25] : white(0.22)) setStroke];
         [[NSBezierPath bezierPathWithRoundedRect:NSInsetRect(cap, 0.5, 0.5) xRadius:4 yRadius:4] stroke];
         [self.hint drawAtPoint:NSMakePoint(NSMidX(cap) - hs.width / 2, NSMidY(cap) - hs.height / 2) withAttributes:ha];
@@ -337,13 +341,13 @@ static void pillDone(NSWindow *w);
             [l lineToPoint:NSMakePoint(floor(x) + 0.5, self.bounds.size.height)];
             [l stroke];
         }
-        [sval(c, @"k") drawAtPoint:NSMakePoint(x + 10, 6)
+        [sval(c, @"k") drawAtPoint:NSMakePoint(x + 10, scaled(6))
                     withAttributes:@{NSFontAttributeName : sys(10.5, NSFontWeightRegular), NSForegroundColorAttributeName : white(0.55)}];
-        [sval(c, @"v") drawAtPoint:NSMakePoint(x + 10, 19)
+        [sval(c, @"v") drawAtPoint:NSMakePoint(x + 10, scaled(19))
                     withAttributes:@{NSFontAttributeName : digits(15, NSFontWeightSemibold), NSForegroundColorAttributeName : white(1)}];
         NSString *tone = sval(c, @"tone");
         NSColor *tc = [tone isEqualToString:@"good"] ? kindColor(@"good") : [tone isEqualToString:@"bad"] ? kindColor(@"distract") : white(0.55);
-        [sval(c, @"c") drawAtPoint:NSMakePoint(x + 10, 39)
+        [sval(c, @"c") drawAtPoint:NSMakePoint(x + 10, scaled(39))
                     withAttributes:@{NSFontAttributeName : digits(10.5, NSFontWeightRegular), NSForegroundColorAttributeName : tc}];
     }
 }
@@ -394,14 +398,14 @@ static void pillDone(NSWindow *w);
         if (row.count < 2) {
             continue;
         }
-        CGFloat y = i * 21;
+        CGFloat y = i * scaled(21);
         if (i > 0) {
             [white(0.08) setFill];
             NSRectFill(NSMakeRect(0, y, w, 1));
         }
-        [row[0] drawAtPoint:NSMakePoint(0, y + 3) withAttributes:na];
+        [row[0] drawAtPoint:NSMakePoint(0, y + scaled(3)) withAttributes:na];
         NSSize vs = [row[1] sizeWithAttributes:va];
-        [row[1] drawAtPoint:NSMakePoint(w - vs.width, y + 3) withAttributes:va];
+        [row[1] drawAtPoint:NSMakePoint(w - vs.width, y + scaled(3)) withAttributes:va];
     }
 }
 @end
@@ -417,7 +421,7 @@ static void pillDone(NSWindow *w);
     for (NSDictionary *b in bars) {
         sub = sub || sval(b, @"sub").length > 0;
     }
-    return 48 + 15 + (sub ? 13 : 0);
+    return 48 + 3 + scaled(13) + (sub ? scaled(12) : 0);
 }
 - (void)drawRect:(NSRect)r {
     (void)r;
@@ -472,7 +476,7 @@ static void pillDone(NSWindow *w);
         if (sub.length) {
             NSDictionary *sa = @{NSFontAttributeName : digits(9.5, NSFontWeightRegular), NSForegroundColorAttributeName : white(hi ? 0.75 : 0.4)};
             NSSize ss = [sub sizeWithAttributes:sa];
-            [sub drawAtPoint:NSMakePoint(round(i * slot + (slot - ss.width) / 2), ch + 16) withAttributes:sa];
+            [sub drawAtPoint:NSMakePoint(round(i * slot + (slot - ss.width) / 2), ch + 3 + scaled(13)) withAttributes:sa];
         }
     }
 }
@@ -489,7 +493,7 @@ static void pillDone(NSWindow *w);
     for (NSDictionary *g in rings) {
         sub = sub || sval(g, @"sub").length > 0;
     }
-    return 46 + 6 + 15 + 15 + (sub ? 13 : 0);
+    return 46 + 6 + scaled(15) * 2 + (sub ? scaled(13) : 0);
 }
 - (void)drawRect:(NSRect)r {
     (void)r;
@@ -527,10 +531,10 @@ static void pillDone(NSWindow *w);
         ];
         for (NSArray *ln in lines) {
             if ([ln[0] length]) {
-                [ln[0] drawInRect:NSMakeRect(i * slot + 2, y, slot - 4, 15)
+                [ln[0] drawInRect:NSMakeRect(i * slot + 2, y, slot - 4, scaled(15))
                    withAttributes:@{NSFontAttributeName : ln[1], NSForegroundColorAttributeName : ln[2], NSParagraphStyleAttributeName : ps}];
             }
-            y += 15;
+            y += scaled(15);
         }
     }
 }
@@ -571,7 +575,8 @@ static BOOL reduceMotion;
 static NSString *const kSizeKey = @"NotchPanelSize";
 static NSString *const kPageKey = @"NotchPanelPage";
 static const CGFloat kLevelW[3] = {440, 580, 740};
-static const CGFloat kGrip = 18; // the resize grips at the bottom corners
+static const CGFloat kGrip = 30;    // the resize grips: how far into the panel a corner takes the pointer
+static const CGFloat kGripOut = 12; // and how far outside it: the window keeps that room
 static NSInteger sizeLevel = -1;
 static NSInteger panelSize(void) {
     if (sizeLevel < 0) {
@@ -653,8 +658,8 @@ static void haptic(NSHapticFeedbackPattern p) {
     int dragSide;
     double dragVW, dragVH, dragEq, dragVE;
     CFTimeInterval dragT;
-    double pinch;
-    BOOL pinchFired;
+    double pinch; // the scale a pinch has reached
+    BOOL pinching;
     // dragging pages with the mouse: pressed on a page, where the track was
     BOOL pageArmed;
     double pageBase;
@@ -816,18 +821,22 @@ static void haptic(NSHapticFeedbackPattern p) {
 }
 
 // gripAt is the grip under p: 1 the right one, -1 the left one, 0 none.
+// A corner takes the pointer from kGrip inside to kGripOut outside, and
+// once it has it, keeps it a few points further, so the cursor doesn't
+// flicker on the edge.
 - (int)gripAt:(NSPoint)p {
     if (!self.pagesShown) {
         return 0;
     }
     NSRect s = [self shapeRect];
-    if (p.y < NSMaxY(s) - kGrip - 4 || p.y > NSMaxY(s) + 3) {
+    CGFloat in = kGrip + (self.gripCursor ? 6 : 0), out = kGripOut + (self.gripCursor ? 4 : 0);
+    if (p.y < NSMaxY(s) - in || p.y > NSMaxY(s) + out) {
         return 0;
     }
-    if (p.x >= NSMaxX(s) - kGrip - 4 && p.x <= NSMaxX(s) + 3) {
+    if (p.x >= NSMaxX(s) - in && p.x <= NSMaxX(s) + out) {
         return 1;
     }
-    if (p.x <= NSMinX(s) + kGrip + 4 && p.x >= NSMinX(s) - 3) {
+    if (p.x <= NSMinX(s) + in && p.x >= NSMinX(s) - out) {
         return -1;
     }
     return 0;
@@ -879,7 +888,26 @@ static void haptic(NSHapticFeedbackPattern p) {
     // like scaling a picture: the corner sets one scale for both sides
     NSPoint m = [NSEvent mouseLocation];
     CGFloat dx = (m.x - dragAt.x) * dragSide, dy = dragAt.y - m.y;
-    double scale = MAX((dragFrom.width + 2 * dx) / MAX(dragFrom.width, 1), (dragFrom.height + dy) / MAX(dragFrom.height, 1));
+    [self resizeToScale:MAX((dragFrom.width + 2 * dx) / MAX(dragFrom.width, 1), (dragFrom.height + dy) / MAX(dragFrom.height, 1))
+                   time:e.timestamp];
+}
+
+// beginResize starts a corner drag or a pinch from the size on screen.
+- (void)beginResize:(NSTimeInterval)t {
+    self.resizing = YES;
+    self.dragLevel = panelSize();
+    dragFrom = CGSizeMake(W.x, H.x);
+    dragEq = W.x;
+    dragVW = dragVH = dragVE = 0;
+    dragT = t;
+    [self.leaveTimer invalidate];
+    self.leaveTimer = nil;
+    [self aimGrips];
+}
+
+// resizeToScale sizes the panel to scale times where the resize began.
+// Past the smallest and largest sizes it gives less and less, then stops.
+- (void)resizeToScale:(double)scale time:(NSTimeInterval)t {
     CGFloat minW = [self levelWidth:0] * 0.9, maxW = MIN(self.screenFrame.size.width * 0.9, kMaxW - kEar * 2 - kSlop);
     CGFloat minH = self.notchH + 90, maxH = MIN(self.screenFrame.size.height * 0.45, kMaxH - kSlop);
     CGFloat w = dragFrom.width * scale, h = dragFrom.height * scale;
@@ -893,13 +921,14 @@ static void haptic(NSHapticFeedbackPattern p) {
     } else if (h > maxH) {
         h = maxH + rubber(h - maxH, 40);
     }
-    double eq = dragFrom.width * scale, dt = e.timestamp - dragT;
+    // the size it heads for counts only as far as the panel follows
+    double eq = MIN(MAX(dragFrom.width * scale, minW - 60), maxW + 60), dt = t - dragT;
     if (dt > 0) {
         dragVW = 0.6 * dragVW + 0.4 * (w - W.x) / dt;
         dragVH = 0.6 * dragVH + 0.4 * (h - H.x) / dt;
         dragVE = 0.6 * dragVE + 0.4 * (eq - dragEq) / dt;
     }
-    dragT = e.timestamp;
+    dragT = t;
     dragEq = eq;
     springJump(&W, w);
     springJump(&H, h);
@@ -919,6 +948,29 @@ static void haptic(NSHapticFeedbackPattern p) {
     [self paint];
 }
 
+// finishResize springs to the size nearest to where the resize was heading,
+// carrying its speed; from past either end that is the end itself.
+- (void)finishResize {
+    if (!self.resizing) {
+        return;
+    }
+    double proj = dragEq + MAX(MIN(dragVE, 2000), -2000) * 0.2;
+    NSInteger lv = 0;
+    for (NSInteger l = 1; l < 3; l++) {
+        if (fabs([self levelWidth:l] - proj) < fabs([self levelWidth:lv] - proj)) {
+            lv = l;
+        }
+    }
+    self.resizing = NO;
+    setPanelSize(lv);
+    W.v = MAX(MIN(dragVW, 3000), -3000);
+    H.v = MAX(MIN(dragVH, 3000), -3000);
+    [self render:kUser];
+    NSPoint p = [self convertPoint:[self.window convertPointFromScreen:[NSEvent mouseLocation]] fromView:nil];
+    [self setPointerInside:[self inShape:p]];
+    [self aimGrips];
+}
+
 - (void)mouseUp:(NSEvent *)e {
     if (pageArmed) {
         pageArmed = NO;
@@ -935,45 +987,33 @@ static void haptic(NSHapticFeedbackPattern p) {
         }
         return;
     }
-    if (!self.resizing) {
-        return;
+    if (!pinching) {
+        [self finishResize];
     }
-    // settle on the size nearest to where the drag was heading
-    double proj = dragEq + dragVE * 0.2;
-    NSInteger lv = 0;
-    for (NSInteger l = 1; l < 3; l++) {
-        if (fabs([self levelWidth:l] - proj) < fabs([self levelWidth:lv] - proj)) {
-            lv = l;
-        }
-    }
-    self.resizing = NO;
-    setPanelSize(lv);
-    W.v = MAX(MIN(dragVW, 3000), -3000);
-    H.v = MAX(MIN(dragVH, 3000), -3000);
-    [self render:kUser];
-    [self setPointerInside:[self inShape:[self convertPoint:e.locationInWindow fromView:nil]]];
-    [self aimGrips];
 }
 
-// A pinch on the open panel steps its size, one size per pinch.
+// A pinch on the open panel scales it live, like the corner grips, and
+// settles on the nearest size when the fingers lift.
 - (void)magnifyWithEvent:(NSEvent *)e {
-    if (!self.pagesShown || self.resizing) {
+    if (e.phase == NSEventPhaseBegan) {
+        if (!self.pagesShown || self.resizing) {
+            return;
+        }
+        pinching = YES;
+        pinch = 1;
+        [self beginResize:e.timestamp];
         return;
     }
-    if (e.phase == NSEventPhaseBegan) {
-        pinch = 0;
-        pinchFired = NO;
+    if (!pinching) {
+        return;
     }
-    pinch += e.magnification;
-    if (!pinchFired && fabs(pinch) > 0.18) {
-        pinchFired = YES;
-        NSInteger l = panelSize() + (pinch > 0 ? 1 : -1);
-        if (l >= 0 && l <= 2) {
-            setPanelSize(l);
-            haptic(NSHapticFeedbackPatternAlignment);
-            [self render:kUser];
-        }
+    if (e.phase & (NSEventPhaseEnded | NSEventPhaseCancelled)) {
+        pinching = NO;
+        [self finishResize];
+        return;
     }
+    pinch = MIN(MAX(pinch * (1 + e.magnification), 0.2), 4);
+    [self resizeToScale:pinch time:e.timestamp];
 }
 
 // Clicks on text go to the island; buttons keep theirs.
@@ -998,7 +1038,7 @@ static void haptic(NSHapticFeedbackPattern p) {
         [self removeTrackingArea:a];
     }
     [self addTrackingArea:[[NSTrackingArea alloc] initWithRect:NSZeroRect
-                                                       options:NSTrackingMouseEnteredAndExited | NSTrackingMouseMoved | NSTrackingActiveAlways |
+                                                       options:NSTrackingMouseEnteredAndExited | NSTrackingMouseMoved | NSTrackingCursorUpdate | NSTrackingActiveAlways |
                                                                NSTrackingInVisibleRect
                                                          owner:self
                                                       userInfo:nil]];
@@ -1011,6 +1051,15 @@ static void haptic(NSHapticFeedbackPattern p) {
     lastP = p;
     lastT = e.timestamp;
     [self setPointerInside:[self inShape:p]];
+    [self aimCursor:p];
+}
+
+// aimCursor shows the resize cursor on a grip. It sets it on every move,
+// since the app under the panel sets its own as the pointer moves too.
+- (void)aimCursor:(NSPoint)p {
+    if (self.resizing) {
+        return;
+    }
     int g = [self gripAt:p];
     if (g) {
         [resizeCursor(g) set];
@@ -1018,6 +1067,14 @@ static void haptic(NSHapticFeedbackPattern p) {
     } else if (self.gripCursor) {
         [[NSCursor arrowCursor] set];
         self.gripCursor = NO;
+    }
+}
+
+// cursorUpdate would put the arrow back over a grip: decide here instead.
+- (void)cursorUpdate:(NSEvent *)e {
+    [self aimCursor:[self convertPoint:e.locationInWindow fromView:nil]];
+    if (!self.gripCursor && !self.resizing) {
+        [[NSCursor arrowCursor] set];
     }
 }
 
@@ -1175,7 +1232,7 @@ static void haptic(NSHapticFeedbackPattern p) {
         return;
     }
     self.userOpen = self.byHover = NO;
-    self.resizing = NO;
+    self.resizing = pinching = NO;
     if (bval(spec, @"pending")) {
         notchSend(@"notch:seen");
     } else {
@@ -1209,16 +1266,12 @@ static void haptic(NSHapticFeedbackPattern p) {
             [self render:kUser];
             return;
         }
-        self.resizing = YES;
-        self.dragLevel = panelSize();
+        if (pinching) {
+            return;
+        }
         dragSide = g;
         dragAt = [NSEvent mouseLocation];
-        dragFrom = CGSizeMake(W.x, H.x);
-        dragEq = W.x;
-        dragVW = dragVH = dragVE = 0;
-        dragT = e.timestamp;
-        [self.leaveTimer invalidate];
-        self.leaveTimer = nil;
+        [self beginResize:e.timestamp];
         return;
     }
     if (![self inShape:p]) {
@@ -1335,7 +1388,7 @@ static void haptic(NSHapticFeedbackPattern p) {
     if (hswipe || pageArmed || self.resizing || self.gripCursor) {
         [[NSCursor arrowCursor] set];
     }
-    hswipe = pageArmed = NO;
+    hswipe = pageArmed = pinching = NO;
     self.resizing = self.gripCursor = NO;
 }
 
@@ -1611,10 +1664,10 @@ static void haptic(NSHapticFeedbackPattern p) {
 - (CGFloat)section:(NSDictionary *)d in:(NSView *)v x:(CGFloat)x y:(CGFloat)y width:(CGFloat)w {
     NSArray *cells = aval(d, @"cells");
     if (cells.count) {
-        Cells *c = [[Cells alloc] initWithFrame:NSMakeRect(x, y, w, 56)];
+        Cells *c = [[Cells alloc] initWithFrame:NSMakeRect(x, y, w, scaled(56))];
         c.cells = cells;
         [v addSubview:c];
-        y += 56 + 12;
+        y += scaled(56) + 12;
     }
     NSArray *rings = aval(d, @"rings");
     if (rings.count) {
@@ -1634,18 +1687,18 @@ static void haptic(NSHapticFeedbackPattern p) {
     }
     NSArray *strip = aval(d, @"strip");
     if (strip.count) {
-        Strip *st = [[Strip alloc] initWithFrame:NSMakeRect(x, y + 2, w, 26)];
+        Strip *st = [[Strip alloc] initWithFrame:NSMakeRect(x, y + 2, w, 12 + scaled(14))];
         st.kinds = strip;
         st.axis = aval(d, @"axis");
         [v addSubview:st];
-        y += 30 + 8;
+        y += 16 + scaled(14) + 8;
     }
     NSArray *rows = aval(d, @"rows");
     if (rows.count) {
-        Rows *r = [[Rows alloc] initWithFrame:NSMakeRect(x, y, w, rows.count * 21)];
+        Rows *r = [[Rows alloc] initWithFrame:NSMakeRect(x, y, w, rows.count * scaled(21))];
         r.rows = rows;
         [v addSubview:r];
-        y += rows.count * 21 + 6;
+        y += rows.count * scaled(21) + 6;
     }
     return y;
 }
@@ -1776,28 +1829,28 @@ static void haptic(NSHapticFeedbackPattern p) {
     }
     NSArray *cells = aval(p, @"cells");
     if (cells.count) {
-        Cells *c = [[Cells alloc] initWithFrame:NSMakeRect(kPad, y, inner, 56)];
+        Cells *c = [[Cells alloc] initWithFrame:NSMakeRect(kPad, y, inner, scaled(56))];
         c.cells = cells;
         [v addSubview:c];
-        y += 56 + 12;
+        y += scaled(56) + 12;
     }
     NSArray *strip = aval(p, @"strip"), *rows = aval(p, @"rows");
     if (strip.count || rows.count) {
         CGFloat sw = rows.count ? floor(inner * 0.55) : inner;
         CGFloat bh = 0;
         if (strip.count) {
-            Strip *s = [[Strip alloc] initWithFrame:NSMakeRect(kPad, y + 4, sw, 26)];
+            Strip *s = [[Strip alloc] initWithFrame:NSMakeRect(kPad, y + 4, sw, 12 + scaled(14))];
             s.kinds = strip;
             s.axis = aval(p, @"axis");
             [v addSubview:s];
-            bh = 30;
+            bh = 16 + scaled(14);
         }
         if (rows.count) {
             CGFloat rx = strip.count ? kPad + sw + 18 : kPad;
-            Rows *r = [[Rows alloc] initWithFrame:NSMakeRect(rx, y, inner - (rx - kPad), rows.count * 21)];
+            Rows *r = [[Rows alloc] initWithFrame:NSMakeRect(rx, y, inner - (rx - kPad), rows.count * scaled(21))];
             r.rows = rows;
             [v addSubview:r];
-            bh = MAX(bh, rows.count * 21);
+            bh = MAX(bh, rows.count * scaled(21));
         }
         y += bh + 12;
     }
@@ -2083,8 +2136,12 @@ static void haptic(NSHapticFeedbackPattern p) {
 - (void)layoutWindow:(BOOL)settle {
     CGFloat w = settle ? MAX(W.x, 0) : MAX(MAX(W.x, 0), self.target.width) + kSlop;
     CGFloat h = settle ? MAX(H.x, 0) : MAX(MAX(H.x, 0), self.target.height) + kSlop;
-    w = MIN(w, kMaxW) + kEar * 2;
-    h = MIN(MAX(h, 1), kMaxH);
+    if (self.pagesShown) { // room outside the corners for the grips
+        w += kGripOut * 2;
+        h += kGripOut;
+    }
+    w = MIN(w, kMaxW + kGripOut * 2) + kEar * 2;
+    h = MIN(MAX(h, 1), kMaxH + kGripOut);
     NSRect f = NSMakeRect(round(self.midX - w / 2), self.top - ceil(h), ceil(w), ceil(h));
     if (!NSEqualRects(f, self.win.frame)) {
         [self.win setFrame:f display:NO];
