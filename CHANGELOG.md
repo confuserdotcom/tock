@@ -2,6 +2,13 @@
 
 What changed for you in each release. Dates are UTC.
 
+## Unreleased
+
+### Changed
+- trackd uses about 10 MB less memory: its focus, sync and title-deletion
+  loops share one database session.
+- Pushing a version tag publishes the GitHub release with the Linux tarballs.
+
 ## v5.0.0 — 2026-11-05
 
 The first public release.

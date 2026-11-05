@@ -1,0 +1,39 @@
+name: release
+
+# Pushing a tag like v5.1.0 tests it, builds the Linux tarballs with
+# make release and publishes them as a GitHub release, with the tag's
+# CHANGELOG.md section as notes.
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: test
+        run: CGO_ENABLED=0 go test ./... -count=1
+      - name: notes
+        run: |
+          awk -v v="$GITHUB_REF_NAME" '$0 ~ "^## "v" " {on=1; next} on && /^## / {exit} on' CHANGELOG.md > "$RUNNER_TEMP/notes.md"
+          test -s "$RUNNER_TEMP/notes.md" || { echo "CHANGELOG.md has no section for $GITHUB_REF_NAME" >&2; exit 1; }
+      - name: build
+        run: make release VERSION="$GITHUB_REF_NAME"
+      - name: publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" dist/*.tar.gz dist/SHA256SUMS --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" dist/*.tar.gz dist/SHA256SUMS \
+              --title "$GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/notes.md" --verify-tag
+          fi
