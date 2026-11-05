@@ -10,14 +10,14 @@ func TestLoadNotch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !c.Notch.Enabled || c.Notch.ShowInRecordings {
+	if !c.Notch.Enabled || c.Notch.ShowInRecordings || !c.Notch.AllDisplays || c.Notch.OpenOnHover {
 		t.Fatalf("defaults = %+v", c.Notch)
 	}
-	c, err = Load(write(t, "[notch]\nenabled = false\nshow_in_recordings = true\n"))
+	c, err = Load(write(t, "[notch]\nenabled = false\nshow_in_recordings = true\nall_displays = false\nopen_on_hover = true\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c.Notch.Enabled || !c.Notch.ShowInRecordings {
+	if c.Notch.Enabled || !c.Notch.ShowInRecordings || c.Notch.AllDisplays || !c.Notch.OpenOnHover {
 		t.Fatalf("set = %+v", c.Notch)
 	}
 	if _, err := Load(write(t, "[notch]\nshape = 1\n")); err == nil || !strings.Contains(err.Error(), "shape") {
