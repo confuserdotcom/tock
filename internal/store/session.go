@@ -53,6 +53,15 @@ const (
 	// KeyFocusDistractSnooze is when (ms) snoozed distraction notices of the
 	// running session resume.
 	KeyFocusDistractSnooze = "focus_distract_snooze"
+	// KeyFocusWakeRun, KeyFocusWakeWarn, KeyFocusWakeAt and KeyFocusWakeCheck
+	// are the wake screen's state (focus.State); trackd owns them.
+	KeyFocusWakeRun   = "focus_wake_run"
+	KeyFocusWakeWarn  = "focus_wake_warn"
+	KeyFocusWakeAt    = "focus_wake_at"
+	KeyFocusWakeCheck = "focus_wake_check"
+	// KeyFocusPaper is the id of the session whose idle time is paper work,
+	// never off task; tock owns it.
+	KeyFocusPaper = "focus_paper"
 	// KeyGuardSession is the id of the session whose start hooks ran.
 	KeyGuardSession = "guard_session"
 	// KeyGuardBlockAt is when (ms) the focus guard last blocked something.
@@ -90,9 +99,11 @@ type Session struct {
 	RatedMS       int64  // when it was rated, 0 = unrated
 	UrgesResisted int    // distraction notices answered Back to work
 	UrgesGiven    int    // distraction notices answered Open anyway
+	Wakes         int    // wake screens shown
+	WakesBack     int    // wake screens followed by work within focus.WakeBackMS
 }
 
-const sessionCols = `id, kind, start_ms, planned_ms, end_ms, interruptions, alerted_ms, deep_ms, distract_ms, longest_ms, switches, rating, note, rated_ms, urges_resisted, urges_given`
+const sessionCols = `id, kind, start_ms, planned_ms, end_ms, interruptions, alerted_ms, deep_ms, distract_ms, longest_ms, switches, rating, note, rated_ms, urges_resisted, urges_given, wakes, wakes_back`
 
 func scanSession(sc interface{ Scan(...any) error }) (Session, error) {
 	var x Session
@@ -100,7 +111,7 @@ func scanSession(sc interface{ Scan(...any) error }) (Session, error) {
 	var note sql.NullString
 	err := sc.Scan(&x.ID, &x.Kind, &x.StartMS, &planned, &end, &x.Interruptions, &x.AlertedMS,
 		&x.DeepMS, &x.DistractMS, &x.LongestMS, &x.Switches, &rating, &note, &ratedMS,
-		&x.UrgesResisted, &x.UrgesGiven)
+		&x.UrgesResisted, &x.UrgesGiven, &x.Wakes, &x.WakesBack)
 	x.PlannedMS, x.EndMS = planned.Int64, end.Int64
 	x.Rating, x.Note, x.RatedMS = int(rating.Int64), note.String, ratedMS.Int64
 	return x, err
@@ -155,9 +166,9 @@ func (s *Store) OpenSession() (*Session, error) {
 // UpdateSession writes the counters of a running session. It reports false
 // when the session is no longer running.
 func (s *Store) UpdateSession(x Session) (bool, error) {
-	res, err := s.db.Exec(`UPDATE session SET interruptions=?, alerted_ms=?, deep_ms=?, distract_ms=?, longest_ms=?
+	res, err := s.db.Exec(`UPDATE session SET interruptions=?, alerted_ms=?, deep_ms=?, distract_ms=?, longest_ms=?, wakes=?, wakes_back=?
 		WHERE id=? AND end_ms IS NULL`,
-		x.Interruptions, x.AlertedMS, x.DeepMS, x.DistractMS, x.LongestMS, x.ID)
+		x.Interruptions, x.AlertedMS, x.DeepMS, x.DistractMS, x.LongestMS, x.Wakes, x.WakesBack, x.ID)
 	return changedOne(res, err, "update session")
 }
 

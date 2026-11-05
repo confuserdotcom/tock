@@ -26,7 +26,7 @@ import (
 
 const usage = `usage:
   tock                                   open the TUI (today, week, inbox, focus, rules, plan)
-  tock choice [<feature> on|off]         turn features on and off (screen text, break screen, Slack…),
+  tock choice [<feature> on|off]         turn features on and off (screen text, wake screen, Slack…),
                                          open the dashboard; piped: each feature and whether it is on
   tock plan                              the TUI on the plan tab ([plan] todo.txt); piped: the open tasks
   tock status                            one line for a status bar
@@ -55,7 +55,9 @@ const usage = `usage:
                                          projects; filed under a category they are modules
   tock goal [set <label> <time>[/week] [--max] | rm <label> [week] [--max]]
                                          goals per day or week, on a category or module
-  tock session [start [MIN] | stop]      focus session: show, start (default 25), stop
+  tock session [start [MIN] [--paper] | stop]
+                                         focus session: show, start (default 25; --paper: idle is paper work), stop
+  tock break [MIN]                       take a break now (default 5 min)
   tock session snooze [MIN|off]          snooze distraction notices of the running session (default [focus] snooze), or resume them
   tock session list | weights            this week's finished sessions with quality and rating | the quality weights
   tock session rate [#ID|last] N [note...]  rate a finished session 1 to 5, with a one-line note
@@ -251,6 +253,7 @@ var commands = map[string]func(Env, []string) error{
 	"undo":       cmdUndo,
 	"plan":       cmdPlan,
 	"choice":     cmdChoice,
+	"break":      cmdBreak,
 }
 
 // run executes one command and returns the exit code: 0 ok, 1 error, 2 usage.

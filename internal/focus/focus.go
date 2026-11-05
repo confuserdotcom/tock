@@ -94,6 +94,8 @@ type Session struct {
 	RatedMS       int64  // when it was rated, 0 = unrated
 	UrgesResisted int    // distraction notices answered Back to work
 	UrgesGiven    int    // distraction notices answered Open anyway
+	Wakes         int    // wake screens shown
+	WakesBack     int    // wake screens followed by work within WakeBackMS
 }
 
 // State is the engine's memory between ticks, kept in daemon_state.
@@ -128,6 +130,15 @@ type State struct {
 	NudgeDay string
 	Nudges   int
 	NudgeAt  int64
+	// WakeRun is the start of the off-task run the wake notices below
+	// belong to; WakeWarn and WakeAt are when its banner and its last wake
+	// screen went out, and WakeCheck when a wake screen still waits to see
+	// work come back (0 = none). trackd owns them.
+	WakeRun, WakeWarn, WakeAt, WakeCheck int64
+	// PaperSession is the session whose idle time never counts as off task
+	// (the user works on paper); read from daemon_state, never saved by a
+	// StateUpdate: tock owns it.
+	PaperSession int64
 }
 
 // EventKind says what an Event asks the caller to do.
@@ -159,6 +170,13 @@ type Event struct {
 	Away        classify.Interval // TopicAway: the absence asked about
 	Before      classify.Want     // TopicAway: the label of what it follows, if any
 	Break       classify.Interval // TopicBreakScreen: the break taken, from its start to its planned end
+	// OffFrom, Idle, Key and Target (TopicWake, TopicWakeWarn): the start of
+	// the off-task run, whether it is idle in front, the front view's
+	// classify.Key and the label This is work gives it ("" or zero = none).
+	OffFrom int64
+	Idle    bool
+	Key     string
+	Target  classify.Want
 	// Category and RuleRef (TopicFocus): the category the notice offers to
 	// mark quiet, and the rule that set it ("" = none).
 	Category, RuleRef string

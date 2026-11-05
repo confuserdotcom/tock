@@ -28,6 +28,8 @@ var Features = []Feature{
 		func(c Config) bool { return c.Recommend.Enabled }},
 	{"break_screen", "Focus", "Break screen", "covers the screens when a break runs over", "focus", "break_screen",
 		func(c Config) bool { return c.Focus.BreakScreen }},
+	{"wake_screen", "Focus", "Wake screen", "covers the screens when a session goes off task", "focus", "wake_screen",
+		func(c Config) bool { return c.Focus.WakeScreen }},
 	{"block", "Focus", "Block distractions", "closes distracting tabs and apps in a session", "focus", "block",
 		func(c Config) bool { return c.Focus.Block }},
 	{"urge_surf", "Focus", "Urge surfing", "the distraction notice asks what you feel", "focus", "urge_surf",

@@ -44,6 +44,11 @@ const (
 	// break goes on for BreakMore.
 	ActBack = "back"
 	ActMore = "more"
+
+	// ActWakeWork files the wake notice's front view under its work label
+	// for good; ActPaper marks its session as paper work.
+	ActWakeWork = "wake:work"
+	ActPaper    = "wake:paper"
 )
 
 // BreakMore is how much longer the break screen's 5 more minutes makes the
@@ -117,6 +122,25 @@ func Buttons(n store.Notice, d app.NoticeData) []Button {
 			return nil
 		}
 		return []Button{{ActRecAccept, RecAcceptTitle(recommend.KindFocus, d.Minutes)}, {ActRecDismiss, "Not now"}}
+	case focus.TopicWake, focus.TopicWakeWarn:
+		var out []Button
+		if n.Topic == focus.TopicWake {
+			out = append(out, Button{ActBack, "Back to work"})
+		}
+		switch {
+		case d.Idle && n.Topic == focus.TopicWake:
+			out = append(out, Button{ActPaper, "I'm on paper"})
+		case !d.Idle && d.Key != "" && d.Category != "":
+			out = append(out, Button{ActWakeWork, "This is work → " + report.Cut(d.Category, ProjectCells)})
+		}
+		if d.SnoozeMin > 0 {
+			out = append(out, Button{ActSnoozeDistract, fmt.Sprintf("Snooze %d min", d.SnoozeMin)})
+		}
+		stop := "Stop session"
+		if n.Topic == focus.TopicWake {
+			stop = "End session"
+		}
+		return append(out, Button{ActStop, stop})
 	case focus.TopicBreakScreen:
 		return []Button{{ActBack, "Back to work"}, {ActMore, fmt.Sprintf("%d more minutes", int(BreakMore.Minutes()))}}
 	case focus.TopicBreak:

@@ -49,6 +49,11 @@ type Focus struct {
 	// Esc or a button closes it; it never locks anything.
 	BreakScreen        bool
 	BreakScreenGraceMS int64
+	// WakeScreen covers the screens when a session has gone WakeAfterMS off
+	// task (WakeWarnMS gets a banner first). An idle stretch counts as off
+	// task once it lasts WakeIdleMS.
+	WakeScreen                          bool
+	WakeWarnMS, WakeAfterMS, WakeIdleMS int64
 }
 
 // DefaultFocus is the [focus] section used when the file does not set it.
@@ -65,6 +70,7 @@ func DefaultFocus() Focus {
 		BlockGraceMS: 10_000,
 		NoticeBudget: 8, NoticeGapMS: 20 * 60_000,
 		BreakScreenGraceMS: 5 * 60_000,
+		WakeWarnMS:         5 * 60_000, WakeAfterMS: 10 * 60_000, WakeIdleMS: 15 * 60_000,
 	}
 }
 
@@ -91,6 +97,10 @@ type focusTOML struct {
 	NoticeGap      *int      `toml:"notice_gap"`
 	BreakScreen    *bool     `toml:"break_screen"`
 	BreakGrace     *int      `toml:"break_screen_grace"`
+	WakeScreen     *bool     `toml:"wake_screen"`
+	WakeWarn       *int      `toml:"wake_warn"`
+	WakeAfter      *int      `toml:"wake_after"`
+	WakeIdle       *int      `toml:"wake_idle"`
 }
 
 // decodeFocus applies the keys present in f to c and validates them.
@@ -121,6 +131,9 @@ func decodeFocus(f focusTOML, c *Focus) error {
 		{"auto_min", f.AutoMin, 5, 240, 60_000, &c.AutoMinMS},
 		{"block_grace", f.BlockGrace, 1, 600, 1000, &c.BlockGraceMS},
 		{"break_screen_grace", f.BreakGrace, 1, 60, 60_000, &c.BreakScreenGraceMS},
+		{"wake_warn", f.WakeWarn, 1, 60, 60_000, &c.WakeWarnMS},
+		{"wake_after", f.WakeAfter, 2, 120, 60_000, &c.WakeAfterMS},
+		{"wake_idle", f.WakeIdle, 1, 120, 60_000, &c.WakeIdleMS},
 	} {
 		if d.v == nil {
 			continue
@@ -149,8 +162,14 @@ func decodeFocus(f focusTOML, c *Focus) error {
 		}
 		c.RecapAt = at
 	}
+	if c.WakeWarnMS >= c.WakeAfterMS {
+		return fmt.Errorf("[focus] wake_warn = %d must be less than wake_after = %d", c.WakeWarnMS/60_000, c.WakeAfterMS/60_000)
+	}
 	if f.BreakScreen != nil {
 		c.BreakScreen = *f.BreakScreen
+	}
+	if f.WakeScreen != nil {
+		c.WakeScreen = *f.WakeScreen
 	}
 	if f.UrgeSurf != nil {
 		c.UrgeSurf = *f.UrgeSurf

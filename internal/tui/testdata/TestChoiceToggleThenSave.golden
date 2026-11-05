@@ -10,6 +10,7 @@ Focus
   ● Notifications                every notice tock sends
   ● Suggestions                  when to start focus or take a break
   ○ Break screen                 covers the screens when a break runs over
+  ○ Wake screen                  covers the screens when a session goes off task
   ○ Block distractions           closes distracting tabs and apps in a session
   ○ Urge surfing                 the distraction notice asks what you feel
 

@@ -211,6 +211,21 @@ func Respond(a *app.App, id int64, action string) (string, error) {
 			return "", err
 		}
 		return fmt.Sprintf("break %d min longer", int(BreakMore.Minutes())), nil
+	case ActWakeWork:
+		want := classify.Want{Category: d.Category, Project: d.Project}
+		rule, err := a.WakeIsWork(d.Key, want)
+		if err != nil {
+			return "", err
+		}
+		return fmt.Sprintf("%s now files as %s (%s); tock undo takes it back", d.Key, WantText(want), rule), nil
+	case ActPaper:
+		switch err := a.SetPaper(d.Session); {
+		case errors.Is(err, store.ErrNoSession):
+			return goneMsg, nil
+		case err != nil:
+			return "", err
+		}
+		return "paper work: idle time no longer counts as off task this session", nil
 	case ActJoin:
 		// The runner opens the link; it owns the UI.
 		return "opened the meeting link", nil

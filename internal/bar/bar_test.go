@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -1429,5 +1430,55 @@ func TestRespondBreakScreen(t *testing.T) {
 	}
 	if until, err := a.BreakUntil(e.Clock); err != nil || until != now+5*60_000 {
 		t.Fatalf("break until = %d, %v, want %d", until, err, now+5*60_000)
+	}
+}
+
+// TestRespondWake: the wake screen offers Back to work, This is work (or
+// I'm on paper when idle), Snooze and End session; This is work learns a
+// rule, I'm on paper marks the session.
+func TestRespondWake(t *testing.T) {
+	e, a := seeded(t)
+	s, err := a.StartSession(50)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ev := focus.Event{Kind: focus.Notify, Topic: focus.TopicWake, Title: focus.TitleWake, Body: "b",
+		OffFrom: e.Clock.UnixMilli() - 10*60_000, Key: "Arc · youtube.com", Target: classify.Want{Category: "Study"}, Sess: s}
+	id := enqueue(t, a, ev)
+	n, d, err := a.Notice(id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, b := range Buttons(n, d) {
+		got = append(got, b.ID+"="+b.Title)
+	}
+	want := []string{"back=Back to work", "wake:work=This is work → Study", "snooze:distract=Snooze 10 min", "stop=End session"}
+	if !slices.Equal(got, want) {
+		t.Fatalf("buttons = %q", got)
+	}
+	if msg, err := Respond(a, id, ActWakeWork); err != nil || !strings.Contains(msg, "Study") {
+		t.Fatalf("work = %q, %v", msg, err)
+	}
+	if us, _ := a.UndoList(1); len(us) != 1 || !strings.HasPrefix(us[0].What, "learn") {
+		t.Fatalf("undo list = %+v", us)
+	}
+
+	ev.Idle, ev.Key, ev.Target = true, "", classify.Want{}
+	id = enqueue(t, a, ev)
+	n, d, _ = a.Notice(id)
+	if b := Buttons(n, d); len(b) != 4 || b[1].ID != ActPaper || b[1].Title != "I'm on paper" {
+		t.Fatalf("idle buttons = %+v", b)
+	}
+	if msg, err := Respond(a, id, ActPaper); err != nil || !strings.Contains(msg, "paper") {
+		t.Fatalf("paper = %q, %v", msg, err)
+	}
+
+	warn := ev
+	warn.Topic, warn.Title, warn.Idle, warn.Key, warn.Target = focus.TopicWakeWarn, focus.TitleWakeWarn, false, "Arc · youtube.com", classify.Want{Category: "Study"}
+	id = enqueue(t, a, warn)
+	n, d, _ = a.Notice(id)
+	if b := Buttons(n, d); len(b) != 3 || b[0].ID != ActWakeWork || b[2].ID != ActStop {
+		t.Fatalf("warn buttons = %+v", b)
 	}
 }

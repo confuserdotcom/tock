@@ -540,3 +540,61 @@ func TestSessionSnoozeUsesConfig(t *testing.T) {
 		t.Fatalf("snooze: %d %q %q", code, out, te.errb.String())
 	}
 }
+
+// --paper marks the session as paper work: idle never counts as off task.
+func TestSessionStartPaper(t *testing.T) {
+	te := newTestEnv(t, testRules)
+	te.seed(t, daySpans()...)
+	heartbeat(t, te)
+	if code, out := te.run(t, "", "session", "start", "50", "--paper"); code != 0 || out != "session started: 50 min, ends 15:50, on paper\n" {
+		t.Fatalf("start: %d %q %q", code, out, te.errb.String())
+	}
+	te.run(t, "", "session", "stop")
+	if code, out := te.run(t, "", "session", "start", "--paper"); code != 0 || !strings.Contains(out, "on paper") {
+		t.Fatalf("start --paper: %d %q %q", code, out, te.errb.String())
+	}
+	if code, _ := te.run(t, "", "session", "start", "--pen"); code != 2 {
+		t.Fatalf("bad flag: exit %d", code)
+	}
+}
+
+func TestBreakCommand(t *testing.T) {
+	te := newTestEnv(t, testRules)
+	te.seed(t, daySpans()...)
+	if code, out := te.run(t, "", "break"); code != 0 || out != "break: 5 min, until 15:05\n" {
+		t.Fatalf("break: %d %q %q", code, out, te.errb.String())
+	}
+	if code, out := te.run(t, "", "break", "15"); code != 0 || out != "break: 15 min, until 15:15\n" {
+		t.Fatalf("break 15: %d %q %q", code, out, te.errb.String())
+	}
+	for _, bad := range []string{"0", "121", "x"} {
+		if code, _ := te.run(t, "", "break", bad); code != 2 {
+			t.Fatalf("break %s: exit %d", bad, code)
+		}
+	}
+}
+
+// A session that showed wake screens says so in the list.
+func TestSessionListWoken(t *testing.T) {
+	te := newTestEnv(t, testRules)
+	te.seed(t, daySpans()...)
+	st, err := store.Open(te.dbPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, err := st.StartSession(at(t, "10:00"), at(t, "10:50"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.Wakes, s.WakesBack, s.EndMS = 2, 1, at(t, "10:50")
+	if _, err := st.UpdateSession(s); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.EndSession(s); err != nil {
+		t.Fatal(err)
+	}
+	st.Close()
+	if code, out := te.run(t, "", "session", "list"); code != 0 || !strings.Contains(out, "woken 2× · back 1×") {
+		t.Fatalf("list: %d %q", code, out)
+	}
+}

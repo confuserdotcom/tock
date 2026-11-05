@@ -21,6 +21,19 @@ func Step(in Input) []Event {
 	stateChanged := false
 	if s := openSession(in); s != nil {
 		w, n, ended := stepSession(in, *s)
+		if !ended {
+			cur := *s
+			if len(w) > 0 {
+				cur = w[0].Sess
+			}
+			next, wn := stepWake(in, cur, &st)
+			if next != cur {
+				w = []Event{{Kind: SessionUpdate, Sess: next}}
+			}
+			n = append(n, wn...)
+			stateChanged = st.WakeRun != in.State.WakeRun || st.WakeWarn != in.State.WakeWarn ||
+				st.WakeAt != in.State.WakeAt || st.WakeCheck != in.State.WakeCheck
+		}
 		writes, notes = append(writes, w...), append(notes, n...)
 		if ended {
 			// The session's end prompts a break, so this run's next reminder

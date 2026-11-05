@@ -24,6 +24,7 @@ func TestSessionLifecycle(t *testing.T) {
 	}
 
 	a.Interruptions, a.AlertedMS, a.DeepMS, a.DistractMS, a.LongestMS = 1, 70_000, 5, 6, 7
+	a.Wakes, a.WakesBack = 2, 1
 	if ok, err := s.UpdateSession(a); err != nil || !ok {
 		t.Fatalf("UpdateSession = %v, %v", ok, err)
 	}

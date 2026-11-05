@@ -33,8 +33,8 @@ func (f *fakeUI) SetMenu(s string)  { f.menus = append(f.menus, s) }
 func (f *fakeUI) Post(id int64, title, body, cat, cats string) {
 	f.posts = append(f.posts, title+"|"+body+"|"+cat+"|"+cats)
 }
-func (f *fakeUI) Curtain(id int64, title, body string, fromMS, untilMS int64, buttons string) {
-	f.curtains = append(f.curtains, fmt.Sprintf("%d|%s|%s|%d|%d|%s", id, title, body, fromMS, untilMS, buttons))
+func (f *fakeUI) Curtain(id int64, title, body, word string, fromMS, untilMS int64, buttons string) {
+	f.curtains = append(f.curtains, fmt.Sprintf("%d|%s|%s|%s|%d|%d|%s", id, title, body, word, fromMS, untilMS, buttons))
 }
 func (f *fakeUI) CheckAuth(prompt bool) { f.auth = append(f.auth, prompt) }
 func (f *fakeUI) OpenURL(u string)      { f.urls = append(f.urls, u) }
@@ -561,9 +561,9 @@ func TestRunnerShowsBreakScreen(t *testing.T) {
 		t.Fatalf("posts = %q, curtains = %q", u.posts, u.curtains)
 	}
 	f := strings.Split(u.curtains[0], "|")
-	want := []string{focus.TitleBreakScreen, ev.Body, strconv.FormatInt(ev.Break.From, 10), strconv.FormatInt(ev.Break.To, 10),
+	want := []string{focus.TitleBreakScreen, ev.Body, "away", strconv.FormatInt(ev.Break.From, 10), strconv.FormatInt(ev.Break.To, 10),
 		"back\tBack to work\tmore\t5 more minutes"}
-	if len(f) != 6 || !slices.Equal(f[1:], want) {
+	if len(f) != 7 || !slices.Equal(f[1:], want) {
 		t.Fatalf("curtain = %q", u.curtains[0])
 	}
 	nid, _ := strconv.ParseInt(f[0], 10, 64)
@@ -612,4 +612,31 @@ func (r *runner) noticeIDs(t *testing.T) []int64 {
 		}
 	}
 	return ids
+}
+
+// TestRunnerShowsWakeScreen: the wake notice covers the screens too, its
+// clock counting the time off task.
+func TestRunnerShowsWakeScreen(t *testing.T) {
+	e := seededEnv(t)
+	r, u, _ := testRunner(t, e)
+	r.handle(event{kind: evReady})
+	s, err := r.a.StartSession(50)
+	if err != nil {
+		t.Fatal(err)
+	}
+	from := e.Clock.UnixMilli() - 10*60_000
+	ev := focus.Event{Topic: focus.TopicWake, Title: focus.TitleWake, Body: "10 min off task", OffFrom: from, Idle: true, Sess: s}
+	if err := r.a.Enqueue(ev); err != nil {
+		t.Fatal(err)
+	}
+	r.tick()
+	if len(u.posts) != 0 || len(u.curtains) != 1 {
+		t.Fatalf("posts = %q, curtains = %q", u.posts, u.curtains)
+	}
+	f := strings.Split(u.curtains[0], "|")
+	want := []string{focus.TitleWake, ev.Body, "off task", strconv.FormatInt(from, 10), strconv.FormatInt(from, 10),
+		"back\tBack to work\twake:paper\tI'm on paper\tsnooze:distract\tSnooze 10 min\tstop\tEnd session"}
+	if len(f) != 7 || !slices.Equal(f[1:], want) {
+		t.Fatalf("curtain = %q", u.curtains[0])
+	}
 }

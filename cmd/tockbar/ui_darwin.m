@@ -254,6 +254,7 @@ static NSColor *rgb(int hex) {
 @interface Curtain : NSObject
 @property long long nid;
 @property long long fromMS, untilMS;
+@property(strong) NSString *word; // after the clock: "away", "off task"
 @property(strong) NSArray<NSString *> *actions;
 @property(strong) NSMutableArray<NSWindow *> *windows;
 @property(strong) NSTextField *clock;
@@ -296,8 +297,9 @@ static NSTextField *curtainLabel(NSString *s, NSFont *f, NSColor *c) {
 - (void)tick {
     long long now = (long long)([[NSDate date] timeIntervalSince1970] * 1000);
     long long away = MAX(0, now - self.fromMS) / 1000;
-    NSString *t = away >= 3600 ? [NSString stringWithFormat:@"%lldh %02lld away", away / 3600, (away % 3600) / 60]
-                               : [NSString stringWithFormat:@"%lld:%02lld away", away / 60, away % 60];
+    NSString *t = away >= 3600
+                      ? [NSString stringWithFormat:@"%lldh %02lld %@", away / 3600, (away % 3600) / 60, self.word]
+                      : [NSString stringWithFormat:@"%lld:%02lld %@", away / 60, away % 60, self.word];
     self.clock.stringValue = t;
     long long whole = MAX(now, self.untilMS) - self.fromMS;
     self.bar.planned = whole > 0 ? (double)(self.untilMS - self.fromMS) / (double)whole : 1;
@@ -364,15 +366,16 @@ static NSTextField *curtainLabel(NSString *s, NSFont *f, NSColor *c) {
 }
 @end
 
-void bar_curtain(long long nid, const char *title, const char *body, long long from_ms, long long until_ms,
-                 const char *buttons) {
-    NSString *t = str(title), *b = str(body), *bs = str(buttons);
+void bar_curtain(long long nid, const char *title, const char *body, const char *word, long long from_ms,
+                 long long until_ms, const char *buttons) {
+    NSString *t = str(title), *b = str(body), *wd = str(word), *bs = str(buttons);
     dispatch_async(dispatch_get_main_queue(), ^{
         [curtain close];
         Curtain *c = [Curtain new];
         c.nid = nid;
         c.fromMS = from_ms;
         c.untilMS = until_ms;
+        c.word = wd.length > 0 ? wd : @"away";
         c.windows = [NSMutableArray array];
         NSArray<NSString *> *f = bs.length > 0 ? [bs componentsSeparatedByString:@"\t"] : @[];
         BOOL still = [[NSWorkspace sharedWorkspace] accessibilityDisplayShouldReduceMotion];
