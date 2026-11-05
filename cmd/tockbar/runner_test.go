@@ -191,8 +191,12 @@ func TestRunnerDrawsSubmenu(t *testing.T) {
 	if !strings.Contains(menu, "start:25\tStart 25 min focus") {
 		t.Fatalf("start item gone:\n%s", menu)
 	}
-	if strings.Contains(menu, "\n>>") {
+	top, settings, _ := strings.Cut(menu, "\n\tSettings\n")
+	if strings.Contains(top, "\n>>") {
 		t.Fatalf("submenu nested wrongly:\n%s", menu)
+	}
+	if !strings.Contains(settings, "\n>\tPrivacy\n>>") {
+		t.Fatalf("Privacy is not a submenu of Settings:\n%s", settings)
 	}
 }
 
