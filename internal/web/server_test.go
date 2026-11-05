@@ -363,3 +363,35 @@ func TestDayUsual(t *testing.T) {
 		t.Fatalf("a day with fewer than two past weeks has a usual day: %+v", past.Usual)
 	}
 }
+
+func TestMonthAndHours(t *testing.T) {
+	f := newFixture(t)
+	if code, _, _ := f.do("GET", "/api/month", "-", nil); code != http.StatusUnauthorized {
+		t.Fatalf("month without token: %d", code)
+	}
+	if code, _, _ := f.do("GET", "/api/month?month=bad", testToken, nil); code != http.StatusBadRequest {
+		t.Fatalf("month=bad: %d", code)
+	}
+	var m struct {
+		First string `json:"first"`
+		Days  []struct {
+			Date  string `json:"date"`
+			Score int    `json:"score"`
+		} `json:"days"`
+		Cur struct {
+			Workdays int `json:"workdays"`
+		} `json:"cur"`
+	}
+	f.get("/api/month", &m)
+	now := f.e.NowFunc()()
+	if len(m.Days) != now.Day() || m.Days[0].Date != m.First || m.First != now.Format("2006-01")+"-01" {
+		t.Fatalf("month = %+v", m)
+	}
+	var h struct {
+		Grid [][]int `json:"grid"`
+	}
+	f.get("/api/hours", &h)
+	if len(h.Grid) != 7 || len(h.Grid[0]) != 24 {
+		t.Fatalf("hours grid %dx%d", len(h.Grid), len(h.Grid[0]))
+	}
+}
