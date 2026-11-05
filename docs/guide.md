@@ -341,6 +341,10 @@ deny_apps = []           # bundle ids never read, on top of [llm] deny_apps
 deny_hosts = []          # RE2 patterns on the URL host, on top of [llm] deny_hosts
 deny_titles = []         # RE2 patterns on the title (any case), on top of [llm] deny_titles
 
+[notch]                  # the menu bar app's panel in the notch; see The notch
+enabled = true           # false: banners instead, as before
+show_in_recordings = false # true lets screen sharing and recordings see it
+
 [privacy]
 keep_titles = 30         # off unless set: days window titles are kept
 hide_apps = []           # bundle ids recorded as private time only: no title, no URL
@@ -1338,6 +1342,45 @@ notifications as before. `tock doctor` says which is in use. **Quit tock
 menu bar** keeps it closed until the next login; `make install` starts it
 again. Its log is `~/.local/state/tock/tockbar.log`, and it never logs
 notification text.
+
+## The notch
+
+The menu bar app also draws a panel in the notch. On a Mac without one, or
+when the built-in screen is closed, it hangs as a pill under the menu bar.
+Nothing shows while nothing runs: hover the notch to see today's time,
+score and how much is left to label.
+
+- **A focus session** shows its goal on the left of the notch and the time
+  left on the right. The dot is the live focus level in its kind colour:
+  blue-teal when deep, slate when shallow, brick when you drift. Hover for
+  the start and end times and **Stop session**.
+- **A break** counts down in the break screen's brass.
+- **A plan item or meeting** shows 10 minutes before it starts, with
+  **Join** for a meeting link.
+- **Moments** open by themselves and stay until you answer: a drift nudge
+  (it closes after 12 seconds), a session ending, with the session's
+  numbers and **Start again**, a meeting starting, and the evening recap,
+  with the day's numbers against your usual same weekday.
+- **Labelling** never opens by itself. **Label** on a session end, the
+  recap or the quiet notch shows the biggest unlabelled entries one at a
+  time, with the model's guess first. Press 1 to 3 to pick, ⏎ for the
+  guess, S to skip. Each pick saves a rule when one is safe, and says how
+  many past entries it labelled too.
+
+Esc, a swipe up or a click elsewhere sends an open panel back. The panel
+never takes the focus from the app you work in: keys reach it only after
+you click it. A session ending and a saved label tick the trackpad once.
+With **Reduce motion** on, the panel fades instead of moving.
+
+While the panel is on, these notices come only through the notch, not as
+banners. If a more important moment is open, a less important notice still
+comes as a banner. The panel is left out of screen sharing and recordings,
+because it shows window titles: `[notch] show_in_recordings = true` lets
+them see it. `[notch] enabled = false` (or **Settings › Notch**) turns it
+off and brings the banners back.
+
+`tockbar notch-demo` plays made-up moments in the notch, with no database,
+for recording a demo.
 
 ## Linux (Hyprland)
 

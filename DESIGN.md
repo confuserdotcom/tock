@@ -151,9 +151,18 @@ Flat. Hairline borders group things; no shadows except the tooltip, the label sh
 
 - Minimal: 120ms hover, 160ms view change, no counting numbers, no growing bars.
 - The label sheet keeps its spring; reduced motion turns everything off.
+- The notch panel is the exception: it grows out of the hardware, so its
+  shape and content move on springs that start from where they are. Moments
+  tock opens: response 0.46 s, damping 0.78. Hover: 0.32 s, 1.0. Closing:
+  0.36 s, 1.0, back up into the notch. Content fades in behind the shape.
+  Numbers still never count and bars never grow. Reduced motion: the shape
+  jumps and content cross-fades in 150 ms.
+- The notch is always black, like the hardware, with the dark set of kind
+  colours and system fonts, as the menu bar uses.
 
 ## Decisions Log
 | Date | Decision | Rationale |
 |------|----------|-----------|
 | 2026-11-05 | Initial design system: paper/ink neutrals, brass accent, Instrument Serif + Source Sans 3 + JetBrains Mono | v5 Phase 5d. Unified the web page, TUI and menu with the break screen |
 | 2026-11-05 | Replaced by the Ledger system: IBM Plex Sans + Mono, white and grey, ink as the only accent, sidebar, per-category timeline, tables with totals, comparisons with the usual day | The owner picked the Ledger direction from four mockups; the serif-and-brass look read as made by AI |
+| 2026-11-05 | The notch panel moves on springs | Owner approved the notch prototype; a surface that grows out of hardware reads as physical only with springs. Kept to the notch |

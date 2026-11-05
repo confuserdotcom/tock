@@ -4,6 +4,18 @@ What changed for you in each release. Dates are UTC.
 
 ## Unreleased
 
+### Added
+- tock lives in the notch. The menu bar app draws its own panel there (a
+  pill under the menu bar without one): the running session, a break or a
+  meeting either side of the notch, and moments that open from it and go
+  back into it: a drift nudge, the end of a session, a meeting starting and
+  the evening recap against your usual day.
+- Labelling from the notch: the biggest unlabelled entries one at a time,
+  the guess first, 1 to 3 to pick. Each pick saves a rule and says how much
+  past time it labelled.
+- `[notch] enabled` and `show_in_recordings`, and **Settings › Notch**.
+  `tockbar notch-demo` plays sample moments for recordings.
+
 ## v5.1.0 — 2026-11-05
 
 ### Added
