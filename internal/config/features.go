@@ -30,6 +30,8 @@ var Features = []Feature{
 		func(c Config) bool { return c.Focus.BreakScreen }},
 	{"wake_screen", "Focus", "Wake screen", "covers the screens when a session goes off task", "focus", "wake_screen",
 		func(c Config) bool { return c.Focus.WakeScreen }},
+	{"hotkey", "Focus", "Start hotkey", "⌥⌘F opens a prompt to start focus from any app", "focus", "hotkey",
+		func(c Config) bool { return c.Focus.Hotkey }},
 	{"block", "Focus", "Block distractions", "closes distracting tabs and apps in a session", "focus", "block",
 		func(c Config) bool { return c.Focus.Block }},
 	{"urge_surf", "Focus", "Urge surfing", "the distraction notice asks what you feel", "focus", "urge_surf",
