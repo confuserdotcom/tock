@@ -24,13 +24,10 @@ import (
 	"tock/internal/suggest"
 )
 
-const usage = `usage:
+const usage = `usage: tock <command> [flags]
+
+Every day:
   tock                                   open the TUI (today, week, inbox, focus, rules, plan)
-  tock choice [<feature> on|off]         turn features on and off (screen text, wake screen, Slack…),
-                                         open the dashboard; piped: each feature and whether it is on
-  tock plan                              the TUI on the plan tab ([plan] todo.txt); piped: the open tasks
-  tock status                            one line for a status bar
-  tock init                              write starter ~/.config/tock/rules.toml
   tock today [--date YYYY-MM-DD] [--keys]
   tock inbox [--days N] [--all | --auto]  unlabelled activity, numbered; --auto: what tock labelled itself
   tock tag [--once] <n> [<Category>[/<Project>]]   (no label: accept the → suggestion)
@@ -42,6 +39,24 @@ const usage = `usage:
                                          fix the timeline: add missing time, label part of it, delete some
   tock edit [--date D] | tock edit remove <id>   list the day's edits | drop one
   tock undo [--list]                     reverse the last tag, rule, ignore, away label or edit
+  tock web [--port N] [--no-open] [--idle D]
+                                         the dashboard in your browser, served on 127.0.0.1
+  tock status                            one line for a status bar
+
+Focus:
+  tock session [start [MIN] [--paper] [--goal TEXT] | stop]
+                                         focus session: show, start (default 25; --paper: idle is paper work; --goal: what it is for), stop
+  tock session snooze [MIN|off]          snooze distraction notices of the running session (default [focus] snooze), or resume them
+  tock session list | weights            this week's finished sessions with quality and rating | the quality weights
+  tock session rate [#ID|last] N [note...]  rate a finished session 1 to 5, with a one-line note
+  tock session note [#ID] [text...]      set or (no text) clear a session's note
+  tock session refile [#ID|last] PROJECT  relabel a finished session's active time to a project (tock undo reverts)
+  tock break [MIN]                       take a break now (default 5 min)
+  tock goal [set <label> <time>[/week] [--max] | rm <label> [week] [--max]]
+                                         goals per day or week, on a category or module
+  tock recap [YYYY-MM-DD|start|midday]   the daily recap, or a routine notice now
+
+Rules and names:
   tock rules check | tock rules stats [--days N]
                                          validate the rules | time each rule decided (default 30 days)
   tock rules dupes | tock rules merge [--project] <from> <into>
@@ -53,52 +68,52 @@ const usage = `usage:
   tock project [add <name> [--category C] [--alias a,b] | set <name> ... |
                rename <name> <new> | rm <name> | scan <dir> --category C]
                                          projects; filed under a category they are modules
-  tock goal [set <label> <time>[/week] [--max] | rm <label> [week] [--max]]
-                                         goals per day or week, on a category or module
-  tock session [start [MIN] [--paper] [--goal TEXT] | stop]
-                                         focus session: show, start (default 25; --paper: idle is paper work; --goal: what it is for), stop
-  tock break [MIN]                       take a break now (default 5 min)
-  tock session snooze [MIN|off]          snooze distraction notices of the running session (default [focus] snooze), or resume them
-  tock session list | weights            this week's finished sessions with quality and rating | the quality weights
-  tock session rate [#ID|last] N [note...]  rate a finished session 1 to 5, with a one-line note
-  tock session note [#ID] [text...]      set or (no text) clear a session's note
-  tock session refile [#ID|last] PROJECT  relabel a finished session's active time to a project (tock undo reverts)
-  tock recap [YYYY-MM-DD|start|midday]   the daily recap, or a routine notice now
-  tock recommend [accept | dismiss]      the pending suggestion: show it, take it, or not now
-  tock ocr test [--now] | grant          read the front window's text once (in 3 s) | ask for Screen Recording
-  tock trends [--month YYYY-MM] [--hours]  a month against the one before; --hours: focus by weekday and hour
+
+Looking back:
   tock top [--days N | --week | --month] [--by category|app|site|project] [--limit N]
                                          where the time went: top categories, apps and sites
-  tock model [why <app> "<title>" [<label>]]
-                                         how well the local model labels; why it labels a window so
+  tock trends [--month YYYY-MM] [--hours]  a month against the one before; --hours: focus by weekday and hour
+  tock blocks [--date D]                 the day's work blocks: stretches of work on one thing
   tock review [--week YYYY-MM-DD] [--plan TEXT]
                                          weekly recap, then next week's focus
   tock report [--week YYYY-MM-DD] [-o FILE] [--open]
                                          the week as one HTML page to keep or mail
-  tock invoice --project P [--from D] [--to D] [--client NAME] [--number N] [-o FILE]
-                                         a PDF invoice from the project's rate (default last month)
-  tock suggest [--dry-run | --force]     Claude label suggestions for the inbox (needs ANTHROPIC_API_KEY)
-  tock blocks [--date D]                 the day's work blocks: stretches of work on one thing
-  tock summary [--date D] [--dry-run]    Claude writes what you worked on (needs ANTHROPIC_API_KEY)
-  tock ask [--dry-run] "<question>"      ask about your time in plain words; answered on this machine
-  tock doctor [--wait] [--open]          check trackd, permissions, rules and config
-  tock version                           the version of this build
   tock export [--from D] [--to D] [--format csv|json] [--by project]
                                          labelled spans, default the last 7 days as csv
+  tock model [why <app> "<title>" [<label>]]
+                                         how well the local model labels; why it labels a window so
+
+Setup and data:
+  tock init                              write starter ~/.config/tock/rules.toml
+  tock doctor [--wait] [--open]          check trackd, permissions, rules and config
+  tock version                           the version of this build
+  tock choice [<feature> on|off]         turn features on and off (screen text, wake screen, Slack…),
+                                         open the dashboard; piped: each feature and whether it is on
+  tock backup [--out FILE]               archive tock.db and the rule, config and shell files
+                                         (default ~/.local/share/tock/backups/)
   tock prune [--days N] [--dry-run]      delete window titles (and URL paths) older than N days
                                          (default [privacy] keep_titles); labels stay
   tock import activitywatch <export.json>
                                          ActivityWatch history (Export all buckets, or
                                          curl localhost:5600/api/0/export); again replaces it
-  tock backup [--out FILE]               archive tock.db and the rule, config and shell files
-                                         (default ~/.local/share/tock/backups/)
-  tock sync [--days N]                   write this machine's last N days (default 2) to the
-                                         [sync] folder now and read the other machines'
-  tock slack [login | logout | status]   Slack status and do-not-disturb during focus sessions
   tock uninstall [--purge]              stop trackd and the menu bar, remove the apps and tock;
                                          --purge also deletes your data, rules and config
   tock shell-init zsh                    shell hook for terminal projects; in ~/.zshrc:
                                          eval "$(tock shell-init zsh)"
+
+Extras (optional; some need a setting, Claude or Slack):
+  tock plan                              the TUI on the plan tab ([plan] todo.txt); piped: the open tasks
+  tock suggest [--dry-run | --force]     Claude label suggestions for the inbox (claude CLI or ANTHROPIC_API_KEY)
+  tock summary [--date D] [--dry-run]    Claude writes what you worked on (claude CLI or ANTHROPIC_API_KEY)
+  tock ask [--dry-run] "<question>"      ask about your time in plain words; answered on this machine
+  tock recommend [accept | dismiss]      the pending suggestion: show it, take it, or not now
+  tock ocr test [--now] | grant          read the front window's text once (in 3 s) | ask for Screen Recording
+  tock invoice --project P [--from D] [--to D] [--client NAME] [--number N] [-o FILE]
+                                         a PDF invoice from the project's rate (default last month)
+  tock sync [--days N]                   write this machine's last N days (default 2) to the
+                                         [sync] folder now and read the other machines'
+  tock slack [login | logout | status]   Slack status and do-not-disturb during focus sessions
+
 Names match on a unique prefix: "tock tag 2 stu/atl". "/Project" sets only the project.
 `
 
