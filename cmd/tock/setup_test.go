@@ -313,3 +313,37 @@ func TestNewSigningCert(t *testing.T) {
 		t.Fatalf("not self-signed: %v", err)
 	}
 }
+
+func TestSetupCLICopiesTock(t *testing.T) {
+	te := newTestEnv(t, testRules)
+	_, from := setupRig(t, te, "darwin")
+	self := filepath.Join(from, "tock")
+	if err := os.WriteFile(self, []byte("tock binary"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	old := selfPath
+	selfPath = func() (string, error) { return self, nil }
+	t.Cleanup(func() { selfPath = old })
+	home, _ := setupHome()
+	if code, out := te.run(t, "", "setup", "--from", from, "--no-doctor", "--cli"); code != 0 {
+		t.Fatalf("code %d: %s %s", code, out, te.errb)
+	}
+	dst := filepath.Join(home, ".local", "bin", "tock")
+	fi, err := os.Stat(dst)
+	if err != nil || fi.Mode().Perm() != 0o755 {
+		t.Fatalf("%s: %v %v", dst, fi, err)
+	}
+	if b, _ := os.ReadFile(dst); string(b) != "tock binary" {
+		t.Fatalf("copied %q", b)
+	}
+	// without --cli nothing goes there
+	if err := os.Remove(dst); err != nil {
+		t.Fatal(err)
+	}
+	if code, _ := te.run(t, "", "setup", "--from", from, "--no-doctor"); code != 0 {
+		t.Fatalf("second setup failed: %s", te.errb)
+	}
+	if exists(dst) {
+		t.Fatal("setup without --cli copied tock")
+	}
+}

@@ -59,6 +59,7 @@ func cmdSetup(env Env, args []string) error {
 	check := fs.Bool("check", false, "only report what is missing")
 	from := fs.String("from", "", "folder with the files to install (default: ../libexec/tock next to tock)")
 	noDoctor := fs.Bool("no-doctor", false, "skip tock doctor at the end")
+	cli := fs.Bool("cli", false, "also copy this tock to ~/.local/bin (the .dmg does)")
 	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
@@ -94,6 +95,11 @@ func cmdSetup(env Env, args []string) error {
 	}
 	if err != nil {
 		return err
+	}
+	if *cli {
+		if err := s.copyCLI(); err != nil {
+			return err
+		}
 	}
 	if _, err := os.Stat(env.rulesPath()); errors.Is(err, os.ErrNotExist) {
 		if err := cmdInit(env, nil); err != nil {
@@ -351,6 +357,36 @@ func (s *setup) checkMac() error {
 		return fmt.Errorf("setup: %d missing; run tock setup", missing)
 	}
 	s.say("tock is set up.")
+	return nil
+}
+
+// cliPath is where --cli puts tock: where make install does, and where
+// tockbar looks first.
+func (s *setup) cliPath() string { return filepath.Join(s.home, ".local", "bin", "tock") }
+
+// copyCLI copies the running tock to cliPath, for an install with no
+// package manager to put it on PATH.
+func (s *setup) copyCLI() error {
+	self, err := selfPath()
+	if err != nil {
+		return fmt.Errorf("setup: %w", err)
+	}
+	if r, err := filepath.EvalSymlinks(self); err == nil {
+		self = r
+	}
+	dst := s.cliPath()
+	if self == dst {
+		return nil
+	}
+	tmp := dst + ".new"
+	if err := copyFile(self, tmp, 0o755); err != nil {
+		return err
+	}
+	if err := os.Rename(tmp, dst); err != nil {
+		os.Remove(tmp)
+		return fmt.Errorf("setup: %w", err)
+	}
+	s.say("installed %s; add %s to PATH to run tock in a terminal", dst, filepath.Dir(dst))
 	return nil
 }
 
