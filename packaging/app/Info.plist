@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- The tock.app in the .dmg (cmd/tockapp): it sets tock up and opens the
+     dashboard. Its own id, so it never stands in for the menu bar app,
+     com.tock.bar, that permissions and notifications key on. -->
+<plist version="1.0">
+<dict>
+	<key>CFBundleIdentifier</key>
+	<string>com.tock.app</string>
+	<key>CFBundleName</key>
+	<string>tock</string>
+	<key>CFBundleDisplayName</key>
+	<string>tock</string>
+	<key>CFBundleExecutable</key>
+	<string>tockapp</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleVersion</key>
+	<string>@VERSION@</string>
+	<key>CFBundleShortVersionString</key>
+	<string>@VERSION@</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
+	<key>NSHumanReadableCopyright</key>
+	<string>MIT licence</string>
+</dict>
+</plist>

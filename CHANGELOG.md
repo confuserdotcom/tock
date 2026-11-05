@@ -13,15 +13,22 @@ What changed for you in each release. Dates are UTC.
   a view or a date, and every change can be undone from its toast.
 - The open notch has pages: Today, This week and Goals, plus the session
   while one runs. Swipe sideways with two fingers, drag with the mouse, or
-  use ← and → to move between them. Drag a bottom corner to make the panel bigger, like
-  resizing a picture, or pinch: medium adds a chart per hour (or per day),
-  large adds a second column. It remembers the size and the page.
+  use ← and → to move between them. Drag a bottom corner to make the
+  panel bigger, like resizing a picture, or pinch it: it follows your
+  fingers, gives less and less past the smallest and largest sizes, and
+  settles on the nearest. Medium adds a chart per hour (or per day), large
+  adds a second column. It remembers the size and the page.
 - Install with Homebrew: `brew install confuserdotcom/tock/tock`, then
   `tock setup`. Homebrew builds tock on your Mac, so there is no
   "unidentified developer" warning, and `tock setup` makes and trusts the
   signing certificate, installs both apps and starts them. Run it again
   after `brew upgrade`; permissions stay granted. `tock setup --check`
   shows what is missing.
+- A .dmg for Macs without Homebrew, for Apple Silicon and Intel. Drag tock
+  to Applications and open it: it sets tock up the same way, and opened
+  again it shows the dashboard. It isn't notarized, so the first open needs
+  Open Anyway in System Settings (the README has the steps).
+- `tock://dashboard` opens the dashboard.
 - A new icon, the day ring: a clock whose ring is split into deep, shallow
   and distracted time. It shows in the menu bar next to today's time, in
   the Dock while the dashboard is open, and as the dashboard's tab icon.

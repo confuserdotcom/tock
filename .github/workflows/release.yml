@@ -3,8 +3,8 @@ name: release
 # Pushing a tag like v5.1.0 tests it, builds the Linux tarballs with
 # make release, the source tarball and Homebrew formula with make formula,
 # and publishes them as a GitHub release, with the tag's CHANGELOG.md
-# section as notes. Copy the release's tock.rb to Formula/tock.rb in the
-# homebrew-tock tap.
+# section as notes. The dmg job adds the .dmg. Copy the release's tock.rb
+# to Formula/tock.rb in the homebrew-tock tap.
 
 on:
   push:
@@ -41,6 +41,24 @@ jobs:
             gh release create "$GITHUB_REF_NAME" dist/*.tar.gz dist/SHA256SUMS dist/tock.rb \
               --title "$GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/notes.md" --verify-tag
           fi
+
+  # The .dmg, built on a Mac: tock.app with tock setup's files inside, for
+  # Apple Silicon and Intel. It is not notarized (no Developer ID), so the
+  # README explains Open Anyway.
+  dmg:
+    needs: release
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: build
+        run: make dmg VERSION="$GITHUB_REF_NAME"
+      - name: upload
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$GITHUB_REF_NAME" "dist/tock-$GITHUB_REF_NAME.dmg" "dist/tock-$GITHUB_REF_NAME.dmg.sha256" --clobber
 
   # The formula as a user gets it: build from the published source on a Mac,
   # then brew test runs tock version.

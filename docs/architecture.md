@@ -94,6 +94,12 @@ every build with the same local certificate keeps that signature the same
 from one version to the next, so updates keep the grant. `make install`
 does the same from a clone, with `make cert` making the certificate.
 
+The .dmg holds a small app, `cmd/tockapp`, with the same files inside it.
+Opened from Applications, it runs the `tock setup` inside it, so a Mac
+without Homebrew ends up with the same install. That one download is
+quarantined, which is why its first open needs Open Anyway; what setup
+installs from it is signed on the Mac and isn't.
+
 ## Network
 
 trackd and tockbar have no network code. `cmd/trackd/deps_test.go` fails

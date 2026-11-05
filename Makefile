@@ -34,7 +34,7 @@ CODESIGN_TIMEOUT ?= 60
 # receives SIGALRM and exits 142 when it overruns.
 WITH_TIMEOUT = perl -e 'alarm shift; exec @ARGV or exit 127'
 
-.PHONY: src formula dist-mac dist-linux web icon release install-linux uninstall-linux deploy-linux build test test-quick vet clean bundle bundle-bar print-dr cert cert-trust dump dump-bg dump-stop install install-mac uninstall update update-here hooks publish-linux bootstrap-hint
+.PHONY: dmg src formula dist-mac dist-linux web icon release install-linux uninstall-linux deploy-linux build test test-quick vet clean bundle bundle-bar print-dr cert cert-trust dump dump-bg dump-stop install install-mac uninstall update update-here hooks publish-linux bootstrap-hint
 
 build:
 	CGO_ENABLED=1 go build -ldflags "$(LDFLAGS)" -o bin/trackd ./cmd/trackd
@@ -364,6 +364,38 @@ dist-linux:
 	@mkdir -p "$(PREFIX)/bin" "$(LIBEXEC)"
 	CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o "$(LIBEXEC)/trackd" ./cmd/trackd
 	CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o "$(PREFIX)/bin/tock" ./cmd/tock
+
+# dmg: dist/tock-VERSION.dmg, for a Mac without Homebrew: tock.app
+# (cmd/tockapp) with everything tock setup installs inside it, for Apple
+# Silicon and Intel, and a link to Applications. Signed ad hoc only: what
+# it installs, tock setup signs with the certificate it makes on that Mac.
+DMG_STAGE = $(CURDIR)/dist/dmg
+DMG_APP = $(DMG_STAGE)/tock.app
+DMG_LIBEXEC = $(DMG_APP)/Contents/Resources/libexec
+dmg:
+	rm -rf dist/dmg dist/dmg-arm64 dist/dmg-amd64
+	mkdir -p "$(DMG_APP)/Contents/MacOS" "$(DMG_LIBEXEC)"
+	GOARCH=arm64 $(MAKE) dist-mac PREFIX=$(CURDIR)/dist/dmg-arm64
+	GOARCH=amd64 $(MAKE) dist-mac PREFIX=$(CURDIR)/dist/dmg-amd64
+	@set -e; for f in dist/dmg-arm64/libexec/tock/*; do \
+		n=$$(basename "$$f"); \
+		if file "$$f" | grep -q Mach-O; then \
+			lipo -create "$$f" "dist/dmg-amd64/libexec/tock/$$n" -output "$(DMG_LIBEXEC)/$$n"; \
+		else cp "$$f" "$(DMG_LIBEXEC)/$$n"; fi; \
+	done
+	lipo -create dist/dmg-arm64/bin/tock dist/dmg-amd64/bin/tock -output "$(DMG_LIBEXEC)/tock"
+	GOARCH=arm64 CGO_ENABLED=1 go build -trimpath -ldflags "$(LDFLAGS)" -o dist/dmg-arm64/tockapp ./cmd/tockapp
+	GOARCH=amd64 CGO_ENABLED=1 go build -trimpath -ldflags "$(LDFLAGS)" -o dist/dmg-amd64/tockapp ./cmd/tockapp
+	lipo -create dist/dmg-arm64/tockapp dist/dmg-amd64/tockapp -output "$(DMG_APP)/Contents/MacOS/tockapp"
+	v="$(VERSION)"; sed "s|@VERSION@|$${v#v}|g" packaging/app/Info.plist > "$(DMG_APP)/Contents/Info.plist"
+	cp packaging/bar/AppIcon.icns "$(DMG_APP)/Contents/Resources/"
+	codesign --force --sign - --identifier com.tock.app "$(DMG_APP)"
+	codesign --verify --strict "$(DMG_APP)"
+	ln -s /Applications "$(DMG_STAGE)/Applications"
+	hdiutil create -quiet -volname tock -srcfolder "$(DMG_STAGE)" -fs HFS+ -format UDZO -ov dist/tock-$(VERSION).dmg
+	cd dist && shasum -a 256 tock-$(VERSION).dmg > tock-$(VERSION).dmg.sha256
+	rm -rf dist/dmg dist/dmg-arm64 dist/dmg-amd64
+	@echo dist/tock-$(VERSION).dmg
 
 # src / formula: the release's source tarball and the Homebrew formula that
 # builds it (packaging/homebrew/tock.rb.in). VERSION must be a tag.

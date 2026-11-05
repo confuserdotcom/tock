@@ -67,6 +67,21 @@ Automation. After `brew upgrade tock`, run `tock setup` again. macOS ties
 the Accessibility grant to the certificate, so updates keep it.
 `tock setup --check` shows what is missing.
 
+**macOS, without Homebrew:** download `tock-<version>.dmg` from
+[Releases](https://github.com/confuserdotcom/tock/releases) (Apple Silicon
+and Intel). tock has no paid Apple Developer ID, so the download isn't
+notarized and macOS stops it the first time:
+
+1. Open the .dmg and drag tock to Applications.
+2. Open tock from Applications. macOS says it can't check it for malicious
+   software. Click Done.
+3. Open System Settings, then Privacy & Security. Under Security, click
+   Open Anyway next to the line about tock, and confirm.
+
+tock then asks to set itself up and does what `tock setup` does, including
+`tock` in `~/.local/bin`. Opened again later, it shows the dashboard. To
+update, drag the new version over the old one and open it.
+
 **macOS, from source:** you need Go 1.26 and the Xcode command line tools
 (`xcode-select --install`).
 
@@ -78,7 +93,7 @@ make install       # builds, signs, starts trackd, runs tock doctor
 ```
 
 `make install` puts `tock` in `~/.local/bin` (add it to `PATH`) and does
-the rest of what `tock setup` does. There is no notarized download.
+the rest of what `tock setup` does.
 
 **Linux (Hyprland):** `make install-linux`, or with Homebrew on Linux
 the same `brew install` and `tock setup` as on macOS. Without Go, download
@@ -131,8 +146,8 @@ TOCK_DEMO_PORT=7788 go test -tags demo -run TestDemo -timeout 0 ./internal/web
 
 CI runs gofmt, vet, the build without cgo and the tests on Linux, and the
 cgo build and tests on macOS. To release, add a `## vX.Y.Z` section to
-CHANGELOG.md and push the tag. CI builds the Linux tarballs and publishes the
-release.
+CHANGELOG.md and push the tag. CI builds the Linux tarballs, the source
+tarball and Homebrew formula, and the .dmg, and publishes the release.
 
 ## License
 
