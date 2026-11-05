@@ -61,7 +61,7 @@ func TestLoadPlanAutoStart(t *testing.T) {
 	}
 }
 
-// TestPlanDocDefaults pins the values shown in the README to DefaultPlan and
+// TestPlanDocDefaults pins the values shown in the guide to DefaultPlan and
 // the [calendar] auto_open default.
 func TestPlanDocDefaults(t *testing.T) {
 	doc := "[plan]\nnotify = true\nnotify_before = 5\nauto_start = false\n[calendar]\nauto_open = false\n"

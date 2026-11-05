@@ -114,7 +114,7 @@ func TestLoadHoursOver(t *testing.T) {
 	}
 }
 
-// TestRoutineDocDefaults pins the values shown in the README to DefaultRoutine.
+// TestRoutineDocDefaults pins the values shown in the guide to DefaultRoutine.
 func TestRoutineDocDefaults(t *testing.T) {
 	doc := "[hours]\nstart = \"09:00\"\nend = \"18:00\"\nover_grace = 30\nover_repeat = 60\n" +
 		"[routine]\nstart = true\nmidday = \"13:00\"\nend = true\noverwork = true\n"
