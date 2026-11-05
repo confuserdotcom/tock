@@ -71,3 +71,14 @@ func TestBuildMonth(t *testing.T) {
 		t.Fatalf("title = %q", got)
 	}
 }
+
+func TestBuildMonthDays(t *testing.T) {
+	in := MonthInput{Through: 2, PrevThrough: 2, Days: []MonthDay{
+		{Stats: stats.Day{ActiveMS: 3 * 3600_000, FocusMS: 7200_000, DeepMS: 5400_000, LongestMS: 3600_000}, Score: stats.Score{Value: 80}},
+		{},
+	}}
+	m := BuildMonth(in)
+	if len(m.Days) != 2 || m.Days[0].DeepMS != 5400_000 || m.Days[0].TrackedMS != 3*3600_000 || m.Days[0].Score != 80 || m.Days[1].Score != -1 {
+		t.Fatalf("days = %+v", m.Days)
+	}
+}

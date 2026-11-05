@@ -53,6 +53,13 @@ type Month struct {
 	Cur, Prev            MonthSide
 	Categories           []TrendRow // by MS desc, then PrevMS desc, then name; Unclassified last
 	Scores               []int      // one per day of the window: the score, or -1 for a day that is not a workday
+	Days                 []MonthPoint
+}
+
+// MonthPoint is one day of the month's window, for charts.
+type MonthPoint struct {
+	TrackedMS, FocusMS, DeepMS, LongestMS int64
+	Score                                 int // -1: not a workday
 }
 
 // BuildMonth computes the trends.
@@ -62,6 +69,10 @@ func BuildMonth(in MonthInput) Month {
 	m.Cur, scores = side(in.Views, in.Days)
 	m.Prev, _ = side(in.PrevViews, in.PrevDays)
 	m.Scores = scores
+	for i, d := range in.Days {
+		m.Days = append(m.Days, MonthPoint{TrackedMS: d.Stats.ActiveMS, FocusMS: d.Stats.FocusMS,
+			DeepMS: d.Stats.DeepMS, LongestMS: d.Stats.LongestMS, Score: scores[i]})
+	}
 	rows := map[string]*TrendRow{}
 	add := func(vs []classify.SpanView, ls []classify.Label, prev bool) {
 		for i, v := range vs {
