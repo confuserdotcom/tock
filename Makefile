@@ -16,8 +16,9 @@ AGENT_LABEL := com.tock.trackd
 BAR_BUNDLE ?= $(TOCK_DATA)/tock.app
 BAR_ID := com.tock.bar
 BIN_DIR ?= $(HOME)/.local/bin
-# deploy-linux: the Linux machine to build for and copy to over ssh.
-LINUX_HOST ?= ryuk
+# deploy-linux: the Linux machine to build for and copy to over ssh
+# (make deploy-linux LINUX_HOST=myhost).
+LINUX_HOST ?=
 LINUX_ARCH ?= amd64
 # publish-linux: the sync folder to publish to ("" = [sync] dir in
 # config.toml) and the signing key. The key stays out of the sync folder.
@@ -33,7 +34,7 @@ CODESIGN_TIMEOUT ?= 60
 # receives SIGALRM and exits 142 when it overruns.
 WITH_TIMEOUT = perl -e 'alarm shift; exec @ARGV or exit 127'
 
-.PHONY: icon install-linux uninstall-linux deploy-linux build test test-quick vet clean bundle bundle-bar print-dr cert cert-trust dump dump-bg dump-stop install install-mac uninstall update update-here hooks publish-linux bootstrap-hint
+.PHONY: icon release install-linux uninstall-linux deploy-linux build test test-quick vet clean bundle bundle-bar print-dr cert cert-trust dump dump-bg dump-stop install install-mac uninstall update update-here hooks publish-linux bootstrap-hint
 
 build:
 	CGO_ENABLED=1 go build -ldflags "$(LDFLAGS)" -o bin/trackd ./cmd/trackd
@@ -232,7 +233,7 @@ uninstall:
 		rm -f "$(HOME)/Library/LaunchAgents/$(BAR_ID).plist"; \
 	fi
 
-# install-linux: ryuk (Hyprland). Pure Go, no bundle or signing: trackd and
+# install-linux: a Linux machine under Hyprland. Pure Go, no bundle or signing: trackd and
 # tock go to ~/.local/bin and trackd runs as the systemd user unit
 # trackd.service. Add the hypridle listener from the README for idle time.
 install-linux:
@@ -251,6 +252,7 @@ install-linux:
 # which restarts trackd. Remote commands run under bash: the login shell may
 # be fish.
 deploy-linux:
+	@[ -n "$(LINUX_HOST)" ] || { echo "deploy-linux: set LINUX_HOST, e.g. make deploy-linux LINUX_HOST=myhost" >&2; exit 1; }
 	GOOS=linux GOARCH=$(LINUX_ARCH) CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)" -o build/linux/trackd ./cmd/trackd
 	GOOS=linux GOARCH=$(LINUX_ARCH) CGO_ENABLED=0 go build -o build/linux/tock ./cmd/tock
 	ssh $(LINUX_HOST) 'bash -c "mkdir -p ~/.local/bin"'
@@ -320,3 +322,20 @@ hooks:
 		printf '%s\n' '#!/bin/sh' '# installed by make hooks' 'h="$$(git rev-parse --show-toplevel)/packaging/git-hook.sh"' '[ -f "$$h" ] && exec sh "$$h"' 'exit 0' > "$$f" && chmod 755 "$$f" || exit 1; \
 	done; \
 	echo "hooks: post-commit and post-merge installed in $$dir"
+
+# release: the Linux builds of trackd and tock as tarballs in dist/, with
+# SHA256SUMS, for a GitHub release. Tag first (git tag v5.0.0) so VERSION is
+# the tag. The Mac apps are built and signed on the Mac they run on (make
+# install), so they are not in the release.
+release:
+	@case "$(VERSION)" in v[0-9]*) ;; *) echo "release: VERSION $(VERSION) is not a tag like v5.0.0" >&2; exit 1;; esac
+	rm -rf dist && mkdir -p dist
+	@for a in amd64 arm64; do \
+		d=dist/tock-$(VERSION)-linux-$$a; mkdir -p $$d && \
+		GOOS=linux GOARCH=$$a CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o $$d/trackd ./cmd/trackd && \
+		GOOS=linux GOARCH=$$a CGO_ENABLED=0 go build -trimpath -o $$d/tock ./cmd/tock && \
+		cp LICENSE README.md CHANGELOG.md $$d/ && \
+		tar -C dist -czf $$d.tar.gz $$(basename $$d) && rm -rf $$d || exit 1; \
+	done
+	cd dist && shasum -a 256 *.tar.gz > SHA256SUMS
+	@ls -1 dist

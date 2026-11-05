@@ -86,11 +86,16 @@ const usage = `usage:
                                          labelled spans, default the last 7 days as csv
   tock prune [--days N] [--dry-run]      delete window titles (and URL paths) older than N days
                                          (default [privacy] keep_titles); labels stay
+  tock import activitywatch <export.json>
+                                         ActivityWatch history (Export all buckets, or
+                                         curl localhost:5600/api/0/export); again replaces it
   tock backup [--out FILE]               archive tock.db and the rule, config and shell files
                                          (default ~/.local/share/tock/backups/)
   tock sync [--days N]                   write this machine's last N days (default 2) to the
                                          [sync] folder now and read the other machines'
   tock slack [login | logout | status]   Slack status and do-not-disturb during focus sessions
+  tock uninstall [--purge]              stop trackd and the menu bar, remove the apps and tock;
+                                         --purge also deletes your data, rules and config
   tock shell-init zsh                    shell hook for terminal projects; in ~/.zshrc:
                                          eval "$(tock shell-init zsh)"
 Names match on a unique prefix: "tock tag 2 stu/atl". "/Project" sets only the project.
@@ -254,6 +259,8 @@ var commands = map[string]func(Env, []string) error{
 	"plan":       cmdPlan,
 	"choice":     cmdChoice,
 	"break":      cmdBreak,
+	"import":     cmdImport,
+	"uninstall":  cmdUninstall,
 }
 
 // run executes one command and returns the exit code: 0 ok, 1 error, 2 usage.

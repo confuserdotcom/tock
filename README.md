@@ -8,6 +8,8 @@
 <p align="center">
   <a href="https://github.com/confuserdotcom/tock/stargazers"><img src="https://img.shields.io/github/stars/confuserdotcom/tock?style=flat-square&color=8a5e18" alt="Stars"></a>
   <a href="https://github.com/confuserdotcom/tock/commits/main"><img src="https://img.shields.io/github/last-commit/confuserdotcom/tock?style=flat-square&color=8a5e18" alt="Last commit"></a>
+  <a href="https://github.com/confuserdotcom/tock/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/confuserdotcom/tock/ci.yml?branch=main&style=flat-square&color=8a5e18&label=ci" alt="CI"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-8a5e18?style=flat-square" alt="License: MIT"></a>
   <img src="https://img.shields.io/badge/Go-1.26-8a5e18?style=flat-square&logo=go&logoColor=white" alt="Go 1.26">
   <img src="https://img.shields.io/badge/macOS-26-8a5e18?style=flat-square&logo=apple&logoColor=white" alt="macOS 26">
   <img src="https://img.shields.io/badge/Linux-Hyprland-8a5e18?style=flat-square&logo=linux&logoColor=white" alt="Linux: Hyprland">
@@ -46,6 +48,9 @@ day went, and it is already there.
   trained on your own labels suggests the rest.
 - **A focus score for the day.** Depth, unbroken blocks and calm, minus
   distraction, out of 100, and `i` shows exactly how it was added up.
+
+Everything else is off until you want it:
+
 - **Focus sessions that pull you back.** Start one from the TUI, the menu
   bar or `⌥⌘F` anywhere, with a goal. Drift to a distraction and tock tells
   you; with the wake screen on, a banner and then a full-screen curtain
@@ -57,6 +62,9 @@ day went, and it is already there.
 - **Claude, if you want it.** Suggestions for the inbox, daily summaries
   and `tock ask` run on your Claude subscription, through privacy filters,
   only when you turn them on.
+
+Coming from ActivityWatch? `tock import activitywatch` brings your history
+with you (see [Import](#import)).
 
 ### The dashboard
 
@@ -121,6 +129,8 @@ timeline to label it.
   [Linux](#linux-hyprland))
 - Go 1.26 and the Xcode command line tools (`xcode-select --install`), since
   `trackd` uses cgo
+- On Linux, a release tarball has both binaries ready to run (see
+  [Linux](#linux-hyprland)); no Go needed
 
 ## Install
 
@@ -129,6 +139,10 @@ make cert          # once: creates the local code-signing identity
 make cert-trust    # once: you approve a macOS dialog to trust it
 make install       # builds, signs, installs, starts trackd, runs tock doctor
 ```
+
+`make cert` makes a self-signed certificate that lives only in your login
+keychain. macOS ties the Accessibility grant to it, so a rebuild keeps the
+grant. tock has no Apple Developer ID, so there is no notarized download.
 
 `make install` puts:
 - `tock` in `~/.local/bin`, so add that directory to `PATH`;
@@ -265,7 +279,7 @@ Everything below is the manual, one section per feature:
 - **Labels:** [Categories](#categories) · [The model](#the-model) · [Modules](#modules) · [AFK](#afk) · [Editing the timeline](#editing-the-timeline) · [Undo](#undo) · [Duplicate names](#duplicate-names)
 - **Looking back:** [Work blocks, summaries and questions](#work-blocks-summaries-and-questions) · [Trends and review](#trends-and-review) · [Web dashboard](#web-dashboard) · [Week report](#week-report) · [Billing](#billing) · [Commits](#commits) · [Calls](#calls)
 - **Your day around it:** [Calendar](#calendar) · [Planned sessions and meetings](#planned-sessions-and-meetings) · [Recommendations](#recommendations) · [Screen reading](#screen-reading) · [Menu bar and notifications](#menu-bar-and-notifications)
-- **Running it:** [Linux (Hyprland)](#linux-hyprland) · [Sync between machines](#sync-between-machines) · [Deleting old titles](#deleting-old-titles) · [Updates](#updates) · [Backup](#backup) · [Uninstall](#uninstall) · [Development](#development)
+- **Running it:** [Linux (Hyprland)](#linux-hyprland) · [Sync between machines](#sync-between-machines) · [Deleting old titles](#deleting-old-titles) · [Updates](#updates) · [Backup](#backup) · [Import](#import) · [Uninstall](#uninstall) · [Development](#development)
 
 ## Commands
 
@@ -318,6 +332,8 @@ tock export [--from D] [--to D] [--format csv|json] [--by project]
 tock backup [--out FILE]               archive tock.db and the rule, config and shell files
 tock slack [login | logout | status]   Slack status during focus sessions (see Focus guard)
 tock shell-init zsh                    shell hook for terminal projects (docs/shell-hook.md)
+tock import activitywatch <export.json>  ActivityWatch history (see Import)
+tock uninstall [--purge]               remove tock; --purge deletes your data too
 ```
 
 Names match on a unique prefix: `tock tag 2 stu/atl`.
@@ -1446,11 +1462,19 @@ no cgo, no bundle and no permissions.
 make install-linux   # trackd and tock in ~/.local/bin, trackd.service enabled
 ```
 
+Without Go, take `tock-<version>-linux-amd64.tar.gz` (or `arm64`) from a
+GitHub release, check it against `SHA256SUMS`, and install the two binaries:
+
+```sh
+tar xzf tock-v5.0.0-linux-amd64.tar.gz && cd tock-v5.0.0-linux-amd64
+install -m 755 trackd tock ~/.local/bin/ && ~/.local/bin/trackd install && tock init
+```
+
 No Go on the Linux machine? Build and install it from the Mac over ssh
 instead; this also updates it later:
 
 ```sh
-make deploy-linux                      # LINUX_HOST=ryuk, LINUX_ARCH=amd64
+make deploy-linux LINUX_HOST=box                  # LINUX_ARCH=amd64
 make deploy-linux LINUX_HOST=box LINUX_ARCH=arm64
 ```
 
@@ -1567,7 +1591,7 @@ Every minute, trackd writes this machine's last two days to
   machine uses those labels when it has a category and project of the same
   name; otherwise its own rules apply.
 - **Merging.** Another machine's time shows in the timeline as
-  `ryuk · kitty`. You are at one machine at a time, the one you switched
+  `box · kitty`. You are at one machine at a time, the one you switched
   on last: it fills time when this machine was idle or off, and it takes
   the rest of a window here when it changed window or page more than 30
   seconds after this one did, until you switch here again. A call here is
@@ -1615,8 +1639,8 @@ do not run `make install` or copy files.
   key on that machine. Before the first pin, anyone who can write the sync
   folder can offer a key, so run the command below soon after you set the
   folder up. `update = false` under `[sync]` turns this off.
-- **Once on ryuk,** because it runs a tock from before updates and cannot
-  update itself yet, run this there (use `linux-arm64` on an ARM machine;
+- **Once on a Linux machine that runs a tock from before updates** (it
+  cannot update itself yet), run this there (use `linux-arm64` on an ARM machine;
   `make bootstrap-hint` prints it for your sync folder):
 
   ```sh
@@ -1646,12 +1670,36 @@ To restore:
    `shell.log` in `~/.local/state/tock/`.
 4. `make install`.
 
+## Import
+
+`tock import activitywatch <export.json>` reads your ActivityWatch history
+into tock. Get the file from ActivityWatch's web UI (**Raw Data ▸ Export all
+buckets as JSON**), or with ActivityWatch running:
+
+```sh
+curl -s http://localhost:5600/api/0/export > aw.json
+tock import activitywatch aw.json
+```
+
+- Window events become time on that app, with the browser tab's address and
+  title when the web watcher saw one. Time ActivityWatch marked afk is left out.
+- Your rules label it, like time from another machine, and it shows in the
+  timeline as `activitywatch · <app>`. Relabel it with a rule.
+- URLs are stored like trackd stores them (host and path, no query), and
+  `[privacy]` hide lists apply.
+- Importing again replaces the days in the file, so a newer export never
+  counts twice. tock reads the file only; it never talks to ActivityWatch.
+
 ## Uninstall
 
-`make uninstall` stops trackd and the menu bar app and removes their launchd
-agents. Your data stays.
-To delete the data too, remove `~/.local/share/tock`, `~/.local/state/tock`
-and `~/.config/tock`.
+```sh
+tock uninstall           # stop trackd and the menu bar, remove the apps and tock; data stays
+tock uninstall --purge   # also delete tock.db, rules and config (asks you to type yes)
+```
+
+On a Mac, the signing certificate stays in your login keychain; delete
+`tock-local-codesign` in Keychain Access if you want it gone. `make uninstall`
+only unloads the background agents.
 
 ## Development
 
@@ -1664,4 +1712,10 @@ make update                                # reinstall the Mac and publish for L
 ```
 
 Checklists for things only a person at the Mac can verify are in
-`docs/*-checklist.md`.
+`docs/*-checklist.md`. CI runs gofmt, vet, the no-cgo build and the tests on
+Linux, and the cgo build and tests on macOS. `git tag v5.0.0 && make release`
+builds the Linux tarballs and `dist/SHA256SUMS` for a GitHub release.
+
+## License
+
+MIT, see [LICENSE](LICENSE).
