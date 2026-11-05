@@ -44,6 +44,14 @@ func Menu(a *app.App, id string) (string, error) {
 	if v, ok := strings.CutPrefix(id, IDFeature); ok {
 		return toggleFeature(a, v)
 	}
+	for _, p := range []struct {
+		prefix string
+		hide   bool
+	}{{IDHide, true}, {IDUnhide, false}} {
+		if v, ok := strings.CutPrefix(id, p.prefix); ok {
+			return setHidden(a, id, v, p.hide)
+		}
+	}
 	if id == IDStop {
 		s, err := a.StopSession()
 		if err != nil {
@@ -98,6 +106,29 @@ func Menu(a *app.App, id string) (string, error) {
 		return "undid the refile", nil
 	}
 	return "", fmt.Errorf("menu %q: %w", id, ErrUnknown)
+}
+
+// setHidden adds to or removes from the [privacy] hide lists the
+// "app:<bundle id>" or "site:<host>" in v, and reloads.
+func setHidden(a *app.App, id, v string, hide bool) (string, error) {
+	kind, value, ok := strings.Cut(v, ":")
+	if !ok || value == "" || (kind != config.HideApp && kind != config.HideSite) {
+		return "", fmt.Errorf("menu %q: %w", id, ErrUnknown)
+	}
+	if err := config.SetHidden(a.ConfigPath(), kind, value, hide); err != nil {
+		return "", fmt.Errorf("bar: %s: %w", id, err)
+	}
+	a.Reload()
+	name := value
+	if kind == config.HideApp {
+		if n, err := a.AppName(value); err == nil && n != "" {
+			name = n
+		}
+	}
+	if hide {
+		return name + " hidden", nil
+	}
+	return name + " shown again", nil
 }
 
 // toggleFeature flips one config.Features toggle in config.toml, the way

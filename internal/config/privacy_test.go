@@ -73,3 +73,15 @@ func TestHides(t *testing.T) {
 		t.Error("an empty list hides nothing")
 	}
 }
+
+func TestHost(t *testing.T) {
+	url := func(s string) *string { return &s }
+	for in, want := range map[string]string{"www.Bank.com:443/x": "bank.com", "news.com": "news.com", "": "", "a b/": ""} {
+		if got := Host(url(in)); got != want {
+			t.Errorf("Host(%q) = %q, want %q", in, got, want)
+		}
+	}
+	if Host(nil) != "" {
+		t.Error("Host(nil) is not empty")
+	}
+}

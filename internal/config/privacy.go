@@ -46,16 +46,35 @@ func (p Privacy) Hides(bundle string, url *string) bool {
 			return true
 		}
 	}
-	if url == nil {
+	host := rawHost(url)
+	if host == "" {
 		return false
 	}
-	host, _, _ := strings.Cut(*url, "/")
-	host, _, _ = strings.Cut(host, ":")
-	host = strings.ToLower(host)
 	for _, h := range p.HideSites {
 		if host == h || strings.HasSuffix(host, "."+h) {
 			return true
 		}
 	}
 	return false
+}
+
+// rawHost is the lower-case host of url (host+path, nil = none), without
+// its port.
+func rawHost(url *string) string {
+	if url == nil {
+		return ""
+	}
+	host, _, _ := strings.Cut(*url, "/")
+	host, _, _ = strings.Cut(host, ":")
+	return strings.ToLower(host)
+}
+
+// Host is the site to offer hiding for url: its host without the port and
+// a leading www., or "" when there is none or it is not a valid site.
+func Host(url *string) string {
+	h := strings.TrimPrefix(rawHost(url), "www.")
+	if !siteRE.MatchString(h) {
+		return ""
+	}
+	return h
 }

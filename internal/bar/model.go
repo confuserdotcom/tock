@@ -4,6 +4,7 @@
 package bar
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"strconv"
@@ -16,6 +17,7 @@ import (
 	"tock/internal/focus"
 	"tock/internal/recommend"
 	"tock/internal/report"
+	"tock/internal/span"
 	"tock/internal/store"
 )
 
@@ -27,7 +29,11 @@ const (
 	IDNotifySettings = "notify-settings"
 	// IDFeature (+ a config.Features id) turns that feature on or off.
 	IDFeature = "feature:"
-	IDQuit    = "quit"
+	// IDHide and IDUnhide (+ "app:<bundle id>" or "site:<host>") add to and
+	// remove from the [privacy] hide lists.
+	IDHide   = "hide:"
+	IDUnhide = "unhide:"
+	IDQuit   = "quit"
 	// IDSnoozeDistract snoozes the running session's distraction notices
 	// for [focus] snooze minutes; IDSnoozeOff resumes them.
 	IDSnoozeDistract = "snooze:distract"
@@ -110,7 +116,23 @@ type Snapshot struct {
 	DistractAtMS int64          // the running session's newest distraction notice; 0 = none or no session
 	DistractErr  error          // why DistractAtMS could not be read, for the caller to log; the rest of the snapshot is still good
 	Features     []FeatureState // the toggles of the Settings submenu, in config.Features order
+	Privacy      PrivacyState   // the Privacy submenu
+	PrivacyErr   error          // why Privacy.Front or a hidden app's name could not be read, for the caller to log
 }
+
+// PrivacyState is what the Privacy submenu offers to hide and shows hidden.
+type PrivacyState struct {
+	Front *store.Active // the newest app that was not idle; nil = none
+	Apps  []HiddenApp   // [privacy] hide_apps, in file order
+	Sites []string      // [privacy] hide_sites, in file order
+}
+
+// HiddenApp is one hidden app: its bundle id and the name tock saw it under
+// (the id when it never ran).
+type HiddenApp struct{ Bundle, Name string }
+
+// ownBundles are tock's own apps, never offered for hiding.
+var ownBundles = map[string]bool{"com.tock.bar": true, "com.tock.trackd": true, span.IdleBundleID: true}
 
 // StripCells is how many blocks the menu's colour strip has.
 const StripCells = 24
@@ -166,6 +188,7 @@ func Load(a *app.App, now time.Time, access string) (Snapshot, error) {
 	for _, f := range config.Features {
 		s.Features = append(s.Features, FeatureState{ID: f.ID, Group: f.Group, Name: f.Name, On: f.On(cfg)})
 	}
+	s.Privacy, s.PrivacyErr = loadPrivacy(a, cfg.Privacy)
 	s.Last, s.LastErr = loadLast(a, now)
 	s.Loc = now.Location()
 	if s.Slots, err = a.Slots(now); err != nil {
@@ -358,6 +381,59 @@ func (s Snapshot) goItems() []Item {
 	return append(out, Item{Title: "Open dashboard", ID: IDDashboard})
 }
 
+// loadPrivacy reads the Privacy submenu's state; on an error the rest of
+// it is still filled.
+func loadPrivacy(a *app.App, p config.Privacy) (PrivacyState, error) {
+	ps := PrivacyState{Sites: p.HideSites}
+	var errs []error
+	for _, b := range p.HideApps {
+		n, err := a.AppName(b)
+		if err != nil {
+			errs = append(errs, err)
+		}
+		ps.Apps = append(ps.Apps, HiddenApp{Bundle: b, Name: cmp.Or(n, b)})
+	}
+	f, err := a.LastActive()
+	if err != nil {
+		errs = append(errs, err)
+	}
+	ps.Front = f
+	if err := errors.Join(errs...); err != nil {
+		return ps, fmt.Errorf("bar: privacy: %w", err)
+	}
+	return ps, nil
+}
+
+// privacy is the Privacy submenu: hide the newest app or its site, and the
+// hidden ones, checked; a click on one shows it again.
+func (s Snapshot) privacy() Item {
+	ps := s.Privacy
+	p := config.Privacy{HideSites: ps.Sites}
+	for _, h := range ps.Apps {
+		p.HideApps = append(p.HideApps, h.Bundle)
+	}
+	var sub []Item
+	if f := ps.Front; f != nil && !ownBundles[f.Bundle] && !p.Hides(f.Bundle, nil) {
+		sub = append(sub, Item{Title: "Hide " + f.App, ID: IDHide + config.HideApp + ":" + f.Bundle})
+		if h := config.Host(f.URL); h != "" && !p.Hides("", f.URL) {
+			sub = append(sub, Item{Title: "Hide " + h, ID: IDHide + config.HideSite + ":" + h})
+		}
+	}
+	if len(sub) > 0 && len(ps.Apps)+len(ps.Sites) > 0 {
+		sub = append(sub, sep)
+	}
+	for _, h := range ps.Apps {
+		sub = append(sub, Item{Title: h.Name, ID: IDUnhide + config.HideApp + ":" + h.Bundle, Checked: true})
+	}
+	for _, h := range ps.Sites {
+		sub = append(sub, Item{Title: h, ID: IDUnhide + config.HideSite + ":" + h, Checked: true})
+	}
+	if len(sub) == 0 {
+		sub = append(sub, label("Nothing to hide yet"))
+	}
+	return Item{Title: "Privacy", Sub: sub}
+}
+
 // settings is the Settings submenu: the feature toggles by group, the
 // System Settings panes and Quit.
 func (s Snapshot) settings() Item {
@@ -377,6 +453,7 @@ func (s Snapshot) settings() Item {
 		sub = append(sub, sep)
 	}
 	sub = append(sub,
+		s.privacy(),
 		Item{Title: "Notifications…", ID: IDNotifySettings},
 		Item{Title: "Accessibility…", ID: IDAccess},
 		sep,
