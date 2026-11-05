@@ -946,6 +946,12 @@ static CGFloat faceHeight(void) { return hasNotch ? notchH : 32; }
         }
         self.panelShown = NO;
     }
+    // Folded back: a click had made the panel key, so give the keys back to
+    // the app underneath (ordering out hands key to its window).
+    if (self.window.isKeyWindow) {
+        [self.window orderOut:nil];
+        [self.window orderFrontRegardless];
+    }
     NSDictionary *f = dval(self.island, @"face");
     if (quiet) {
         [self show:[[FlipView alloc] initWithFrame:NSZeroRect] size:NSZeroSize fade:fade];
