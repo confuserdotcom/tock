@@ -144,6 +144,7 @@ func TestFocusDefaults(t *testing.T) {
 			"com.microsoft.teams", "Cisco-Systems.Spark", "com.cisco.webexmeetingsapp"},
 		MeetingHosts: []string{"meet.google.com", "teams.microsoft.com", "app.zoom.us", "whereby.com"},
 		BlockGraceMS: 10_000, NoticeBudget: 8, NoticeGapMS: 20 * 60_000, BreakScreenGraceMS: 5 * 60_000,
+		WakeWarnMS: 5 * 60_000, WakeAfterMS: 10 * 60_000, WakeIdleMS: 15 * 60_000,
 	}
 	if !reflect.DeepEqual(f, want) {
 		t.Fatalf("DefaultFocus = %+v\nwant %+v", f, want)
@@ -175,6 +176,7 @@ meeting_hosts = []
 		DistractGraceMS: 30_000, DistractRepeatMS: 90_000, SnoozeMS: 10 * 60_000, AutoMinMS: 20 * 60_000,
 		RecapAt: 8*60 + 30, Notify: false, MeetingApps: []string{"a.b"}, MeetingHosts: []string{}, BlockGraceMS: 10_000,
 		NoticeBudget: 8, NoticeGapMS: 20 * 60_000, BreakScreenGraceMS: 5 * 60_000,
+		WakeWarnMS: 5 * 60_000, WakeAfterMS: 10 * 60_000, WakeIdleMS: 15 * 60_000,
 	}
 	if !reflect.DeepEqual(c.Focus, want) {
 		t.Fatalf("focus = %+v\nwant %+v", c.Focus, want)
@@ -218,6 +220,10 @@ func TestFocusErrors(t *testing.T) {
 		{"[focus]\nbreak_repeat = 241\n", "config.toml: [focus] break_repeat = 241, want 1 to 240"},
 		{"[focus]\nnotice_budget = -1\n", "config.toml: [focus] notice_budget = -1, want 0 (no limit) to 100"},
 		{"[focus]\nbreak_screen_grace = 61\n", "config.toml: [focus] break_screen_grace = 61, want 1 to 60"},
+		{"[focus]\nwake_after = 1\n", "config.toml: [focus] wake_after = 1, want 2 to 120"},
+		{"[focus]\nwake_warn = 0\n", "config.toml: [focus] wake_warn = 0, want 1 to 60"},
+		{"[focus]\nwake_idle = 121\n", "config.toml: [focus] wake_idle = 121, want 1 to 120"},
+		{"[focus]\nwake_warn = 10\nwake_after = 10\n", "config.toml: [focus] wake_warn = 10 must be less than wake_after = 10"},
 		{"[focus]\nnotice_gap = 241\n", "config.toml: [focus] notice_gap = 241, want 0 (none) to 240"},
 		{"[focus]\ndistract_grace = 3601\n", "config.toml: [focus] distract_grace = 3601, want 1 to 3600"},
 		{"[focus]\ndistract_repeat = -1\n", "config.toml: [focus] distract_repeat = -1, want 1 to 3600"},
@@ -508,5 +514,16 @@ func TestFocusBreakScreen(t *testing.T) {
 	c, err := Load(write(t, "[focus]\nbreak_screen = true\nbreak_screen_grace = 2\n"))
 	if err != nil || !c.Focus.BreakScreen || c.Focus.BreakScreenGraceMS != 2*60_000 {
 		t.Fatalf("break screen = %v, grace = %d, %v", c.Focus.BreakScreen, c.Focus.BreakScreenGraceMS, err)
+	}
+}
+
+func TestFocusWakeScreen(t *testing.T) {
+	d := DefaultFocus()
+	if d.WakeScreen || d.WakeWarnMS != 5*60_000 || d.WakeAfterMS != 10*60_000 || d.WakeIdleMS != 15*60_000 {
+		t.Fatalf("defaults = %v %d %d %d", d.WakeScreen, d.WakeWarnMS, d.WakeAfterMS, d.WakeIdleMS)
+	}
+	c, err := Load(write(t, "[focus]\nwake_screen = true\nwake_warn = 3\nwake_after = 8\nwake_idle = 20\n"))
+	if err != nil || !c.Focus.WakeScreen || c.Focus.WakeWarnMS != 3*60_000 || c.Focus.WakeAfterMS != 8*60_000 || c.Focus.WakeIdleMS != 20*60_000 {
+		t.Fatalf("wake = %+v, %v", c.Focus, err)
 	}
 }

@@ -90,6 +90,8 @@ type Session struct {
 	RatedMS       int64  // when it was rated, 0 = unrated
 	UrgesResisted int    // distraction notices answered Back to work
 	UrgesGiven    int    // distraction notices answered Open anyway
+	Wakes         int    // wake screens shown
+	WakesBack     int    // wake screens followed by work within focus.WakeBackMS
 }
 
 const sessionCols = `id, kind, start_ms, planned_ms, end_ms, interruptions, alerted_ms, deep_ms, distract_ms, longest_ms, switches, rating, note, rated_ms, urges_resisted, urges_given`
