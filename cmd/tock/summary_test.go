@@ -56,9 +56,21 @@ func TestBlocksAndSummary(t *testing.T) {
 	if _, out := te.run(t, "", "blocks"); !strings.Contains(out, "Coding in the terminal") || f.calls != 1 {
 		t.Fatalf("blocks after summary:\n%s", out)
 	}
+	// Without Claude the day's blocks are the summary, with a hint.
 	te.APIKey = ""
-	if code, _ := te.run(t, "", "summary"); code != 1 || !strings.Contains(te.errb.String(), "ANTHROPIC_API_KEY") {
-		t.Fatalf("no key: %d %s", code, te.errb)
+	code, out = te.run(t, "", "summary")
+	if code != 0 || !strings.Contains(out, "09:00–10:40") || !strings.Contains(out, "ANTHROPIC_API_KEY") {
+		t.Fatalf("no key: %d %s\n%s", code, te.errb, out)
+	}
+}
+
+func TestSummaryClaudeOff(t *testing.T) {
+	te := newTestEnv(t, testRules)
+	te.seed(t, daySpans()...)
+	te.writeConfig(t, "[llm]\nenabled = false\n")
+	code, out := te.run(t, "", "summary")
+	if code != 0 || !strings.Contains(out, "09:00–10:40   1h40  tock (Code)") || !strings.Contains(out, "tock choice") {
+		t.Fatalf("claude off = %d\n%s", code, out)
 	}
 }
 

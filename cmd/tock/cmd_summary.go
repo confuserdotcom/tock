@@ -170,12 +170,19 @@ func cmdSummary(env Env, args []string) error {
 		fmt.Fprintf(env.Stdout, "%s\n", b.Payload)
 		return nil
 	}
-	if !a.Config().LLM.Enabled {
-		fmt.Fprintln(env.Stdout, "Claude is off: [llm] enabled = false in config.toml")
+	// Without Claude the blocks are the summary: what, where and how long.
+	if !a.Config().LLM.Enabled || !env.hasClaude() {
+		d, err := a.Day(day)
+		if err != nil {
+			return err
+		}
+		printBlocks(env, d)
+		if !a.Config().LLM.Enabled {
+			fmt.Fprintln(env.Stdout, "\nClaude is off, so this is the day's work blocks. tock choice turns Claude on for a written summary.")
+		} else {
+			fmt.Fprintf(env.Stdout, "\nThis is the day's work blocks. For a written summary, %s.\n", strings.TrimPrefix(errNoClaude.Error(), "no Claude: "))
+		}
 		return nil
-	}
-	if !env.hasClaude() {
-		return errNoClaude
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), env.claudeTimeout())
 	defer cancel()

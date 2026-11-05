@@ -106,7 +106,7 @@ Setup and data:
 Extras (optional; some need a setting, Claude or Slack):
   tock plan                              the TUI on the plan tab ([plan] todo.txt); piped: the open tasks
   tock suggest [--dry-run | --force]     Claude label suggestions for the inbox (claude CLI or ANTHROPIC_API_KEY)
-  tock summary [--date D] [--dry-run]    Claude writes what you worked on (claude CLI or ANTHROPIC_API_KEY)
+  tock summary [--date D] [--dry-run]    what you worked on: Claude writes it, else the work blocks
   tock ask [--dry-run] "<question>"      ask about your time in plain words; answered on this machine
   tock recommend [accept | dismiss]      the pending suggestion: show it, take it, or not now
   tock ocr test [--now] | grant          read the front window's text once (in 3 s) | ask for Screen Recording
