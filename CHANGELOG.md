@@ -4,6 +4,8 @@ What changed for you in each release. Dates are UTC.
 
 ## Unreleased
 
+## v5.1.0 — 2026-11-05
+
 ### Added
 - The dashboard compares each number with your usual same weekday: the
   middle of the last four weeks.
