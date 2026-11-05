@@ -106,7 +106,7 @@ components:
 **Light or dark:** follows the system. The owner uses the Mac in the evening, so ink (dark) is the main case; paper must hold up by day.
 
 - `brass` is interaction and "now". On paper it darkens to `paper-brass` for text and lines; fills use `brass-fill-paper` with ink text.
-- Kind colours are data, not accents: deep (teal), shallow (slate blue), browsing (mauve), distracted (rust), other (grey). "Not labelled" is grey hatching, not a hue. Brass is never a kind.
+- Kind colours are data, not accents: deep (teal), shallow (slate blue), browsing (mauve), distracted (rust), other (grey). "Not labelled" is grey hatching, not a hue (a lighter grey in the terminal and the menu strip, which cannot hatch). Brass is never a kind.
 - Rust (`rust`) means overrun or distraction. Teal means done or met.
 - Muted text is slate (cool) on both grounds, which keeps the warm ink from turning brown.
 - The break screen keeps its own fixed curtain colours (always dark, whatever the system theme).

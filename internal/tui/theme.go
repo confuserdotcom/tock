@@ -34,20 +34,22 @@ func setTheme(dark bool) {
 	themeDark = dark
 	ld := lipgloss.LightDark(dark)
 	hex := func(light, darkHex string) color.Color { return ld(lipgloss.Color(light), lipgloss.Color(darkHex)) }
-	colText = hex("#2b2d33", "#d8dae0")
-	colBright = hex("#111216", "#f4f5f7")
-	colDim = hex("#6b7080", "#8b90a0")
-	colFaint = hex("#b4b8c4", "#4a4f5c")
-	colSurface = hex("#e9ebf0", "#252833")
-	colHover = hex("#f2f3f7", "#1c1f28")
-	colBrand = hex("#4d5ae0", "#9aa5ff")
-	colDeep = hex("#1f8a73", "#5fc4ad")
-	colShallow = hex("#a07818", "#e0bf72")
-	colNeutral = hex("#6b7487", "#8a94a6")
-	colAccent = hex("#c4503a", "#ef8a76")
-	colBrowse = hex("#b8692a", "#eba06a")
-	colUnlabelled = hex("#7652c9", "#b69cf0")
-	colGood = hex("#3c8a36", "#8fd18a")
+	// DESIGN.md: paper by day, warm ink at night, brass for the one thing to look at.
+	colText = hex("#34343a", "#ddd6c8")
+	colBright = hex("#1d1c19", "#f4ecdd")
+	colDim = hex("#5f636c", "#8d93a0")
+	colFaint = hex("#9a9ea6", "#5b606b")
+	colSurface = hex("#e6e6e0", "#2a2822")
+	colHover = hex("#f0f0ec", "#1a1915")
+	colBrand = hex("#94661b", "#e3a446")
+	colDeep = hex("#2d7a68", "#63bfa8")
+	colShallow = hex("#5a78a3", "#8fa9d1")
+	colNeutral = hex("#858991", "#7d828c")
+	colAccent = hex("#b5462c", "#e57d62")
+	colBrowse = hex("#9a6585", "#c993b4")
+	// Unlabelled: the web hatches grey; a terminal cannot, so a lighter grey.
+	colUnlabelled = hex("#b0aea6", "#56554f")
+	colGood = hex("#2d7a68", "#63bfa8")
 
 	fg := func(c color.Color) lipgloss.Style { return lipgloss.NewStyle().Foreground(c) }
 	sText, sBright, sDim, sFaint = fg(colText), fg(colBright), fg(colDim), fg(colFaint)
