@@ -188,6 +188,7 @@ func runWithStore(o daemonOpts, log *slog.Logger, st *store.Store) int {
 		},
 	}
 	if o.ConfigDir != "" {
+		p.hide = newHider(o.ConfigDir)
 		p.ocr = newOCRCoord(&ocrCoord{
 			cap: o.OCR, secure: o.SecureInput, st: st, log: log, now: o.Now,
 			idleMS: span.DefaultConfig().IdleThreshold.Milliseconds(),
@@ -298,6 +299,7 @@ type pipe struct {
 	watch  *stateWatcher // may be nil
 	onTick func(nowMS int64)
 	ocr    *ocrCoord // may be nil
+	hide   *hider    // may be nil
 }
 
 func (p pipe) run() error {
@@ -307,6 +309,7 @@ func (p pipe) run() error {
 			if !ok {
 				return p.st.Apply(p.m.Flush())
 			}
+			p.hide.apply(x.Sample)
 			if x.Sample != nil && p.watch != nil {
 				if err := p.watch.observe(x.Sample); err != nil {
 					return err
