@@ -11,6 +11,8 @@ What changed for you in each release. Dates are UTC.
   recording and rules.toml loads; a running session shows its goal and time
   left.
 - `tock version` prints the build's version.
+- A documentation site on GitHub Pages: an overview, the guide with a
+  section list, and an architecture page with measured costs.
 - A first run says what happens next: the dashboard shows three steps
   until anything is recorded, and `tock today`, `tock inbox` and the terminal
   inbox say "Nothing recorded yet" instead of "everything is labelled".
@@ -25,6 +27,8 @@ What changed for you in each release. Dates are UTC.
 - The score breakdown in the terminal says what each part is: deep time,
   long blocks, few switches, longest run. Session cards read "on task ·
   longest · few interruptions · few switches". The config keys are the same.
+- `tock help` groups the commands, with the optional extras last, and now
+  lists `tock web`.
 - The dashboard's hint when trackd is down points to `tock doctor`; it named
   a `tock install` command that does not exist.
 - trackd uses about 10 MB less memory: its focus, sync and title-deletion
