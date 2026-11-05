@@ -2,7 +2,7 @@
 
 What changed for you in each release. Dates are UTC.
 
-## Unreleased
+## v5.2.0 — 2026-11-05
 
 ### Added
 - A new dashboard, in its own tock window from the menu bar (with a Dock
