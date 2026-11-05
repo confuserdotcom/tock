@@ -56,7 +56,8 @@ func cmdUninstall(env Env, args []string) error {
 		}
 		remove = append(remove, filepath.Join(env.DataDir, "trackd.app"), filepath.Join(env.DataDir, "tock.app"))
 	}
-	if filepath.Base(self) == "tock" { // never a test binary or go run
+	brew := fromBrew(self)
+	if filepath.Base(self) == "tock" && !brew { // never a test binary or go run
 		remove = append(remove, self)
 	}
 	if *purge {
@@ -73,8 +74,20 @@ func cmdUninstall(env Env, args []string) error {
 	} else {
 		fmt.Fprintf(env.Stdout, "tock is uninstalled. Your data is kept in %s and %s;\ndelete those folders to remove it too.\n", env.DataDir, env.ConfigDir)
 	}
+	if brew {
+		fmt.Fprintln(env.Stdout, "Homebrew installed the tock command: brew uninstall tock removes it.")
+	}
 	if !env.Linux {
 		fmt.Fprintln(env.Stdout, "The signing certificate stays in your login keychain (Keychain Access: tock-local-codesign).")
 	}
 	return nil
+}
+
+// fromBrew reports whether tock at self is Homebrew's: brew owns that file,
+// so uninstall leaves it to brew uninstall.
+func fromBrew(self string) bool {
+	if r, err := filepath.EvalSymlinks(self); err == nil {
+		self = r
+	}
+	return strings.Contains(filepath.ToSlash(self), "/Cellar/")
 }

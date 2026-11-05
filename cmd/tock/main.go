@@ -96,6 +96,8 @@ Setup and data:
   tock import activitywatch <export.json>
                                          ActivityWatch history (Export all buckets, or
                                          curl localhost:5600/api/0/export); again replaces it
+  tock setup [--check] [--no-doctor]    after brew install: make the signing certificate, install
+                                         and start trackd and the menu bar app (safe to run again)
   tock uninstall [--purge]              stop trackd and the menu bar, remove the apps and tock;
                                          --purge also deletes your data, rules and config
   tock shell-init zsh                    shell hook for terminal projects; in ~/.zshrc:
@@ -277,6 +279,7 @@ var commands = map[string]func(Env, []string) error{
 	"break":      cmdBreak,
 	"import":     cmdImport,
 	"uninstall":  cmdUninstall,
+	"setup":      cmdSetup,
 }
 
 // run executes one command and returns the exit code: 0 ok, 1 error, 2 usage.

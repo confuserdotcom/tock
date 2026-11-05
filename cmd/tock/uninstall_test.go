@@ -66,3 +66,20 @@ func TestUninstallPurge(t *testing.T) {
 		t.Errorf("left behind:\n%s", out)
 	}
 }
+
+func TestUninstallLeavesBrewsTock(t *testing.T) {
+	te := newTestEnv(t, testRules)
+	uninstallRig(t, te, false)
+	cellar := filepath.Join(t.TempDir(), "Cellar", "tock", "6.0.0", "bin", "tock")
+	if err := os.MkdirAll(filepath.Dir(cellar), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(cellar, nil, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	selfPath = func() (string, error) { return cellar, nil }
+	code, out := te.run(t, "", "uninstall")
+	if code != 0 || !exists(cellar) || !strings.Contains(out, "brew uninstall tock") {
+		t.Fatalf("code %d, tock there %v:\n%s", code, exists(cellar), out)
+	}
+}
