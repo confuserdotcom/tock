@@ -37,8 +37,8 @@ func setTheme(dark bool) {
 	// DESIGN.md: paper by day, warm ink at night, brass for the one thing to look at.
 	colText = hex("#34343a", "#ddd6c8")
 	colBright = hex("#1d1c19", "#f4ecdd")
-	colDim = hex("#5f636c", "#8d93a0")
-	colFaint = hex("#9a9ea6", "#5b606b")
+	colDim = hex("#53575f", "#9ba1ad")
+	colFaint = hex("#696d75", "#7e838e")
 	colSurface = hex("#e6e6e0", "#2a2822")
 	colHover = hex("#f0f0ec", "#1a1915")
 	colBrand = hex("#94661b", "#e3a446")
