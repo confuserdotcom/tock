@@ -4,7 +4,18 @@ What changed for you in each release. Dates are UTC.
 
 ## Unreleased
 
+### Added
+- The dashboard compares each number with your usual same weekday: the
+  middle of the last four weeks.
+- The dashboard's sidebar shows a month calendar and whether trackd is
+  recording and rules.toml loads; a running session shows its goal and time
+  left.
+
 ### Changed
+- A new look for the dashboard: IBM Plex, greys, colour only for kinds of
+  time, a timeline row per category, and tables with totals instead of bar
+  lists. The terminal UI and the menu strip use the same kind colours.
+- The README is short; the full manual moved to `docs/guide.md`.
 - trackd uses about 10 MB less memory: its focus, sync and title-deletion
   loops share one database session.
 - Pushing a version tag publishes the GitHub release with the Linux tarballs.

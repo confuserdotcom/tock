@@ -51,6 +51,7 @@ at_most = "1h"
 		add(d, end, "11:50", "arc", "Arc", "Video", "www.youtube.com/watch")
 		add(d, "13:00", "15:00", "mail", "Mail", "Inbox", "")
 	}
+	e.Heartbeat(t, e.Clock.UnixMilli()) // trackd shows as recording
 	a, err := app.Open(app.Paths{DB: e.DB, Rules: e.Rules, Learned: e.Learned, Config: e.Config, ShellLog: e.ShellLog}, e.NowFunc())
 	if err != nil {
 		t.Fatal(err)
