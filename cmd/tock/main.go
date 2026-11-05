@@ -86,6 +86,9 @@ const usage = `usage:
                                          labelled spans, default the last 7 days as csv
   tock prune [--days N] [--dry-run]      delete window titles (and URL paths) older than N days
                                          (default [privacy] keep_titles); labels stay
+  tock import activitywatch <export.json>
+                                         ActivityWatch history (Export all buckets, or
+                                         curl localhost:5600/api/0/export); again replaces it
   tock backup [--out FILE]               archive tock.db and the rule, config and shell files
                                          (default ~/.local/share/tock/backups/)
   tock sync [--days N]                   write this machine's last N days (default 2) to the
@@ -254,6 +257,7 @@ var commands = map[string]func(Env, []string) error{
 	"plan":       cmdPlan,
 	"choice":     cmdChoice,
 	"break":      cmdBreak,
+	"import":     cmdImport,
 }
 
 // run executes one command and returns the exit code: 0 ok, 1 error, 2 usage.
