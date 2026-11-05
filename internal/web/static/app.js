@@ -407,27 +407,20 @@
   }
 
   // ---------- Today ----------
-  let ringSpring = null;
-  function scoreRing(value) {
-    const R = 70;
-    const C = 2 * Math.PI * R;
-    const arc = s('circle', { class: 'val', cx: 80, cy: 80, r: R, fill: 'none', 'stroke-width': 14, 'stroke-dasharray': C.toFixed(2), 'stroke-dashoffset': C.toFixed(2) });
-    const num = h('div', { class: 'ring-num' }, '0');
-    arc.classList.add(value >= 60 ? 'hi' : value >= 35 ? 'mid' : 'low');
-    const update = (v) => {
-      arc.setAttribute('stroke-dashoffset', (C * (1 - Math.max(0, Math.min(100, v)) / 100)).toFixed(2));
-      num.textContent = String(Math.round(Math.max(0, v)));
-    };
-    // Keep one spring across refreshes so the ring moves from where it is.
-    if (!ringSpring) ringSpring = new Spring(0, { damping: 1, response: 0.6, precision: 0.05, onUpdate: update });
-    ringSpring.onUpdate = update;
-    update(ringSpring.value);
-    requestAnimationFrame(() => ringSpring.set(value));
-    return h('div', { class: 'ring', role: 'img', 'aria-label': `Focus score ${value} of 100` },
-      s('svg', { viewBox: '0 0 160 160' },
-        s('circle', { class: 'ring-bg', cx: 80, cy: 80, r: R, fill: 'none', 'stroke-width': 14 }),
-        arc),
-      h('div', { class: 'ring-in' }, num, h('div', { class: 'ring-cap' }, 'focus score')));
+  // The score: one big number that counts up to its value with a spring.
+  let scoreSpring = null;
+  function scoreBlock(value) {
+    const num = h('div', { class: 'score-num' }, '0');
+    const kind = value >= 60 ? 'deep' : value >= 35 ? 'shallow' : 'distract';
+    const word = value >= 60 ? 'Good day' : value >= 35 ? 'Mixed day' : 'Scattered day';
+    const update = (v) => { num.textContent = String(Math.round(Math.max(0, Math.min(100, v)))); };
+    // Keep one spring across refreshes so the number moves from where it is.
+    if (!scoreSpring) scoreSpring = new Spring(0, { damping: 1, response: 0.6, precision: 0.05, onUpdate: update });
+    scoreSpring.onUpdate = update;
+    update(scoreSpring.value);
+    requestAnimationFrame(() => scoreSpring.set(value));
+    return h('div', { class: 'score', role: 'img', 'aria-label': `Focus score ${value} of 100` },
+      num, h('div', { class: `score-cap ${kindClass(kind)}` }, h('b', null, word), ' · focus score'));
   }
 
   function part(label, value, hint) {
@@ -455,7 +448,7 @@
     const grid = h('div', { class: 'grid' });
     grid.append(card(null, h('div', null,
       h('div', { class: 'hero' },
-        scoreRing(sc.value),
+        scoreBlock(sc.value),
         h('div', { style: { width: '100%' } },
           h('div', { class: 'tiles' },
             tile(dur(d.stats.focusMS), 'deep focus'),
@@ -469,17 +462,17 @@
             part('Calm', sc.calm, 'few context switches'),
             part('Stretch', sc.stretch, 'longest unbroken stretch')),
           sc.penalty ? h('div', { class: 'note' }, `−${sc.penalty} for distraction`) : null)),
-      h('div', { style: { 'margin-top': '1.4rem' } }, kindStack(d.byKind, d.trackedMS))), { cls: 'c12' }));
+      h('div', { style: { 'margin-top': '2rem' } }, kindStack(d.byKind, d.trackedMS))), { cls: 'c12 lead' }));
 
     grid.append(card('Timeline', ribbon(d), { cls: 'c12', aside: h('span', { class: 'cap' }, 'click a block to label it') }));
-    const work = blocksCard(d);
-    if (work) grid.append(work);
-    grid.append(card('By hour', hoursChart(d), { cls: 'c7' }));
+    grid.append(card('By hour', hoursChart(d), { cls: 'c8' }));
     grid.append(card('Categories', barList(d.categories.map((c) => ({ name: c.name, ms: c.ms, kind: c.kind, projects: c.projects })), {
       total: d.trackedMS,
       sub: (r) => (r.projects && r.projects.length ? h('div', { class: 'subrows' }, r.projects.slice(0, 4).map((p) => h('div', null, h('span', null, p.name || 'no project'), h('span', { class: 'num' }, dur(p.ms))))) : null),
-    }), { cls: 'c5' }));
-    const goals = goalsCard(d.goals, 'c12');
+    }), { cls: 'c4' }));
+    const work = blocksCard(d);
+    const goals = goalsCard(d.goals, work ? 'c4' : 'c12');
+    if (work) grid.append(work);
     if (goals) grid.append(goals);
     grid.append(activityCard(d));
     nodes.push(grid);
@@ -507,7 +500,7 @@
           b.summary ? h('div', { class: 'blurb' }, b.summary) : null);
       })) : null);
     const aside = d.summary ? null : h('span', { class: 'cap' }, 'tock summary writes what you worked on');
-    return card('Work blocks', body, { cls: 'c12', aside });
+    return card('Work blocks', body, { cls: d.goals && d.goals.length ? 'c8' : 'c12', aside });
   }
 
   function dayBounds(d) {
@@ -619,7 +612,7 @@
       },
     }, state.unlabelledOnly ? 'Show all' : 'Unlabelled only');
     return h('section', { class: 'card flat c12' },
-      h('div', { class: 'card-head', style: { padding: '1.25rem 1.25rem 0' } }, h('h2', null, 'Activity'), toggle),
+      h('div', { class: 'card-head' }, h('h2', null, 'Activity'), toggle),
       rows.length ? list : h('div', { class: 'empty', style: { padding: '2rem' } }, 'Everything here has a label.'));
   }
 
