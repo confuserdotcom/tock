@@ -4,7 +4,12 @@
 
 <picture class="shot">
   <source media="(prefers-color-scheme: dark)" srcset="readme/web-dark.png">
-  <img src="readme/web-light.png" alt="The tock dashboard for one day: the day's numbers compared with a usual Saturday, a timeline with one row per category, and tables of categories and apps.">
+  <img src="readme/web-light.png" alt="The tock dashboard for one day: a timeline with one row per category, a focus score compared with a usual Saturday, minutes per hour, a donut of the kinds of time, goal rings, and tables of categories and apps.">
+</picture>
+
+<picture class="shot">
+  <source media="(prefers-color-scheme: dark)" srcset="readme/web-week-dark.png">
+  <img src="readme/web-week-light.png" alt="The week view: hours per day stacked by kind of time, a donut of the week, the focus score per day, and a weekday-by-hour heat map of when you focus.">
 </picture>
 
 ## What it does
@@ -24,17 +29,34 @@
 
 ## Install
 
-On macOS you need Go 1.26 and the Xcode command line tools.
+On macOS, with Homebrew:
 
 ```sh
-git clone https://github.com/confuserdotcom/tock && cd tock
-make cert && make cert-trust   # once: a local code-signing certificate
-make install                   # builds, signs, starts trackd, runs tock doctor
+brew tap confuserdotcom/tock
+brew trust confuserdotcom/tock
+brew install tock
+tock setup
 ```
+
+Homebrew builds tock on your Mac, so there is no "unidentified developer"
+warning. `tock setup` makes a local code-signing certificate, installs
+trackd and the menu bar app, and starts them.
+
+Without Homebrew, download the `.dmg` from
+[Releases](https://github.com/confuserdotcom/tock/releases). It isn't
+notarized, so the first time you open it, allow it under System Settings,
+Privacy & Security, Open Anyway. To build from source, see the
+[README](https://github.com/confuserdotcom/tock#install).
 
 On Linux under Hyprland, run `make install-linux`, or download a tarball
 from [Releases](https://github.com/confuserdotcom/tock/releases). Coming from
 ActivityWatch? `tock import activitywatch export.json` brings your history.
+
+## How it fits together
+
+<img class="shot" src="assets/diagrams/pieces.svg" alt="trackd takes events from the desktop and writes spans to tock.db. tock and tockbar read tock.db and label it with rules.toml, learned.toml and config.toml. Only tock reaches the internet, for Claude and Slack, when you turn them on.">
+
+More in [Architecture](architecture).
 
 ## Privacy
 
@@ -53,4 +75,5 @@ The whole list is in [Privacy in detail](guide#privacy-in-detail).
 
 - [Guide](guide): every command, file and setting.
 - [Architecture](architecture): how the pieces fit, and what they cost.
+- [Design](design): colours, type and the rules every screen follows.
 - [Changelog](https://github.com/confuserdotcom/tock/blob/main/CHANGELOG.md).

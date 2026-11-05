@@ -1,24 +1,23 @@
-/* The tock site. Tokens and type follow DESIGN.md (Ledger). */
-@font-face { font-family: "Plex"; font-weight: 400; font-display: swap; src: url(fonts/ibm-plex-sans-400.woff2) format("woff2"); }
-@font-face { font-family: "Plex"; font-weight: 600; font-display: swap; src: url(fonts/ibm-plex-sans-600.woff2) format("woff2"); }
-@font-face { font-family: "Plex Mono"; font-weight: 400; font-display: swap; src: url(fonts/ibm-plex-mono-400.woff2) format("woff2"); }
+/* The tock site. Tokens and type follow DESIGN.md. */
+@font-face { font-family: "Inter"; font-weight: 400; font-display: swap; src: url(fonts/inter-400.woff2) format("woff2"); }
+@font-face { font-family: "Inter"; font-weight: 600; font-display: swap; src: url(fonts/inter-600.woff2) format("woff2"); }
 
 :root {
   --bg: #ffffff; --side: #f7f7f8; --sunk: #f1f1f3; --line: #ececec; --line-2: #d8d8d8;
   --ink: #1b1f24; --text: #2b3038; --muted: #5b636e; --faint: #6b7280; --focus: #2f6fdb;
-  --sans: "Plex", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --mono: "Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #111315; --side: #16181b; --sunk: #1d2024; --line: #25282d; --line-2: #33373d;
-    --ink: #eceef1; --text: #d5d8dd; --muted: #9aa1ab; --faint: #868d97;
+    --bg: #0f1011; --side: #16171a; --sunk: #1d2024; --line: #26272b; --line-2: #33373d;
+    --ink: #e6e6e8; --text: #d5d8dd; --muted: #9aa1ab; --faint: #868d97;
   }
 }
 
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; scroll-padding-top: 72px; }
-body { margin: 0; background: var(--bg); color: var(--text); font: 400 15px/1.6 var(--sans); }
+body { margin: 0; background: var(--bg); color: var(--text); font: 400 15px/1.6 var(--sans); font-feature-settings: "tnum", "cv11"; }
 a { color: var(--ink); text-decoration: underline; text-decoration-color: var(--line-2); text-underline-offset: 2px; }
 a:hover { text-decoration-color: currentColor; }
 :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }

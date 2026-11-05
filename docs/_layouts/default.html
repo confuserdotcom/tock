@@ -15,6 +15,7 @@
     <a href="{{ '/' | relative_url }}"{% if page.url == '/' %} aria-current="page"{% endif %}>Overview</a>
     <a href="{{ '/guide' | relative_url }}"{% if page.url contains 'guide' %} aria-current="page"{% endif %}>Guide</a>
     <a href="{{ '/architecture' | relative_url }}"{% if page.url contains 'architecture' %} aria-current="page"{% endif %}>Architecture</a>
+    <a href="{{ '/design' | relative_url }}"{% if page.url contains 'design' %} aria-current="page"{% endif %}>Design</a>
     <a href="https://github.com/confuserdotcom/tock">GitHub</a>
   </nav>
 </header>
