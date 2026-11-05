@@ -46,3 +46,29 @@ func TestNoticeQueue(t *testing.T) {
 		t.Fatalf("empty data defaults to {}: %q", n.Data)
 	}
 }
+
+func TestLastNoticeAt(t *testing.T) {
+	s, err := Open(filepath.Join(t.TempDir(), "tock.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	if at, err := s.LastNoticeAt("focus", 0); err != nil || at != 0 {
+		t.Fatalf("empty = %d, %v", at, err)
+	}
+	for _, n := range []Notice{{AtMS: 100, Topic: "focus"}, {AtMS: 300, Topic: "focus"}, {AtMS: 500, Topic: "break"}} {
+		n.Title, n.Body = "t", "b"
+		if _, err := s.AddNotice(n); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := s.TakeNotices(600, 0); err != nil { // taken ones still count
+		t.Fatal(err)
+	}
+	if at, err := s.LastNoticeAt("focus", 0); err != nil || at != 300 {
+		t.Fatalf("newest focus = %d, %v", at, err)
+	}
+	if at, _ := s.LastNoticeAt("focus", 301); at != 0 {
+		t.Fatalf("since 301 = %d", at)
+	}
+}

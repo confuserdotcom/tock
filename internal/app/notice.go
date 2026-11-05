@@ -144,3 +144,9 @@ func (a *App) BarReady() bool {
 	running, access, err := a.BarState()
 	return err == nil && running && access == NotifyGranted
 }
+
+// LastNoticeAt is the newest time a notice with topic was queued at or after
+// sinceMS; 0 when none.
+func (a *App) LastNoticeAt(topic string, sinceMS int64) (int64, error) {
+	return a.st.LastNoticeAt(topic, sinceMS)
+}
