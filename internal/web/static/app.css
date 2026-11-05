@@ -284,6 +284,10 @@ table.ledger { width: 100%; border-collapse: collapse; }
 
 .empty { padding: 40px 0; color: var(--muted); border-top: 1px solid var(--line); }
 .empty .big { font-size: 15px; font-weight: 600; color: var(--ink); margin-bottom: 4px; }
+.steps { margin: 24px 0 0; padding: 0; list-style: none; counter-reset: step; display: grid; gap: 16px; max-width: 560px; }
+.steps li { counter-increment: step; display: grid; grid-template-columns: 28px 1fr; column-gap: 8px; }
+.steps li::before { content: counter(step); grid-row: span 2; font: 500 12px var(--mono); color: var(--muted); width: 20px; height: 20px; border: 1px solid var(--line-2); border-radius: 50%; display: grid; place-items: center; }
+.steps .big { font-size: 13px; margin-bottom: 2px; }
 .keys { margin-top: 20px; font-size: 11px; color: var(--faint); }
 kbd { font: 500 11px var(--mono); padding: 0 4px; border-radius: 3px; border: 1px solid var(--line-2); background: var(--bg); color: var(--muted); }
 

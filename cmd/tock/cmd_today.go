@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"tock/internal/app"
 	"tock/internal/report"
 )
 
@@ -54,7 +55,7 @@ func cmdToday(env Env, args []string) error {
 	}
 	fmt.Fprintf(env.Stdout, "%s  %s tracked · %s idle%s\n", title, report.Dur(d.TrackedMS), report.Dur(d.IdleMS), cutNote(d.Cut))
 	if len(d.Categories) == 0 {
-		fmt.Fprintln(env.Stdout, "(no activity)")
+		fmt.Fprintln(env.Stdout, noActivity(a, *date == ""))
 		return nil
 	}
 	fmt.Fprintln(env.Stdout, report.ScoreLine(d))
@@ -116,4 +117,22 @@ func cutNote(c report.Uncounted) string {
 		s += " · " + report.Dur(c.OtherMS) + " to other machines"
 	}
 	return s
+}
+
+// noActivity is the line for a day with nothing on it. Today it says
+// whether trackd is recording, so a first run doesn't look broken.
+func noActivity(a *app.App, today bool) string {
+	if !today {
+		return "(no activity)"
+	}
+	h, err := a.Health()
+	switch {
+	case err != nil:
+		return "(no activity)"
+	case !h.TrackdUp:
+		return "Nothing recorded today, and trackd is not running. Run tock doctor to see why."
+	case !h.Recorded:
+		return "Nothing recorded yet. trackd is recording: use any app and it shows up within a minute."
+	}
+	return "Nothing recorded yet today. trackd is recording."
 }
