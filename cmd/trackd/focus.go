@@ -162,13 +162,14 @@ func (f *focusLoop) close() {
 	}
 }
 
-// startFocus runs the loop on its own ticker until stop is called.
-func startFocus(o daemonOpts, log *slog.Logger) (stop func()) {
-	every := o.FocusEvery
+// startFocus runs the loop on its own ticker, on the shared session, until
+// stop is called.
+func startFocus(f *focusLoop, sh *shared, every time.Duration, log *slog.Logger) (stop func()) {
 	if every <= 0 {
 		every = defaultFocusEvery
 	}
-	f := newFocusLoop(o, log)
+	f.open = sh.opener
+	l := sh.turn(f)
 	t := time.NewTicker(every)
 	done, finished := make(chan struct{}), make(chan struct{})
 	w := newHookWorker(log)
@@ -179,7 +180,7 @@ func startFocus(o daemonOpts, log *slog.Logger) (stop func()) {
 		for {
 			select {
 			case <-t.C:
-				f.tick()
+				l.tick()
 			case <-done:
 				return
 			}
@@ -189,6 +190,5 @@ func startFocus(o daemonOpts, log *slog.Logger) (stop func()) {
 		t.Stop()
 		close(done)
 		<-finished
-		f.close()
 	}
 }
