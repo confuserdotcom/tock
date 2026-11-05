@@ -9,8 +9,21 @@ your machine, in one SQLite file.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/readme/web-dark.png">
-  <img src="docs/readme/web-light.png" width="100%" alt="The tock dashboard for one day: a sidebar with a calendar and trackd's status; the day's numbers (focus score 80, deep focus 2h14, longest block 2h14, 12 minutes distracting, 0.7 switches an hour, 2h54 tracked), each compared with a usual Saturday; a timeline with one row per category; tables of categories and apps with totals; work blocks and goals.">
+  <img src="docs/readme/web-light.png" width="100%" alt="The tock dashboard for one day: a timeline with one row per category; a focus score of 80, 17 above a usual Saturday, with focus time, longest block, distraction and switches; minutes per hour; a donut of the kinds of time; goal rings; tables of categories and apps with totals; work blocks.">
 </picture>
+
+<table>
+  <tr>
+    <td width="50%"><picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/readme/web-week-dark.png">
+      <img src="docs/readme/web-week-light.png" alt="The week view: hours per day stacked by kind of time, a donut of the week, the focus score per day against its mean, and a weekday-by-hour heat map of when you focus.">
+    </picture></td>
+    <td width="50%"><picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/readme/web-trends-dark.png">
+      <img src="docs/readme/web-trends-light.png" alt="The trends view: the month's tracked time, focus, average score and switches; a calendar shaded by deep time; deep time and focus score per day.">
+    </picture></td>
+  </tr>
+</table>
 
 ## How it works
 
@@ -29,6 +42,11 @@ your machine, in one SQLite file.
 The day gets a focus score out of 100 from deep time, long unbroken blocks
 and few switches, minus distraction. Every number is compared with your
 usual same weekday.
+
+<img src="docs/assets/diagrams/pieces.svg" width="100%" alt="trackd takes events from the desktop (NSWorkspace, the Accessibility API, AppleScript, or Hyprland's socket) and writes spans to tock.db. tock and tockbar read tock.db and label it with rules.toml, learned.toml and config.toml. tockbar runs tock web as a child for the dashboard window. Only tock reaches the internet, for Claude and Slack, when you turn them on.">
+
+How a span gets its label, how the notch is fed and how the install
+signs the apps are drawn in [Architecture](docs/architecture.md).
 
 Optional, and off until you turn them on: focus sessions that call you back
 when you drift, goals, work hours, a calendar view, week reports, billing,
@@ -104,7 +122,7 @@ the same `brew install` and `tock setup` as on macOS. Without Go, download
 against `SHA256SUMS`, and run:
 
 ```sh
-tar xzf tock-v5.0.0-linux-amd64.tar.gz && cd tock-v5.0.0-linux-amd64
+tar xzf tock-v5.2.0-linux-amd64.tar.gz && cd tock-v5.2.0-linux-amd64
 install -m 755 trackd tock ~/.local/bin/ && ~/.local/bin/trackd install && tock init
 ```
 
@@ -129,11 +147,19 @@ In the terminal UI, `?` lists the keys and `:` opens a command palette.
 
 <img src="docs/readme/tui.webp" width="100%" alt="The tock terminal UI on a demo day: the today tab, labelling a block, the score breakdown, a focus session, the command palette and the inbox.">
 
+## Design
+
+<img src="docs/assets/diagrams/design.svg" width="100%" alt="The tock design system: colour means a kind of time (deep teal, shallow blue, browsing mauve, neutral grey, distracting brick, unlabelled faint grey, away hatched); near-black and white neutrals with ink as the only accent; Inter for everything with tabular figures; 2, 6 and 8 px corners.">
+
+The dashboard, the terminal UI, the menu bar and the notch share one set of
+colours: colour only ever means a kind of time. [DESIGN.md](DESIGN.md) has
+the tokens, the type scale, the components and the motion rules.
+
 ## Documentation
 
 - [confuserdotcom.github.io/tock](https://confuserdotcom.github.io/tock/): the guide and the architecture as a site.
 - [Guide](docs/guide.md): every command, file and feature.
-- [Architecture](docs/architecture.md): how the pieces fit, and what they cost.
+- [Architecture](docs/architecture.md): how the pieces fit, with diagrams, and what they cost.
 - [CHANGELOG](CHANGELOG.md): what changed in each release.
 - [DESIGN.md](DESIGN.md): the design system for the dashboard, TUI and menu.
 
