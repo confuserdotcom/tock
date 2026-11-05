@@ -79,8 +79,11 @@ func main() {
 			err = service.Uninstall(agentLabel)
 		case "version":
 			fmt.Println(version)
+		case "notch-demo":
+			// Plays made-up notch moments, for screen recordings. No database.
+			runDemoUI()
 		default:
-			err = fmt.Errorf("usage: tockbar [install|uninstall|version]")
+			err = fmt.Errorf("usage: tockbar [install|uninstall|version|notch-demo]")
 		}
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "tockbar %s: %v\n", os.Args[1], err)

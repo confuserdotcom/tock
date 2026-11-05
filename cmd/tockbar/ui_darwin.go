@@ -4,9 +4,10 @@ package main
 
 /*
 #cgo CFLAGS: -fobjc-arc
-#cgo LDFLAGS: -framework Cocoa -framework Carbon -framework UserNotifications
+#cgo LDFLAGS: -framework Cocoa -framework Carbon -framework UserNotifications -framework QuartzCore
 #include <stdlib.h>
 #include "ui_darwin.h"
+#include "notch_darwin.h"
 */
 import "C"
 
@@ -31,6 +32,15 @@ func send(ev event) {
 
 //export goReady
 func goReady() { send(event{kind: evReady}) }
+
+//export goNotch
+func goNotch(ok C.int) {
+	id := "0"
+	if ok != 0 {
+		id = "1"
+	}
+	send(event{kind: evNotch, id: id})
+}
 
 //export goMenu
 func goMenu(id *C.char) { send(event{kind: evMenu, id: C.GoString(id)}) }
@@ -107,6 +117,22 @@ func (cocoa) Post(id int64, title, body, category, categories string) {
 			})
 		})
 	})
+}
+
+func (cocoa) Island(s string) { cstr(s, func(c *C.char) { C.bar_island(c) }) }
+
+func (cocoa) NotchSharing(v bool) {
+	n := 0
+	if v {
+		n = 1
+	}
+	C.bar_notch_sharing(C.int(n))
+}
+
+// runDemoUI plays the notch demo on Cocoa until it quits.
+func runDemoUI() {
+	go runDemo(cocoa{}, events)
+	C.bar_run()
 }
 
 // runUI runs the runner on its own goroutine and Cocoa on this one, until

@@ -27,6 +27,8 @@ type fakeUI struct {
 	curtains      []string
 	prompts       []string
 	hotkeys       []bool
+	islands       []string
+	sharing       []bool
 	quit          bool
 }
 
@@ -43,6 +45,8 @@ func (f *fakeUI) OpenURL(u string)      { f.urls = append(f.urls, u) }
 func (f *fakeUI) Quit()                 { f.quit = true }
 func (f *fakeUI) Prompt(s string)       { f.prompts = append(f.prompts, s) }
 func (f *fakeUI) SetHotkey(on bool)     { f.hotkeys = append(f.hotkeys, on) }
+func (f *fakeUI) Island(s string)       { f.islands = append(f.islands, s) }
+func (f *fakeUI) NotchSharing(v bool)   { f.sharing = append(f.sharing, v) }
 
 func testRunner(t *testing.T, e *apptest.Env) (*runner, *fakeUI, *bytes.Buffer) {
 	t.Helper()

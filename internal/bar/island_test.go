@@ -43,7 +43,7 @@ func TestIslandFocusAndDrift(t *testing.T) {
 	ss := &focus.Session{ID: 7, StartMS: t1720 - 6*60_000, PlannedMS: t1720 + 19*60_000, Goal: "tock notch"}
 	s := Snapshot{OK: true, Session: ss, Live: focus.Live{Level: 82}, Loc: islandLoc}
 	i := s.IslandBase(t1720)
-	if i.State != IslandFocus || i.Face.Dot != "deep" || i.Face.Left != "tock notch" || i.Face.Right != "19:00" || i.Face.EndMS != ss.PlannedMS {
+	if i.State != IslandFocus || i.Face.Dot != "deep" || i.Face.Left != "tock notch" || i.Face.Right != "" || i.Face.EndMS != ss.PlannedMS {
 		t.Fatalf("focus = %+v", i)
 	}
 	if i.Hover.Sub != "17:14 to 17:39 · focus 82%" || i.Hover.Face.RightDim != "left" || i.Hover.Buttons[0].ID != IDStop {
@@ -73,7 +73,7 @@ func TestLevelKind(t *testing.T) {
 
 func TestIslandBreakAndMeet(t *testing.T) {
 	s := Snapshot{OK: true, BreakUntil: time.UnixMilli(t1720 + 5*60_000), Loc: islandLoc}
-	if i := s.IslandBase(t1720); i.State != IslandBreak || i.Face.Dot != DotBreak || i.Face.Right != "5:00" || i.Hover.Sub != "until 17:25" {
+	if i := s.IslandBase(t1720); i.State != IslandBreak || i.Face.Dot != DotBreak || i.Face.EndMS != t1720+5*60_000 || i.Hover.Sub != "until 17:25" {
 		t.Fatalf("break = %+v", i)
 	}
 	s = Snapshot{OK: true, Loc: islandLoc, Slots: []focus.Slot{

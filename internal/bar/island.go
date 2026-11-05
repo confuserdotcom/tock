@@ -33,6 +33,11 @@ const (
 	IDNotchPick  = "notch:pick:" // + "<entry>:<option>"
 	IDNotchSkip  = "notch:skip:" // + "<entry>"
 	IDNotchAct   = "notch:act:"  // + "<notice id>:<notification action>"
+	// IDNotchExpire (+ notice id) closes that moment when its time is up.
+	IDNotchExpire = "notch:expire:"
+	// IDNotchMenu (+ a menu id) is a panel button that does what the menu
+	// item does; it closes the moment it was on.
+	IDNotchMenu = "notch:menu:"
 )
 
 // Dot kinds beyond the kinds of time.
@@ -88,7 +93,8 @@ type Face struct {
 	LeftDim  string `json:"left_dim,omitempty"`
 	Right    string `json:"right,omitempty"`
 	RightDim string `json:"right_dim,omitempty"`
-	// EndMS is a countdown target: the Cocoa side ticks Right down to it.
+	// EndMS is a countdown target: the Cocoa side writes the countdown in
+	// Right itself, so the island stays the same from second to second.
 	EndMS int64 `json:"end_ms,omitempty"`
 }
 
@@ -246,7 +252,7 @@ func (s Snapshot) focusIsland(ss focus.Session, nowMS int64) Island {
 	goal = report.Cut(goal, goalCells)
 	f := Face{Dot: LevelKind(s.Live.Level), Left: goal}
 	if ss.PlannedMS > 0 {
-		f.Right, f.EndMS = report.Countdown(ss.PlannedMS-nowMS), ss.PlannedMS
+		f.EndMS = ss.PlannedMS
 	}
 	state := IslandFocus
 	if s.DistractAtMS > 0 && nowMS-s.DistractAtMS < driftShowMS {

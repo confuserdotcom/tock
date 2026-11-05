@@ -6,6 +6,7 @@
 #import <UserNotifications/UserNotifications.h>
 
 #include "_cgo_export.h"
+#include "notch_darwin.h"
 #include "ui_darwin.h"
 
 static NSString *str(const char *s) {
@@ -43,8 +44,13 @@ static TockBar *bar;
     self.item = [[NSStatusBar systemStatusBar] statusItemWithLength:NSVariableStatusItemLength];
     self.item.button.title = @"◷";
     self.item.menu = [NSMenu new];
-    [UNUserNotificationCenter currentNotificationCenter].delegate = self;
+    // Outside an app bundle (the notch demo from a terminal) the notification
+    // center throws; nothing there posts notifications.
+    if ([NSBundle mainBundle].bundleIdentifier != nil) {
+        [UNUserNotificationCenter currentNotificationCenter].delegate = self;
+    }
     goReady();
+    notch_setup(); // after goReady: the runner drops events that come before it
 }
 
 - (void)clicked:(NSMenuItem *)m {

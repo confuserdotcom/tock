@@ -3,6 +3,7 @@ package main
 import (
 	"cmp"
 	"errors"
+	"fmt"
 	"log/slog"
 	"os"
 	"strconv"
@@ -13,6 +14,7 @@ import (
 	"tock/internal/bar"
 	"tock/internal/classify"
 	"tock/internal/focus"
+	"tock/internal/store"
 )
 
 const (
@@ -45,6 +47,10 @@ type ui interface {
 	// or "stop\ttitle\tdetail"; the answer comes back as a menu click.
 	Prompt(spec string)
 	SetHotkey(on bool) // ⌥⌘F opens the start prompt
+	// Island draws the notch from bar.Island JSON; "" hides it.
+	Island(spec string)
+	// NotchSharing lets screen sharing and recordings see the notch panel.
+	NotchSharing(visible bool)
 	Quit()
 }
 
@@ -56,6 +62,7 @@ const (
 	evResponse
 	evAuth
 	evPostFailed
+	evNotch // the Cocoa side made its notch panel ("1") or cannot ("0")
 )
 
 // event is a click or a callback from the Cocoa side.
@@ -88,6 +95,13 @@ type runner struct {
 	cats     []string // registered category lines, newest last
 	lastErr  string
 	hotkey   *bool // what SetHotkey was last told; nil = never
+
+	notchUI bool        // the Cocoa side has a notch panel
+	moment  *bar.Island // the open notch moment, nil = none
+	labels  []bar.Entry // the labelling round the moment shows
+	labelAt int
+	island  string // what Island was last told
+	sharing *bool  // what NotchSharing was last told; nil = never
 }
 
 // loop runs until events closes.
@@ -219,6 +233,10 @@ func (r *runner) post() {
 			r.log.Info(what + " shown")
 			continue
 		}
+		if r.notchOn() && bar.NotchTopic(n.Topic) && r.toNotch(n, d) {
+			r.autoOpen(n, d)
+			continue
+		}
 		cat := bar.Category(n, d)
 		if cat != "" {
 			line := []string{cat}
@@ -232,13 +250,40 @@ func (r *runner) post() {
 		}
 		r.ui.Post(n.ID, n.Title, n.Body, cat, strings.Join(r.cats, "\n"))
 		r.log.Info("notification shown", "title", n.Title)
-		// TakeNotices hands each notice out once, so this opens once per notice.
-		// An invite the owner has not accepted offers Join but never opens by itself.
-		if link := bar.JoinURL(n, d); link != "" && n.Topic == focus.TopicStarting && d.Mine && r.a.Config().Calendar.AutoOpen {
-			r.ui.OpenURL(link)
-			r.log.Info("meeting link opened", "notice", n.ID)
-		}
+		r.autoOpen(n, d)
 	}
+}
+
+// autoOpen opens the meeting link of a starting event when [calendar]
+// auto_open asks. TakeNotices hands each notice out once, so this opens once
+// per notice. An invite the owner has not accepted offers Join but never
+// opens by itself.
+func (r *runner) autoOpen(n store.Notice, d app.NoticeData) {
+	if link := bar.JoinURL(n, d); link != "" && n.Topic == focus.TopicStarting && d.Mine && r.a.Config().Calendar.AutoOpen {
+		r.ui.OpenURL(link)
+		r.log.Info("meeting link opened", "notice", n.ID)
+	}
+}
+
+// notchOn reports whether notices and the running state go to the notch.
+func (r *runner) notchOn() bool { return r.notchUI && r.a != nil && r.a.Config().Notch.Enabled }
+
+// toNotch opens the moment of notice n. false means it still needs a banner:
+// a moment that ranks higher is open, or the moment could not be read.
+func (r *runner) toNotch(n store.Notice, d app.NoticeData) bool {
+	i, ok, err := bar.Moment(r.a, n, d, r.now(), r.snap.UnlabelledMS)
+	if err != nil {
+		r.warn("reading a notch moment failed", err)
+	}
+	if !ok {
+		return err == nil // an up-next notice: the compact island shows it
+	}
+	if r.moment != nil && bar.Rank(r.moment.State) > bar.Rank(i.State) {
+		return false
+	}
+	r.moment, r.labels = &i, nil
+	r.log.Info("notch moment", "state", i.State, "notice", n.ID)
+	return true
 }
 
 func (r *runner) render(now time.Time) {
@@ -251,6 +296,108 @@ func (r *runner) render(now time.Time) {
 		r.menu = m
 		r.ui.SetMenu(m)
 	}
+	r.renderNotch(nowMS)
+}
+
+// renderNotch draws the open moment, else the running state, in the notch.
+func (r *runner) renderNotch(nowMS int64) {
+	if !r.notchUI {
+		return
+	}
+	spec := ""
+	if r.notchOn() && r.snap.OK {
+		if v := r.a.Config().Notch.ShowInRecordings; r.sharing == nil || *r.sharing != v {
+			r.sharing = &v
+			r.ui.NotchSharing(v)
+		}
+		i := r.snap.IslandBase(nowMS)
+		if r.moment != nil {
+			i = *r.moment
+			r.moment.Haptic = "" // played once
+		}
+		spec = i.JSON()
+	} else {
+		r.moment, r.labels = nil, nil
+	}
+	if spec != r.island {
+		r.island = spec
+		r.ui.Island(spec)
+	}
+}
+
+// notch handles a click in the notch panel.
+func (r *runner) notch(id string) {
+	if r.a == nil {
+		return
+	}
+	switch {
+	case id == bar.IDNotchClose:
+		r.moment, r.labels = nil, nil
+		r.done("notch close", "", nil)
+	case strings.HasPrefix(id, bar.IDNotchExpire):
+		if r.moment != nil && strconv.FormatInt(r.moment.Notice, 10) == strings.TrimPrefix(id, bar.IDNotchExpire) {
+			r.moment, r.labels = nil, nil
+		}
+		r.done("notch expire", "", nil)
+	case id == bar.IDNotchLabel:
+		es, err := bar.LoadLabels(r.a, r.now())
+		if err == nil {
+			r.labels, r.labelAt = es, 0
+			i := bar.LabelIsland(es, 0, "")
+			r.moment = &i
+		}
+		r.done("notch label", fmt.Sprintf("%d to label", len(es)), err)
+	case strings.HasPrefix(id, bar.IDNotchPick), strings.HasPrefix(id, bar.IDNotchSkip):
+		r.labelStep(id)
+	case strings.HasPrefix(id, bar.IDNotchAct):
+		v := strings.TrimPrefix(id, bar.IDNotchAct)
+		sid, action, ok := strings.Cut(v, ":")
+		nid, err := strconv.ParseInt(sid, 10, 64)
+		if !ok || err != nil {
+			r.log.Warn("unknown notch action", "id", id)
+			return
+		}
+		r.moment, r.labels = nil, nil
+		r.handle(event{kind: evResponse, notice: nid, id: action})
+	case strings.HasPrefix(id, bar.IDNotchMenu):
+		r.moment, r.labels = nil, nil
+		r.handle(event{kind: evMenu, id: strings.TrimPrefix(id, bar.IDNotchMenu)})
+	default:
+		r.log.Warn("unknown notch action", "id", id)
+	}
+}
+
+// labelStep picks or skips the shown entry. The id names the entry, so a
+// click on a panel drawn before the last step does nothing.
+func (r *runner) labelStep(id string) {
+	pick := strings.HasPrefix(id, bar.IDNotchPick)
+	v := strings.TrimPrefix(strings.TrimPrefix(id, bar.IDNotchPick), bar.IDNotchSkip)
+	se, so, _ := strings.Cut(v, ":")
+	i, err := strconv.Atoi(se)
+	if r.moment == nil || r.moment.State != bar.IslandLabel || err != nil || i != r.labelAt || i >= len(r.labels) {
+		r.log.Warn("stale label click", "id", id)
+		return
+	}
+	haptic, msg := "", "skipped"
+	if pick {
+		j, err := strconv.Atoi(so)
+		e := &r.labels[i]
+		if err != nil || j < 0 || j >= len(e.Opts) {
+			r.log.Warn("unknown label option", "id", id)
+			return
+		}
+		saved, err := bar.Pick(r.a, *e, e.Opts[j])
+		if err != nil {
+			r.done("notch pick", "", err)
+			e.Saved = "Not saved: " + err.Error()
+		} else {
+			e.Saved, e.Picked, haptic, msg = saved, j, bar.HapticAlignment, saved
+		}
+	}
+	r.labelAt++
+	m := bar.LabelIsland(r.labels, r.labelAt, haptic)
+	r.moment = &m
+	r.done("notch label", msg, nil)
 }
 
 // specLines flattens items into menu spec lines: one ">" per depth, then "-"
@@ -299,6 +446,11 @@ func (r *runner) handle(ev event) {
 		r.access = ev.id
 	case evPostFailed:
 		r.log.Warn("notification failed", "notice", ev.notice, "err", ev.id)
+	case evNotch:
+		r.notchUI = ev.id == "1"
+		r.log.Info("notch panel", "ready", r.notchUI)
+		r.island = "-" // draw it again
+		r.tick()
 	case evMenu:
 		if u, ok := strings.CutPrefix(ev.id, "url:"); ok {
 			id, ok := bar.URLAction(u)
@@ -307,6 +459,10 @@ func (r *runner) handle(ev event) {
 				return
 			}
 			ev.id = id
+		}
+		if strings.HasPrefix(ev.id, bar.IDNotch) {
+			r.notch(ev.id)
+			return
 		}
 		if ev.id == bar.IDHotkey {
 			if !r.snap.OK {
