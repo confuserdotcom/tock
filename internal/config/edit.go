@@ -3,6 +3,7 @@ package config
 import (
 	"bytes"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/BurntSushi/toml"
@@ -16,7 +17,50 @@ import (
 // example when src sets the table inline or with dotted keys; src is then
 // left to be edited by hand.
 func SetBool(src []byte, table, key string, v bool) ([]byte, error) {
-	val := fmt.Sprint(v)
+	b := setValue(src, table, key, fmt.Sprint(v))
+	return check(src, b, table, key, func(got any) bool { return got == v })
+}
+
+// SetList is SetBool for a list of strings: the key's value, on one line or
+// several, becomes a one-line array.
+func SetList(src []byte, table, key string, vals []string) ([]byte, error) {
+	q := make([]string, len(vals))
+	for i, v := range vals {
+		q[i] = strconv.Quote(v)
+	}
+	b := setValue(src, table, key, "["+strings.Join(q, ", ")+"]")
+	return check(src, b, table, key, func(got any) bool {
+		l, ok := got.([]any)
+		if !ok || len(l) != len(vals) {
+			return false
+		}
+		for i := range l {
+			if l[i] != vals[i] {
+				return false
+			}
+		}
+		return true
+	})
+}
+
+// check fails when b does not parse or [table] key does not read back as
+// want says; b equal to src returns src.
+func check(src, b []byte, table, key string, want func(any) bool) ([]byte, error) {
+	var m map[string]any
+	if _, err := toml.Decode(string(b), &m); err != nil {
+		return nil, fmt.Errorf("config: set [%s] %s: change it by hand: %w", table, key, err)
+	}
+	if t, ok := m[table].(map[string]any); !ok || !want(t[key]) {
+		return nil, fmt.Errorf("config: set [%s] %s: the file sets it in a way tock cannot edit; change it by hand", table, key)
+	}
+	if bytes.Equal(b, src) {
+		return src, nil
+	}
+	return b, nil
+}
+
+// setValue edits the lines of src so [table] key = val.
+func setValue(src []byte, table, key, val string) []byte {
 	text := string(src)
 	if text != "" && !strings.HasSuffix(text, "\n") {
 		text += "\n"
@@ -50,37 +94,112 @@ func SetBool(src []byte, table, key string, v bool) ([]byte, error) {
 		}
 		out = append(out, "["+table+"]\n", key+" = "+val+"\n")
 	default:
-		at, last := -1, start
+		at, upto, last := -1, -1, start
 		for i := start + 1; i < end; i++ {
 			t := strings.TrimSpace(lines[i])
 			if t == "" || strings.HasPrefix(t, "#") {
 				continue
 			}
 			last = i
-			if k, _, ok := strings.Cut(t, "="); ok && strings.TrimSpace(k) == key {
-				at = i
+			k, v, ok := strings.Cut(t, "=")
+			if !ok || strings.TrimSpace(k) != key {
+				continue
+			}
+			at, upto = i, i
+			for d := depth(v); d > 0 && upto+1 < end; {
+				upto++
+				d += depth(lines[upto])
+			}
+			last = upto
+			i = upto
+		}
+		switch {
+		case at >= 0 && upto == at:
+			out = append(out, lines...)
+			if _, v, _ := strings.Cut(lines[at], "="); strings.HasPrefix(strings.TrimSpace(v), "[") {
+				out[at] = replaceArray(lines[at], val)
+			} else {
+				out[at] = replaceValue(lines[at], val)
+			}
+		case at >= 0:
+			indent := lines[at][:len(lines[at])-len(strings.TrimLeft(lines[at], " \t"))]
+			out = append(out, lines[:at]...)
+			out = append(out, indent+key+" = "+val+"\n")
+			out = append(out, lines[upto+1:]...)
+		default:
+			out = append(out, lines[:last+1]...)
+			out = append(out, key+" = "+val+"\n")
+			out = append(out, lines[last+1:]...)
+		}
+	}
+	return []byte(strings.Join(out, ""))
+}
+
+// replaceArray is replaceValue for a one-line array value.
+func replaceArray(l, val string) string {
+	eq := strings.Index(l, "=")
+	rest := l[eq+1:]
+	lead := len(rest) - len(strings.TrimLeft(rest, " \t"))
+	body := rest[lead:]
+	n := closeAt(body)
+	return l[:eq+1] + rest[:lead] + val + body[n:]
+}
+
+// closeAt is the index just past the ] that closes the array s opens, or
+// len(s).
+func closeAt(s string) int {
+	n := len(s)
+	scan(s, func(i, d int) bool {
+		if d == 0 {
+			n = i + 1
+			return false
+		}
+		return true
+	})
+	return n
+}
+
+// depth is how many more [ than ] a line opens, outside strings and
+// comments.
+func depth(l string) int {
+	d := 0
+	scan(l, func(_, n int) bool { d = n; return true })
+	return d
+}
+
+// scan calls f(i, depth) after each [ or ] of l outside strings, until a
+// comment, the end, or f returns false.
+func scan(l string, f func(i, depth int) bool) {
+	d := 0
+	var quote byte
+	esc := false
+	for i := 0; i < len(l); i++ {
+		c := l[i]
+		switch {
+		case quote != 0:
+			switch {
+			case esc:
+				esc = false
+			case c == '\\' && quote == '"':
+				esc = true
+			case c == quote:
+				quote = 0
+			}
+		case c == '"' || c == '\'':
+			quote = c
+		case c == '#':
+			return
+		case c == '[' || c == ']':
+			if c == '[' {
+				d++
+			} else {
+				d--
+			}
+			if !f(i, d) {
+				return
 			}
 		}
-		out = append(out, lines...)
-		if at >= 0 {
-			out[at] = replaceValue(lines[at], val)
-		} else {
-			out = append(out[:last+1:last+1], append([]string{key + " = " + val + "\n"}, lines[last+1:]...)...)
-		}
 	}
-	b := []byte(strings.Join(out, ""))
-
-	var m map[string]any
-	if _, err := toml.Decode(string(b), &m); err != nil {
-		return nil, fmt.Errorf("config: set [%s] %s: change it by hand: %w", table, key, err)
-	}
-	if t, ok := m[table].(map[string]any); !ok || t[key] != v {
-		return nil, fmt.Errorf("config: set [%s] %s: the file sets it in a way tock cannot edit; change it by hand", table, key)
-	}
-	if bytes.Equal(b, src) {
-		return src, nil
-	}
-	return b, nil
 }
 
 // header is the table name of a [table] line.

@@ -43,3 +43,42 @@ func TestSaveFeatures(t *testing.T) {
 		t.Fatalf("broken file changed: %q", b)
 	}
 }
+
+func TestSetHidden(t *testing.T) {
+	path := filepath.Join(t.TempDir(), File)
+	src := "# mine\n[privacy]\nkeep_titles = 30\n"
+	if err := os.WriteFile(path, []byte(src), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, step := range []struct {
+		kind, v string
+		hide    bool
+	}{
+		{HideApp, "com.example.diary", true},
+		{HideSite, "bank.com", true},
+		{HideSite, "bank.com", true}, // already there
+		{HideSite, "mail.com", true},
+		{HideSite, "bank.com", false},
+		{HideApp, "com.other", false}, // not there
+	} {
+		if err := SetHidden(path, step.kind, step.v, step.hide); err != nil {
+			t.Fatalf("%+v: %v", step, err)
+		}
+	}
+	c, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(c.Privacy.HideApps, ",") != "com.example.diary" || strings.Join(c.Privacy.HideSites, ",") != "mail.com" {
+		t.Fatalf("privacy = %+v", c.Privacy)
+	}
+	if b, _ := os.ReadFile(path); !strings.Contains(string(b), "# mine") || c.Privacy.KeepTitles != 30 {
+		t.Fatalf("file:\n%s", b)
+	}
+	if err := SetHidden(path, HideSite, "Bad Host", true); err == nil {
+		t.Error("an invalid site was saved")
+	}
+	if err := SetHidden(path, "window", "x", true); err == nil {
+		t.Error("an unknown kind was accepted")
+	}
+}
