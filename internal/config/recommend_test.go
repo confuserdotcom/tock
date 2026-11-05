@@ -53,11 +53,11 @@ func TestLoadRecommend(t *testing.T) {
 	}
 }
 
-// TestRecommendDocDefaults pins the [recommend] block in the README to
+// TestRecommendDocDefaults pins the [recommend] block in the guide to
 // DefaultRecommend: the documented lines, comments and all, are loaded as a
 // config file.
 func TestRecommendDocDefaults(t *testing.T) {
-	readme, err := os.ReadFile("../../README.md")
+	readme, err := os.ReadFile("../../docs/guide.md")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,7 +75,7 @@ func TestRecommendDocDefaults(t *testing.T) {
 		}
 	}
 	if len(block) < 5 {
-		t.Fatalf("README documents %d lines of [recommend], want the table and its four keys", len(block))
+		t.Fatalf("the guide documents %d lines of [recommend], want the table and its four keys", len(block))
 	}
 	doc := strings.Join(block, "\n") + "\n"
 	c, err := Load(write(t, doc))
@@ -92,7 +92,7 @@ func TestRecommendDocDefaults(t *testing.T) {
 	}
 	for _, key := range []string{"enabled", "max_per_day", "adaptive_break", "min_days"} {
 		if !strings.Contains(doc, key+" =") {
-			t.Errorf("README block lacks %s", key)
+			t.Errorf("guide block lacks %s", key)
 		}
 	}
 }
