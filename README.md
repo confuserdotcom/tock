@@ -1,10 +1,77 @@
-# tock
+<img src="docs/readme/hero.svg" width="100%" alt="tock: a day fills itself in on a timeline as a brass hand sweeps from 08:30 to 14:02, coloured by kind of time: deep work in teal, shallow in slate blue, a distraction in rust, time away as dots. The focus score counts up to 86, a good day, and an unlabelled block is labelled Research with one key.">
+
+<p align="center">
+  <b>Your working day, written down for you.</b><br>
+  A small daemon records what is in front, your rules label it, and a score says how deep it went. Nothing leaves your Mac.
+</p>
+
+<p align="center">
+  <a href="https://github.com/confuserdotcom/tock/stargazers"><img src="https://img.shields.io/github/stars/confuserdotcom/tock?style=flat-square&color=8a5e18" alt="Stars"></a>
+  <a href="https://github.com/confuserdotcom/tock/commits/main"><img src="https://img.shields.io/github/last-commit/confuserdotcom/tock?style=flat-square&color=8a5e18" alt="Last commit"></a>
+  <img src="https://img.shields.io/badge/Go-1.26-8a5e18?style=flat-square&logo=go&logoColor=white" alt="Go 1.26">
+  <img src="https://img.shields.io/badge/macOS-26-8a5e18?style=flat-square&logo=apple&logoColor=white" alt="macOS 26">
+  <img src="https://img.shields.io/badge/Linux-Hyprland-8a5e18?style=flat-square&logo=linux&logoColor=white" alt="Linux: Hyprland">
+  <img src="https://img.shields.io/badge/data-local_SQLite-8a5e18?style=flat-square&logo=sqlite&logoColor=white" alt="Data: local SQLite">
+</p>
+
+<p align="center">
+  <a href="#what-you-get">What you get</a> ·
+  <a href="#privacy">Privacy</a> ·
+  <a href="#install">Install</a> ·
+  <a href="#first-day">First day</a> ·
+  <a href="#tui-keys">Keys</a> ·
+  <a href="#reference">Reference</a>
+</p>
 
 tock tracks where your time goes on a Mac, and on Linux under Hyprland. A
-small daemon, `trackd`, records
-which app and window is in front, all day, into a local SQLite database.
-The `tock` command and its terminal UI label that time with your own rules,
-score your focus, run focus sessions and help you label what is left.
+small daemon, `trackd`, records which app and window is in front, all day,
+into a local SQLite database. The `tock` command and its terminal UI label
+that time with your own rules, score your focus, run focus sessions and help
+you label what is left.
+
+You never start a timer. You open `tock` when you want to know where the
+day went, and it is already there.
+
+## What you get
+
+<img src="docs/readme/tui.webp" width="100%" alt="The tock TUI recorded on a demo day: the today tab with a score of 86, a strip of the day coloured by kind of time and a sidebar of where it went; an unlabelled block gets the label Research from the picker; the score breakdown; the focus tab with a session running; the command palette jumps to the week; the inbox.">
+
+<p align="center">▶ <a href="docs/readme/tui.mp4"><b>Watch the full-quality video</b></a></p>
+
+- **Tracking you don't run.** `trackd` follows the front app, window title
+  and browser URL, notices when you are away, and costs under 1 % CPU.
+- **Labels from your rules.** A `rules.toml` of categories, projects and
+  patterns labels the day, past days included. What no rule covers lands in
+  an inbox, where one key labels it and learns a rule, and a small model
+  trained on your own labels suggests the rest.
+- **A focus score for the day.** Depth, unbroken blocks and calm, minus
+  distraction, out of 100, and `i` shows exactly how it was added up.
+- **Focus sessions that pull you back.** Start one from the TUI, the menu
+  bar or `⌥⌘F` anywhere, with a goal. Drift to a distraction and tock tells
+  you; with the wake screen on, a banner and then a full-screen curtain
+  bring you back.
+- **A calm menu bar.** Today's time, a strip of the day, one Start button,
+  and a Settings menu that turns features on and off.
+- **Goals, plans, routines, a calendar, week reports, billing, git
+  commits**, all read from local files and never sent anywhere.
+- **Claude, if you want it.** Suggestions for the inbox, daily summaries
+  and `tock ask` run on your Claude subscription, through privacy filters,
+  only when you turn them on.
+
+### The dashboard
+
+`tock web` (or **Open dashboard** in the menu bar) serves the same day as a
+page on `127.0.0.1`, in paper by day and ink at night. Click a block of the
+timeline to label it.
+
+<img src="docs/readme/web.webp" width="100%" alt="The tock web dashboard recorded on a demo day: the score of 86 with its breakdown, the timeline, an unlabelled block clicked and labelled Research, the hours and categories, the activity list, then the Week, Top and Inbox tabs.">
+
+<p align="center">▶ <a href="docs/readme/web.mp4"><b>Watch the full-quality video</b></a></p>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/readme/web-dark.png">
+  <img src="docs/readme/web-light.png" width="100%" alt="The tock dashboard's today page: a large serif score of 86, deep focus 3h08, longest block 2h24, 11 minutes distracted, the day's kinds of time as one bar, the timeline from 08 to 16, the hours as stacked bars and the categories.">
+</picture>
 
 ## Privacy
 
@@ -14,7 +81,8 @@ score your focus, run focus sessions and help you label what is left.
 - `trackd` contains no network code at all; a test fails the build if it ever
   links an HTTP or TLS client.
 - Private-browsing windows are recorded as "<app> (private)", with no title or
-  URL.
+  URL. Apps and sites you hide (**Settings ▸ Privacy** in the menu bar, or
+  `[privacy] hide_apps` / `hide_sites`) are recorded the same way.
 - Claude suggestions, summaries and `tock ask` are the only features that talk
   to the internet. They run through Claude Code (`claude -p`, on your Claude
   subscription: no API key, no tools, no saved session), or through the API
@@ -157,9 +225,12 @@ labels           a add a category · m add a module under it · e rename · K ki
 pickers          ★ suggested and ↺ recent labels come first · type to filter · enter · esc
 ```
 
-Colours follow the kind of time: teal deep, sand shallow, slate neutral,
-apricot browsing, coral distraction, violet unlabelled. The palette has light and dark
-variants and follows your terminal's background.
+Colours follow the kind of time, the same in the TUI, the dashboard and the
+menu bar: deep teal for deep work, slate blue for shallow, mauve for
+browsing, rust for distraction, grey for the rest, and hatched grey for time
+nobody labelled yet. Brass marks the one thing to look at. The palette has
+light and dark variants and follows your terminal's background (see
+`DESIGN.md`).
 
 The first time you run `tock` without rules, it offers to write the starter
 rules.
@@ -185,6 +256,16 @@ an alias: `ana` → `Study / Analyse 1`.
 While tock has the mouse, dragging no longer selects text. Hold Shift (WezTerm,
 kitty, most terminals) or Option (Terminal.app, iTerm2) while you drag to
 select text anyway.
+
+## Reference
+
+Everything below is the manual, one section per feature:
+
+- **Using it:** [Commands](#commands) · [Choices](#choices) · [Files](#files) · [Plan](#plan) · [Focus guard](#focus-guard) · [Goals](#goals) · [Work hours](#work-hours) · [Routines](#routines) · [Time away](#time-away)
+- **Labels:** [Categories](#categories) · [The model](#the-model) · [Modules](#modules) · [AFK](#afk) · [Editing the timeline](#editing-the-timeline) · [Undo](#undo) · [Duplicate names](#duplicate-names)
+- **Looking back:** [Work blocks, summaries and questions](#work-blocks-summaries-and-questions) · [Trends and review](#trends-and-review) · [Web dashboard](#web-dashboard) · [Week report](#week-report) · [Billing](#billing) · [Commits](#commits) · [Calls](#calls)
+- **Your day around it:** [Calendar](#calendar) · [Planned sessions and meetings](#planned-sessions-and-meetings) · [Recommendations](#recommendations) · [Screen reading](#screen-reading) · [Menu bar and notifications](#menu-bar-and-notifications)
+- **Running it:** [Linux (Hyprland)](#linux-hyprland) · [Sync between machines](#sync-between-machines) · [Deleting old titles](#deleting-old-titles) · [Updates](#updates) · [Backup](#backup) · [Uninstall](#uninstall) · [Development](#development)
 
 ## Commands
 
@@ -321,6 +402,8 @@ wake_screen = false      # a session gone off task (distraction, browsing, long 
 wake_warn = 5            # minutes off task before the banner (1 to 60)
 wake_after = 10          # minutes off task before the screen, and between two (2 to 120)
 wake_idle = 15           # minutes idle before idle counts as off task (1 to 120)
+hotkey = true            # ⌥⌘F from any app: what you are working on and how long,
+                         # then start (Stop or Keep going while one runs); menu bar app
 # meeting_apps / meeting_hosts replace the built-in lists of meeting apps
 # (bundle ids) and hosts during which break and distraction nudges stay quiet
 block = false            # close distracting tabs and hide distracting apps in sessions
@@ -364,6 +447,8 @@ deny_titles = []         # RE2 patterns on the title (any case), on top of [llm]
 
 [privacy]
 keep_titles = 30         # off unless set: days window titles are kept
+hide_apps = []           # bundle ids recorded as private time only: no title, no URL
+hide_sites = []          # hosts recorded the same way; subdomains too
 
 [invoice]                # for tock invoice; all optional
 name = "Your Name"
@@ -1288,23 +1373,46 @@ notifications; allow it.
 
 The menu bar shows today's tracked time (`◷ 2h54`), or the countdown while
 a focus session runs (`◉ 18:42`). A `!` means trackd is not running. The
-menu has:
+menu stays short and shows a row only when it matters:
 
-- the day at a glance: focus and score; **Label 28m unlabelled…** opens the
-  dashboard's inbox;
+- the day in one line, `4h20 today · 3h02 focus · score 85`, over a strip of
+  the last 24 hours coloured by kind of time; while a session runs, its goal,
+  time left and interruptions;
+- **Allow Accessibility for trackd…** or **Notifications are off…** when a
+  permission is missing;
 - the next slot, `Next: 14:00 Review (in 12 min)`, when one starts within
   the hour, and `Join <title>` for a meeting with a link that starts within
   10 minutes or is running;
-- items to start a session (your presets) or stop the running one;
 - while a suggestion is open (30 minutes, no session running), `Suggested:
-  focus now (45 min)` with `Start focus (45 min)` and `Not now` (a break
-  reminder shows `Suggested: break (10 min)` with `Take a break (10 min)`);
-  while a break you took runs, `Break · until 10:20`;
-- **Open dashboard**, which runs `tock web` for you (no terminal needed) and
-  stops it after 30 minutes with no request;
-- **Allow Accessibility for trackd…** when trackd lacks that permission, and
-  **Set up tock** when there are no rules yet (it writes the starter rules,
-  as `tock init` does).
+  focus now (45 min)` with `Start focus (45 min)` and `Not now`; while a
+  break you took runs, `Break · until 10:20`;
+- **Snooze distraction notices** for 15 minutes after a distraction notice,
+  and the last session, to rate or refile, until it is settled;
+- one **Start N min focus** with your first preset, the others under
+  **More lengths**, or **Stop session** while one runs;
+- **Inbox · 28m** when something is unlabelled, and **Open dashboard**, which
+  runs `tock web` for you (no terminal needed) and stops it after 30 minutes
+  with no request;
+- **Settings**: the same switches as `tock choice`, ticked when on;
+  **Privacy**, which offers **Hide <app>** and **Hide <site>** for what was
+  just in front and lists what is hidden (click one to show it again);
+  **Notifications…**, **Accessibility…** and **Quit tock menu bar**.
+
+**Set up tock** replaces all this while there are no rules yet (it writes
+the starter rules, as `tock init` does).
+
+A hidden app or site goes to `[privacy] hide_apps` and `hide_sites` in
+config.toml. From then on trackd records it as private time only, with no
+title or URL, and never sends it to Claude or screen reading. Past spans
+stay as they were (`tock prune` deletes old titles, see Deleting old
+titles).
+
+**⌥⌘F** (`[focus] hotkey`, on by default) asks what you are working on and
+for how long, from any app, and starts the session; while one runs it
+offers Stop and Keep going. The goal shows in the menu and on the break
+screen. Shortcuts, Raycast and scripts can do the same with links:
+`tock://start?min=50&goal=…`, `tock://stop` and `tock://prompt`.
+`tock session start --goal "…"` sets it from the terminal.
 
 With the app running and allowed to notify, focus notifications come from
 tock with buttons:
