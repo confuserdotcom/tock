@@ -18,6 +18,7 @@ import (
 	"tock/internal/classify"
 	"tock/internal/config"
 	"tock/internal/focus"
+	"tock/internal/report"
 	"tock/internal/store"
 )
 
@@ -39,19 +40,59 @@ func seeded(t *testing.T) (*apptest.Env, *app.App) {
 	return e, openApp(t, e)
 }
 
+// titles renders a menu for tests: "--" separators, "[strip N]" strip rows,
+// "Title ▸" submenu parents with their rows indented, "✓ " checked rows and
+// " [id]" after clickable ones.
 func titles(items []Item) string {
 	var b []string
-	for _, it := range items {
-		switch {
-		case it.Separator:
-			b = append(b, "--")
-		case it.ID == "":
-			b = append(b, it.Title)
-		default:
-			b = append(b, it.Title+" ["+it.ID+"]")
+	var walk func([]Item, string)
+	walk = func(items []Item, ind string) {
+		for _, it := range items {
+			switch {
+			case it.Separator:
+				b = append(b, ind+"--")
+			case len(it.Strip) > 0:
+				b = append(b, fmt.Sprintf("%s[strip %d]", ind, len(it.Strip)))
+			case len(it.Sub) > 0:
+				b = append(b, ind+it.Title+" ▸")
+				walk(it.Sub, ind+"  ")
+			case it.ID == "":
+				b = append(b, ind+it.Title)
+			default:
+				c := ""
+				if it.Checked {
+					c = "✓ "
+				}
+				b = append(b, ind+c+it.Title+" ["+it.ID+"]")
+			}
 		}
 	}
+	walk(items, "")
 	return strings.Join(b, "\n")
+}
+
+// settingsTitles is the Settings submenu as titles renders it for s.
+func settingsTitles(s Snapshot) string {
+	out := "Settings ▸"
+	group := ""
+	for _, f := range s.Features {
+		if f.Group != group {
+			if group != "" {
+				out += "\n  --"
+			}
+			group = f.Group
+			out += "\n  " + f.Group
+		}
+		c := ""
+		if f.On {
+			c = "✓ "
+		}
+		out += "\n  " + c + f.Name + " [feature:" + f.ID + "]"
+	}
+	if len(s.Features) > 0 {
+		out += "\n  --"
+	}
+	return out + "\n  Notifications… [notify-settings]\n  Accessibility… [ax]\n  --\n  Quit tock menu bar [quit]"
 }
 
 func TestSnapshotDay(t *testing.T) {
@@ -64,16 +105,18 @@ func TestSnapshotDay(t *testing.T) {
 	if got := s.Title(now); got != "◷ 2h54" {
 		t.Fatalf("title = %q", got)
 	}
-	want := `Today · 2h54 tracked
-Focus 2h14 · score 74
-Label 28m unlabelled… [dash:inbox]
+	want := `2h54 today · 2h14 focus · score 74
+[strip 24]
 --
 Start 25 min focus [start:25]
-Start 50 min focus [start:50]
-Start 90 min focus [start:90]
+More lengths ▸
+  Start 50 min focus [start:50]
+  Start 90 min focus [start:90]
 --
+Inbox · 28m [dash:inbox]
 Open dashboard [dash]
-Quit tock menu bar [quit]`
+--
+` + settingsTitles(s)
 	if got := titles(s.Items(now)); got != want {
 		t.Fatalf("menu:\n%s\nwant:\n%s", got, want)
 	}
@@ -83,7 +126,7 @@ Quit tock menu bar [quit]`
 		t.Fatalf("down title = %q", got)
 	}
 	got := titles(s.Items(now))
-	if !strings.Contains(got, "trackd is not running\n--") || !strings.Contains(got, "Notifications are off… [settings]") {
+	if !strings.Contains(got, "trackd is not running\nNotifications are off… [notify-settings]\n--") {
 		t.Fatalf("down and denied menu:\n%s", got)
 	}
 }
@@ -145,8 +188,8 @@ func TestSnapshotAccessibility(t *testing.T) {
 		t.Fatalf("menu:\n%s", got)
 	}
 	s.AXDenied = false
-	if got := titles(s.Items(0)); strings.Contains(got, "[ax]") {
-		t.Fatalf("granted menu offers ax:\n%s", got)
+	if got := titles(s.Items(0)); strings.Contains(got, "Allow Accessibility") || !strings.Contains(got, "  Accessibility… [ax]") {
+		t.Fatalf("granted menu warns about ax, or Settings lacks it:\n%s", got)
 	}
 }
 
@@ -441,7 +484,7 @@ func TestSnapshotLastSession(t *testing.T) {
 	if row.Title != wantTitle || row.ID != "" {
 		t.Fatalf("parent = %+v, want title %q", row, wantTitle)
 	}
-	// After the Focus/Session lines, before the unlabelled line.
+	// First in the context block, after the header, before the unlabelled line.
 	var idx, unl = -1, -1
 	for i, it := range items {
 		if it.Title == row.Title {
@@ -451,7 +494,7 @@ func TestSnapshotLastSession(t *testing.T) {
 			unl = i
 		}
 	}
-	if idx != 1 && !(idx == 2 && strings.HasPrefix(items[1].Title, "Focus")) || (unl >= 0 && unl < idx) {
+	if idx < 1 || !items[idx-1].Separator || (unl >= 0 && unl < idx) {
 		t.Fatalf("position: last %d, unlabelled %d\n%s", idx, unl, titles(items))
 	}
 	id := strconv.FormatInt(s.ID, 10)
@@ -751,7 +794,8 @@ func TestSnoozeIgnoresStaleNotice(t *testing.T) {
 }
 
 func TestSnapshotSnooze(t *testing.T) {
-	e, a := seeded(t)
+	e, a, _ := distractedSession(t)
+	at(t, e, "15:00")
 	load := func() string {
 		t.Helper()
 		s, err := Load(a, e.Clock, app.NotifyGranted)
@@ -763,37 +807,38 @@ func TestSnapshotSnooze(t *testing.T) {
 	got := load()
 	for _, row := range []string{"Snooze distraction notices", "Notices snoozed until", "Resume notices"} {
 		if strings.Contains(got, row) {
-			t.Fatalf("no session menu has %q:\n%s", row, got)
+			t.Fatalf("menu before any distraction notice has %q:\n%s", row, got)
 		}
 	}
 
-	if _, err := Menu(a, "start:25"); err != nil {
-		t.Fatal(err)
+	for _, n := range focusNotes(t, a) {
+		enqueue(t, a, n)
 	}
 	got = load()
-	i := strings.Index(got, "Session · ")
-	rest := got[i:]
-	rest = rest[strings.Index(rest, "\n")+1:]
-	if !strings.HasPrefix(rest, "Snooze distraction notices (10 min) [snooze:distract]\n") ||
+	if !strings.Contains(got, "--\nSnooze distraction notices (10 min) [snooze:distract]\n") ||
 		strings.Contains(got, "Resume notices") {
-		t.Fatalf("running menu:\n%s", got)
+		t.Fatalf("menu after a notice:\n%s", got)
 	}
 
 	if _, err := Menu(a, IDSnoozeDistract); err != nil {
 		t.Fatal(err)
 	}
 	got = load()
-	i = strings.Index(got, "Session · ")
-	rest = got[i:]
+	i := strings.Index(got, "Session · ")
+	rest := got[i:]
 	rest = rest[strings.Index(rest, "\n")+1:]
-	if !strings.HasPrefix(rest, "Notices snoozed until 15:10\nResume notices [snooze:off]\n") ||
+	if !strings.HasPrefix(rest, "Notices snoozed until 15:10\n") || !strings.Contains(got, "Resume notices [snooze:off]") ||
 		strings.Contains(got, "Snooze distraction notices") {
 		t.Fatalf("snoozed menu:\n%s", got)
 	}
 
-	e.Clock = e.Clock.Add(11 * time.Minute)
+	at(t, e, "15:11")
 	if got = load(); !strings.Contains(got, "Snooze distraction notices (10 min) [snooze:distract]") || strings.Contains(got, "Resume notices") {
 		t.Fatalf("expired snooze menu:\n%s", got)
+	}
+	at(t, e, "15:16")
+	if got = load(); strings.Contains(got, "Snooze distraction notices") {
+		t.Fatalf("16 min after the notice:\n%s", got)
 	}
 }
 
@@ -814,9 +859,10 @@ func TestMenuSnooze(t *testing.T) {
 }
 
 func TestLoadFollowsConfig(t *testing.T) {
-	e, a := seeded(t)
-	if _, err := Menu(a, "start:25"); err != nil {
-		t.Fatal(err)
+	e, a, _ := distractedSession(t)
+	at(t, e, "15:00")
+	for _, n := range focusNotes(t, a) {
+		enqueue(t, a, n)
 	}
 	row := func() string {
 		t.Helper()
@@ -1266,16 +1312,20 @@ func TestSnapshotNext(t *testing.T) {
 	if strings.Contains(plain, "Next:") || strings.Contains(plain, "Join") {
 		t.Fatalf("no slots, menu:\n%s", plain)
 	}
-	// The block ends with the Next row, under the start items and above the last separator.
+	// The Next row opens the context block, between the header and the start items.
 	tail := func(s Snapshot, at int64) string {
-		its := s.Items(at)
-		return titles(its[len(its)-5 : len(its)-3])
+		for _, line := range strings.Split(titles(s.Items(at)), "\n") {
+			if strings.HasPrefix(line, "Next: ") {
+				return line
+			}
+		}
+		return ""
 	}
 	review := planSlot(t, "14:00", "14:50", "Review")
-	if got := tail(slotSnap(review), now); got != "Start 25 min focus [start:25]\nNext: 14:00 Review (in 12 min)" {
+	if got := tail(slotSnap(review), now); got != "Next: 14:00 Review (in 12 min)" {
 		t.Errorf("12 min ahead: %q", got)
 	}
-	if got := titles(slotSnap(review).Items(now)); !strings.HasSuffix(got, "Next: 14:00 Review (in 12 min)\n--\nOpen dashboard [dash]\nQuit tock menu bar [quit]") {
+	if got := titles(slotSnap(review).Items(now)); !strings.Contains(got, "--\nNext: 14:00 Review (in 12 min)\n--\nStart 25 min focus [start:25]") {
 		t.Errorf("menu:\n%s", got)
 	}
 	if got := tail(slotSnap(review), apptest.At(t, "13:48", 0)+30_000); !strings.HasSuffix(got, "(in 12 min)") {
@@ -1304,7 +1354,7 @@ func TestSnapshotNext(t *testing.T) {
 	// The earliest slot still to end wins, the link words of a title are dropped.
 	words := planSlot(t, "14:00", "14:50", "Review https://x.example/y")
 	later := planSlot(t, "14:30", "15:00", "Later")
-	if got := tail(slotSnap(words, later), now); got != "Start 25 min focus [start:25]\nNext: 14:00 Review (in 12 min)" {
+	if got := tail(slotSnap(words, later), now); got != "Next: 14:00 Review (in 12 min)" {
 		t.Errorf("two slots: %q", got)
 	}
 }
@@ -1504,5 +1554,76 @@ func TestLoadMenuData(t *testing.T) {
 	}
 	if len(snap.Features) != len(config.Features) || snap.Features[0].ID != config.Features[0].ID || snap.Features[0].Group == "" {
 		t.Fatalf("features = %+v", snap.Features)
+	}
+}
+
+func TestMenuSnoozeOnlyAfterNotice(t *testing.T) {
+	now := int64(10 * 60 * 60_000)
+	sess := &focus.Session{ID: 1, StartMS: now - 20*60_000, PlannedMS: now + 5*60_000}
+	base := Snapshot{OK: true, TrackdUp: true, Session: sess, SnoozeMin: 10, Live: focus.Live{Level: -1}}
+	if got := titles(base.Items(now)); strings.Contains(got, "Snooze") {
+		t.Fatalf("no notice yet:\n%s", got)
+	}
+	recent := base
+	recent.DistractAtMS = now - 14*60_000
+	if got := titles(recent.Items(now)); !strings.Contains(got, "Snooze distraction notices (10 min) [snooze:distract]") {
+		t.Fatalf("recent notice:\n%s", got)
+	}
+	old := base
+	old.DistractAtMS = now - 16*60_000
+	if got := titles(old.Items(now)); strings.Contains(got, "Snooze") {
+		t.Fatalf("old notice:\n%s", got)
+	}
+	snoozed := recent
+	snoozed.SnoozeUntil = time.UnixMilli(now + 5*60_000)
+	got := titles(snoozed.Items(now))
+	if !strings.Contains(got, "Resume notices [snooze:off]") || strings.Contains(got, "snooze:distract") {
+		t.Fatalf("snoozed:\n%s", got)
+	}
+}
+
+func TestMenuOnePreset(t *testing.T) {
+	s := Snapshot{OK: true, TrackdUp: true, Presets: []int{25}}
+	got := titles(s.Items(0))
+	if !strings.Contains(got, "Start 25 min focus [start:25]") || strings.Contains(got, "More lengths") {
+		t.Fatalf("one preset:\n%s", got)
+	}
+}
+
+func TestMenuCalmTopLevel(t *testing.T) {
+	s := Snapshot{OK: true, TrackdUp: true, Active: true, TrackedMS: 3600_000, Presets: []int{25, 50},
+		Strip: make([]string, StripCells), UnlabelledMS: 60_000}
+	rows := 0
+	for _, it := range s.Items(0) {
+		if !it.Separator {
+			rows++
+		}
+	}
+	if rows > 7 { // header, strip, start, more lengths, inbox, dashboard, settings
+		t.Fatalf("%d top-level rows:\n%s", rows, titles(s.Items(0)))
+	}
+}
+
+func TestLastSessionVisibility(t *testing.T) {
+	now := int64(48 * 60 * 60_000)
+	mk := func(endAgoMS int64, rating int, refile, undo bool) Snapshot {
+		var d report.SessionDetail
+		d.Sess.ID, d.Sess.StartMS, d.Sess.EndMS, d.Sess.Rating = 7, now-endAgoMS-25*60_000, now-endAgoMS, rating
+		return Snapshot{OK: true, TrackdUp: true, Last: &LastSession{Detail: d, Refile: refile, Undo: undo, Loc: time.UTC}}
+	}
+	for _, c := range []struct {
+		name string
+		s    Snapshot
+		want bool
+	}{
+		{"unrated", mk(5*3600_000, 0, false, false), true},
+		{"rated fresh", mk(30*60_000, 4, false, false), true},
+		{"rated settled", mk(2*3600_000, 4, false, false), false},
+		{"rated with refile", mk(2*3600_000, 4, true, false), true},
+		{"rated with undo", mk(2*3600_000, 4, false, true), true},
+	} {
+		if got := strings.Contains(titles(c.s.Items(now)), "Last session"); got != c.want {
+			t.Errorf("%s: shown %v, want %v", c.name, got, c.want)
+		}
 	}
 }

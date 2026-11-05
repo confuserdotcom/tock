@@ -205,7 +205,7 @@ func TestRunnerQuitAndSettings(t *testing.T) {
 	if !strings.Contains(last(u.menus), "settings\tNotifications are off…") {
 		t.Fatalf("denied menu = %q", last(u.menus))
 	}
-	r.handle(event{kind: evMenu, id: "settings"})
+	r.handle(event{kind: evMenu, id: bar.IDNotifySettings})
 	r.handle(event{kind: evMenu, id: "quit"})
 	if len(u.urls) != 1 || !u.quit {
 		t.Fatalf("urls %v quit %v", u.urls, u.quit)

@@ -283,7 +283,7 @@ func (r *runner) handle(ev event) {
 			r.log.Info("quit from the menu")
 			r.ui.Quit()
 			return
-		case bar.IDSettings:
+		case bar.IDNotifySettings:
 			r.ui.OpenURL(bar.SettingsURL)
 			return
 		case bar.IDAccess:

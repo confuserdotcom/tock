@@ -21,10 +21,13 @@ import (
 
 // Menu item ids.
 const (
-	IDStart    = "start:" // + minutes
-	IDStop     = "stop"
-	IDSettings = "settings"
-	IDQuit     = "quit"
+	IDStart = "start:" // + minutes
+	IDStop  = "stop"
+	// IDNotifySettings opens the Notifications pane of System Settings.
+	IDNotifySettings = "notify-settings"
+	// IDFeature (+ a config.Features id) turns that feature on or off.
+	IDFeature = "feature:"
+	IDQuit    = "quit"
 	// IDSnoozeDistract snoozes the running session's distraction notices
 	// for [focus] snooze minutes; IDSnoozeOff resumes them.
 	IDSnoozeDistract = "snooze:distract"
@@ -61,6 +64,13 @@ const (
 
 // lastWithinMS is how long after it ended a session stays in the menu.
 const lastWithinMS = 24 * 60 * 60_000
+
+// lastFreshMS is how long a rated, settled session stays in the menu.
+const lastFreshMS = 60 * 60_000
+
+// snoozeShowMS is how long after a distraction notice the menu offers to
+// snooze the next ones.
+const snoozeShowMS = 15 * 60_000
 
 // SettingsURL opens the Notifications pane of System Settings.
 const SettingsURL = "x-apple.systempreferences:com.apple.Notifications-Settings.extension"
@@ -240,9 +250,30 @@ func (s Snapshot) Items(nowMS int64) []Item {
 		}
 		return []Item{first, sep, {Title: "Quit tock menu bar", ID: IDQuit}}
 	}
-	out := []Item{label("Today · %s tracked", report.Dur(s.TrackedMS))}
+	groups := [][]Item{s.header(nowMS), s.context(nowMS), s.action(), s.goItems(), {s.settings()}}
+	var out []Item
+	for _, g := range groups {
+		if len(g) == 0 {
+			continue
+		}
+		if len(out) > 0 {
+			out = append(out, sep)
+		}
+		out = append(out, g...)
+	}
+	return out
+}
+
+// header is what is going on: today's totals, the strip, the running
+// session and anything broken.
+func (s Snapshot) header(nowMS int64) []Item {
+	line := report.Dur(s.TrackedMS) + " today"
 	if s.Active {
-		out = append(out, label("Focus %s · score %d", report.Dur(s.FocusMS), s.Score))
+		line += fmt.Sprintf(" · %s focus · score %d", report.Dur(s.FocusMS), s.Score)
+	}
+	out := []Item{{Title: line}}
+	if len(s.Strip) > 0 {
+		out = append(out, Item{Strip: s.Strip})
 	}
 	if ss := s.Session; ss != nil {
 		word := "interruptions"
@@ -254,18 +285,9 @@ func (s Snapshot) Items(nowMS int64) []Item {
 			lv = report.LevelText(s.Live) + " · "
 		}
 		out = append(out, label("Session · %s left · %s%d %s", report.Countdown(ss.PlannedMS-nowMS), lv, ss.Interruptions, word))
-		if !s.SnoozeUntil.IsZero() && s.SnoozeUntil.UnixMilli() > nowMS {
-			out = append(out, label("Notices snoozed until %s", s.SnoozeUntil.Format("15:04")),
-				Item{Title: "Resume notices", ID: IDSnoozeOff})
-		} else {
-			out = append(out, Item{Title: fmt.Sprintf("Snooze distraction notices (%d min)", s.SnoozeMin), ID: IDSnoozeDistract})
+		if s.snoozed(nowMS) {
+			out = append(out, label("Notices snoozed until %s", s.SnoozeUntil.Format("15:04")))
 		}
-	}
-	if s.Last != nil {
-		out = append(out, s.Last.item())
-	}
-	if s.UnlabelledMS > 0 {
-		out = append(out, Item{Title: fmt.Sprintf("Label %s unlabelled…", report.Dur(s.UnlabelledMS)), ID: IDInbox})
 	}
 	if !s.TrackdUp {
 		out = append(out, label("trackd is not running"))
@@ -273,21 +295,93 @@ func (s Snapshot) Items(nowMS int64) []Item {
 	if s.AXDenied {
 		out = append(out, Item{Title: "Allow Accessibility for trackd…", ID: IDAccess})
 	}
-	out = append(out, sep)
+	if s.Access == app.NotifyDenied {
+		out = append(out, Item{Title: "Notifications are off…", ID: IDNotifySettings})
+	}
+	return out
+}
+
+// snoozed: distraction notices are snoozed at nowMS.
+func (s Snapshot) snoozed(nowMS int64) bool {
+	return !s.SnoozeUntil.IsZero() && s.SnoozeUntil.UnixMilli() > nowMS
+}
+
+// context is what matters right now: the next slot, a break, a suggestion,
+// the answer to a distraction notice and the last session.
+func (s Snapshot) context(nowMS int64) []Item {
+	out := append(s.slotItems(nowMS), s.recItems(nowMS)...)
 	if s.Session != nil {
-		out = append(out, Item{Title: "Stop session", ID: IDStop})
-	} else {
-		for _, m := range s.Presets[:min(len(s.Presets), maxPresets)] {
-			out = append(out, Item{Title: fmt.Sprintf("Start %d min focus", m), ID: IDStart + strconv.Itoa(m)})
+		switch {
+		case s.snoozed(nowMS):
+			out = append(out, Item{Title: "Resume notices", ID: IDSnoozeOff})
+		case s.DistractAtMS > 0 && nowMS-s.DistractAtMS <= snoozeShowMS:
+			out = append(out, Item{Title: fmt.Sprintf("Snooze distraction notices (%d min)", s.SnoozeMin), ID: IDSnoozeDistract})
 		}
 	}
-	out = append(out, s.slotItems(nowMS)...)
-	out = append(out, s.recItems(nowMS)...)
-	out = append(out, sep, Item{Title: "Open dashboard", ID: IDDashboard})
-	if s.Access == app.NotifyDenied {
-		out = append(out, Item{Title: "Notifications are off…", ID: IDSettings})
+	if l := s.Last; l != nil && l.shown(nowMS) {
+		out = append(out, l.item())
 	}
-	return append(out, Item{Title: "Quit tock menu bar", ID: IDQuit})
+	return out
+}
+
+// action is the one thing to do: stop the session, or start one with the
+// first preset; the other presets wait in More lengths.
+func (s Snapshot) action() []Item {
+	if s.Session != nil {
+		return []Item{{Title: "Stop session", ID: IDStop}}
+	}
+	ps := s.Presets[:min(len(s.Presets), maxPresets)]
+	if len(ps) == 0 {
+		return nil
+	}
+	out := []Item{startItem(ps[0])}
+	if len(ps) > 1 {
+		more := Item{Title: "More lengths"}
+		for _, m := range ps[1:] {
+			more.Sub = append(more.Sub, startItem(m))
+		}
+		out = append(out, more)
+	}
+	return out
+}
+
+func startItem(m int) Item {
+	return Item{Title: fmt.Sprintf("Start %d min focus", m), ID: IDStart + strconv.Itoa(m)}
+}
+
+// goItems open the dashboard, on the inbox when something is unlabelled.
+func (s Snapshot) goItems() []Item {
+	var out []Item
+	if s.UnlabelledMS > 0 {
+		out = append(out, Item{Title: "Inbox · " + report.Dur(s.UnlabelledMS), ID: IDInbox})
+	}
+	return append(out, Item{Title: "Open dashboard", ID: IDDashboard})
+}
+
+// settings is the Settings submenu: the feature toggles by group, the
+// System Settings panes and Quit.
+func (s Snapshot) settings() Item {
+	var sub []Item
+	group := ""
+	for _, f := range s.Features {
+		if f.Group != group {
+			if group != "" {
+				sub = append(sub, sep)
+			}
+			group = f.Group
+			sub = append(sub, label("%s", f.Group))
+		}
+		sub = append(sub, Item{Title: f.Name, ID: IDFeature + f.ID, Checked: f.On})
+	}
+	if len(sub) > 0 {
+		sub = append(sub, sep)
+	}
+	sub = append(sub,
+		Item{Title: "Notifications…", ID: IDNotifySettings},
+		Item{Title: "Accessibility…", ID: IDAccess},
+		sep,
+		Item{Title: "Quit tock menu bar", ID: IDQuit})
+	return Item{Title: "Settings", Sub: sub}
 }
 
 // slotItems are the Next row and the Join item at nowMS, in that order; none
@@ -374,6 +468,12 @@ func (s Snapshot) JoinURL(id string, nowMS int64) (string, bool) {
 		return "", false
 	}
 	return sl.JoinURL, true
+}
+
+// shown: the last session stays in the menu while there is something to do
+// with it: it is unrated, it just ended, or a refile or undo is offered.
+func (l *LastSession) shown(nowMS int64) bool {
+	return l.Detail.Sess.Rating == 0 || nowMS-l.Detail.Sess.EndMS <= lastFreshMS || l.Refile || l.Undo
 }
 
 // item is the "Last session" row with its rate, refile and undo submenu.
