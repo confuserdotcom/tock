@@ -63,6 +63,11 @@
     if (sec >= 60) return `${Math.floor(sec / 60)}m`;
     return `${sec}s`;
   }
+  // hm is a table duration: "2:24", "0:41".
+  function hm(ms) {
+    const min = Math.round(Math.max(0, ms) / 60000);
+    return `${Math.floor(min / 60)}:${String(min % 60).padStart(2, '0')}`;
+  }
   const clock = (ms) => new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
   const pct = (part, whole) => (whole > 0 ? `${Math.round((100 * part) / whole)}%` : '');
   function parseDate(str) {
@@ -193,18 +198,8 @@
     b.classList.toggle('err', !!err);
   }
 
-  // ---------- segmented control ----------
+  // ---------- nav ----------
   const tabs = $('tabs');
-  const thumb = $('thumb');
-  const thumbX = new Spring(0, { response: 0.32, onUpdate: (v) => thumb.style.setProperty('transform', `translateX(${v}px)`) });
-  const thumbW = new Spring(0, { response: 0.32, onUpdate: (v) => thumb.style.setProperty('width', `${v}px`) });
-  function moveThumb(instant) {
-    const btn = tabs.querySelector(`[data-view="${state.view}"]`);
-    if (!btn) return;
-    const x = btn.offsetLeft;
-    const w = btn.offsetWidth;
-    if (instant || !thumbW.value) { thumbX.jump(x); thumbW.jump(w); } else { thumbX.set(x); thumbW.set(w); }
-  }
   tabs.addEventListener('pointerdown', (e) => {
     // Respond on press, not release.
     const btn = e.target.closest('button[data-view]');
@@ -214,7 +209,6 @@
     const btn = e.target.closest('button[data-view]');
     if (btn && e.detail === 0) go(btn.dataset.view); // keyboard activation
   });
-  addEventListener('resize', () => moveThumb(true));
 
   // ---------- navigation ----------
   function go(view, date, push = true) {
@@ -247,7 +241,7 @@
       b.setAttribute('aria-selected', on ? 'true' : 'false');
       b.tabIndex = on ? 0 : -1;
     }
-    moveThumb(false);
+    renderCal();
     const nav = $('datenav');
     const dated = state.view === 'today' || state.view === 'week';
     nav.classList.toggle('hidden', !dated);
@@ -350,9 +344,73 @@
   async function loadLabels() {
     try {
       state.labels = await api('/api/labels');
-      if (state.labels.rulesError) banner(`rules.toml has a problem, so the last good rules are in use: ${state.labels.rulesError}`);
+      if (state.labels.rulesError) banner(`rules.toml has a problem, so tock uses the last rules that loaded: ${state.labels.rulesError}`);
     } catch (_) { /* the banner covers errors */ }
     return state.labels;
+  }
+
+  // ---------- calendar ----------
+  let calMonth = null; // 'YYYY-MM' shown in the sidebar
+  function renderCal() {
+    const el = $('cal');
+    const t = todayStr();
+    const sel = state.view === 'today' ? state.date : '';
+    if (!calMonth || (sel && sel.slice(0, 7) !== calMonth && !el.dataset.browsing)) calMonth = (sel || t).slice(0, 7);
+    const [y, m] = calMonth.split('-').map(Number);
+    const first = new Date(y, m - 1, 1);
+    const days = new Date(y, m, 0).getDate();
+    const lead = (first.getDay() + 6) % 7;
+    const move = (n) => { const d = new Date(y, m - 1 + n, 1); calMonth = fmtDate(d).slice(0, 7); el.dataset.browsing = '1'; renderCal(); };
+    const grid = h('div', { class: 'days' }, ['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d) => h('span', { class: 'h' }, d)));
+    for (let i = 0; i < lead; i++) grid.append(h('span'));
+    for (let d = 1; d <= days; d++) {
+      const ds = `${calMonth}-${String(d).padStart(2, '0')}`;
+      grid.append(h('button', {
+        class: `${ds === sel ? 'on' : ''} ${ds === t ? 'today' : ''}`, disabled: ds > t, 'aria-label': longDate(ds),
+        'aria-current': ds === sel ? 'date' : undefined,
+        onclick: () => { delete el.dataset.browsing; go('today', ds); },
+      }, String(d)));
+    }
+    el.replaceChildren(
+      h('div', { class: 'cal-head' },
+        h('button', { 'aria-label': 'Previous month', onclick: () => move(-1) }, '‹'),
+        h('b', null, first.toLocaleDateString([], { month: 'long', year: 'numeric' })),
+        h('button', { 'aria-label': 'Next month', disabled: calMonth >= t.slice(0, 7), onclick: () => move(1) }, '›')),
+      grid);
+  }
+
+  // ---------- status ----------
+  state.status = null;
+  async function loadStatus() {
+    try { state.status = await api('/api/status'); } catch (_) { state.status = null; }
+    renderStatus();
+    renderSession();
+  }
+  function renderStatus() {
+    const st = state.status;
+    const el = $('status');
+    if (!st) { el.replaceChildren(); return; }
+    const line = (cls, text, title) => h('div', { title: title || text }, h('i', { class: cls }), h('span', null, text));
+    const gone = Date.now() - st.lastSeenMS;
+    const ago = gone >= 48 * 3600e3 ? `${Math.floor(gone / 86400e3)} days` : dur(gone);
+    el.replaceChildren(...[
+      st.recording ? line('good', 'trackd recording') : line('bad', st.lastSeenMS ? `trackd stopped ${ago} ago` : 'trackd has not run yet', 'Start it with: tock install'),
+      st.rulesError ? line('bad', 'rules.toml has an error', st.rulesError) : line('good', 'rules.toml OK'),
+      st.configError ? line('bad', 'config.toml has an error', st.configError) : null].filter(Boolean));
+  }
+  function renderSession() {
+    const el = $('sess');
+    const ses = state.status && state.status.session;
+    if (!ses) { el.hidden = true; return; }
+    const now = Date.now();
+    const total = Math.max(1, ses.plannedMS - ses.startMS);
+    const done = Math.max(0, Math.min(total, now - ses.startMS));
+    el.hidden = false;
+    el.replaceChildren(
+      h('span', { class: 'muted' }, 'Session'),
+      h('b', { title: ses.goal || 'Focus session' }, ses.goal || 'Focus session'),
+      h('span', { class: 'meter' }, h('i', { style: { width: `${(100 * done) / total}%` } })),
+      h('span', { class: 'num' }, now > ses.plannedMS ? `${dur(now - ses.plannedMS)} over` : `${dur(ses.plannedMS - now)} left`));
   }
 
   // ---------- shared pieces ----------
@@ -367,25 +425,45 @@
     return h('div', null,
       h('div', { class: 'stack', role: 'img', 'aria-label': keys.filter((k) => byKind[k]).map((k) => `${KIND_NAMES[k]} ${dur(byKind[k])}`).join(', ') },
         keys.filter((k) => byKind[k] > 0).map((k) => h('i', { class: kindClass(k), style: { flex: String(byKind[k]) } }))),
-      h('div', { class: 'legend' },
-        keys.filter((k) => byKind[k] > 0).map((k) => h('span', null, h('i', { class: `dot ${kindClass(k)}` }), KIND_NAMES[k], h('b', null, dur(byKind[k])), h('span', { class: 'muted' }, pct(byKind[k], total))))));
+      legend(byKind, total));
+  }
+  function legend(byKind, total) {
+    const keys = [...KINDS, ''];
+    return h('div', { class: 'legend' },
+      keys.filter((k) => byKind[k] > 0).map((k) => h('span', null, h('i', { class: `dot ${kindClass(k)}` }), KIND_NAMES[k], h('b', null, dur(byKind[k])), h('span', { class: 'cap' }, pct(byKind[k], total)))));
   }
 
-  function barList(rows, { total, max, kindOf, sub, empty = 'Nothing yet' }) {
-    if (!rows.length) return h('div', { class: 'muted' }, empty);
-    max = max || Math.max(...rows.map((r) => r.ms));
-    return h('ul', { class: 'list' }, rows.map((r) => h('li', null,
-      h('div', { class: 'lrow' },
-        h('i', { class: `dot ${kindClass(kindOf ? kindOf(r) : r.kind)}` }),
-        h('span', { class: 'name', title: nice(r.name) }, nice(r.name)),
-        h('span', { class: 'ms' }, dur(r.ms)),
-        total ? h('span', { class: 'pct' }, pct(r.ms, total)) : null),
-      h('div', { class: `track ${kindClass(kindOf ? kindOf(r) : r.kind)}` }, h('i', { style: { width: `${Math.max(1, (100 * r.ms) / max)}%` } })),
-      sub ? sub(r) : null)));
+  // ledger is a table: name, time and share, sub rows under a row, and a
+  // totals row.
+  function ledger(rows, { total, kindOf, sub, empty = 'Nothing yet', head = 'Name', limit = 0, totals = true }) {
+    if (!rows.length) return h('div', { class: 'ledger-empty' }, empty);
+    const shown = limit && rows.length > limit + 1 ? rows.slice(0, limit) : rows;
+    const rest = rows.slice(shown.length);
+    const body = h('tbody');
+    for (const r of shown) {
+      const kind = kindOf ? kindOf(r) : r.kind;
+      body.append(h('tr', null,
+        h('td', { class: 'name', title: nice(r.name) }, kind !== undefined ? h('i', { class: `dot ${kindClass(kind)}` }) : null, nice(r.name), r.mostly ? h('span', { class: 'mostly' }, `mostly ${nice(r.mostly)}`) : null),
+        h('td', { class: 'r' }, hm(r.ms)),
+        total ? h('td', { class: 'r p' }, pct(r.ms, total)) : null));
+      for (const x of (sub ? sub(r) : [])) {
+        body.append(h('tr', { class: 'sub' }, h('td', { class: 'name', title: x.name }, x.name), h('td', { class: 'r' }, hm(x.ms)), total ? h('td', { class: 'r p' }) : null));
+      }
+    }
+    if (rest.length) {
+      const ms = rest.reduce((n, r) => n + r.ms, 0);
+      body.append(h('tr', null, h('td', { class: 'name muted' }, `${rest.length} more`), h('td', { class: 'r' }, hm(ms)), total ? h('td', { class: 'r p' }, pct(ms, total)) : null));
+    }
+    if (totals && total) {
+      const sum = rows.reduce((n, r) => n + r.ms, 0);
+      body.append(h('tr', { class: 'tot' }, h('td', null, 'Total'), h('td', { class: 'r' }, hm(sum)), h('td', { class: 'r p' }, pct(sum, total))));
+    }
+    return h('table', { class: 'ledger' },
+      h('thead', null, h('tr', null, h('th', null, head), h('th', { class: 'r' }, 'Time'), total ? h('th', { class: 'r' }, 'Share') : null)),
+      body);
   }
 
-  // workText is the day's work hours for the subtitle: " · day off, not
-  // scored" or " · scored 09:00–18:00 · 1h20 outside".
+  // workText is the day's work hours for the subtitle.
   function workText(w) {
     if (!w) return '';
     if (w.off) return ' · day off, not scored';
@@ -394,82 +472,71 @@
 
   function goalsCard(goals, cls = 'c6') {
     if (!goals || !goals.length) return null;
-    return card('Goals', h('ul', { class: 'list' }, goals.map((g) => {
-      const frac = g.ms > 0 ? Math.min(1, g.doneMS / g.ms) : 0;
-      const kind = g.atMost ? (g.state === 'over' ? 'distract' : 'neutral') : (g.state === 'met' ? 'deep' : 'shallow');
-      const stateText = g.days ? `${g.held}/${g.days} days` : { met: 'Met', short: 'In progress', over: 'Over', ok: 'Under limit' }[g.state] || g.state;
-      return h('li', { class: 'goal' },
-        h('div', null, h('b', null, g.name), ' ', h('span', { class: 'muted' }, `${g.atMost ? 'at most' : 'at least'} ${dur(g.ms)} a ${g.week ? 'week' : 'day'}`),
-          g.streak >= 2 ? h('span', { class: 'streak', title: `best ${g.best}${g.week ? 'w' : 'd'}` }, `${g.streak}${g.week ? 'w' : 'd'} streak`) : null),
-        h('span', { class: `state ${g.state}` }, g.days ? stateText : `${dur(g.doneMS)} · ${stateText}`),
-        g.days ? null : h('div', { class: `track ${kindClass(kind)}` }, h('i', { style: { width: `${Math.max(1, frac * 100)}%` } })));
-    })), { cls });
+    const body = h('tbody');
+    for (const g of goals) {
+      const stateText = g.days ? `${g.held}/${g.days} days` : { met: 'Met', short: 'Not yet', over: 'Over', ok: 'Under' }[g.state] || g.state;
+      body.append(h('tr', null,
+        h('td', { class: 'name' }, g.name, h('span', { class: 'mostly' }, `${g.atMost ? 'at most' : 'at least'} ${dur(g.ms)} a ${g.week ? 'week' : 'day'}${g.streak >= 2 ? ` · ${g.streak}${g.week ? 'w' : 'd'} streak` : ''}`)),
+        h('td', { class: 'r' }, g.days ? '' : hm(g.doneMS)),
+        h('td', { class: `r goal-state ${g.state}`, style: { width: '84px' } }, stateText)));
+    }
+    return card('Goals', h('table', { class: 'ledger' },
+      h('thead', null, h('tr', null, h('th', null, 'Goal'), h('th', { class: 'r' }, 'Done'), h('th', { class: 'r' }, 'State'))), body), { cls });
   }
 
   // ---------- Today ----------
-  // The score: one big number that counts up to its value with a spring.
-  let scoreSpring = null;
-  function scoreBlock(value) {
-    const num = h('div', { class: 'score-num' }, '0');
-    const kind = value >= 60 ? 'deep' : value >= 35 ? 'shallow' : 'distract';
-    const word = value >= 60 ? 'Good day' : value >= 35 ? 'Mixed day' : 'Scattered day';
-    const update = (v) => { num.textContent = String(Math.round(Math.max(0, Math.min(100, v)))); };
-    // Keep one spring across refreshes so the number moves from where it is.
-    if (!scoreSpring) scoreSpring = new Spring(0, { damping: 1, response: 0.6, precision: 0.05, onUpdate: update });
-    scoreSpring.onUpdate = update;
-    update(scoreSpring.value);
-    requestAnimationFrame(() => scoreSpring.set(value));
-    return h('div', { class: 'score', role: 'img', 'aria-label': `Focus score ${value} of 100` },
-      num, h('div', { class: `score-cap ${kindClass(kind)}` }, h('b', null, word), ' · focus score'));
+  // A change against the usual day: "+48m" in good or bad. better says
+  // which way is good; 0 means neither.
+  function delta(now, usual, fmt, better) {
+    if (usual === undefined || usual === null) return null;
+    const diff = now - usual;
+    const text = fmt(Math.abs(diff));
+    if (text === fmt(0)) return h('small', null, '±0');
+    const cls = !better ? '' : (diff > 0) === (better > 0) ? 'good' : 'bad';
+    return h('small', { class: cls }, `${diff > 0 ? '+' : '−'}${text}`);
   }
 
-  function part(label, value, hint) {
-    return h('div', { class: 'part', title: hint },
-      h('div', { class: 'l' }, h('span', null, label), h('span', { class: 'num' }, `${Math.round(value * 100)}%`)),
-      h('div', { class: 'meter' }, h('i', { style: { transform: `scaleX(${Math.max(0, Math.min(1, value))})` } })));
+  function kpi(label, value, d, title) {
+    return h('div', { class: 'kpi', title }, h('div', { class: 'l' }, label), h('div', { class: 'v' }, value, d));
   }
 
-  function tile(value, label) {
-    return h('div', { class: 'tile' }, h('div', { class: 'v' }, value), h('div', { class: 'l' }, label));
+  function kpis(d) {
+    const sc = d.score;
+    const u = d.usual;
+    const n0 = (x) => String(Math.round(x));
+    const f1 = (x) => x.toFixed(1);
+    const parts = `How the score is made: deep time ${Math.round(sc.depth * 100)}% of the ${dur(sc.targetMS)} target, ` +
+      `time in long blocks ${Math.round(sc.blocks * 100)}%, few switches ${Math.round(sc.calm * 100)}%, ` +
+      `longest stretch ${Math.round(sc.stretch * 100)}%${sc.penalty ? `, −${sc.penalty} for distraction` : ''}.`;
+    const row = h('div', { class: 'kpis' },
+      kpi('Focus score', String(sc.value), u && delta(sc.value, u.score, n0, 1), parts),
+      kpi('Deep focus', dur(d.stats.focusMS), u && delta(d.stats.focusMS, u.focusMS, dur, 1)),
+      kpi('Longest block', dur(d.stats.longestMS), u && delta(d.stats.longestMS, u.longestMS, dur, 1)),
+      kpi('Distracting', dur(d.stats.distractMS), u && delta(d.stats.distractMS, u.distractMS, dur, -1)),
+      kpi('Switches / hour', f1(sc.switchesPerHour), u && delta(sc.switchesPerHour, u.switchesPerHour, f1, -1)),
+      kpi('Tracked', dur(d.trackedMS), u && delta(d.trackedMS, u.trackedMS, dur, 0)));
+    const day = parseDate(d.date).toLocaleDateString([], { weekday: 'long' });
+    const note = u ? `Changes compare with your usual ${day}: the middle of your last ${u.days} ${day}s.` : `After two ${day}s with time tracked, these numbers show the change against your usual ${day}.`;
+    return h('div', null, row, h('div', { class: 'foot-note' }, note));
   }
 
   function renderToday(d) {
     const nodes = [];
-    const title = d.today ? 'Today' : longDate(d.date);
     nodes.push(h('div', { class: 'toolrow' },
-      h('div', null, h('h1', null, title),
-        h('p', { class: 'sub', style: { margin: 0 } }, (d.trackedMS ? `${dur(d.trackedMS)} tracked${d.idleMS ? ` · ${dur(d.idleMS)} away` : ''}` : 'Nothing tracked') + workText(d.work)))));
+      h('h1', null, longDate(d.date)),
+      h('span', { class: 'sub' }, (d.trackedMS ? `${dur(d.trackedMS)} tracked${d.idleMS ? `, ${dur(d.idleMS)} away` : ''}` : 'Nothing tracked') + workText(d.work))));
     if (!d.trackedMS && !d.timeline.length) {
-      nodes.push(emptyState(d.today ? 'Nothing yet today' : 'Nothing tracked this day', d.today ? 'trackd records as you work. Check back in a few minutes.' : 'Pick another day with the arrows.'));
+      nodes.push(emptyState(d.today ? 'Nothing yet today' : 'Nothing tracked this day', d.today ? 'trackd records as you work. Check back in a few minutes.' : 'Pick another day in the calendar.'));
       return nodes;
     }
-    const sc = d.score;
-    const commits = (d.commits || []).reduce((n, c) => n + c.N, 0);
     const grid = h('div', { class: 'grid' });
-    grid.append(card(null, h('div', null,
-      h('div', { class: 'hero' },
-        scoreBlock(sc.value),
-        h('div', { style: { width: '100%' } },
-          h('div', { class: 'tiles' },
-            tile(dur(d.stats.focusMS), 'deep focus'),
-            tile(dur(d.stats.longestMS), 'longest block'),
-            tile(dur(d.stats.distractMS), 'distracted'),
-            tile(sc.switchesPerHour.toFixed(1), 'switches / hour'),
-            commits ? tile(String(commits), commits === 1 ? 'commit' : 'commits') : null),
-          h('div', { class: 'parts' },
-            part('Depth', sc.depth, `deep focus against the ${dur(sc.targetMS)} target`),
-            part('Blocks', sc.blocks, 'share of focus in long blocks'),
-            part('Calm', sc.calm, 'few context switches'),
-            part('Stretch', sc.stretch, 'longest unbroken stretch')),
-          sc.penalty ? h('div', { class: 'note' }, `−${sc.penalty} for distraction`) : null)),
-      h('div', { style: { 'margin-top': '2rem' } }, kindStack(d.byKind, d.trackedMS))), { cls: 'c12 lead' }));
-
-    grid.append(card('Timeline', ribbon(d), { cls: 'c12', aside: h('span', { class: 'cap' }, 'click a block to label it') }));
-    grid.append(card('By hour', hoursChart(d), { cls: 'c8' }));
-    grid.append(card('Categories', barList(d.categories.map((c) => ({ name: c.name, ms: c.ms, kind: c.kind, projects: c.projects })), {
-      total: d.trackedMS,
-      sub: (r) => (r.projects && r.projects.length ? h('div', { class: 'subrows' }, r.projects.slice(0, 4).map((p) => h('div', null, h('span', null, p.name || 'no project'), h('span', { class: 'num' }, dur(p.ms))))) : null),
-    }), { cls: 'c4' }));
+    grid.append(card(null, kpis(d), { cls: 'c12' }));
+    grid.append(card('Timeline', h('div', null, gantt(d), legend(d.byKind, d.trackedMS)), { cls: 'c12', aside: h('span', { class: 'cap' }, 'Click a bar to label it') }));
+    grid.append(card(null, ledger(d.categories.map((c) => ({ name: c.name, ms: c.ms, kind: c.kind, projects: c.projects })), {
+      head: 'Category', total: d.trackedMS,
+      sub: (r) => (r.projects || []).filter((p) => p.name).slice(0, 4),
+    }), { cls: 'c6' }));
+    grid.append(card(null, ledger(appRows(d), { head: 'App', total: d.trackedMS, limit: 8, kindOf: (r) => r.kind }), { cls: 'c6' }));
     const work = blocksCard(d);
     const goals = goalsCard(d.goals, work ? 'c4' : 'c12');
     if (work) grid.append(work);
@@ -479,28 +546,45 @@
     return nodes;
   }
 
+  // appRows adds the day's rows up by app, each in the kind most of its
+  // time had.
+  function appRows(d) {
+    const by = new Map();
+    for (const r of d.timeline) {
+      if (r.idle) continue;
+      const a = by.get(r.app) || { name: r.app, ms: 0, kinds: {} };
+      const ms = r.end - r.start;
+      a.ms += ms;
+      a.kinds[r.kind || ''] = (a.kinds[r.kind || ''] || 0) + ms;
+      by.set(r.app, a);
+    }
+    return [...by.values()].sort((x, y) => y.ms - x.ms)
+      .map((a) => ({ name: a.name, ms: a.ms, kind: Object.entries(a.kinds).sort((x, y) => y[1] - x[1])[0][0] }));
+  }
+
   // Work blocks: stretches of work on one thing, with Claude's lines when
   // tock summary has run.
   function blocksCard(d) {
     const blocks = d.blocks || [];
     if (!blocks.length && !d.summary) return null;
-    const body = h('div', null,
-      d.summary ? h('p', { class: 'summary' }, d.summary) : null,
-      blocks.length ? h('ul', { class: 'list' }, blocks.map((b) => {
-        const facts = [dur(b.activeMS)];
-        if (b.deepMS) facts.push(`deep ${pct(b.deepMS, b.activeMS)}`);
-        if (b.distractMS >= 60e3) facts.push(`distracted ${dur(b.distractMS)}`);
-        return h('li', { class: 'block' },
-          h('div', null,
-            h('i', { class: `dot ${kindClass(b.kind)}` }), ' ',
-            h('b', null, nice(b.name)),
-            b.name !== b.category && b.category ? h('span', { class: 'muted' }, ` ${b.category}`) : null),
-          h('span', { class: 'num muted' }, `${clock(b.start)}–${clock(b.end)}`),
-          h('div', { class: 'facts muted' }, [...facts, ...b.top.map((t) => t.name)].join(' · ')),
-          b.summary ? h('div', { class: 'blurb' }, b.summary) : null);
-      })) : null);
+    const body = h('tbody');
+    for (const b of blocks) {
+      const facts = [];
+      if (b.deepMS) facts.push(`deep ${pct(b.deepMS, b.activeMS)}`);
+      if (b.distractMS >= 60e3) facts.push(`distracted ${dur(b.distractMS)}`);
+      facts.push(...b.top.map((t) => t.name));
+      body.append(h('tr', null,
+        h('td', { class: 'r', style: { 'text-align': 'left', width: '96px', color: 'var(--muted)' } }, `${clock(b.start)}–${clock(b.end)}`),
+        h('td', { class: 'name', title: b.summary || facts.join(' · ') },
+          h('i', { class: `dot ${kindClass(b.kind)}` }), nice(b.name),
+          h('span', { class: 'mostly' }, facts.join(' · ')),
+          b.summary ? h('div', { class: 'blurb' }, b.summary) : null),
+        h('td', { class: 'r' }, hm(b.activeMS))));
+    }
     const aside = d.summary ? null : h('span', { class: 'cap' }, 'tock summary writes what you worked on');
-    return card('Work blocks', body, { cls: d.goals && d.goals.length ? 'c8' : 'c12', aside });
+    return card('Work blocks', h('div', null,
+      d.summary ? h('p', { class: 'summary' }, d.summary) : null,
+      blocks.length ? h('table', { class: 'ledger' }, body) : null), { cls: d.goals && d.goals.length ? 'c8' : 'c12', aside });
   }
 
   function dayBounds(d) {
@@ -508,83 +592,83 @@
     return { from: start + d.hourFirst * 3600e3, to: start + (d.hourLast + 1) * 3600e3 };
   }
 
-  function ribbon(d) {
+  // gantt is the day on one hour axis, one row per category (then
+  // unlabelled time, then time away).
+  function gantt(d) {
     const { from, to } = dayBounds(d);
     const span = to - from;
-    const el = h('div', { class: 'ribbon', role: 'list', 'aria-label': 'Timeline' });
+    const hours = d.hourLast - d.hourFirst + 1;
+    const order = d.categories.map((c) => nice(c.name));
+    const rows = new Map();
+    const rowOf = (r) => (r.idle ? 'Away' : r.category ? r.category : 'Unlabelled');
     d.timeline.forEach((r, i) => {
-      const a = Math.max(r.start, from);
-      const b = Math.min(r.end, to);
-      if (b <= a) return;
-      const kind = r.idle ? 'idle' : r.kind || '';
-      el.append(h('i', {
-        class: kindClass(kind), role: 'listitem', data: { i: String(i) },
-        'aria-label': `${clock(r.start)} to ${clock(r.end)}, ${r.idle ? 'away' : r.app}`,
-        style: { left: `${(100 * (a - from)) / span}%`, width: `max(1px, ${(100 * (b - a)) / span}%)` },
-      }));
+      const name = rowOf(r);
+      if (!rows.has(name)) rows.set(name, { name, ms: 0, items: [] });
+      const row = rows.get(name);
+      row.ms += r.end - r.start;
+      row.items.push(i);
     });
+    const rank = (n) => (n === 'Away' ? 1e6 : n === 'Unlabelled' ? 1e5 : order.indexOf(n) < 0 ? 1e4 : order.indexOf(n));
+    const sorted = [...rows.values()].sort((a, b) => rank(a.name) - rank(b.name));
+    const el = h('div', { class: 'gantt', style: { '--hour': `${100 / hours}%` } });
+    const axis = h('div', { class: 'lane' });
+    const every = hours > 14 ? 2 : 1;
+    for (let hr = d.hourFirst; hr <= d.hourLast; hr += every) {
+      axis.append(h('span', { style: { left: `${(100 * (hr - d.hourFirst)) / hours}%` } }, String(hr % 24).padStart(2, '0')));
+    }
+    el.append(h('div', { class: 'grow-row axis', 'aria-hidden': 'true' }, h('div', { class: 'n' }), axis));
+    let laneLeft = null;
+    for (const row of sorted) {
+      const lane = h('div', { class: 'lane', role: 'list', 'aria-label': row.name });
+      for (const i of row.items) {
+        const r = d.timeline[i];
+        const a = Math.max(r.start, from);
+        const b = Math.min(r.end, to);
+        if (b <= a) continue;
+        lane.append(h('i', {
+          class: kindClass(r.idle ? 'idle' : r.kind || ''), role: 'listitem', data: { i: String(i) },
+          'aria-label': `${clock(r.start)} to ${clock(r.end)}, ${r.idle ? 'away' : r.app}`,
+          style: { left: `${(100 * (a - from)) / span}%`, width: `${(100 * (b - a)) / span}%` },
+        }));
+      }
+      el.append(h('div', { class: `grow-row ${row.name === 'Away' ? 'away' : ''}` },
+        h('div', { class: 'n' }, h('span', { title: row.name }, row.name), h('span', { class: 'num' }, dur(row.ms))), lane));
+      laneLeft = laneLeft || lane;
+    }
     if (d.today) {
       const now = Date.now();
-      if (now > from && now < to) el.append(h('div', { class: 'now', style: { left: `${(100 * (now - from)) / span}%` } }));
+      if (now > from && now < to) {
+        const nowLine = h('div', { class: 'now' });
+        el.append(nowLine);
+        requestAnimationFrame(() => {
+          if (!laneLeft) return;
+          const x = laneLeft.offsetLeft + (laneLeft.offsetWidth * (now - from)) / span;
+          nowLine.style.setProperty('left', `${x}px`);
+        });
+      }
     }
-    let hot = null;
     el.addEventListener('pointermove', (e) => {
       const seg = e.target.closest('i[data-i]');
-      if (seg !== hot) {
-        if (hot) hot.classList.remove('hot');
-        hot = seg;
-        if (hot) hot.classList.add('hot');
-      }
       if (!seg) return hideTip();
       showTip(rowTip(d.timeline[Number(seg.dataset.i)]), e.clientX, e.clientY);
     });
-    el.addEventListener('pointerleave', () => { if (hot) hot.classList.remove('hot'); hot = null; hideTip(); });
+    el.addEventListener('pointerleave', hideTip);
     el.addEventListener('click', (e) => {
       const seg = e.target.closest('i[data-i]');
       if (!seg) return;
       const r = d.timeline[Number(seg.dataset.i)];
       if (!r.idle) { hideTip(); openRowSheet(r, seg); }
     });
-    const ticks = h('div', { class: 'ticks', 'aria-hidden': 'true' });
-    const hours = d.hourLast - d.hourFirst + 1;
-    const every = hours > 14 ? 3 : hours > 8 ? 2 : 1;
-    for (let hr = d.hourFirst; hr <= d.hourLast + 1; hr += every) {
-      ticks.append(h('span', { style: { left: `${(100 * (hr - d.hourFirst)) / hours}%` } }, `${String(hr % 24).padStart(2, '0')}`));
-    }
-    return h('div', null, el, ticks);
+    return el;
   }
 
   function rowTip(r) {
     const label = r.idle ? 'Away' : r.category ? (r.project ? `${r.category} / ${r.project}` : r.category) : r.project ? `project ${r.project}` : 'Unlabelled';
     return [
-      h('div', { class: 'h' }, r.idle ? 'Idle' : r.app),
+      h('div', { class: 'h' }, r.idle ? 'Away' : r.app),
       r.text ? h('div', { class: 's' }, r.text) : null,
       h('div', { class: 's' }, `${clock(r.start)}–${r.open ? 'now' : clock(r.end)} · ${dur(r.end - r.start)} · ${label}`),
     ];
-  }
-
-  function hoursChart(d) {
-    const cols = h('div', { class: 'hours' });
-    const labels = h('div', { class: 'hours-l', 'aria-hidden': 'true' });
-    let max = 0;
-    const per = [];
-    for (let hr = d.hourFirst; hr <= d.hourLast; hr++) {
-      let sum = 0;
-      for (const k of Object.keys(d.hours)) sum += d.hours[k][hr];
-      per.push(sum);
-      max = Math.max(max, sum);
-    }
-    const scale = Math.max(max, 3600e3 / 2);
-    for (let hr = d.hourFirst, i = 0; hr <= d.hourLast; hr++, i++) {
-      const col = h('div', { class: 'col', title: `${String(hr).padStart(2, '0')}:00 · ${dur(per[i])}` });
-      for (const k of [...KINDS, '']) {
-        const ms = (d.hours[k] || [])[hr] || 0;
-        if (ms > 0) col.append(h('i', { class: kindClass(k), style: { height: `${(100 * ms) / scale}%`, 'animation-delay': `${i * 18}ms` } }));
-      }
-      cols.append(col);
-      labels.append(h('span', null, hr % 2 === 0 || d.hourLast - d.hourFirst < 10 ? String(hr).padStart(2, '0') : ''));
-    }
-    return h('div', null, cols, labels);
   }
 
   function activityCard(d) {
@@ -646,10 +730,10 @@
         h('span', { class: 'dn' }, parseDate(d.date).toLocaleDateString([], { weekday: 'short' }))));
     });
     grid.append(card(null, h('div', null, bars, h('div', { style: { 'margin-top': '1.25rem' } }, kindStack(w.byKind, w.trackedMS))), { cls: 'c12' }));
-    grid.append(card('Categories', barList(w.categories.map((c) => ({ name: c.name, ms: c.ms, kind: c.kind })), { total: w.trackedMS }), { cls: 'c6' }));
-    grid.append(card('Projects', barList(w.projects.map((p) => ({ ...p, kind: 'deep' })), { total: w.trackedMS, empty: 'No project time' }), { cls: 'c6' }));
-    grid.append(card('Apps and sites', barList(w.apps.map((p) => ({ ...p, kind: 'neutral' })), { total: w.trackedMS }), { cls: 'c6' }));
-    grid.append(card('Distractions', barList(w.distractions.map((p) => ({ ...p, kind: 'distract' })), { total: w.trackedMS, empty: 'None this week' }), { cls: 'c6' }));
+    grid.append(card(null, ledger(w.categories.map((c) => ({ name: c.name, ms: c.ms, kind: c.kind })), { head: 'Category', total: w.trackedMS }), { cls: 'c6' }));
+    grid.append(card(null, ledger(w.projects, { head: 'Project', total: w.trackedMS, empty: 'No project time this week' }), { cls: 'c6' }));
+    grid.append(card(null, ledger(w.apps, { head: 'App or site', total: w.trackedMS, limit: 10 }), { cls: 'c6' }));
+    grid.append(card(null, ledger(w.distractions.map((p) => ({ ...p, kind: 'distract' })), { head: 'Distraction', total: w.trackedMS, empty: 'No distractions this week' }), { cls: 'c6' }));
     const goals = goalsCard(w.goals, w.plan ? 'c6' : 'c12');
     if (goals) grid.append(goals);
     if (w.plan) grid.append(card('Plan for the week', h('div', { class: 'plan' }, w.plan), { cls: 'c6' }));
@@ -679,26 +763,18 @@
     }
     const kindOfCat = {};
     for (const c of t.sections.category) kindOfCat[c.name] = c.kind;
-    const mostly = (r) => (r.mostly ? h('div', { class: 'mostly' }, `mostly ${nice(r.mostly).replace('Unlabelled', 'unlabelled')}`) : null);
     const byMostly = (r) => r.kind || kindOfCat[r.mostly] || '';
     const grid = h('div', { class: 'grid' });
-    const sec = (title, rows, opts) => grid.append(card(title, barList(rows.slice(0, 12), { total: t.totalMS, ...opts }), { cls: 'c6' }));
-    sec('Categories', t.sections.category, {});
-    sec('Projects', t.sections.project, { empty: 'No project time in this range', kindOf: () => 'deep' });
-    sec('Apps', t.sections.app, { sub: mostly, kindOf: byMostly });
-    sec('Sites', t.sections.site, { sub: mostly, kindOf: byMostly, empty: 'No browser time with a URL' });
+    const sec = (head, rows, opts) => grid.append(card(null, ledger(rows, { head, total: t.totalMS, limit: 12, ...opts }), { cls: 'c6' }));
+    sec('Category', t.sections.category, {});
+    sec('Project', t.sections.project, { empty: 'No project time in this range' });
+    sec('App', t.sections.app, { kindOf: byMostly });
+    sec('Site', t.sections.site, { kindOf: byMostly, empty: 'No browser time with a URL' });
     nodes.push(grid);
     return nodes;
   }
 
   // ---------- Inbox ----------
-  const AVATAR = ['#5fc4ad', '#e0bf72', '#ef8a76', '#9aa5ff', '#b69cf0', '#8a94a6', '#7fb8d8', '#c9a27e'];
-  function avatarColor(name) {
-    let x = 0;
-    for (const ch of name) x = (x * 31 + ch.codePointAt(0)) >>> 0;
-    return AVATAR[x % AVATAR.length];
-  }
-
   function renderInbox(d) {
     const nodes = [h('div', { class: 'toolrow' },
       h('div', null, h('h1', null, 'Inbox'),
@@ -712,7 +788,6 @@
     d.items.forEach((it, i) => {
       const sg = it.suggestion;
       list.append(h('div', { class: `item ${i === state.sel ? 'sel' : ''}`, role: 'listitem', data: { i: String(i) } },
-        h('div', { class: 'avatar', style: { '--av': avatarColor(it.app) }, 'aria-hidden': 'true' }, (it.app.match(/\p{L}|\p{N}/u) || ['?'])[0].toUpperCase()),
         h('div', { class: 'main' },
           h('div', { class: 'key', title: it.key }, it.key),
           it.example && !it.private ? h('div', { class: 'ex', title: it.example }, it.example) : null,
@@ -1023,8 +1098,11 @@
   // Today follows the clock: refresh every minute while visible, and when
   // the tab comes back.
   setInterval(() => {
-    if (document.visibilityState === 'visible' && !sheetOpen && state.view === 'today' && state.date === todayStr()) load({ quiet: true });
+    if (document.visibilityState !== 'visible') return;
+    loadStatus();
+    if (!sheetOpen && state.view === 'today' && state.date === todayStr()) load({ quiet: true });
   }, 60_000);
+  setInterval(() => { if (document.visibilityState === 'visible') renderSession(); }, 15_000);
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && !sheetOpen && token) { load({ quiet: true }); refreshBadge(); }
   });
@@ -1032,9 +1110,8 @@
   const VIEWS = { today: renderToday, week: renderWeek, top: renderTop, inbox: renderInbox };
 
   syncChrome();
-  moveThumb(true);
   if (token) {
-    loadLabels().then(() => { load({ enter: true }); refreshBadge(); });
+    loadLabels().then(() => { load({ enter: true }); refreshBadge(); loadStatus(); });
   } else {
     renderNoToken();
   }

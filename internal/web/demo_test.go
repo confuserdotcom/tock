@@ -44,6 +44,13 @@ at_most = "1h"
 		add(d, "12:45", "13:20", "mail", "Mail", "Inbox", "")
 		add(d, "13:20", fmt.Sprintf("%02d:%02d", 14-d%2, 30+5*d), "arc", "Arc", "Docs", "docs.example.org/guide")
 	}
+	// The same weekday in past weeks, for the change against the usual day.
+	for w, end := range []string{"11:00", "10:30", "11:40"} {
+		d := -7 * (w + 1)
+		add(d, "09:00", end, "term", "WezTerm", "tock │ review", "")
+		add(d, end, "11:50", "arc", "Arc", "Video", "www.youtube.com/watch")
+		add(d, "13:00", "15:00", "mail", "Mail", "Inbox", "")
+	}
 	a, err := app.Open(app.Paths{DB: e.DB, Rules: e.Rules, Learned: e.Learned, Config: e.Config, ShellLog: e.ShellLog}, e.NowFunc())
 	if err != nil {
 		t.Fatal(err)
