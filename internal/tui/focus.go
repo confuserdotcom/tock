@@ -511,7 +511,7 @@ func (t focusTab) view(w, h int, now time.Time) []string {
 // cardLabel is a card row's 12-cell label.
 func cardLabel(s string) string { return sDim.Render(fit(s, 12)) }
 
-// qualityLine draws the breakdown "share 82 · longest 70 · ..." with the
+// qualityLine draws the breakdown "on task 82 · longest 70 · ..." with the
 // numbers in the text colour and the words dim.
 func qualityLine(s string) string {
 	var out, run strings.Builder

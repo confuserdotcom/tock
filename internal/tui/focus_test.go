@@ -191,7 +191,7 @@ func TestFocusCardAutoAndLegacy(t *testing.T) {
 	e.Heartbeat(t, e.Clock.UnixMilli())
 	seedAuto(t, e, "13:00", "13:40", 0, store.Session{DeepMS: 38 * min1, LongestMS: 30 * min1, Switches: -1})
 	m = press(t, m, "4")
-	mustContain(t, m, "auto-detected · longest run 30m", "calm n/a (auto)", "steady n/a", "unrated")
+	mustContain(t, m, "auto-detected · longest run 30m", "switches n/a", "unrated")
 	mustNotContain(t, m, "interruption")
 }
 

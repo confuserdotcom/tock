@@ -24,27 +24,27 @@ func (t todayTab) scoreView(w, h int, loc *time.Location) []string {
 		return []string{" " + sHead.Render("Score · "+date), "", "  no activity on this day"}
 	}
 	term := func(name string, v, weight float64, why string) string {
-		return fmt.Sprintf("  %-8s %4.2f × %.1f = %4.1f   %s", name, v, weight, 100*v*weight, why)
+		return fmt.Sprintf("  %-12s %4.2f × %.1f = %4.1f   %s", name, v, weight, 100*v*weight, why)
 	}
 	sum := int(math.Round(sc.Sum()))
 	out := []string{
 		" " + sHead.Render(fmt.Sprintf("Score %d · %s", sc.Value, date)),
 		"",
-		term("depth", sc.Depth, sc.Weights.Depth,
+		term("deep time", sc.Depth, sc.Weights.Depth,
 			fmt.Sprintf("focus %s of target %s", report.Dur(st.FocusMS), report.Dur(sc.Target.MS))),
-		term("blocks", sc.Blocks, sc.Weights.Blocks,
+		term("long blocks", sc.Blocks, sc.Weights.Blocks,
 			fmt.Sprintf("%s in blocks of %s or more", report.Dur(st.LongMS), report.Dur(stats.LongBlockMS))),
-		term("calm", sc.Calm, sc.Weights.Calm,
+		term("few switches", sc.Calm, sc.Weights.Calm,
 			fmt.Sprintf("%s in %s active = %.1f an hour (%d = 0)", switches(st.Switches),
 				report.Dur(st.ActiveMS), sc.SwitchesPerHour, stats.CalmZeroPerHour)),
-		term("stretch", sc.Stretch, sc.Weights.Stretch,
+		term("longest run", sc.Stretch, sc.Weights.Stretch,
 			fmt.Sprintf("longest %s without a switch (%s = 1)", report.Dur(st.LongestRunMS), report.Dur(stats.StretchFullMS))),
-		fmt.Sprintf("  %-8s            − %4d   %s distraction, 1 point per %dm, at most %d", "penalty",
+		fmt.Sprintf("  %-12s            − %4d   %s distraction, 1 point per %dm, at most %d", "distraction",
 			sc.Penalty, report.Dur(st.DistractMS), stats.PenaltyPerMin, stats.PenaltyCap),
-		strings.Repeat(" ", 24) + "────",
-		alignRight(fmt.Sprintf("%d − %d = %d", sum, sc.Penalty, sc.Value), 28) + "   (sum rounded, then penalty, 0–100)",
+		strings.Repeat(" ", 28) + "────",
+		alignRight(fmt.Sprintf("%d − %d = %d", sum, sc.Penalty, sc.Value), 32) + "   (sum rounded, then penalty, 0–100)",
 		"",
-		"  target   " + targetText(sc.Target),
+		"  target       " + targetText(sc.Target),
 		"",
 	}
 	room := max(h-len(out), 1)
@@ -54,9 +54,9 @@ func (t todayTab) scoreView(w, h int, loc *time.Location) []string {
 		lines = append(lines[:room-1], fmt.Sprintf("+%d more", more))
 	}
 	for i, l := range lines {
-		lead := "           "
+		lead := "               "
 		if i == 0 {
-			lead = "  blocks   "
+			lead = "  blocks       "
 		}
 		out = append(out, fit(lead+l, w))
 	}

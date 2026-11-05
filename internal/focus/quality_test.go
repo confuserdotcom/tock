@@ -96,16 +96,16 @@ func TestQualityClamp(t *testing.T) {
 
 func TestQualityLine(t *testing.T) {
 	s := q50()
-	if got, want := Quality(s, Weights{}).Line(), "share 82 · longest 70 · calm 50 · steady 36"; got != want {
+	if got, want := Quality(s, Weights{}).Line(), "on task 82 · longest 70 · few interruptions 50 · few switches 36"; got != want {
 		t.Errorf("Line = %q, want %q", got, want)
 	}
 	s.Switches = -1
-	if got, want := Quality(s, Weights{}).Line(), "share 82 · longest 70 · calm 50 · steady n/a"; got != want {
+	if got, want := Quality(s, Weights{}).Line(), "on task 82 · longest 70 · few interruptions 50 · switches n/a"; got != want {
 		t.Errorf("legacy Line = %q, want %q", got, want)
 	}
 	s = q50()
 	s.Kind = KindAuto
-	if got, want := Quality(s, Weights{}).Line(), "share 82 · longest 70 · calm n/a (auto) · steady 36"; got != want {
+	if got, want := Quality(s, Weights{}).Line(), "on task 82 · longest 70 · few switches 36"; got != want {
 		t.Errorf("auto Line = %q, want %q", got, want)
 	}
 }
