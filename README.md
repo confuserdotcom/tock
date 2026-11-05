@@ -100,7 +100,9 @@ In the terminal UI, `?` lists the keys and `:` opens a command palette.
 
 ## Documentation
 
+- [confuserdotcom.github.io/tock](https://confuserdotcom.github.io/tock/): the guide and the architecture as a site.
 - [Guide](docs/guide.md): every command, file and feature.
+- [Architecture](docs/architecture.md): how the pieces fit, and what they cost.
 - [CHANGELOG](CHANGELOG.md): what changed in each release.
 - [DESIGN.md](DESIGN.md): the design system for the dashboard, TUI and menu.
 

@@ -1,0 +1,14 @@
+title: tock
+description: Records what you work on and labels it with rules you write. Local, one SQLite file.
+markdown: kramdown
+kramdown:
+  input: GFM
+  hard_wrap: false
+exclude:
+  - spikes
+  - superpowers
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: default

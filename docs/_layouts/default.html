@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>{% if page.title and page.title != site.title %}{{ page.title }} · {% endif %}{{ site.title }}</title>
+<meta name="description" content="{{ page.description | default: site.description }}">
+<link rel="stylesheet" href="{{ '/assets/site.css' | relative_url }}">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="{{ '/' | relative_url }}">tock</a>
+  <nav>
+    <a href="{{ '/' | relative_url }}"{% if page.url == '/' %} aria-current="page"{% endif %}>Overview</a>
+    <a href="{{ '/guide' | relative_url }}"{% if page.url contains 'guide' %} aria-current="page"{% endif %}>Guide</a>
+    <a href="{{ '/architecture' | relative_url }}"{% if page.url contains 'architecture' %} aria-current="page"{% endif %}>Architecture</a>
+    <a href="https://github.com/confuserdotcom/tock">GitHub</a>
+  </nav>
+</header>
+<div class="wrap{% if page.url contains 'guide' %} has-toc{% endif %}">
+  {% if page.url contains 'guide' %}<aside class="toc" id="toc" aria-label="Sections"></aside>{% endif %}
+  <main class="doc">
+{{ content }}
+  </main>
+</div>
+<footer class="foot">MIT licence · <a href="https://github.com/confuserdotcom/tock/blob/main/CHANGELOG.md">Changelog</a> · <a href="https://github.com/confuserdotcom/tock/security/advisories/new">Report a security problem</a></footer>
+{% if page.url contains 'guide' %}
+<script>
+// The guide's sections, built from its h2 headings.
+(function () {
+  var toc = document.getElementById('toc');
+  var hs = document.querySelectorAll('.doc h2[id]');
+  hs.forEach(function (h) {
+    var a = document.createElement('a');
+    a.href = '#' + h.id;
+    a.textContent = h.textContent;
+    toc.appendChild(a);
+  });
+  var links = toc.querySelectorAll('a');
+  var io = new IntersectionObserver(function (es) {
+    es.forEach(function (e) {
+      if (!e.isIntersecting) return;
+      links.forEach(function (l) { l.toggleAttribute('aria-current', l.hash === '#' + e.target.id); });
+    });
+  }, { rootMargin: '0px 0px -75% 0px' });
+  hs.forEach(function (h) { io.observe(h); });
+})();
+</script>
+{% endif %}
+</body>
+</html>
