@@ -90,8 +90,8 @@ void bar_set_title(const char *title) {
     });
 }
 
-// kindColor is the web dashboard's --k-* colour of a kind; an unknown kind
-// is tertiary grey.
+// kindColor is DESIGN.md's colour of a kind, darker on a light menu and
+// lighter on a dark one; an unknown kind is tertiary grey.
 static NSColor *kindColor(NSString *k) {
     static NSDictionary<NSString *, NSColor *> *m;
     static dispatch_once_t once;
@@ -102,13 +102,21 @@ static NSColor *kindColor(NSString *k) {
                                         blue:(v & 0xff) / 255.0
                                        alpha:1];
         };
+        NSColor * (^pair)(unsigned, unsigned) = ^(unsigned light, unsigned dark) {
+            NSColor *l = hex(light), *d = hex(dark);
+            return [NSColor colorWithName:nil
+                          dynamicProvider:^NSColor *(NSAppearance *a) {
+                              NSAppearanceName n = [a bestMatchFromAppearancesWithNames:@[ NSAppearanceNameAqua, NSAppearanceNameDarkAqua ]];
+                              return [n isEqualToString:NSAppearanceNameDarkAqua] ? d : l;
+                          }];
+        };
         m = @{
-            @"deep" : hex(0x1f8a73),
-            @"shallow" : hex(0xa07818),
-            @"neutral" : hex(0x6b7487),
-            @"browse" : hex(0xb8692a),
-            @"distract" : hex(0xc4503a),
-            @"none" : hex(0x7652c9),
+            @"deep" : pair(0x2d7a68, 0x63bfa8),
+            @"shallow" : pair(0x5a78a3, 0x8fa9d1),
+            @"neutral" : pair(0x858991, 0x7d828c),
+            @"browse" : pair(0x9a6585, 0xc993b4),
+            @"distract" : pair(0xb5462c, 0xe57d62),
+            @"none" : pair(0xb0aea6, 0x56554f),
         };
     });
     NSColor *c = m[k];
