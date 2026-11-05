@@ -2,7 +2,7 @@
 
 What changed for you in each release. Dates are UTC.
 
-## v5.0.0 — unreleased
+## v5.0.0 — 2026-11-05
 
 The first public release.
 
