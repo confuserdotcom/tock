@@ -1627,3 +1627,32 @@ func TestLastSessionVisibility(t *testing.T) {
 		}
 	}
 }
+
+func TestMenuFeature(t *testing.T) {
+	e, a := seeded(t)
+	if a.Config().Focus.BreakScreen {
+		t.Fatal("break_screen is on before the click")
+	}
+	if msg, err := Menu(a, IDFeature+"break_screen"); err != nil || msg != "Break screen on" {
+		t.Fatalf("toggle = %q, %v", msg, err)
+	}
+	if !a.Config().Focus.BreakScreen {
+		t.Fatal("break_screen not picked up")
+	}
+	s, err := Load(a, e.Clock, app.NotifyGranted)
+	if err != nil || !strings.Contains(titles(s.Items(e.Clock.UnixMilli())), "✓ Break screen [feature:break_screen]") {
+		t.Fatalf("menu after toggle:\n%s\n%v", titles(s.Items(e.Clock.UnixMilli())), err)
+	}
+	if msg, err := Menu(a, IDFeature+"break_screen"); err != nil || msg != "Break screen off" {
+		t.Fatalf("second toggle = %q, %v", msg, err)
+	}
+	if _, err := os.Stat(e.Config + ".bak"); err != nil {
+		t.Fatalf("no backup: %v", err)
+	}
+	if msg, err := Menu(a, IDFeature+"ocr"); err != nil || !strings.HasPrefix(msg, "Screen text on · ") {
+		t.Fatalf("ocr = %q, %v", msg, err)
+	}
+	if _, err := Menu(a, IDFeature+"nope"); !errors.Is(err, ErrUnknown) {
+		t.Fatalf("unknown = %v", err)
+	}
+}
