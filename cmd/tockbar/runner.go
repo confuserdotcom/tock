@@ -37,7 +37,7 @@ type ui interface {
 	// Curtain shows the break screen of notice id over every screen until a
 	// button (answered through evResponse) or Esc closes it: fromMS is when
 	// the break began, untilMS its planned end, buttons "id\ttitle…".
-	Curtain(id int64, title, body string, fromMS, untilMS int64, buttons string)
+	Curtain(id int64, title, body, word string, fromMS, untilMS int64, buttons string)
 	CheckAuth(prompt bool)
 	OpenURL(url string)
 	Quit()
@@ -190,13 +190,17 @@ func (r *runner) post() {
 			r.warn("reading a notice failed", err)
 			continue
 		}
-		if n.Topic == focus.TopicBreakScreen && d.From > 0 {
+		if (n.Topic == focus.TopicBreakScreen || n.Topic == focus.TopicWake) && d.From > 0 {
 			var bs []string
 			for _, b := range bar.Buttons(n, d) {
 				bs = append(bs, b.ID, clean(b.Title))
 			}
-			r.ui.Curtain(n.ID, clean(n.Title), clean(n.Body), d.From, d.To, strings.Join(bs, "\t"))
-			r.log.Info("break screen shown")
+			word, until, what := "away", d.To, "break screen"
+			if n.Topic == focus.TopicWake {
+				word, until, what = "off task", d.From, "wake screen"
+			}
+			r.ui.Curtain(n.ID, clean(n.Title), clean(n.Body), word, d.From, until, strings.Join(bs, "\t"))
+			r.log.Info(what + " shown")
 			continue
 		}
 		cat := bar.Category(n, d)
