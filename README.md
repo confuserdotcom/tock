@@ -50,7 +50,24 @@ The full list is in [Privacy in detail](docs/guide.md#privacy-in-detail).
 
 ## Install
 
-On macOS you need Go 1.26 and the Xcode command line tools
+**macOS, with Homebrew:**
+
+```sh
+brew install confuserdotcom/tock/tock
+tock setup
+```
+
+Homebrew builds tock on your Mac, so macOS never shows an "unidentified
+developer" warning. `tock setup` makes a code-signing certificate that
+stays in your login keychain (macOS asks for your password once to trust
+it), installs `trackd.app` and the menu bar app, starts them, writes
+starter rules to `~/.config/tock/rules.toml` and runs `tock doctor`. On
+first start trackd asks for Accessibility, and browsers ask for
+Automation. After `brew upgrade tock`, run `tock setup` again. macOS ties
+the Accessibility grant to the certificate, so updates keep it.
+`tock setup --check` shows what is missing.
+
+**macOS, from source:** you need Go 1.26 and the Xcode command line tools
 (`xcode-select --install`).
 
 ```sh
@@ -60,15 +77,11 @@ make cert-trust    # once: approve the macOS dialog that trusts it
 make install       # builds, signs, starts trackd, runs tock doctor
 ```
 
-`make install` puts `tock` in `~/.local/bin` (add it to `PATH`), installs
-`trackd.app` and the menu bar app, and writes starter rules to
-`~/.config/tock/rules.toml`. On first start trackd asks for Accessibility,
-and browsers ask for Automation. `tock doctor` checks all of it.
+`make install` puts `tock` in `~/.local/bin` (add it to `PATH`) and does
+the rest of what `tock setup` does. There is no notarized download.
 
-The certificate stays in your login keychain. macOS ties the Accessibility
-grant to it, so rebuilding keeps the grant. There is no notarized download.
-
-**Linux (Hyprland):** `make install-linux`. Without Go, download
+**Linux (Hyprland):** `make install-linux`, or with Homebrew on Linux
+the same `brew install` and `tock setup` as on macOS. Without Go, download
 `tock-<version>-linux-amd64.tar.gz` (or `arm64`) from
 [Releases](https://github.com/confuserdotcom/tock/releases), check it
 against `SHA256SUMS`, and run:
@@ -82,7 +95,8 @@ install -m 755 trackd tock ~/.local/bin/ && ~/.local/bin/trackd install && tock 
 your history and labels it with your rules.
 
 **Removing it:** `tock uninstall` stops trackd and the menu bar and
-removes the apps. `--purge` also deletes your data.
+removes the apps. `--purge` also deletes your data. A Homebrew install
+then needs `brew uninstall tock` for the command itself.
 
 ## First day
 

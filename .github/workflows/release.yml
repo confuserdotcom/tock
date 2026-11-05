@@ -1,8 +1,10 @@
 name: release
 
 # Pushing a tag like v5.1.0 tests it, builds the Linux tarballs with
-# make release and publishes them as a GitHub release, with the tag's
-# CHANGELOG.md section as notes.
+# make release, the source tarball and Homebrew formula with make formula,
+# and publishes them as a GitHub release, with the tag's CHANGELOG.md
+# section as notes. Copy the release's tock.rb to Formula/tock.rb in the
+# homebrew-tock tap.
 
 on:
   push:
@@ -16,6 +18,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # make src archives the tag
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
@@ -26,14 +30,31 @@ jobs:
           awk -v v="$GITHUB_REF_NAME" '$0 ~ "^## "v" " {on=1; next} on && /^## / {exit} on' CHANGELOG.md > "$RUNNER_TEMP/notes.md"
           test -s "$RUNNER_TEMP/notes.md" || { echo "CHANGELOG.md has no section for $GITHUB_REF_NAME" >&2; exit 1; }
       - name: build
-        run: make release VERSION="$GITHUB_REF_NAME"
+        run: make release formula VERSION="$GITHUB_REF_NAME"
       - name: publish
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" dist/*.tar.gz dist/SHA256SUMS --clobber
+            gh release upload "$GITHUB_REF_NAME" dist/*.tar.gz dist/SHA256SUMS dist/tock.rb --clobber
           else
-            gh release create "$GITHUB_REF_NAME" dist/*.tar.gz dist/SHA256SUMS \
+            gh release create "$GITHUB_REF_NAME" dist/*.tar.gz dist/SHA256SUMS dist/tock.rb \
               --title "$GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/notes.md" --verify-tag
           fi
+
+  # The formula as a user gets it: build from the published source on a Mac,
+  # then brew test runs tock version.
+  brew:
+    needs: release
+    runs-on: macos-latest
+    steps:
+      - name: install from the release's formula
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "$GITHUB_REF_NAME" -R "$GITHUB_REPOSITORY" -p tock.rb -D "$RUNNER_TEMP"
+          brew tap-new --no-git local/tock
+          cp "$RUNNER_TEMP/tock.rb" "$(brew --repository)/Library/Taps/local/homebrew-tock/Formula/tock.rb"
+          brew install --build-from-source local/tock/tock
+          brew test local/tock/tock
+          tock setup --check || true # nothing is set up on the runner: it only must run
