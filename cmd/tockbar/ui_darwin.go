@@ -4,7 +4,7 @@ package main
 
 /*
 #cgo CFLAGS: -fobjc-arc
-#cgo LDFLAGS: -framework Cocoa -framework UserNotifications
+#cgo LDFLAGS: -framework Cocoa -framework Carbon -framework UserNotifications
 #include <stdlib.h>
 #include "ui_darwin.h"
 */
@@ -69,6 +69,15 @@ func (cocoa) SetTitle(t string) { cstr(t, func(c *C.char) { C.bar_set_title(c) }
 func (cocoa) SetMenu(s string)  { cstr(s, func(c *C.char) { C.bar_set_menu(c) }) }
 func (cocoa) OpenURL(u string)  { cstr(u, func(c *C.char) { C.bar_open_url(c) }) }
 func (cocoa) Quit()             { C.bar_quit() }
+func (cocoa) Prompt(s string)   { cstr(s, func(c *C.char) { C.bar_prompt(c) }) }
+
+func (cocoa) SetHotkey(on bool) {
+	v := 0
+	if on {
+		v = 1
+	}
+	C.bar_set_hotkey(C.int(v))
+}
 
 func (cocoa) CheckAuth(prompt bool) {
 	p := C.int(0)

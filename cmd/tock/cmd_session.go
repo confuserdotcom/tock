@@ -73,14 +73,23 @@ func sessionShow(env Env) error {
 }
 
 func sessionStart(env Env, args []string) error {
-	paper := false
+	paper, goal := false, ""
 	var rest []string
-	for _, a := range args {
+	for i := 0; i < len(args); i++ {
+		a := args[i]
 		switch {
 		case a == "--paper":
 			paper = true
+		case a == "--goal":
+			if i+1 >= len(args) || strings.TrimSpace(args[i+1]) == "" {
+				return usagef("session start: --goal needs what the session is for")
+			}
+			i++
+			goal = args[i]
+		case strings.HasPrefix(a, "--goal="):
+			goal = strings.TrimPrefix(a, "--goal=")
 		case strings.HasPrefix(a, "-"):
-			return usagef("session start: unknown flag %q (--paper: idle time is paper work)", a)
+			return usagef("session start: unknown flag %q (--paper: idle time is paper work; --goal \"text\": what it is for)", a)
 		default:
 			rest = append(rest, a)
 		}
@@ -105,16 +114,22 @@ func sessionStart(env Env, args []string) error {
 	if n == 0 {
 		n = a.Config().Focus.Presets[0]
 	}
-	s, err := a.StartSessionPaper(n, paper)
+	s, err := a.StartSessionGoal(n, goal)
 	if err != nil {
 		return err
 	}
-	onPaper := ""
+	tail := ""
 	if paper {
-		onPaper = ", on paper"
+		if err := a.SetPaper(s.ID); err != nil {
+			return err
+		}
+		tail = ", on paper"
+	}
+	if s.Goal != "" {
+		tail += " · " + s.Goal
 	}
 	fmt.Fprintf(env.Stdout, "session started: %d min, ends %s%s\n", n,
-		time.UnixMilli(s.PlannedMS).In(env.Now().Location()).Format("15:04"), onPaper)
+		time.UnixMilli(s.PlannedMS).In(env.Now().Location()).Format("15:04"), tail)
 	if h, err := a.Health(); err == nil && !h.TrackdUp {
 		fmt.Fprintln(env.Stderr, "warning: trackd not running, no alerts")
 	}

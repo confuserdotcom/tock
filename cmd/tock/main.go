@@ -55,8 +55,8 @@ const usage = `usage:
                                          projects; filed under a category they are modules
   tock goal [set <label> <time>[/week] [--max] | rm <label> [week] [--max]]
                                          goals per day or week, on a category or module
-  tock session [start [MIN] [--paper] | stop]
-                                         focus session: show, start (default 25; --paper: idle is paper work), stop
+  tock session [start [MIN] [--paper] [--goal TEXT] | stop]
+                                         focus session: show, start (default 25; --paper: idle is paper work; --goal: what it is for), stop
   tock break [MIN]                       take a break now (default 5 min)
   tock session snooze [MIN|off]          snooze distraction notices of the running session (default [focus] snooze), or resume them
   tock session list | weights            this week's finished sessions with quality and rating | the quality weights
