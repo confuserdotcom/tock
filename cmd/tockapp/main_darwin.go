@@ -50,6 +50,11 @@ func main() {
 	}
 	_, perr := os.Stat(filepath.Join(payloadDir(self), "tock"))
 	p := decide(self, version, installedVersion(), perr == nil)
+	if p.kind == "setup" {
+		// You let this app open with Open Anyway; the tools inside it came
+		// down with the same quarantine and would each be stopped again.
+		_ = exec.Command("/usr/bin/xattr", "-dr", "com.apple.quarantine", payloadDir(self)).Run()
+	}
 
 	cs := func(s string) *C.char { return C.CString(s) }
 	argv := make([]*C.char, len(p.cmd)+1)
