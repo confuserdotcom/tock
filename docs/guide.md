@@ -170,6 +170,7 @@ tock blocks [--date D]                 the day's work blocks: stretches of work 
 tock summary [--date D] [--dry-run]    Claude writes what you worked on (claude CLI or ANTHROPIC_API_KEY)
 tock ask [--dry-run] "<question>"      ask about your time in plain words; answered on this machine
 tock doctor [--wait] [--open]          check trackd, permissions, rules and config
+tock version                           the version of this build
 tock export [--from D] [--to D] [--format csv|json] [--by project]
                                        labelled spans, default the last 7 days as csv
 tock backup [--out FILE]               archive tock.db and the rule, config and shell files
