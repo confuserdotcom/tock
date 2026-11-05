@@ -19,7 +19,7 @@ Sections:
   machine (see The model).
 - `trackd` contains no network code at all; a test fails the build if it ever
   links an HTTP or TLS client.
-- Private-browsing windows are recorded as "<app> (private)", with no title or
+- Private-browsing windows are recorded as `<app> (private)`, with no title or
   URL. Apps and sites you hide (**Settings ▸ Privacy** in the menu bar, or
   `[privacy] hide_apps` / `hide_sites`) are recorded the same way.
 - Claude suggestions, summaries and `tock ask` are the only features that talk
@@ -1296,7 +1296,7 @@ menu stays short and shows a row only when it matters:
   runs `tock web` for you (no terminal needed) and stops it after 30 minutes
   with no request;
 - **Settings**: the same switches as `tock choice`, ticked when on;
-  **Privacy**, which offers **Hide <app>** and **Hide <site>** for what was
+  **Privacy**, which offers **Hide &lt;app&gt;** and **Hide &lt;site&gt;** for what was
   just in front and lists what is hidden (click one to show it again);
   **Notifications…**, **Accessibility…** and **Quit tock menu bar**.
 
