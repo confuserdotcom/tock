@@ -88,3 +88,18 @@ func TestBreakScreenOffOrInCall(t *testing.T) {
 		}
 	}
 }
+
+func TestBreakScreenNamesTheGoal(t *testing.T) {
+	in := screenIn(at(14, 15, 0), State{}, vw{at(14, 0, 0), at(14, 15, 0), "idle", "", ""})
+	in.Sessions = []Session{
+		{ID: 1, Kind: KindManual, StartMS: at(11, 0, 0), EndMS: at(11, 50, 0), Goal: "old thing"},
+		{ID: 2, Kind: KindManual, StartMS: at(13, 10, 0), EndMS: at(14, 0, 0), Goal: "TD 3"},
+	}
+	if s := screens(Step(in)); len(s) != 1 || s[0].Title != "Back to TD 3?" {
+		t.Fatalf("screen = %+v", s)
+	}
+	in.Sessions = in.Sessions[:1] // the goal is from a session long before the break
+	if s := screens(Step(in)); len(s) != 1 || s[0].Title != TitleBreakScreen {
+		t.Fatalf("screen = %+v", s)
+	}
+}
