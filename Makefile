@@ -126,6 +126,8 @@ bundle-bar:
 	if [ "$$rc" = 142 ]; then echo "codesign timed out after $(CODESIGN_TIMEOUT) s: a keychain prompt is probably waiting" >&2; exit 1; fi; \
 	[ "$$rc" = 0 ] || exit $$rc
 	codesign --verify --strict "$(BAR_BUNDLE)"
+	@# tock:// links (Shortcuts, Raycast) reach the app once Launch Services knows it.
+	-/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$(BAR_BUNDLE)"
 
 # icon: render packaging/bar/AppIcon.icns from the drawing in
 # packaging/bar/icon/gen.go (same as icon.svg). Commit the result.
