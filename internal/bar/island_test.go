@@ -233,3 +233,28 @@ func TestIslandJSON(t *testing.T) {
 		t.Fatalf("key leaks to the UI: %s", j)
 	}
 }
+
+func TestMomentsFoldByThemselves(t *testing.T) {
+	n := store.Notice{ID: 3, Title: "Standup", Body: "in 1 min"}
+	for _, i := range []Island{MeetIsland(n, app.NoticeData{}), DoneIsland(n, app.NoticeData{}, nil, time.UTC, 0),
+		RecapIsland(n, report.Day{}, app.Usual{}, 0, time.UTC)} {
+		if i.AutoClose <= 0 {
+			t.Errorf("%s stays open forever when nobody is there", i.State)
+		}
+	}
+}
+
+func TestMissedWaitsInTheQuietNotch(t *testing.T) {
+	done := DoneIsland(store.Notice{ID: 4, Title: "Session done"}, app.NoticeData{}, nil, time.UTC, 0)
+	q := Missed(Island{State: IslandQuiet, Hover: &Panel{Lead: "today"}}, done)
+	if !q.Pending || q.Open || q.State != IslandQuiet || q.Face.Dot != DotGood || q.Face.Left != "" {
+		t.Fatalf("missed quiet = %+v", q)
+	}
+	if q.Hover != done.Panel {
+		t.Fatal("hovering a missed moment must show it")
+	}
+	running := Island{State: IslandFocus, Face: Face{Left: "Write"}}
+	if got := Missed(running, done); got.Pending || got.Face.Left != "Write" {
+		t.Fatalf("a running session must keep its face: %+v", got)
+	}
+}

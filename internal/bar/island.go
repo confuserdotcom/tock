@@ -38,6 +38,8 @@ const (
 	// IDNotchMenu (+ a menu id) is a panel button that does what the menu
 	// item does; it closes the moment it was on.
 	IDNotchMenu = "notch:menu:"
+	// IDNotchSeen is sent when a missed moment was opened and put away.
+	IDNotchSeen = "notch:seen"
 )
 
 // Dot kinds beyond the kinds of time.
@@ -62,6 +64,12 @@ const (
 	meetAfterMS = 60_000
 	// driftAutoClose is how many seconds an open drift nudge stays.
 	driftAutoClose = 12
+	// meetAutoClose, doneAutoClose and recapAutoClose are how many seconds
+	// those moments stay open when nobody points at them. A session end and
+	// the recap then wait in the quiet notch (see Missed).
+	meetAutoClose  = 90
+	doneAutoClose  = 30
+	recapAutoClose = 60
 	// labelEntries is how many inbox entries one labelling round offers.
 	labelEntries = 3
 	// minLabelMS is the least unlabelled time the island offers to label.
@@ -84,6 +92,9 @@ type Island struct {
 	Face      Face   `json:"face"`
 	Panel     *Panel `json:"panel,omitempty"`
 	Hover     *Panel `json:"hover,omitempty"`
+	// Pending marks a quiet notch holding a moment that folded unseen: its
+	// dot shows, and the panel opened from it is that moment.
+	Pending bool `json:"pending,omitempty"`
 }
 
 // Face is the compact text either side of the notch.
@@ -341,7 +352,7 @@ func DriftIsland(n store.Notice, d app.NoticeData) Island {
 // MeetIsland is the moment of a starting plan item or event.
 func MeetIsland(n store.Notice, d app.NoticeData) Island {
 	f := Face{Dot: "shallow", Left: report.Cut(n.Title, goalCells), Right: "now"}
-	return Island{State: IslandMeet, Open: true, Notice: n.ID, Face: f,
+	return Island{State: IslandMeet, Open: true, Notice: n.ID, AutoClose: meetAutoClose, Face: f,
 		Panel: &Panel{Face: f, Lead: n.Title, Sub: n.Body, Buttons: append(noticeButtons(n, d, nil), closeButton)}}
 }
 
@@ -376,7 +387,20 @@ func DoneIsland(n store.Notice, d app.NoticeData, detail *report.SessionDetail, 
 	}
 	p.Buttons = append(p.Buttons, closeButton)
 	p.Buttons[0].Primary = true
-	return Island{State: IslandDone, Open: true, Notice: n.ID, Haptic: HapticLevel, Face: f, Panel: p}
+	return Island{State: IslandDone, Open: true, Notice: n.ID, Haptic: HapticLevel, AutoClose: doneAutoClose, Face: f, Panel: p}
+}
+
+// Missed is base with moment m waiting in it: a quiet notch shows a dot
+// and opens m's panel. A running session, break or slot keeps its face.
+func Missed(base, m Island) Island {
+	if base.State != IslandQuiet || m.Panel == nil {
+		return base
+	}
+	dot := m.Face.Dot
+	if dot == "" {
+		dot = "deep"
+	}
+	return Island{State: IslandQuiet, Face: Face{Dot: dot}, Hover: m.Panel, Pending: true}
 }
 
 // change is a cell's change against the usual day: less is better when
@@ -428,7 +452,7 @@ func RecapIsland(n store.Notice, d report.Day, u app.Usual, unlabelledMS int64, 
 		p.Buttons = append(p.Buttons, NButton{ID: IDNotchLabel, Title: "Label " + report.Dur(unlabelledMS)})
 	}
 	p.Buttons = append(p.Buttons, NButton{ID: IDNotchClose, Title: "Done for today"})
-	return Island{State: IslandRecap, Open: true, Notice: n.ID, Face: f, Panel: p}
+	return Island{State: IslandRecap, Open: true, Notice: n.ID, AutoClose: recapAutoClose, Face: f, Panel: p}
 }
 
 // stripCells is how many blocks the recap's day strip has.
