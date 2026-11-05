@@ -34,22 +34,22 @@ func setTheme(dark bool) {
 	themeDark = dark
 	ld := lipgloss.LightDark(dark)
 	hex := func(light, darkHex string) color.Color { return ld(lipgloss.Color(light), lipgloss.Color(darkHex)) }
-	// DESIGN.md: paper by day, warm ink at night, brass for the one thing to look at.
-	colText = hex("#34343a", "#ddd6c8")
-	colBright = hex("#1d1c19", "#f4ecdd")
-	colDim = hex("#53575f", "#9ba1ad")
-	colFaint = hex("#696d75", "#7e838e")
-	colSurface = hex("#e6e6e0", "#2a2822")
-	colHover = hex("#f0f0ec", "#1a1915")
-	colBrand = hex("#8a5e18", "#e3a446")
-	colDeep = hex("#2b7564", "#63bfa8")
-	colShallow = hex("#5a78a3", "#8fa9d1")
-	colNeutral = hex("#858991", "#7d828c")
-	colAccent = hex("#b5462c", "#e57d62")
-	colBrowse = hex("#9a6585", "#c993b4")
+	// DESIGN.md: the ledger. Greys, ink as the only accent, colour for kinds of time.
+	colText = hex("#2b3038", "#d5d8dd")
+	colBright = hex("#1b1f24", "#eceef1")
+	colDim = hex("#5b636e", "#9aa1ab")
+	colFaint = hex("#6b7280", "#868d97")
+	colSurface = hex("#f1f1f3", "#1d2024")
+	colHover = hex("#f7f7f8", "#16181b")
+	colBrand = hex("#1b1f24", "#eceef1")
+	colDeep = hex("#2f6f8f", "#5fa3c4")
+	colShallow = hex("#7d8fa8", "#8fa1ba")
+	colNeutral = hex("#a3a8b0", "#6b7079")
+	colAccent = hex("#c0504d", "#e0726f")
+	colBrowse = hex("#8a6d9e", "#b39cc6")
 	// Unlabelled: the web hatches grey; a terminal cannot, so a lighter grey.
-	colUnlabelled = hex("#b0aea6", "#56554f")
-	colGood = hex("#2b7564", "#63bfa8")
+	colUnlabelled = hex("#c4c7cc", "#4a4e55")
+	colGood = hex("#2e7d4f", "#5cc38a")
 
 	fg := func(c color.Color) lipgloss.Style { return lipgloss.NewStyle().Foreground(c) }
 	sText, sBright, sDim, sFaint = fg(colText), fg(colBright), fg(colDim), fg(colFaint)

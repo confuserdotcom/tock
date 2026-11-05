@@ -62,9 +62,9 @@ deny_titles = ["secret"]
 	}
 }
 
-// TestOCRDocDefaults: the [ocr] block in the README loads to DefaultOCR().
+// TestOCRDocDefaults: the [ocr] block in the guide loads to DefaultOCR().
 func TestOCRDocDefaults(t *testing.T) {
-	readme, err := os.ReadFile("../../README.md")
+	readme, err := os.ReadFile("../../docs/guide.md")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,7 +91,7 @@ func TestOCRDocDefaults(t *testing.T) {
 	}
 	for _, key := range []string{"enabled", "apps", "interval", "min_dwell", "deny_apps", "deny_hosts", "deny_titles"} {
 		if !strings.Contains(doc, key+" =") {
-			t.Errorf("README block lacks %s", key)
+			t.Errorf("guide block lacks %s", key)
 		}
 	}
 }

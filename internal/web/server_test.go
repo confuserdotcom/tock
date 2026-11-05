@@ -22,6 +22,7 @@ type fixture struct {
 	t   *testing.T
 	srv *httptest.Server
 	e   *apptest.Env
+	a   *app.App
 }
 
 func newFixture(t *testing.T) *fixture {
@@ -38,7 +39,7 @@ func newFixture(t *testing.T) *fixture {
 	srv.Config.Handler = New(a, testToken, port, e.NowFunc()).Handler()
 	srv.Start()
 	t.Cleanup(srv.Close)
-	return &fixture{t, srv, e}
+	return &fixture{t, srv, e, a}
 }
 
 // do sends a request with the token unless token is "-".
@@ -91,7 +92,7 @@ func TestPageNeedsNoTokenAndCarriesHeaders(t *testing.T) {
 
 func TestFontsAreServedFromThePage(t *testing.T) {
 	f := newFixture(t)
-	for _, p := range []string{"/fonts/instrument-serif.woff2", "/fonts/source-sans-3.woff2", "/fonts/jetbrains-mono.woff2"} {
+	for _, p := range []string{"/fonts/ibm-plex-sans-400.woff2", "/fonts/ibm-plex-sans-600.woff2", "/fonts/ibm-plex-mono-500.woff2"} {
 		code, h, b := f.do("GET", p, "-", nil)
 		if code != 200 || len(b) < 1000 {
 			t.Fatalf("%s: %d, %d bytes", p, code, len(b))
@@ -303,5 +304,38 @@ func TestEditAndUndo(t *testing.T) {
 	}
 	if _, _, b := f.do("POST", "/api/undo", testToken, map[string]any{}); string(b) != `{"what":""}`+"\n" && string(b) != `{"what":""}` {
 		t.Fatalf("empty undo: %s", b)
+	}
+}
+
+func TestStatus(t *testing.T) {
+	f := newFixture(t)
+	var st statusJSON
+	f.get("/api/status", &st)
+	if st.Session != nil || st.RulesError != "" {
+		t.Fatalf("status %+v, want no session and good rules", st)
+	}
+	if _, err := f.a.StartSessionGoal(50, "Ship the release"); err != nil {
+		t.Fatal(err)
+	}
+	f.get("/api/status", &st)
+	if st.Session == nil || st.Session.Goal != "Ship the release" || st.Session.PlannedMS <= st.Session.StartMS {
+		t.Fatalf("session %+v", st.Session)
+	}
+}
+
+func TestDayUsual(t *testing.T) {
+	f := newFixture(t)
+	for i, day := range []int{-7, -14} {
+		f.e.Seed(t, apptest.Span{ID: int64(300 + i), Start: "09:00", End: "11:00", Bundle: "term", App: "WezTerm", Title: "tock │ a", Day: day})
+	}
+	var d dayJSON
+	f.get("/api/day", &d)
+	if d.Usual == nil || d.Usual.Days != 2 || d.Usual.TrackedMS != 2*3600_000 {
+		t.Fatalf("usual %+v", d.Usual)
+	}
+	var past dayJSON
+	f.get("/api/day?date=2026-10-03", &past)
+	if past.Usual != nil {
+		t.Fatalf("a day with fewer than two past weeks has a usual day: %+v", past.Usual)
 	}
 }

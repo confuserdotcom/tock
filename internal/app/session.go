@@ -107,3 +107,13 @@ func (a *App) SessionDetail(id int64) (report.SessionDetail, error) {
 	}
 	return report.SessionDetail{Sess: s, Q: focus.Quality(s, w), Top: top}, nil
 }
+
+// RunningSession is the running manual session, nil when none runs.
+func (a *App) RunningSession() (*focus.Session, error) {
+	open, err := a.st.OpenSession()
+	if err != nil || open == nil {
+		return nil, err
+	}
+	s := focus.Session(*open)
+	return &s, nil
+}

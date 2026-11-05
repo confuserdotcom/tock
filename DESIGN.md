@@ -1,165 +1,159 @@
 ---
 # gstack: design-md-format=spec
 name: tock
-description: A quiet instrument for your working day. Paper by day, warm ink at night, one brass hand to look at.
+description: A ledger of your working day. White page, plain type, numbers that line up, colour only for the kind of time.
 colors:
-  paper: "#f0f0ec"
-  paper-surface: "#f8f8f5"
-  paper-sunk: "#e6e6e0"
-  paper-line: "#dcdcd5"
-  paper-line-strong: "#c6c6be"
-  paper-ink: "#1d1c19"
-  paper-text: "#34343a"
-  paper-muted: "#53575f"
-  paper-faint: "#696d75"
-  paper-brass: "#8a5e18"
-  ink: "#12110e"
-  ink-surface: "#1a1915"
-  ink-sunk: "#232119"
-  ink-line: "#2a2822"
-  ink-line-strong: "#3b382f"
-  ink-ink: "#f4ecdd"
-  ink-text: "#ddd6c8"
-  ink-muted: "#9ba1ad"
-  ink-faint: "#7e838e"
-  brass: "#e3a446"
-  brass-fill-paper: "#d9993a"
-  rust: "#b5462c"
+  light-bg: "#ffffff"
+  light-side: "#f7f7f8"
+  light-sunk: "#f1f1f3"
+  light-line: "#ececec"
+  light-line-strong: "#d8d8d8"
+  light-ink: "#1b1f24"
+  light-text: "#2b3038"
+  light-muted: "#5b636e"
+  light-faint: "#6b7280"
+  dark-bg: "#111315"
+  dark-side: "#16181b"
+  dark-sunk: "#1d2024"
+  dark-line: "#25282d"
+  dark-line-strong: "#33373d"
+  dark-ink: "#eceef1"
+  dark-text: "#d5d8dd"
+  dark-muted: "#9aa1ab"
+  dark-faint: "#868d97"
+  focus: "#2f6fdb"
+  good-light: "#2e7d4f"
+  good-dark: "#5cc38a"
+  bad-light: "#b3423f"
+  bad-dark: "#e0726f"
+  deep-light: "#2f6f8f"
+  deep-dark: "#5fa3c4"
+  shallow-light: "#7d8fa8"
+  shallow-dark: "#8fa1ba"
+  browse-light: "#8a6d9e"
+  browse-dark: "#b39cc6"
+  neutral-light: "#a3a8b0"
+  neutral-dark: "#6b7079"
+  distract-light: "#c0504d"
+  distract-dark: "#e0726f"
   curtain: "#0d0b09"
   curtain-track: "#2b241b"
   curtain-text: "#f1e4cf"
   curtain-muted: "#8a7d68"
-  deep-paper: "#2b7564"
-  deep-ink: "#63bfa8"
-  shallow-paper: "#5a78a3"
-  shallow-ink: "#8fa9d1"
-  browse-paper: "#9a6585"
-  browse-ink: "#c993b4"
-  distract-paper: "#b5462c"
-  distract-ink: "#e57d62"
-  neutral-paper: "#858991"
-  neutral-ink: "#7d828c"
 typography:
-  display:
-    fontFamily: Instrument Serif
-    fontWeight: 400
-    fontSize: 5.5rem
-    letterSpacing: -0.03em
   title:
-    fontFamily: Instrument Serif
-    fontWeight: 400
-    fontSize: 2.25rem
-    letterSpacing: -0.01em
-  body:
-    fontFamily: Source Sans 3
-    fontSize: 1rem
-    lineHeight: 1.5
-  label:
-    fontFamily: Source Sans 3
+    fontFamily: IBM Plex Sans
     fontWeight: 600
-    fontSize: 0.9375rem
-  mono:
-    fontFamily: JetBrains Mono
+    fontSize: 1.25rem
+  body:
+    fontFamily: IBM Plex Sans
+    fontSize: 0.8125rem
+    lineHeight: 1.45
+  label:
+    fontFamily: IBM Plex Sans
+    fontWeight: 500
+    fontSize: 0.6875rem
+  number:
+    fontFamily: IBM Plex Mono
+    fontWeight: 500
     fontFeature: tnum
 rounded:
-  sm: 4px
+  sm: 2px
   md: 6px
-  lg: 10px
-  full: 9999px
+  lg: 8px
 spacing:
   xs: 4px
   sm: 8px
   md: 16px
   lg: 24px
-  xl: 40px
-  2xl: 64px
+  xl: 32px
 components:
   button-primary:
-    backgroundColor: "{colors.brass-fill-paper}"
-    textColor: "{colors.paper-ink}"
+    backgroundColor: "{colors.light-ink}"
+    textColor: "{colors.light-bg}"
     rounded: "{rounded.md}"
   button-secondary:
-    borderColor: "{colors.paper-line-strong}"
-    textColor: "{colors.paper-ink}"
+    borderColor: "{colors.light-line-strong}"
+    textColor: "{colors.light-ink}"
     rounded: "{rounded.md}"
-  tab-active:
-    textColor: "{colors.paper-ink}"
-    underline: "{colors.paper-brass}"
+  nav-active:
+    backgroundColor: "{colors.light-sunk}"
+    textColor: "{colors.light-ink}"
 ---
 
 # tock
 
 ## Overview
 
-**Creative North Star:** a watchmaker's bench. Plain paper, dark ink, one brass hand. The day is shown like a dial is read: one big number, then the facts, then the detail.
-**Product context:** tock is a local time tracker for one person on a Mac (and a headless Linux box). It runs a daemon, a menu bar app, a terminal UI and a local web page. No accounts and no cloud; nothing is loaded from the internet.
-**Mode per surface:** web page and TUI are Operate (read the day, label blocks). The break screen is Experience (step away). The menu is Operate at a glance.
+**North star:** a ledger. tock writes your day down; the page reads like a well-kept account book. Facts in rows, numbers aligned, totals at the bottom, nothing performed.
+**Product context:** a local time tracker for one person on a Mac (and a headless Linux box): a daemon, a menu bar app, a terminal UI and a local web page. No accounts, no cloud, nothing loaded from the internet.
+**References:** Timing.app (rows per category on a time axis), Linear (density, hairlines), plain accounting tables.
 **Key characteristics:**
-- One large serif number (the focus score) carries the page; everything else is smaller and quieter.
-- Sections are separated by space and hairlines, not boxes.
-- Brass marks the one thing to look at: the active tab, the "now" line, the main button. Never decoration.
-- Activity kinds always use the same six colours on every surface.
+- No hero number. The score is one figure in a row of figures, each with its change against your usual day.
+- Time runs left to right on one shared axis; each category gets its own row.
+- Lists are tables: name left, time and share right-aligned in mono, a bold totals row.
+- Colour means a kind of time. Everything else is grey.
 
 ## Colors
 
-**Strategy:** restrained. Paper and ink neutrals, slate for secondary text, brass as the only accent, six kind colours as data.
-**Light or dark:** follows the system. The owner uses the Mac in the evening, so ink (dark) is the main case; paper must hold up by day.
+**Strategy:** neutral greys, one ink, kind colours as data. No accent colour.
+**Light or dark:** follows the system; both are first-class. Light is the default in screenshots.
 
-- `brass` is interaction and "now". On paper it darkens to `paper-brass` for text and lines; fills use `brass-fill-paper` with ink text.
-- Kind colours are data, not accents: deep (teal), shallow (slate blue), browsing (mauve), distracted (rust), other (grey). "Not labelled" is grey hatching, not a hue (a lighter grey in the terminal and the menu strip, which cannot hatch). Brass is never a kind.
-- Rust (`rust`) means overrun or distraction. Teal means done or met.
-- Muted text is slate (cool) on both grounds, which keeps the warm ink from turning brown.
-- The break screen keeps its own fixed curtain colours (always dark, whatever the system theme).
+- Ink is the only "accent": the selected day, the primary button, the active nav item (on a sunk grey).
+- Kind colours are data, never decoration: deep (blue-teal), shallow (slate), browsing (mauve), neutral (grey), distracting (brick). Unlabelled is grey hatching. The same colours on every surface, a lighter set in dark mode.
+- Good and bad are for changes against the usual day, and follow meaning, not direction: less distraction is good.
+- `focus` is only the keyboard focus ring.
+- Text: ink for names and numbers, muted for secondary, faint (still 4.5:1) for axes and captions.
+- The break screen keeps its fixed curtain colours (always dark).
 
 ## Typography
 
-- Instrument Serif: the score, the break clock and page titles only. Never body text, never italic, never under 2rem.
-- Source Sans 3: all text and labels. Section titles are 0.9375rem semibold in ink, not small caps.
-- JetBrains Mono: every time, duration and count, with tabular figures.
-- The three faces are bundled in `internal/web/static/fonts` (OFL, about 75 KB, latin subset). Other scripts fall back to the system font.
-- The menu bar and break screen are AppKit and use the system fonts (SF Pro, SF Mono); the TUI uses the terminal's font.
+- IBM Plex Sans for all text: 13px body, 11px labels in muted (sentence case, no caps), 20px semibold page titles. No serif anywhere.
+- IBM Plex Mono for every time, duration, count and percentage, tabular figures, so columns line up.
+- Durations in tables read 2:24 (h:mm); in prose and the number row 2h24.
+- Both faces are bundled in `internal/web/static/fonts` (OFL, latin subset). The menu bar and break screen use the system fonts; the TUI uses the terminal's.
 
 ## Layout
 
-- Web: max width 1120px. On Today, the score and the day's numbers come first, then the timeline across the full width, then a main column (by hour, work blocks, activity) and a narrow side column (categories, goals).
-- Below 860px everything stacks in one column with 16px gutters.
-- Space between sections is 40px; inside a section 16px.
+- Web: a 216px sidebar (logo, nav, month calendar, status) and a main column up to 1200px wide.
+- Today, in order: title line with the running session; the number row; the category timeline; two tables side by side (categories, apps); then work blocks, goals and the activity log.
+- The whole of Today above the activity log fits a 1280x800 window.
+- Below 860px the sidebar becomes a top bar and tables stack.
+- 24px between sections, 16px inside.
 
 ## Elevation & Depth
 
-Flat. Depth only for things above the page: the label sheet, the tooltip and the toast get an offset soft shadow. No glow.
+Flat. Hairline borders group things; no shadows except the tooltip, the label sheet and the toast.
 
 ## Shapes
 
-Small radii: 4px for chips and bars, 6px for buttons and inputs, 10px for the sheet and the menu.
+2px on bars in the timeline, 6px on buttons, inputs and grouped boxes, 8px on the sheet.
 
 ## Components
 
-- Sections: a title row (title left, a quiet note right) over content. No border, no background. A hairline separates groups.
-- Buttons: primary brass with ink text; secondary hairline outline; ghost text in brass. Focus ring is 2px brass.
-- Tabs: text; the active one is ink and semibold with a 2px brass underline.
-- Charts: one style. Flat stacked bars in kind colours, 1px gaps in the surface colour, 4px radius on the outer edge only, a 2px brass line for now, mono tick labels in faint.
-- Lists: name, a mono duration, and a 3px bar in the kind colour.
+- Number row: one bordered strip split by hairlines. Each cell: label, mono value, change vs usual in good or bad (hidden when there is no usual day).
+- Category timeline: an hour axis on top, one row per category plus Away, bars in the kind colour, a 1px ink line for now. Hover shows app, title, time and label; click opens the label sheet.
+- Tables: header in faint 11px, hairline rows, right-aligned mono time and share, a bold totals row with a stronger rule above.
+- Sidebar status: a dot and a line each for trackd, rules and the session.
+- Buttons: primary ink, secondary hairline outline, ghost text. Focus ring 2px `focus`.
 
 ## Do's and Don'ts
 
-- Do keep the score the only big thing on the page.
+- Do give every number a unit and, where it exists, a comparison.
+- Do keep numbers in mono and right-aligned.
 - Do use the same kind colours in web, TUI, menu strip and summaries.
-- Do write numbers in mono with tabular figures.
-- Don't put a card around every section, or a card inside a card.
-- Don't use brass for data, and don't add a second accent.
+- Don't add a big number, a ring, a gauge or a gradient.
+- Don't put a card around every section or an icon on every row.
+- Don't use colour for anything that is not a kind of time or a good/bad change.
 - Don't load anything from the internet, fonts included.
-- Don't use a coloured left border to mark state; use a tint.
 
 ## Motion
 
-- **Approach:** minimal-functional.
-- **Easing:** enter ease-out, exit ease-in, move with the existing springs.
-- **Duration:** 120ms hovers, 220ms page change, 500ms bars growing on first draw.
-- **The one authored moment:** the score counts up to its value with a spring when the day loads.
-- Reduced motion turns all of it off.
+- Minimal: 120ms hover, 160ms view change, no counting numbers, no growing bars.
+- The label sheet keeps its spring; reduced motion turns everything off.
 
 ## Decisions Log
 | Date | Decision | Rationale |
 |------|----------|-----------|
-| 2026-11-05 | Initial design system: paper/ink neutrals, brass accent, bundled Instrument Serif + Source Sans 3 + JetBrains Mono | v5 Phase 5d. Unifies the web page, TUI and menu with the brass-and-ink break screen; indigo and violet dropped; the owner picked bundled faces and this palette from a preview |
+| 2026-11-05 | Initial design system: paper/ink neutrals, brass accent, Instrument Serif + Source Sans 3 + JetBrains Mono | v5 Phase 5d. Unified the web page, TUI and menu with the break screen |
+| 2026-11-05 | Replaced by the Ledger system: IBM Plex Sans + Mono, white and grey, ink as the only accent, sidebar, per-category timeline, tables with totals, comparisons with the usual day | The owner picked the Ledger direction from four mockups; the serif-and-brass look read as made by AI |
