@@ -1,0 +1,30 @@
+name: Bug report
+description: Something works differently from what the guide says
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what you saw instead.
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: tock doctor
+      description: Paste the output of `tock doctor` and `tock version`.
+      render: text
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: System
+      options:
+        - macOS
+        - Linux (Hyprland)
+    validations:
+      required: true
+  - type: markdown
+    attributes:
+      value: Please don't paste real window titles, URLs or rules. Replace them with placeholders.

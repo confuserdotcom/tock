@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security problem
+    url: https://github.com/confuserdotcom/tock/security/advisories/new
+    about: Report it privately, not as an issue.
+  - name: Guide
+    url: https://github.com/confuserdotcom/tock/blob/main/docs/guide.md
+    about: Every command, file and setting.
