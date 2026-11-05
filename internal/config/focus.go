@@ -54,6 +54,8 @@ type Focus struct {
 	// task once it lasts WakeIdleMS.
 	WakeScreen                          bool
 	WakeWarnMS, WakeAfterMS, WakeIdleMS int64
+	// Hotkey makes ⌥⌘F open the start prompt from any app.
+	Hotkey bool
 }
 
 // DefaultFocus is the [focus] section used when the file does not set it.
@@ -71,6 +73,7 @@ func DefaultFocus() Focus {
 		NoticeBudget: 8, NoticeGapMS: 20 * 60_000,
 		BreakScreenGraceMS: 5 * 60_000,
 		WakeWarnMS:         5 * 60_000, WakeAfterMS: 10 * 60_000, WakeIdleMS: 15 * 60_000,
+		Hotkey: true,
 	}
 }
 
@@ -101,6 +104,7 @@ type focusTOML struct {
 	WakeWarn       *int      `toml:"wake_warn"`
 	WakeAfter      *int      `toml:"wake_after"`
 	WakeIdle       *int      `toml:"wake_idle"`
+	Hotkey         *bool     `toml:"hotkey"`
 }
 
 // decodeFocus applies the keys present in f to c and validates them.
@@ -170,6 +174,9 @@ func decodeFocus(f focusTOML, c *Focus) error {
 	}
 	if f.WakeScreen != nil {
 		c.WakeScreen = *f.WakeScreen
+	}
+	if f.Hotkey != nil {
+		c.Hotkey = *f.Hotkey
 	}
 	if f.UrgeSurf != nil {
 		c.UrgeSurf = *f.UrgeSurf

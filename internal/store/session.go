@@ -101,9 +101,10 @@ type Session struct {
 	UrgesGiven    int    // distraction notices answered Open anyway
 	Wakes         int    // wake screens shown
 	WakesBack     int    // wake screens followed by work within focus.WakeBackMS
+	Goal          string // what the user said the session is for; "" = none
 }
 
-const sessionCols = `id, kind, start_ms, planned_ms, end_ms, interruptions, alerted_ms, deep_ms, distract_ms, longest_ms, switches, rating, note, rated_ms, urges_resisted, urges_given, wakes, wakes_back`
+const sessionCols = `id, kind, start_ms, planned_ms, end_ms, interruptions, alerted_ms, deep_ms, distract_ms, longest_ms, switches, rating, note, rated_ms, urges_resisted, urges_given, wakes, wakes_back, goal`
 
 func scanSession(sc interface{ Scan(...any) error }) (Session, error) {
 	var x Session
@@ -111,7 +112,7 @@ func scanSession(sc interface{ Scan(...any) error }) (Session, error) {
 	var note sql.NullString
 	err := sc.Scan(&x.ID, &x.Kind, &x.StartMS, &planned, &end, &x.Interruptions, &x.AlertedMS,
 		&x.DeepMS, &x.DistractMS, &x.LongestMS, &x.Switches, &rating, &note, &ratedMS,
-		&x.UrgesResisted, &x.UrgesGiven, &x.Wakes, &x.WakesBack)
+		&x.UrgesResisted, &x.UrgesGiven, &x.Wakes, &x.WakesBack, &x.Goal)
 	x.PlannedMS, x.EndMS = planned.Int64, end.Int64
 	x.Rating, x.Note, x.RatedMS = int(rating.Int64), note.String, ratedMS.Int64
 	return x, err
@@ -149,6 +150,21 @@ func (s *Store) StartSession(startMS, plannedMS int64) (Session, error) {
 		return Session{}, fmt.Errorf("store: start session: %w", err)
 	}
 	return Session{ID: id, Kind: SessionManual, StartMS: startMS, PlannedMS: plannedMS}, nil
+}
+
+// SetSessionGoal sets what session id is for. It fails with ErrSessionGone
+// when there is no such session.
+func (s *Store) SetSessionGoal(id int64, goal string) error {
+	res, err := s.db.Exec(`UPDATE session SET goal=? WHERE id=?`, goal, id)
+	if err != nil {
+		return fmt.Errorf("store: session goal: %w", err)
+	}
+	if n, err := res.RowsAffected(); err != nil {
+		return fmt.Errorf("store: session goal: %w", err)
+	} else if n == 0 {
+		return ErrSessionGone
+	}
+	return nil
 }
 
 // OpenSession returns the running manual session, or nil.

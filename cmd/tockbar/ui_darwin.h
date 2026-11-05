@@ -11,4 +11,7 @@ void bar_quit(void);
 void bar_curtain(long long nid, const char *title, const char *body, const char *word, long long from_ms,
                  long long until_ms, const char *buttons);
 
+void bar_set_hotkey(int on);
+void bar_prompt(const char *spec);
+
 #endif

@@ -144,7 +144,7 @@ func TestFocusDefaults(t *testing.T) {
 			"com.microsoft.teams", "Cisco-Systems.Spark", "com.cisco.webexmeetingsapp"},
 		MeetingHosts: []string{"meet.google.com", "teams.microsoft.com", "app.zoom.us", "whereby.com"},
 		BlockGraceMS: 10_000, NoticeBudget: 8, NoticeGapMS: 20 * 60_000, BreakScreenGraceMS: 5 * 60_000,
-		WakeWarnMS: 5 * 60_000, WakeAfterMS: 10 * 60_000, WakeIdleMS: 15 * 60_000,
+		WakeWarnMS: 5 * 60_000, WakeAfterMS: 10 * 60_000, WakeIdleMS: 15 * 60_000, Hotkey: true,
 	}
 	if !reflect.DeepEqual(f, want) {
 		t.Fatalf("DefaultFocus = %+v\nwant %+v", f, want)
@@ -176,7 +176,7 @@ meeting_hosts = []
 		DistractGraceMS: 30_000, DistractRepeatMS: 90_000, SnoozeMS: 10 * 60_000, AutoMinMS: 20 * 60_000,
 		RecapAt: 8*60 + 30, Notify: false, MeetingApps: []string{"a.b"}, MeetingHosts: []string{}, BlockGraceMS: 10_000,
 		NoticeBudget: 8, NoticeGapMS: 20 * 60_000, BreakScreenGraceMS: 5 * 60_000,
-		WakeWarnMS: 5 * 60_000, WakeAfterMS: 10 * 60_000, WakeIdleMS: 15 * 60_000,
+		WakeWarnMS: 5 * 60_000, WakeAfterMS: 10 * 60_000, WakeIdleMS: 15 * 60_000, Hotkey: true,
 	}
 	if !reflect.DeepEqual(c.Focus, want) {
 		t.Fatalf("focus = %+v\nwant %+v", c.Focus, want)

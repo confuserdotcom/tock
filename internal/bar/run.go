@@ -31,6 +31,21 @@ func Menu(a *app.App, id string) (string, error) {
 		}
 		return fmt.Sprintf("started %d min session", (s.PlannedMS-s.StartMS)/60_000), nil
 	}
+	if strings.HasPrefix(id, IDFocus) {
+		n, goal, err := startGoal(a, id)
+		if err != nil {
+			return "", err
+		}
+		s, err := a.StartSessionGoal(n, goal)
+		if err != nil {
+			return "", err
+		}
+		msg := fmt.Sprintf("started %d min session", (s.PlannedMS-s.StartMS)/60_000)
+		if s.Goal != "" {
+			msg += " · " + s.Goal
+		}
+		return msg, nil
+	}
 	switch id {
 	case IDSnoozeDistract:
 		until, err := a.SnoozeDistract(0, time.Duration(a.Config().Focus.SnoozeMS)*time.Millisecond)

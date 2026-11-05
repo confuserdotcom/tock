@@ -41,6 +41,10 @@ type ui interface {
 	Curtain(id int64, title, body, word string, fromMS, untilMS int64, buttons string)
 	CheckAuth(prompt bool)
 	OpenURL(url string)
+	// Prompt shows the start prompt: "start\ttitle\tdetail\t<min>,<min>…"
+	// or "stop\ttitle\tdetail"; the answer comes back as a menu click.
+	Prompt(spec string)
+	SetHotkey(on bool) // ⌥⌘F opens the start prompt
 	Quit()
 }
 
@@ -83,6 +87,7 @@ type runner struct {
 	menu     string
 	cats     []string // registered category lines, newest last
 	lastErr  string
+	hotkey   *bool // what SetHotkey was last told; nil = never
 }
 
 // loop runs until events closes.
@@ -162,6 +167,10 @@ func (r *runner) tick() {
 				r.warn("reading today failed", err)
 			} else {
 				r.snap, r.snapAt, r.dirty = s, now, false
+				if on := featureOn(s, "hotkey"); r.hotkey == nil || *r.hotkey != on {
+					r.hotkey = &on
+					r.ui.SetHotkey(on)
+				}
 				if s.LastErr != nil {
 					r.warn("reading the last session failed", s.LastErr)
 				}
@@ -291,6 +300,22 @@ func (r *runner) handle(ev event) {
 	case evPostFailed:
 		r.log.Warn("notification failed", "notice", ev.notice, "err", ev.id)
 	case evMenu:
+		if u, ok := strings.CutPrefix(ev.id, "url:"); ok {
+			id, ok := bar.URLAction(u)
+			if !ok {
+				r.log.Warn("unknown link", "url", u)
+				return
+			}
+			ev.id = id
+		}
+		if ev.id == bar.IDHotkey {
+			if !r.snap.OK {
+				r.log.Warn("start prompt: tock is not ready")
+				return
+			}
+			r.ui.Prompt(promptSpec(r.snap.Prompt(r.now().UnixMilli())))
+			return
+		}
 		switch ev.id {
 		case bar.IDQuit:
 			r.log.Info("quit from the menu")
@@ -363,6 +388,28 @@ func (r *runner) handle(ev event) {
 		msg, err := bar.Respond(r.a, ev.notice, ev.id)
 		r.done("notification "+strconv.FormatInt(ev.notice, 10)+" "+ev.id, msg, err)
 	}
+}
+
+// featureOn reports whether the Settings toggle id is on in s.
+func featureOn(s bar.Snapshot, id string) bool {
+	for _, f := range s.Features {
+		if f.ID == id {
+			return f.On
+		}
+	}
+	return false
+}
+
+// promptSpec is p as the Cocoa side reads it.
+func promptSpec(p bar.Prompt) string {
+	if p.Stop {
+		return "stop\t" + clean(p.Title) + "\t" + clean(p.Detail)
+	}
+	m := make([]string, len(p.Presets))
+	for i, n := range p.Presets {
+		m[i] = strconv.Itoa(n)
+	}
+	return "start\t" + clean(p.Title) + "\t" + clean(p.Detail) + "\t" + strings.Join(m, ",")
 }
 
 // done logs an action's result and refreshes the menu.

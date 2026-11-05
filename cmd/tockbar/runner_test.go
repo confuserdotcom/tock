@@ -25,6 +25,8 @@ type fakeUI struct {
 	auth          []bool
 	urls          []string
 	curtains      []string
+	prompts       []string
+	hotkeys       []bool
 	quit          bool
 }
 
@@ -39,6 +41,8 @@ func (f *fakeUI) Curtain(id int64, title, body, word string, fromMS, untilMS int
 func (f *fakeUI) CheckAuth(prompt bool) { f.auth = append(f.auth, prompt) }
 func (f *fakeUI) OpenURL(u string)      { f.urls = append(f.urls, u) }
 func (f *fakeUI) Quit()                 { f.quit = true }
+func (f *fakeUI) Prompt(s string)       { f.prompts = append(f.prompts, s) }
+func (f *fakeUI) SetHotkey(on bool)     { f.hotkeys = append(f.hotkeys, on) }
 
 func testRunner(t *testing.T, e *apptest.Env) (*runner, *fakeUI, *bytes.Buffer) {
 	t.Helper()
@@ -650,5 +654,36 @@ func TestSpecLinesStrip(t *testing.T) {
 	want := []string{"\tx", "\t\t\ts:deep,none,distract"}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("lines = %q, want %q", got, want)
+	}
+}
+
+func TestRunnerHotkeyAndLinks(t *testing.T) {
+	e := seededEnv(t)
+	r, u, logb := testRunner(t, e)
+	r.tick()
+	if len(u.hotkeys) != 1 || !u.hotkeys[0] {
+		t.Fatalf("hotkeys = %v, want registered once", u.hotkeys)
+	}
+	r.dirty = true
+	r.tick()
+	if len(u.hotkeys) != 1 {
+		t.Fatalf("hotkey registered again: %v", u.hotkeys)
+	}
+	r.handle(event{kind: evMenu, id: bar.IDHotkey})
+	if len(u.prompts) != 1 || u.prompts[0] != "start\tWhat are you working on?\t\t25,50,90" {
+		t.Fatalf("prompts = %q", u.prompts)
+	}
+	r.handle(event{kind: evMenu, id: "url:tock://start?min=50&goal=TD%203"})
+	f, err := r.a.Focus(e.Clock)
+	if err != nil || f.Open == nil || f.Open.Goal != "TD 3" {
+		t.Fatalf("open after link = %+v, %v\n%s", f.Open, err, logb)
+	}
+	r.handle(event{kind: evMenu, id: "url:tock://prompt"})
+	if len(u.prompts) != 2 || !strings.HasPrefix(u.prompts[1], "stop\tStop TD 3?\t") {
+		t.Fatalf("prompts = %q", u.prompts)
+	}
+	r.handle(event{kind: evMenu, id: "url:tock://nope"})
+	if !strings.Contains(logb.String(), "unknown link") {
+		t.Fatalf("log:\n%s", logb)
 	}
 }

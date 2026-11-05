@@ -66,6 +66,22 @@ func TestSessionStartLengthWithTrackdUp(t *testing.T) {
 	}
 }
 
+func TestSessionStartGoal(t *testing.T) {
+	te := newTestEnv(t, testRules)
+	te.seed(t, daySpans()...)
+	heartbeat(t, te)
+	if code, out := te.run(t, "", "session", "start", "50", "--goal", "TD 3"); code != 0 || out != "session started: 50 min, ends 15:50 · TD 3\n" {
+		t.Fatalf("start with goal: %d %q %q", code, out, te.errb.String())
+	}
+	te.run(t, "", "session", "stop")
+	if code, out := te.run(t, "", "session", "start", "--goal=read", "--paper"); code != 0 || out != "session started: 25 min, ends 15:25, on paper · read\n" {
+		t.Fatalf("start with goal=: %d %q %q", code, out, te.errb.String())
+	}
+	if code, _ := te.run(t, "", "session", "start", "--goal"); code != 2 {
+		t.Fatalf("--goal with no text: code %d, want 2", code)
+	}
+}
+
 func TestSessionUsage(t *testing.T) {
 	te := newTestEnv(t, testRules)
 	te.seed(t, daySpans()...)

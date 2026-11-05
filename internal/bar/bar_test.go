@@ -1725,3 +1725,77 @@ func TestMenuHide(t *testing.T) {
 		}
 	}
 }
+
+func TestSessionRowGoal(t *testing.T) {
+	e, a := seeded(t)
+	if _, err := a.StartSessionGoal(50, "TD 3"); err != nil {
+		t.Fatal(err)
+	}
+	s, err := Load(a, e.Clock, app.NotifyGranted)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := titles(s.Items(e.Clock.UnixMilli())); !strings.Contains(got, "\nTD 3 · 50:00 left · ") {
+		t.Fatalf("menu:\n%s", got)
+	}
+}
+
+func TestMenuFocusGoal(t *testing.T) {
+	e, a := seeded(t)
+	if msg, err := Menu(a, IDFocus+"50:TD 3: exercises"); err != nil || msg != "started 50 min session · TD 3: exercises" {
+		t.Fatalf("focus = %q, %v", msg, err)
+	}
+	f, _ := a.Focus(e.Clock)
+	if f.Open == nil || f.Open.Goal != "TD 3: exercises" || f.Open.PlannedMS-f.Open.StartMS != 50*60_000 {
+		t.Fatalf("open = %+v", f.Open)
+	}
+	if _, err := a.StopSession(); err != nil {
+		t.Fatal(err)
+	}
+	if msg, err := Menu(a, IDFocus+"0:"); err != nil || msg != "started 25 min session" {
+		t.Fatalf("default length = %q, %v", msg, err)
+	}
+	for _, id := range []string{IDFocus + "x:goal", IDFocus + "50"} {
+		if _, err := Menu(a, id); !errors.Is(err, ErrUnknown) {
+			t.Errorf("%s: %v, want ErrUnknown", id, err)
+		}
+	}
+}
+
+func TestPrompt(t *testing.T) {
+	s := Snapshot{OK: true, Presets: []int{25, 50, 90}}
+	if p := s.Prompt(0); p.Stop || p.Title != "What are you working on?" || !slices.Equal(p.Presets, []int{25, 50, 90}) {
+		t.Fatalf("idle prompt = %+v", p)
+	}
+	s.Session = &focus.Session{StartMS: 0, PlannedMS: 50 * 60_000, Goal: "TD 3"}
+	if p := s.Prompt(16 * 60_000); !p.Stop || p.Title != "Stop TD 3?" || p.Detail != "34:00 left" {
+		t.Fatalf("running prompt = %+v", p)
+	}
+	s.Session.Goal = ""
+	if p := s.Prompt(16 * 60_000); p.Title != "Stop the session?" {
+		t.Fatalf("running prompt, no goal = %+v", p)
+	}
+	if p := (Snapshot{OK: true}).Prompt(0); !slices.Equal(p.Presets, []int{25}) {
+		t.Fatalf("no presets = %+v", p)
+	}
+}
+
+func TestURLAction(t *testing.T) {
+	for raw, want := range map[string]string{
+		"tock://start?min=50&goal=TD%203": "focus:50:TD 3",
+		"tock://start":                    "focus:0:",
+		"tock://start?goal=read":          "focus:0:read",
+		"tock://stop":                     "stop",
+		"tock://prompt":                   "hotkey",
+		"TOCK://Stop":                     "stop",
+	} {
+		if got, ok := URLAction(raw); !ok || got != want {
+			t.Errorf("URLAction(%q) = %q, %v; want %q", raw, got, ok, want)
+		}
+	}
+	for _, raw := range []string{"tock://start?min=abc", "http://stop", "tock://quit", "::", "tock://start?min=999"} {
+		if got, ok := URLAction(raw); ok {
+			t.Errorf("URLAction(%q) = %q, want refused", raw, got)
+		}
+	}
+}

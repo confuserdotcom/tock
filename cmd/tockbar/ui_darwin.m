@@ -1,6 +1,7 @@
 // The Cocoa side of the tock menu bar app. Every UI call hops to the main
 // thread, which runs [NSApp run]; clicks go back to Go through goMenu and
 // goResponse, which only queue them.
+#import <Carbon/Carbon.h>
 #import <Cocoa/Cocoa.h>
 #import <UserNotifications/UserNotifications.h>
 
@@ -19,6 +20,24 @@ static NSString *str(const char *s) {
 static TockBar *bar;
 
 @implementation TockBar
+// tock:// links (Shortcuts, Raycast) arrive as Apple events; register
+// before launch ends so a link that launched the app is not lost.
+- (void)applicationWillFinishLaunching:(NSNotification *)n {
+    (void)n;
+    [[NSAppleEventManager sharedAppleEventManager] setEventHandler:self
+                                                       andSelector:@selector(openURL:reply:)
+                                                     forEventClass:kInternetEventClass
+                                                        andEventID:kAEGetURL];
+}
+
+- (void)openURL:(NSAppleEventDescriptor *)e reply:(NSAppleEventDescriptor *)r {
+    (void)r;
+    NSString *u = [[e paramDescriptorForKeyword:keyDirectObject] stringValue];
+    if (u != nil) {
+        goMenu((char *)[[@"url:" stringByAppendingString:u] UTF8String]);
+    }
+}
+
 - (void)applicationDidFinishLaunching:(NSNotification *)n {
     (void)n;
     self.item = [[NSStatusBar systemStatusBar] statusItemWithLength:NSVariableStatusItemLength];
@@ -466,5 +485,95 @@ void bar_curtain(long long nid, const char *title, const char *body, const char 
                 }
             }];
         }
+    });
+}
+
+// ---------------------------------------------------------------------------
+// Start hotkey and prompt. ⌥⌘F is a Carbon hot key: it needs no
+// Accessibility permission and never sees other keys.
+
+static EventHotKeyRef hotkey;
+static EventHandlerRef hotkeyHandler;
+
+static OSStatus hotkeyPressed(EventHandlerCallRef h, EventRef e, void *data) {
+    (void)h;
+    (void)e;
+    (void)data;
+    goMenu((char *)"hotkey");
+    return noErr;
+}
+
+void bar_set_hotkey(int on) {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if (on && hotkey == NULL) {
+            if (hotkeyHandler == NULL) {
+                EventTypeSpec t = {kEventClassKeyboard, kEventHotKeyPressed};
+                InstallApplicationEventHandler(&hotkeyPressed, 1, &t, NULL, &hotkeyHandler);
+            }
+            EventHotKeyID hid = {'tock', 1};
+            if (RegisterEventHotKey(kVK_ANSI_F, cmdKey | optionKey, hid, GetApplicationEventTarget(), 0,
+                                    &hotkey) != noErr) {
+                hotkey = NULL;
+            }
+        } else if (!on && hotkey != NULL) {
+            UnregisterEventHotKey(hotkey);
+            hotkey = NULL;
+        }
+    });
+}
+
+static BOOL prompting;
+
+// bar_prompt shows the start prompt: "start\ttitle\tdetail\t25,50,90" asks
+// for a goal and a length, "stop\ttitle\tdetail" offers to stop. The answer
+// goes back as a menu click: "focus:<min>:<goal>" or "stop".
+void bar_prompt(const char *spec) {
+    NSString *sp = str(spec);
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if (prompting) {
+            return;
+        }
+        NSArray<NSString *> *f = [sp componentsSeparatedByString:@"\t"];
+        if (f.count < 3) {
+            return;
+        }
+        prompting = YES;
+        [NSApp activateIgnoringOtherApps:YES];
+        NSAlert *a = [NSAlert new];
+        a.messageText = f[1];
+        a.informativeText = f[2];
+        if ([f[0] isEqualToString:@"stop"]) {
+            [a addButtonWithTitle:@"Stop session"];
+            [a addButtonWithTitle:@"Keep going"];
+            if ([a runModal] == NSAlertFirstButtonReturn) {
+                goMenu((char *)"stop");
+            }
+            prompting = NO;
+            return;
+        }
+        NSArray<NSString *> *mins = f.count > 3 ? [f[3] componentsSeparatedByString:@","] : @[ @"25" ];
+        NSView *v = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 300, 58)];
+        NSTextField *goal = [[NSTextField alloc] initWithFrame:NSMakeRect(0, 32, 300, 24)];
+        goal.placeholderString = @"TD 3, exercises 4 to 7";
+        NSPopUpButton *len = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(0, 0, 120, 26) pullsDown:NO];
+        for (NSString *m in mins) {
+            [len addItemWithTitle:[m stringByAppendingString:@" min"]];
+            len.lastItem.representedObject = m;
+        }
+        [v addSubview:goal];
+        [v addSubview:len];
+        a.accessoryView = v;
+        [a addButtonWithTitle:@"Start"];
+        [a addButtonWithTitle:@"Cancel"];
+        [a layout];
+        a.window.initialFirstResponder = goal;
+        if ([a runModal] == NSAlertFirstButtonReturn) {
+            NSString *g = [[goal.stringValue componentsSeparatedByCharactersInSet:
+                                                 [NSCharacterSet newlineCharacterSet]]
+                componentsJoinedByString:@" "];
+            NSString *id = [NSString stringWithFormat:@"focus:%@:%@", len.selectedItem.representedObject, g];
+            goMenu((char *)[id UTF8String]);
+        }
+        prompting = NO;
     });
 }

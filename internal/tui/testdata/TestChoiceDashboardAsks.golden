@@ -11,6 +11,7 @@ Focus
   ● Suggestions                  when to start focus or take a break
   ○ Break screen                 covers the screens when a break runs over
   ○ Wake screen                  covers the screens when a session goes off task
+  ● Start hotkey                 ⌥⌘F opens a prompt to start focus from any app
   ○ Block distractions           closes distracting tabs and apps in a session
   ○ Urge surfing                 the distraction notice asks what you feel
 
