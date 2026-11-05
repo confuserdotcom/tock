@@ -150,8 +150,7 @@ func TestSnapshotRec(t *testing.T) {
 			t.Errorf("menu lacks %q:\n%s", want, got)
 		}
 	}
-	// The rows sit after the start items and before the trailing separator
-	// block (settings / quit).
+	// The rows sit in the context block, above the start items.
 	idx := func(sub string) int {
 		for i, it := range items {
 			if strings.Contains(it.Title+it.ID, sub) {
@@ -160,7 +159,7 @@ func TestSnapshotRec(t *testing.T) {
 		}
 		return -1
 	}
-	if !(idx("Start 25 min focus") < idx("Suggested:") && idx("Suggested:") < idx("Start focus (25") && idx("Start focus (25") < idx("Not now") && idx("Not now") < idx("Quit")) {
+	if !(idx("Suggested:") >= 0 && idx("Suggested:") < idx("Start focus (25") && idx("Start focus (25") < idx("Not now") && idx("Not now") < idx("Start 25 min focus")) {
 		t.Errorf("order wrong:\n%s", got)
 	}
 

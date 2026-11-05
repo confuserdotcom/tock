@@ -10,6 +10,7 @@ import (
 
 	"tock/internal/app"
 	"tock/internal/classify"
+	"tock/internal/config"
 	"tock/internal/focus"
 	"tock/internal/recommend"
 	"tock/internal/report"
@@ -19,8 +20,8 @@ import (
 // ErrUnknown means a click named no known item or action.
 var ErrUnknown = errors.New("unknown action")
 
-// Menu runs the menu item id and returns what happened, for the log. Quit
-// and Settings are the Cocoa side's to handle.
+// Menu runs the menu item id and returns what happened, for the log. Quit,
+// the System Settings panes and the dashboard are the Cocoa side's to handle.
 func Menu(a *app.App, id string) (string, error) {
 	a.Reload() // a failure is kept in RulesErr / ConfigErr; the last good files stay
 	if m, ok := startMinutes(id); ok {
@@ -39,6 +40,9 @@ func Menu(a *app.App, id string) (string, error) {
 			return "", err
 		}
 		return "distraction notices back on", nil
+	}
+	if v, ok := strings.CutPrefix(id, IDFeature); ok {
+		return toggleFeature(a, v)
 	}
 	if id == IDStop {
 		s, err := a.StopSession()
@@ -94,6 +98,29 @@ func Menu(a *app.App, id string) (string, error) {
 		return "undid the refile", nil
 	}
 	return "", fmt.Errorf("menu %q: %w", id, ErrUnknown)
+}
+
+// toggleFeature flips one config.Features toggle in config.toml, the way
+// tock choice does, and reloads so the change is live at once.
+func toggleFeature(a *app.App, fid string) (string, error) {
+	for _, f := range config.Features {
+		if f.ID != fid {
+			continue
+		}
+		on := !f.On(a.Config())
+		if err := config.SaveFeatures(a.ConfigPath(), map[string]bool{fid: on}); err != nil {
+			return "", fmt.Errorf("bar: %s: %w", fid, err)
+		}
+		a.Reload()
+		switch {
+		case !on:
+			return f.Name + " off", nil
+		case fid == "ocr":
+			return f.Name + " on · run tock ocr grant if trackd asks for Screen Recording", nil
+		}
+		return f.Name + " on", nil
+	}
+	return "", fmt.Errorf("menu %q: %w", IDFeature+fid, ErrUnknown)
 }
 
 // snoozedMsg turns the result of SnoozeDistract for session (0: whatever

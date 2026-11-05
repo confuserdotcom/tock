@@ -99,3 +99,13 @@ func (s *Store) Notice(id int64) (Notice, error) {
 	n.ShownMS = shown.Int64
 	return n, nil
 }
+
+// LastNoticeAt is the newest time a notice with topic was queued at or after
+// sinceMS, shown or not; 0 when none.
+func (s *Store) LastNoticeAt(topic string, sinceMS int64) (int64, error) {
+	var at sql.NullInt64
+	if err := s.db.QueryRow(`SELECT MAX(at_ms) FROM notice WHERE topic = ? AND at_ms >= ?`, topic, sinceMS).Scan(&at); err != nil {
+		return 0, fmt.Errorf("store: last notice: %w", err)
+	}
+	return at.Int64, nil
+}

@@ -205,7 +205,7 @@ func TestRunnerQuitAndSettings(t *testing.T) {
 	if !strings.Contains(last(u.menus), "settings\tNotifications are off…") {
 		t.Fatalf("denied menu = %q", last(u.menus))
 	}
-	r.handle(event{kind: evMenu, id: "settings"})
+	r.handle(event{kind: evMenu, id: bar.IDNotifySettings})
 	r.handle(event{kind: evMenu, id: "quit"})
 	if len(u.urls) != 1 || !u.quit {
 		t.Fatalf("urls %v quit %v", u.urls, u.quit)
@@ -638,5 +638,13 @@ func TestRunnerShowsWakeScreen(t *testing.T) {
 		"back\tBack to work\twake:paper\tI'm on paper\tsnooze:distract\tSnooze 10 min\tstop\tEnd session"}
 	if len(f) != 7 || !slices.Equal(f[1:], want) {
 		t.Fatalf("curtain = %q", u.curtains[0])
+	}
+}
+
+func TestSpecLinesStrip(t *testing.T) {
+	got := specLines([]bar.Item{{Title: "x"}, {Strip: []string{"deep", "", "distract"}}}, 0, nil)
+	want := []string{"\tx", "\t\t\ts:deep,none,distract"}
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("lines = %q, want %q", got, want)
 	}
 }

@@ -132,6 +132,9 @@ func (a *App) RulesErr() error { return a.rulesErr }
 // Config returns the current settings.
 func (a *App) Config() config.Config { return a.cfg }
 
+// ConfigPath is the config.toml this app reads.
+func (a *App) ConfigPath() string { return a.paths.Config }
+
 // ShellErr is the error of the last failed shell log read, nil after a good
 // one. Views then have no dirs; it never stops tock.
 func (a *App) ShellErr() error { return a.shellErr }
