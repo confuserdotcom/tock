@@ -354,3 +354,22 @@ func TestStartSessionClearsDistractSnooze(t *testing.T) {
 		t.Fatalf("snooze after failed start = %q, %v, %v; want kept", v, ok, err)
 	}
 }
+
+func TestSessionGoal(t *testing.T) {
+	s := openAt(t, dbPath(t))
+	defer s.Close()
+	x, err := s.StartSession(1000, 61000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetSessionGoal(x.ID, "TD 3, exercises 4 to 7"); err != nil {
+		t.Fatal(err)
+	}
+	o, err := s.OpenSession()
+	if err != nil || o == nil || o.Goal != "TD 3, exercises 4 to 7" {
+		t.Fatalf("open session = %+v, %v", o, err)
+	}
+	if err := s.SetSessionGoal(x.ID+99, "x"); !errors.Is(err, ErrSessionGone) {
+		t.Fatalf("unknown session: %v", err)
+	}
+}

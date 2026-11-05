@@ -314,3 +314,27 @@ func TestFocusCarriesWeights(t *testing.T) {
 	seedRated(t, a, 9, 10)
 	check(true)
 }
+
+func TestStartSessionGoal(t *testing.T) {
+	e := distracted(t)
+	a := open(t, e)
+	s, err := a.StartSessionGoal(50, "  TD 3,\texercises 4 to 7  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Goal != "TD 3, exercises 4 to 7" {
+		t.Fatalf("goal = %q", s.Goal)
+	}
+	f, err := a.Focus(e.Clock)
+	if err != nil || f.Open == nil || f.Open.Goal != s.Goal {
+		t.Fatalf("open = %+v, %v", f.Open, err)
+	}
+	if _, err := a.StopSession(); err != nil {
+		t.Fatal(err)
+	}
+	long := strings.Repeat("é", 200)
+	s, err = a.StartSessionGoal(25, long)
+	if err != nil || len([]rune(s.Goal)) != MaxGoal {
+		t.Fatalf("long goal = %d runes, %v", len([]rune(s.Goal)), err)
+	}
+}

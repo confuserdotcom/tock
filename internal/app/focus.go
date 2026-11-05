@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"tock/internal/classify"
@@ -324,6 +325,27 @@ func (a *App) StartSession(minutes int) (focus.Session, error) {
 	now := a.nowMS()
 	s, err := a.st.StartSession(now, now+int64(minutes)*60_000)
 	return focus.Session(s), err
+}
+
+// MaxGoal is the longest session goal, in characters.
+const MaxGoal = 120
+
+// StartSessionGoal is StartSession with what the session is for: spaces
+// are collapsed and the goal is cut to MaxGoal characters.
+func (a *App) StartSessionGoal(minutes int, goal string) (focus.Session, error) {
+	goal = strings.Join(strings.Fields(goal), " ")
+	if r := []rune(goal); len(r) > MaxGoal {
+		goal = string(r[:MaxGoal])
+	}
+	s, err := a.StartSession(minutes)
+	if err != nil || goal == "" {
+		return s, err
+	}
+	if err := a.st.SetSessionGoal(s.ID, goal); err != nil {
+		return s, err
+	}
+	s.Goal = goal
+	return s, nil
 }
 
 // StopSession ends the running session now (at its planned end if that has

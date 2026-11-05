@@ -96,6 +96,7 @@ type Session struct {
 	UrgesGiven    int    // distraction notices answered Open anyway
 	Wakes         int    // wake screens shown
 	WakesBack     int    // wake screens followed by work within WakeBackMS
+	Goal          string // what the user said the session is for; "" = none
 }
 
 // State is the engine's memory between ticks, kept in daemon_state.
