@@ -68,6 +68,7 @@ func (s *Server) Handler() http.Handler {
 	files := http.FileServerFS(sub)
 	mux.Handle("GET /", files)
 	mux.HandleFunc("GET /api/day", s.api(s.day))
+	mux.HandleFunc("GET /api/status", s.api(s.status))
 	mux.HandleFunc("GET /api/week", s.api(s.week))
 	mux.HandleFunc("GET /api/top", s.api(s.top))
 	mux.HandleFunc("GET /api/inbox", s.api(s.inbox))

@@ -107,6 +107,35 @@ type dayJSON struct {
 	Blocks     []blockJSON          `json:"blocks"`
 	Summary    string               `json:"summary"`
 	Work       *workJSON            `json:"work"`
+	// Usual is the same weekday over the last weeks, nil when there are
+	// fewer than two such days to compare with.
+	Usual *usualJSON `json:"usual"`
+}
+
+type usualJSON struct {
+	Days            int     `json:"days"`
+	Score           int     `json:"score"`
+	TrackedMS       int64   `json:"trackedMS"`
+	FocusMS         int64   `json:"focusMS"`
+	LongestMS       int64   `json:"longestMS"`
+	DistractMS      int64   `json:"distractMS"`
+	SwitchesPerHour float64 `json:"switchesPerHour"`
+}
+
+type sessionJSON struct {
+	Goal      string `json:"goal"`
+	StartMS   int64  `json:"startMS"`
+	PlannedMS int64  `json:"plannedMS"`
+}
+
+// statusJSON is what the page's status lines show: is trackd recording,
+// do the rules and config load, and the running session.
+type statusJSON struct {
+	Recording   bool         `json:"recording"`
+	LastSeenMS  int64        `json:"lastSeenMS"`
+	RulesError  string       `json:"rulesError,omitempty"`
+	ConfigError string       `json:"configError,omitempty"`
+	Session     *sessionJSON `json:"session"`
 }
 
 type blockJSON struct {
@@ -263,6 +292,14 @@ func (s *Server) day(r *http.Request) (any, error) {
 	if d.Work.Set {
 		out.Work = &workJSON{From: d.From, To: d.To, Off: d.Off, OutsideMS: d.OutsideMS, Closed: d.Closed}
 	}
+	u, err := s.a.Usual(date)
+	if err != nil {
+		return nil, err
+	}
+	if u.Days > 0 {
+		out.Usual = &usualJSON{Days: u.Days, Score: u.Score, TrackedMS: u.TrackedMS, FocusMS: u.FocusMS,
+			LongestMS: u.LongestMS, DistractMS: u.DistractMS, SwitchesPerHour: u.SwitchesPerHour}
+	}
 	for i, b := range d.Blocks {
 		bj := blockJSON{Start: b.Start, End: b.End, Name: report.Safe(b.Name), Category: report.Safe(b.Category), Kind: b.Kind,
 			ActiveMS: b.ActiveMS, DeepMS: b.DeepMS, DistractMS: b.DistractMS, Top: []nameMS{}, Summary: report.Safe(b.Summary)}
@@ -270,6 +307,28 @@ func (s *Server) day(r *http.Request) (any, error) {
 			bj.Top = append(bj.Top, nameMS{report.Safe(t.Name), t.MS})
 		}
 		out.Blocks[i] = bj
+	}
+	return out, nil
+}
+
+func (s *Server) status(*http.Request) (any, error) {
+	h, err := s.a.Health()
+	if err != nil {
+		return nil, err
+	}
+	out := statusJSON{Recording: h.TrackdUp, LastSeenMS: h.LastSeenMS}
+	if h.RulesErr != nil {
+		out.RulesError = h.RulesErr.Error()
+	}
+	if h.ConfigErr != nil {
+		out.ConfigError = h.ConfigErr.Error()
+	}
+	sess, err := s.a.RunningSession()
+	if err != nil {
+		return nil, err
+	}
+	if sess != nil {
+		out.Session = &sessionJSON{Goal: report.Safe(sess.Goal), StartMS: sess.StartMS, PlannedMS: sess.PlannedMS}
 	}
 	return out, nil
 }
