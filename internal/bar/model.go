@@ -12,6 +12,7 @@ import (
 
 	"tock/internal/app"
 	"tock/internal/classify"
+	"tock/internal/config"
 	"tock/internal/focus"
 	"tock/internal/recommend"
 	"tock/internal/report"
@@ -95,6 +96,19 @@ type Snapshot struct {
 	Rec          *recommend.Rec // the pending recommendation (sent under 30 min ago, no reply), or nil
 	RecErr       error          // why Rec could not be read, for the caller to log; the rest of the snapshot is still good
 	BreakUntil   time.Time      // the break the user took ends then; zero = none running
+	Strip        []string       // today's time as StripCells kinds, for the colour strip; nil = nothing tracked
+	DistractAtMS int64          // the running session's newest distraction notice; 0 = none or no session
+	DistractErr  error          // why DistractAtMS could not be read, for the caller to log; the rest of the snapshot is still good
+	Features     []FeatureState // the toggles of the Settings submenu, in config.Features order
+}
+
+// StripCells is how many blocks the menu's colour strip has.
+const StripCells = 24
+
+// FeatureState is one Settings toggle as the config has it now.
+type FeatureState struct {
+	ID, Group, Name string
+	On              bool
 }
 
 // LastSession is the finished session the menu offers to rate and refile.
@@ -124,6 +138,7 @@ func Load(a *app.App, now time.Time, access string) (Snapshot, error) {
 	}
 	s.TrackedMS, s.FocusMS, s.UnlabelledMS = d.TrackedMS, d.Stats.FocusMS, d.ByKind[""]
 	s.Score, s.Active = d.Score.Value, d.Stats.ActiveMS > 0
+	s.Strip = report.Strip(d.ByKind, StripCells)
 	f, err := a.Focus(now)
 	if err != nil {
 		return s, err
@@ -131,6 +146,15 @@ func Load(a *app.App, now time.Time, access string) (Snapshot, error) {
 	s.Session, s.Live, s.SnoozeMin = f.Open, f.Live, f.SnoozeMin
 	if f.SnoozeUntilMS > 0 {
 		s.SnoozeUntil = time.UnixMilli(f.SnoozeUntilMS).In(now.Location())
+	}
+	if s.Session != nil {
+		if s.DistractAtMS, err = a.LastNoticeAt(focus.TopicFocus, s.Session.StartMS); err != nil {
+			s.DistractAtMS, s.DistractErr = 0, fmt.Errorf("bar: distraction notice: %w", err)
+		}
+	}
+	cfg := a.Config()
+	for _, f := range config.Features {
+		s.Features = append(s.Features, FeatureState{ID: f.ID, Group: f.Group, Name: f.Name, On: f.On(cfg)})
 	}
 	s.Last, s.LastErr = loadLast(a, now)
 	s.Loc = now.Location()
@@ -197,6 +221,7 @@ type Item struct {
 	Separator bool
 	Checked   bool
 	Sub       []Item
+	Strip     []string // a colour strip row: one kind per block ("" = unlabelled); Title is empty
 }
 
 func label(f string, a ...any) Item { return Item{Title: fmt.Sprintf(f, a...)} }

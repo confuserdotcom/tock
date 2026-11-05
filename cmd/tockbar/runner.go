@@ -170,6 +170,9 @@ func (r *runner) tick() {
 				if s.RecErr != nil {
 					r.warn("reading the pending suggestion failed", s.RecErr)
 				}
+				if s.DistractErr != nil {
+					r.warn("reading the last distraction notice failed", s.DistractErr)
+				}
 			}
 		}
 	}

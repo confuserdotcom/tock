@@ -16,6 +16,7 @@ import (
 	"tock/internal/app"
 	"tock/internal/apptest"
 	"tock/internal/classify"
+	"tock/internal/config"
 	"tock/internal/focus"
 	"tock/internal/store"
 )
@@ -1480,5 +1481,28 @@ func TestRespondWake(t *testing.T) {
 	n, d, _ = a.Notice(id)
 	if b := Buttons(n, d); len(b) != 3 || b[0].ID != ActWakeWork || b[2].ID != ActStop {
 		t.Fatalf("warn buttons = %+v", b)
+	}
+}
+
+func TestLoadMenuData(t *testing.T) {
+	e, a, s := distractedSession(t)
+	at(t, e, "15:00")
+	snap, err := Load(a, e.Clock, app.NotifyGranted)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(snap.Strip) != StripCells || snap.DistractAtMS != 0 {
+		t.Fatalf("before notice: strip %d cells, distract %d", len(snap.Strip), snap.DistractAtMS)
+	}
+	notes := focusNotes(t, a)
+	if len(notes) != 1 || notes[0].Sess.ID != s.ID {
+		t.Fatalf("notes = %+v", notes)
+	}
+	enqueue(t, a, notes[0])
+	if snap, err = Load(a, e.Clock, app.NotifyGranted); err != nil || snap.DistractAtMS < s.StartMS {
+		t.Fatalf("after notice: distract %d, %v, want ≥ %d", snap.DistractAtMS, err, s.StartMS)
+	}
+	if len(snap.Features) != len(config.Features) || snap.Features[0].ID != config.Features[0].ID || snap.Features[0].Group == "" {
+		t.Fatalf("features = %+v", snap.Features)
 	}
 }
