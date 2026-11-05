@@ -10,7 +10,7 @@ import (
 )
 
 // Unclassified is the category row of time without a category.
-const Unclassified = "Unclassified"
+const Unclassified = "Unlabelled"
 
 // Kinds is the display order of category kinds. "" (unlabelled) is drawn
 // after neutral and before distract.

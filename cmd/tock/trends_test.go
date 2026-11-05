@@ -20,7 +20,7 @@ func TestTrends(t *testing.T) {
 		"\n" +
 		"Code               2h14  new\n" +
 		"Entertainment       12m  new\n" +
-		"Unclassified        18m  new\n"
+		"Unlabelled          18m  new\n"
 	if code != 0 || out != want {
 		t.Fatalf("code %d\n%s\nwant\n%s", code, out, want)
 	}

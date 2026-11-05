@@ -27,7 +27,7 @@ func TestInboxListsAndIgnores(t *testing.T) {
 		t.Fatalf("ignored key still listed:\n%s", out)
 	}
 	_, out = te.run(t, "", "today")
-	if !strings.Contains(out, "Unclassified     28m") || !strings.Contains(out, "2 keys → tock inbox") {
+	if !strings.Contains(out, "Unlabelled       28m") || !strings.Contains(out, "2 keys → tock inbox") {
 		t.Fatalf("ignored time must still count as Unclassified, key count must drop:\n%s", out)
 	}
 	if code, out := te.run(t, "", "ignore", "--undo", "Mail · inbox"); code != 0 || !strings.HasPrefix(out, "showing again") {

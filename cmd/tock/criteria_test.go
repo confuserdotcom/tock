@@ -12,7 +12,7 @@ import (
 func TestEditingRulesRelabelsHistory(t *testing.T) {
 	te := newTestEnv(t, testRules)
 	te.seed(t, daySpans()...)
-	if _, out := te.run(t, "", "today"); !strings.Contains(out, "Unclassified     28m") {
+	if _, out := te.run(t, "", "today"); !strings.Contains(out, "Unlabelled       28m") {
 		t.Fatalf("before:\n%s", out)
 	}
 	edited := testRules + `
@@ -24,7 +24,7 @@ category = "Study"
 		t.Fatal(err)
 	}
 	_, out := te.run(t, "", "today")
-	if !strings.Contains(out, "Study            12m") || !strings.Contains(out, "Unclassified     16m") {
+	if !strings.Contains(out, "Study            12m") || !strings.Contains(out, "Unlabelled       16m") {
 		t.Fatalf("after editing rules.toml:\n%s", out)
 	}
 }

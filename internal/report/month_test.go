@@ -59,8 +59,8 @@ func TestBuildMonth(t *testing.T) {
 	for _, c := range m.Categories {
 		names = append(names, c.Name)
 	}
-	// Code has time; Entertainment and Study only last month (ties by name); Unclassified last.
-	if !reflect.DeepEqual(names, []string{"Code", "Entertainment", "Study", "Unclassified"}) {
+	// Code has time; Entertainment and Study only last month (ties by name); Unlabelled last.
+	if !reflect.DeepEqual(names, []string{"Code", "Entertainment", "Study", "Unlabelled"}) {
 		t.Fatalf("order = %v", names)
 	}
 	if got := Spark([]int{0, -1, 100, 50}); got != "▁·█▅" {

@@ -42,7 +42,7 @@ func TestBuildDayTotalsAndCategories(t *testing.T) {
 	}
 	un := d.Categories[2]
 	if un.MS != 15*60_000 || len(un.Items) != 1 || un.Items[0].Key != "arc · chatgpt.com" {
-		t.Fatalf("Unclassified must skip ignored keys: %+v", un)
+		t.Fatalf("Unlabelled must skip ignored keys: %+v", un)
 	}
 }
 

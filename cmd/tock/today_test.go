@@ -17,7 +17,7 @@ func TestTodayReport(t *testing.T) {
 		"score 74 · focus 2h14 / 4h00 · 1 block, longest 2h14 · 2 switches\n" +
 		"Code            2h14  ████████████  tock 1h40\n" +
 		"Entertainment    12m  █\n" +
-		"Unclassified     28m  ██▌           3 keys → tock inbox\n"
+		"Unlabelled       28m  ██▌           3 keys → tock inbox\n"
 	if out != want {
 		t.Fatalf("today output:\n%s\nwant:\n%s", out, want)
 	}
@@ -82,7 +82,7 @@ func TestTodayAlignsLongNames(t *testing.T) {
 	}
 	want := long + "  2h14  ████████████  tock 1h40\n" +
 		"Entertainment" + strings.Repeat(" ", 12) + "12m  █\n" +
-		"Unclassified" + strings.Repeat(" ", 13) + "28m  ██▌           3 keys → tock inbox\n"
+		"Unlabelled" + strings.Repeat(" ", 15) + "28m  ██▌           3 keys → tock inbox\n"
 	if !strings.HasSuffix(out, want) {
 		t.Fatalf("today output:\n%s\nwant suffix:\n%s", out, want)
 	}
