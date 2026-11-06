@@ -5,11 +5,15 @@
 #import <Cocoa/Cocoa.h>
 #import <WebKit/WebKit.h>
 #include "dash_darwin.h"
+#include "save_darwin.h"
 
 @interface DashWindow : NSObject <NSWindowDelegate, WKNavigationDelegate, WKUIDelegate, WKDownloadDelegate>
 @property(strong) NSWindow *win;
 @property(strong) WKWebView *web;
 @property(copy) NSString *base; // scheme://host:port of the page loaded
+// Each download's file in progress and where it goes when done; NSNull
+// once the user cancelled the sheet and the page has been told.
+@property(strong) NSMapTable<WKDownload *, id> *saves;
 @end
 
 static DashWindow *dash;
@@ -24,10 +28,6 @@ static NSString *jsString(NSString *s) {
 
 static NSString *origin(NSURL *u) {
     return [NSString stringWithFormat:@"%@://%@:%@", u.scheme, u.host, u.port];
-}
-
-static BOOL local(NSURL *u) {
-    return [u.host isEqualToString:@"127.0.0.1"] || [u.host isEqualToString:@"localhost"] || [u.host isEqualToString:@"::1"];
 }
 
 // buildMenu is the minimal menu a regular app needs: Quit, Close, the edit
@@ -136,16 +136,20 @@ static NSMenu *buildMenu(void) {
     decidePolicyForNavigationAction:(WKNavigationAction *)a
                     decisionHandler:(void (^)(WKNavigationActionPolicy))h {
     NSURL *u = a.request.URL;
-    if (a.shouldPerformDownload) { // the page's Export: a blob link with download set
-        h(WKNavigationActionPolicyDownload);
-        return;
-    }
-    if (u.host && !local(u)) {
+    // Off-page first: a download link to another host still goes to the
+    // browser, never fetched from inside this window. The page's Export is
+    // a blob link with download set.
+    switch (tock_nav_policy(u.host.UTF8String, a.shouldPerformDownload)) {
+    case TOCK_NAV_BROWSER:
         [[NSWorkspace sharedWorkspace] openURL:u];
         h(WKNavigationActionPolicyCancel);
         return;
+    case TOCK_NAV_DOWNLOAD:
+        h(WKNavigationActionPolicyDownload);
+        return;
+    default:
+        h(WKNavigationActionPolicyAllow);
     }
-    h(WKNavigationActionPolicyAllow);
 }
 
 - (void)webView:(WKWebView *)w navigationAction:(WKNavigationAction *)a didBecomeDownload:(WKDownload *)d {
@@ -156,24 +160,76 @@ static NSMenu *buildMenu(void) {
     d.delegate = self;
 }
 
+// tell hands the page how a download ended, as a tock-download event.
+- (void)tell:(BOOL)ok name:(NSString *)name error:(NSString *)err {
+    NSMutableDictionary *r = [@{@"ok" : @(ok)} mutableCopy];
+    if (name) r[@"name"] = name;
+    if (err) r[@"error"] = err;
+    NSData *d = [NSJSONSerialization dataWithJSONObject:r options:0 error:nil];
+    NSString *js = [NSString stringWithFormat:@"dispatchEvent(new CustomEvent('tock-download',{detail:%@}))",
+                                              [[NSString alloc] initWithData:d encoding:NSUTF8StringEncoding]];
+    [self.web evaluateJavaScript:js completionHandler:nil];
+}
+
 // A download asks where to go with a save sheet on the window, in Downloads
-// under the server's name. Cancel drops it.
+// under the server's name. WebKit writes to a private temporary file; the
+// chosen path is only touched once that file is complete, so a failed
+// download leaves an existing file as it was.
 - (void)download:(WKDownload *)d
     decideDestinationUsingResponse:(NSURLResponse *)r
                  suggestedFilename:(NSString *)name
                  completionHandler:(void (^)(NSURL *))done {
+    if (!self.saves) self.saves = [NSMapTable strongToStrongObjectsMapTable];
+    char base[1024];
+    tock_save_name(name.UTF8String, base, sizeof base);
     NSSavePanel *p = [NSSavePanel savePanel];
-    p.nameFieldStringValue = name.lastPathComponent ?: @"tock-export";
+    p.nameFieldStringValue = [NSString stringWithUTF8String:base] ?: @"tock-export";
     p.directoryURL = [NSFileManager.defaultManager URLsForDirectory:NSDownloadsDirectory inDomains:NSUserDomainMask].firstObject;
     [p beginSheetModalForWindow:self.win completionHandler:^(NSModalResponse res) {
         if (res != NSModalResponseOK || !p.URL) {
+            [self.saves setObject:NSNull.null forKey:d];
+            [self tell:NO name:nil error:nil];
             done(nil);
             return;
         }
-        // The panel asked before replacing; WebKit refuses a path that exists.
-        [NSFileManager.defaultManager removeItemAtURL:p.URL error:nil];
-        done(p.URL);
+        NSFileManager *fm = NSFileManager.defaultManager;
+        NSURL *dir = [[NSURL fileURLWithPath:NSTemporaryDirectory()]
+            URLByAppendingPathComponent:[@"tock-download-" stringByAppendingString:NSUUID.UUID.UUIDString]];
+        NSError *err;
+        if (![fm createDirectoryAtURL:dir withIntermediateDirectories:YES attributes:nil error:&err]) {
+            [self.saves setObject:NSNull.null forKey:d];
+            [self tell:NO name:p.URL.lastPathComponent error:err.localizedDescription];
+            done(nil);
+            return;
+        }
+        NSURL *tmp = [dir URLByAppendingPathComponent:p.URL.lastPathComponent];
+        [self.saves setObject:@[ tmp, p.URL ] forKey:d];
+        done(tmp);
     }];
+}
+
+- (void)downloadDidFinish:(WKDownload *)d {
+    NSArray<NSURL *> *s = [self.saves objectForKey:d];
+    [self.saves removeObjectForKey:d];
+    if (![s isKindOfClass:NSArray.class]) return;
+    NSURL *tmp = s[0], *dest = s[1];
+    // The panel already asked before replacing; the swap is one step.
+    int e = tock_finish_save(tmp.fileSystemRepresentation, dest.fileSystemRepresentation);
+    [NSFileManager.defaultManager removeItemAtURL:tmp.URLByDeletingLastPathComponent error:nil];
+    [self tell:e == 0 name:dest.lastPathComponent error:e ? [NSString stringWithUTF8String:strerror(e)] : nil];
+}
+
+- (void)download:(WKDownload *)d didFailWithError:(NSError *)error resumeData:(NSData *)resume {
+    id s = [self.saves objectForKey:d];
+    [self.saves removeObjectForKey:d];
+    if (s == NSNull.null) return; // cancelled in the sheet, already told
+    NSString *name = nil;
+    if ([s isKindOfClass:NSArray.class]) {
+        NSArray<NSURL *> *a = s;
+        name = a[1].lastPathComponent;
+        [NSFileManager.defaultManager removeItemAtURL:a[0].URLByDeletingLastPathComponent error:nil];
+    }
+    [self tell:NO name:name error:error.localizedDescription ?: @"download failed"];
 }
 
 // target=_blank: same rule, never a second web view.

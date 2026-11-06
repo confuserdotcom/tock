@@ -89,8 +89,11 @@ function Export({ monday }: { monday: string }) {
   async function save(e: (typeof EXPORTS)[number]) {
     const path = e.path ? e.path(monday) : `/api/export?from=${monday}&to=${sun}&${e.q}`;
     try {
-      const name = await download(path, `tock-${monday}.${e.ext}`);
-      toast(`Saved ${name}`);
+      const r = await download(path, `tock-${monday}.${e.ext}`);
+      if (r.error) toast.error(`Couldn't save ${r.name}: ${r.error}`);
+      else if (r.browser) toast(`Downloading ${r.name}`);
+      else if (r.saved) toast(`Saved ${r.name}`);
+      // cancelled in the save sheet: nothing to say
     } catch (err) {
       toast.error((err as Error).message);
     }
