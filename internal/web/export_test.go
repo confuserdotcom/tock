@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+	"time"
 )
 
 // Downloads come back as attachments with the token check of every other
@@ -69,5 +70,35 @@ func TestExportDownload(t *testing.T) {
 	}
 	if code, _, _ := f.do("GET", "/api/export", "-", nil); code != 401 {
 		t.Fatalf("no token: %d", code)
+	}
+}
+
+// The cap counts calendar days, so a DST shift inside the range can't
+// stretch it by a day.
+func TestExportTooLong(t *testing.T) {
+	ny, err := time.LoadLocation("America/New_York")
+	if err != nil {
+		t.Skip(err)
+	}
+	d := func(s string) time.Time {
+		v, err := time.ParseInLocation(dateLayout, s, ny)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return v
+	}
+	for _, c := range []struct {
+		from, to string
+		want     bool
+	}{
+		{"2025-03-09", "2026-03-09", false}, // 366 days, spring shift in range
+		{"2025-03-08", "2026-03-09", true},  // 367 days, under 367*24h of wall time
+		{"2025-11-01", "2026-11-01", false},
+		{"2025-10-31", "2026-11-01", true},
+		{"2026-10-10", "2026-10-10", false},
+	} {
+		if got := exportTooLong(d(c.from), d(c.to)); got != c.want {
+			t.Errorf("%s..%s: got %v, want %v", c.from, c.to, got, c.want)
+		}
 	}
 }

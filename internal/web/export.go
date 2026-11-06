@@ -11,6 +11,13 @@ import (
 // maxExportDays bounds one export, so a mistyped year can't stall the page.
 const maxExportDays = 366
 
+// exportTooLong reports whether from..to, both included, spans more than
+// maxExportDays calendar days. It counts days, not hours, so a DST shift
+// inside the range can't let an extra day through.
+func exportTooLong(from, to time.Time) bool {
+	return !to.Before(from.AddDate(0, 0, maxExportDays))
+}
+
 // file is a handler result sent as a download rather than JSON.
 type file struct {
 	name, ctype string
@@ -80,7 +87,7 @@ func (s *Server) export(r *http.Request) (any, error) {
 	if from.After(to) {
 		return nil, badRequest("from is after to")
 	}
-	if to.Sub(from) >= maxExportDays*24*time.Hour {
+	if exportTooLong(from, to) {
 		return nil, badRequest("an export covers at most a year")
 	}
 	rows, err := s.a.Export(from, to.AddDate(0, 0, 1))
