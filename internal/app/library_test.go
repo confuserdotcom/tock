@@ -82,3 +82,50 @@ func TestWithRulesUndo(t *testing.T) {
 		t.Fatalf("journaled a failed or empty change: %v", err)
 	}
 }
+
+func TestLibrary(t *testing.T) {
+	e := apptest.New(t, apptest.Rules)
+	e.Seed(t, append(apptest.DaySpans(),
+		apptest.Span{ID: 50, Start: "09:00", End: "09:30", Bundle: "arc", App: "Arc", Title: "Docs", URL: "example.com/d", Day: -40})...)
+	a := open(t, e)
+	code := "Code"
+	if err := a.AddProject(ProjectSpec{Name: "ana1", Category: &code}); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.Tag([]int64{50}, classify.Want{Category: "Code", Project: "ATLAS"}); err != nil {
+		t.Fatal(err)
+	}
+	lib, err := a.Library()
+	if err != nil {
+		t.Fatal(err)
+	}
+	proj := map[string]LibProject{}
+	for _, p := range lib.Projects {
+		proj[p.Name] = p
+	}
+	cat := map[string]LibCategory{}
+	for _, c := range lib.Categories {
+		cat[c.Name] = c
+	}
+	if p := proj["tock"]; p.Last30MS != 100*60_000 || p.LastSeenMS != apptest.At(t, "10:40", 0) {
+		t.Errorf("tock %+v", p.LibraryUse)
+	}
+	if p := proj["ATLAS"]; p.Last30MS != 0 || p.LastSeenMS != apptest.At(t, "09:30", -40) {
+		t.Errorf("ATLAS %+v", p.LibraryUse)
+	}
+	if p := proj["Old"]; !p.Archived || p.LastSeenMS != 0 {
+		t.Errorf("Old %+v", p)
+	}
+	if c := cat["Entertainment"]; c.Last30MS != 12*60_000 {
+		t.Errorf("Entertainment %+v", c.LibraryUse)
+	}
+	if c := cat["Code"]; c.Projects != 1 {
+		t.Errorf("Code projects %d", c.Projects)
+	}
+	if c := cat["Study"]; c.LastSeenMS != 0 {
+		t.Errorf("Study %+v", c.LibraryUse)
+	}
+	if len(lib.Goals) != len(a.Rules().Goals) || len(lib.Lookalikes) != len(classify.Duplicates(a.Rules())) {
+		t.Errorf("goals %d lookalikes %d", len(lib.Goals), len(lib.Lookalikes))
+	}
+}
