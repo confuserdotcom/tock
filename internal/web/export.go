@@ -53,68 +53,20 @@ func (s *Server) report(r *http.Request) (any, error) {
 // the last 7), ?format=csv|json, ?by=project for one row per project.
 func (s *Server) export(r *http.Request) (any, error) {
 	q := r.URL.Query()
-	format, by := q.Get("format"), q.Get("by")
-	if format == "" {
-		format = "csv"
-	}
-	if format != "csv" && format != "json" {
-		return nil, badRequest("format must be csv or json")
-	}
-	if by != "" && by != "project" {
-		return nil, badRequest("by must be project")
-	}
-	now := s.now()
-	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-	day := func(k string, def time.Time) (time.Time, error) {
-		v := q.Get(k)
-		if v == "" {
-			return def, nil
-		}
-		d, err := time.ParseInLocation(dateLayout, v, now.Location())
-		if err != nil {
-			return time.Time{}, badRequest(k + " must be YYYY-MM-DD")
-		}
-		return d, nil
-	}
-	from, err := day("from", today.AddDate(0, 0, -6))
+	o, err := report.ParseExport(q.Get("from"), q.Get("to"), q.Get("format"), q.Get("by"), s.now())
 	if err != nil {
-		return nil, err
+		return nil, badRequest(err.Error())
 	}
-	to, err := day("to", today)
-	if err != nil {
-		return nil, err
-	}
-	if from.After(to) {
-		return nil, badRequest("from is after to")
-	}
-	if exportTooLong(from, to) {
+	if exportTooLong(o.From, o.To) {
 		return nil, badRequest("an export covers at most a year")
 	}
-	rows, err := s.a.Export(from, to.AddDate(0, 0, 1))
+	rows, err := s.a.Export(o.From, o.End())
 	if err != nil {
 		return nil, err
 	}
 	var b bytes.Buffer
-	name := "tock-" + from.Format(dateLayout) + "-to-" + to.Format(dateLayout)
-	switch {
-	case by == "project" && format == "json":
-		err = report.WriteBillJSON(&b, report.Bill(rows))
-	case by == "project":
-		err = report.WriteBillCSV(&b, report.Bill(rows))
-	case format == "json":
-		err = report.WriteJSON(&b, rows)
-	default:
-		err = report.WriteCSV(&b, rows)
-	}
-	if err != nil {
+	if err := report.WriteExport(&b, rows, o); err != nil {
 		return nil, err
 	}
-	if by == "project" {
-		name += "-projects"
-	}
-	ctype := "text/csv; charset=utf-8"
-	if format == "json" {
-		ctype = "application/json; charset=utf-8"
-	}
-	return file{name + "." + format, ctype, b.Bytes()}, nil
+	return file{o.Name(), o.ContentType(), b.Bytes()}, nil
 }
