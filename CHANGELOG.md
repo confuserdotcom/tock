@@ -2,6 +2,34 @@
 
 What changed for you in each release. Dates are UTC.
 
+## v5.3.0 — 2026-11-06
+
+### Added
+- Edit the timeline from the dashboard. Click a bar or drag across the
+  lanes to pick a range, then **Label**, **Add entry** or **Delete**; type
+  in the sheet to change the times. **Add time** above the timeline adds
+  time tock didn't see.
+- **Export** in the week view saves the week report, the week's entries
+  as CSV or JSON, or its hours by project: the same files `tock report`
+  and `tock export` write. In the tock window a save sheet asks where each
+  goes.
+- `tock summary` without Claude prints the day's work blocks and says how
+  to get a written summary, instead of stopping with an error.
+
+### Changed
+- Time without a label is called Unlabelled everywhere; the dashboard's
+  tables said Unclassified.
+- `tock export` errors now name the option at fault, the same way the
+  dashboard does.
+
+### Fixed
+- Replacing a file from the dashboard's save sheet no longer deletes the
+  old one before the new one is written, so a failed export keeps it. The
+  toast says Saved only once the file is there, and nothing on Cancel.
+- A slow save sheet can no longer cut a download short.
+- An export range across a daylight saving change could cover a year and
+  a day.
+
 ## v5.2.0 — 2026-11-05
 
 ### Added
