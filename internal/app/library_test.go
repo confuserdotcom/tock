@@ -1,6 +1,8 @@
 package app
 
 import (
+	"errors"
+	"os"
 	"testing"
 
 	"tock/internal/apptest"
@@ -48,5 +50,35 @@ func TestProjectRate(t *testing.T) {
 	}
 	if err := a.EditProject(ProjectSpec{Name: "Client", Rate: big}); err == nil {
 		t.Fatal("set a rate over MaxRate")
+	}
+}
+
+func TestWithRulesUndo(t *testing.T) {
+	e := apptest.New(t, apptest.Rules)
+	e.Seed(t, apptest.DaySpans()...)
+	a := open(t, e)
+	err := a.WithRulesUndo("added category Reading", func() error {
+		return a.AddCategory(CategorySpec{Name: "Reading", Kind: classify.KindNeutral})
+	})
+	if err != nil || !a.Rules().HasCategory("Reading") {
+		t.Fatalf("add: %v", err)
+	}
+	what, err := a.Undo()
+	if err != nil || what != "added category Reading" {
+		t.Fatalf("undo: %q %v", what, err)
+	}
+	if b, _ := os.ReadFile(e.Rules); string(b) != apptest.Rules || a.Rules().HasCategory("Reading") {
+		t.Fatalf("undo left rules.toml:\n%s", b)
+	}
+
+	// A failed change and a no-op journal nothing.
+	if err := a.WithRulesUndo("x", func() error { return errors.New("no") }); err == nil {
+		t.Fatal("lost fn's error")
+	}
+	if err := a.WithRulesUndo("y", func() error { return nil }); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.Undo(); !errors.Is(err, ErrNothingToUndo) {
+		t.Fatalf("journaled a failed or empty change: %v", err)
 	}
 }
