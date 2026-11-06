@@ -890,6 +890,13 @@ page to your browser and runs until you press ctrl-c.
   (type `Category / project` for a project) and Return. **Ignore** has an
   undo. Keys: `j`/`k` move, Return or `a` accept, `l` label, `i` ignore,
   `u` undo.
+- **Library:** your categories, projects and goals. Each row shows its time
+  in the last 30 days and when it was last seen; names unseen for 30 days
+  are greyed, with **Archive** on projects, and look-alike names offer a
+  **Merge**. Click a row to edit it (projects take an hourly rate here,
+  which invoices and `tock export --by project` use), or **Add**. Adding,
+  changing and removing can be undone from the toast; a rename moves past
+  entries too, and a merge asks first because it can't be undone.
 
 The status strip under the views shows whether trackd is recording, whether
 rules.toml loads, and a running focus session with its progress. Keys `1`–`5`

@@ -85,6 +85,11 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/ignore", s.api(s.ignore))
 	mux.HandleFunc("POST /api/edit", s.api(s.edit))
 	mux.HandleFunc("POST /api/undo", s.api(s.undo))
+	mux.HandleFunc("GET /api/library", s.api(s.library))
+	mux.HandleFunc("POST /api/library/category", s.api(s.libCategory))
+	mux.HandleFunc("POST /api/library/project", s.api(s.libProject))
+	mux.HandleFunc("POST /api/library/goal", s.api(s.libGoal))
+	mux.HandleFunc("POST /api/library/merge", s.api(s.libMerge))
 	return s.guard(mux)
 }
 

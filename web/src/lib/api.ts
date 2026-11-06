@@ -153,3 +153,9 @@ export type Propose = {
   candidates: { rule: string; matches: number; matchMS: number; thisKey: number; new: number; newMS: number; fixed: number; replaces: number }[];
 };
 export type Done = { spans: number; ms: number; label: string };
+export type LibCategory = { name: string; kind: string; afkMS: number; interrupt: boolean; projects: number; last30MS: number; lastSeenMS: number };
+export type LibProject = { name: string; category: string; aliases: string[]; rate: number | null; archived: boolean; last30MS: number; lastSeenMS: number };
+export type LibGoal = { category: string; project: string; name?: string; text?: string; atMost: boolean; week: boolean; ms: number };
+export type LibDup = { kind: "category" | "project"; a: string; b: string };
+export type Library = { categories: LibCategory[]; projects: LibProject[]; goals: LibGoal[]; lookalikes: LibDup[]; currency: string; nowMS: number };
+export type LibChange = { what: string; undo: boolean };

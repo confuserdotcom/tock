@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"strconv"
 	"strings"
 	"tock/internal/rulesfile"
 
@@ -207,13 +208,16 @@ func (a *App) LabelTree(days int) ([]TreeCategory, error) {
 }
 
 // ProjectSpec is a project to add, or what to change in one (Edit): nil
-// leaves a field, Category "" unfiles it.
+// leaves a field, Category "" unfiles it. Rate < 0 drops the rate.
 type ProjectSpec struct {
 	Name     string
 	Category *string
 	Aliases  *[]string
 	Archived *bool
+	Rate     *float64
 }
+
+func rateValue(r float64) string { return strconv.FormatFloat(r, 'f', -1, 64) }
 
 func (a *App) checkProject(p ProjectSpec) (ProjectSpec, error) {
 	if p.Category != nil && *p.Category != "" {
@@ -231,6 +235,9 @@ func (a *App) checkProject(p ProjectSpec) (ProjectSpec, error) {
 			}
 		}
 		p.Aliases = &clean
+	}
+	if p.Rate != nil && (math.IsNaN(*p.Rate) || *p.Rate > classify.MaxRate) {
+		return p, fmt.Errorf("rate %s, want 0 to %d", rateValue(*p.Rate), classify.MaxRate)
 	}
 	return p, nil
 }
@@ -254,6 +261,9 @@ func (a *App) AddProject(p ProjectSpec) error {
 	}
 	if p.Aliases != nil && len(*p.Aliases) > 0 {
 		fields = append(fields, classify.Field{Key: "aliases", Value: classify.TOMLStrings(*p.Aliases)})
+	}
+	if p.Rate != nil && *p.Rate >= 0 {
+		fields = append(fields, classify.Field{Key: "rate", Value: rateValue(*p.Rate)})
 	}
 	return a.rewriteRules(func(rules, learned []byte) ([]byte, []byte, error) {
 		return []byte(classify.AddTable(string(rules), classify.NameProject, fields)), learned, nil
@@ -296,6 +306,13 @@ func (a *App) EditProject(p ProjectSpec) error {
 				v = "true"
 			}
 			set("archived", v)
+		}
+		if p.Rate != nil {
+			v := ""
+			if *p.Rate >= 0 {
+				v = rateValue(*p.Rate)
+			}
+			set("rate", v)
 		}
 		return []byte(text), learned, err
 	})
