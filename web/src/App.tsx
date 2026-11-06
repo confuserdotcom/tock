@@ -18,7 +18,7 @@ import Palette from "@/components/Palette";
 // NATIVE: inside the tock window, which leaves room for the traffic lights.
 const NATIVE = /tock-app/.test(navigator.userAgent);
 
-const TITLES: Record<View, string> = { today: "Today", week: "Week", trends: "Trends", top: "Top", inbox: "Inbox" };
+const TITLES: Record<View, string> = { today: "Today", week: "Week", trends: "Trends", top: "Top", inbox: "Inbox", library: "Library" };
 
 /** useTick changes once a minute, so live views refresh. */
 function useTick(ms = 60_000) {

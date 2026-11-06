@@ -3,7 +3,7 @@ import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, C
 import { addDays, isoDate } from "@/lib/format";
 import { go, VIEWS } from "@/lib/route";
 
-const NAMES: Record<string, string> = { today: "Today", week: "Week", trends: "Trends", top: "Top", inbox: "Inbox" };
+const NAMES: Record<string, string> = { today: "Today", week: "Week", trends: "Trends", top: "Top", inbox: "Inbox", library: "Library" };
 
 /** Palette: ⌘K to jump to a view or a date, or switch the theme. */
 export default function Palette() {
