@@ -800,7 +800,9 @@ lists the day's edits and `tock edit remove <id>` drops one. When edits
 overlap, the newest wins. In the TUI's today tab, `s` splits the row (type
 where the labelled part starts and ends), `d` deletes the row's time and `+`
 adds time (an idle row's range is filled in); `t` on an entry relabels it.
-In `tock web`, a row's sheet has **Delete time**.
+In `tock web`, click a bar or drag across the timeline to pick a range: the
+sheet shows its times (type to change them) and **Label**, **Add entry** or
+**Delete**. **Add time** above the timeline adds an entry.
 
 ## Undo
 
@@ -862,7 +864,9 @@ Links that leave the page open in your browser. `tock web` serves the same
 page to your browser and runs until you press ctrl-c.
 
 - **Today:** the timeline, with one row per category on a shared hour axis
-  (hover a bar for its app and title, click it to label those entries).
+  (hover a bar for its app and title, click it to label or delete it, drag
+  across the lanes to edit a range, **Add time** for time tock didn't see;
+  see [Editing the timeline](#editing-the-timeline)).
   Then the focus score with its change against your usual same weekday
   (the middle of the last four), and four stats with their changes:
   focus time, longest block, distraction and switches per hour. Next to it,
