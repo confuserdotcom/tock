@@ -5,6 +5,7 @@
 #import <Cocoa/Cocoa.h>
 #import <WebKit/WebKit.h>
 #include "dash_darwin.h"
+#include "save_darwin.h"
 
 @interface DashWindow : NSObject <NSWindowDelegate, WKNavigationDelegate, WKUIDelegate, WKDownloadDelegate>
 @property(strong) NSWindow *win;
@@ -27,10 +28,6 @@ static NSString *jsString(NSString *s) {
 
 static NSString *origin(NSURL *u) {
     return [NSString stringWithFormat:@"%@://%@:%@", u.scheme, u.host, u.port];
-}
-
-static BOOL local(NSURL *u) {
-    return [u.host isEqualToString:@"127.0.0.1"] || [u.host isEqualToString:@"localhost"] || [u.host isEqualToString:@"::1"];
 }
 
 // buildMenu is the minimal menu a regular app needs: Quit, Close, the edit
@@ -140,17 +137,19 @@ static NSMenu *buildMenu(void) {
                     decisionHandler:(void (^)(WKNavigationActionPolicy))h {
     NSURL *u = a.request.URL;
     // Off-page first: a download link to another host still goes to the
-    // browser, never fetched from inside this window.
-    if (u.host && !local(u)) {
+    // browser, never fetched from inside this window. The page's Export is
+    // a blob link with download set.
+    switch (tock_nav_policy(u.host.UTF8String, a.shouldPerformDownload)) {
+    case TOCK_NAV_BROWSER:
         [[NSWorkspace sharedWorkspace] openURL:u];
         h(WKNavigationActionPolicyCancel);
         return;
-    }
-    if (a.shouldPerformDownload) { // the page's Export: a blob link with download set
+    case TOCK_NAV_DOWNLOAD:
         h(WKNavigationActionPolicyDownload);
         return;
+    default:
+        h(WKNavigationActionPolicyAllow);
     }
-    h(WKNavigationActionPolicyAllow);
 }
 
 - (void)webView:(WKWebView *)w navigationAction:(WKNavigationAction *)a didBecomeDownload:(WKDownload *)d {
@@ -181,9 +180,10 @@ static NSMenu *buildMenu(void) {
                  suggestedFilename:(NSString *)name
                  completionHandler:(void (^)(NSURL *))done {
     if (!self.saves) self.saves = [NSMapTable strongToStrongObjectsMapTable];
-    NSString *base = name.lastPathComponent;
+    char base[1024];
+    tock_save_name(name.UTF8String, base, sizeof base);
     NSSavePanel *p = [NSSavePanel savePanel];
-    p.nameFieldStringValue = base.length && ![base isEqualToString:@"/"] ? base : @"tock-export";
+    p.nameFieldStringValue = [NSString stringWithUTF8String:base] ?: @"tock-export";
     p.directoryURL = [NSFileManager.defaultManager URLsForDirectory:NSDownloadsDirectory inDomains:NSUserDomainMask].firstObject;
     [p beginSheetModalForWindow:self.win completionHandler:^(NSModalResponse res) {
         if (res != NSModalResponseOK || !p.URL) {
@@ -213,17 +213,10 @@ static NSMenu *buildMenu(void) {
     [self.saves removeObjectForKey:d];
     if (![s isKindOfClass:NSArray.class]) return;
     NSURL *tmp = s[0], *dest = s[1];
-    NSFileManager *fm = NSFileManager.defaultManager;
-    NSError *err;
-    BOOL ok;
-    if ([fm fileExistsAtPath:dest.path]) {
-        // The panel already asked before replacing; swap in one step.
-        ok = [fm replaceItemAtURL:dest withItemAtURL:tmp backupItemName:nil options:0 resultingItemURL:nil error:&err];
-    } else {
-        ok = [fm moveItemAtURL:tmp toURL:dest error:&err];
-    }
-    [fm removeItemAtURL:tmp.URLByDeletingLastPathComponent error:nil];
-    [self tell:ok name:dest.lastPathComponent error:ok ? nil : err.localizedDescription];
+    // The panel already asked before replacing; the swap is one step.
+    int e = tock_finish_save(tmp.fileSystemRepresentation, dest.fileSystemRepresentation);
+    [NSFileManager.defaultManager removeItemAtURL:tmp.URLByDeletingLastPathComponent error:nil];
+    [self tell:e == 0 name:dest.lastPathComponent error:e ? [NSString stringWithUTF8String:strerror(e)] : nil];
 }
 
 - (void)download:(WKDownload *)d didFailWithError:(NSError *)error resumeData:(NSData *)resume {
