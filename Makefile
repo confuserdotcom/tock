@@ -34,7 +34,7 @@ CODESIGN_TIMEOUT ?= 60
 # receives SIGALRM and exits 142 when it overruns.
 WITH_TIMEOUT = perl -e 'alarm shift; exec @ARGV or exit 127'
 
-.PHONY: dmg src formula dist-mac dist-linux web icon release install-linux uninstall-linux deploy-linux build test test-quick vet clean bundle bundle-bar print-dr cert cert-trust dump dump-bg dump-stop install install-mac uninstall update update-here hooks publish-linux bootstrap-hint
+.PHONY: dmg src formula dist-mac dist-linux web web-check icon release install-linux uninstall-linux deploy-linux build test test-quick vet clean bundle bundle-bar print-dr cert cert-trust dump dump-bg dump-stop install install-mac uninstall update update-here hooks publish-linux bootstrap-hint
 
 build:
 	CGO_ENABLED=1 go build -ldflags "$(LDFLAGS)" -o bin/trackd ./cmd/trackd
@@ -413,3 +413,8 @@ formula: src
 # committed so Go builds need no Node. Run after changing anything in web/.
 web:
 	cd web && npm ci --no-fund --no-audit && npm test && npm run build
+
+# web-check: rebuild the dashboard and fail when the committed build in
+# internal/web/static differs, the same check CI runs.
+web-check: web
+	git diff --exit-code --stat internal/web/static
