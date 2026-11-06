@@ -123,6 +123,7 @@ components:
 - Today, in order: timeline; score card, minutes per hour, kinds donut; goals, categories, apps; work blocks.
 - Week: hours per day and kinds donut; score line and focus heat map; projects donut, goals, distractions; categories and apps.
 - Trends: month stat cards; month calendar beside deep-time area and score line; categories against last month; best hours.
+- Library: a segmented control (Projects, Categories, Goals) over one panel holding a hairline table; filter, Stale only and Add sit in the panel's aside. Stale rows use muted ink; edits open the sheet.
 - Panels sit in grids with 20px gaps and 20px padding. Below 1024px grids stack.
 
 ## Elevation & Depth
