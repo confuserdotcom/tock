@@ -25,39 +25,22 @@ export class ApiError extends Error {
   }
 }
 
-async function call<T>(path: string, body?: unknown): Promise<T> {
-  const init: RequestInit = { headers: { "X-Tock-Token": token }, cache: "no-store" };
+/** request sends path with the token, as a POST of body as JSON when there
+ *  is one. A failed request throws an ApiError with the server's message. */
+async function request(path: string, body?: unknown): Promise<Response> {
+  const headers: Record<string, string> = { "X-Tock-Token": token };
+  const init: RequestInit = { headers, cache: "no-store" };
   if (body !== undefined) {
     init.method = "POST";
     init.body = JSON.stringify(body);
-    (init.headers as Record<string, string>)["Content-Type"] = "application/json";
+    headers["Content-Type"] = "application/json";
   }
   const resp = await fetch(path, init);
-  const text = await resp.text();
-  let data: unknown = null;
-  try {
-    data = text ? JSON.parse(text) : null;
-  } catch {
-    /* not JSON */
-  }
-  if (!resp.ok) {
-    const msg = (data as { error?: string } | null)?.error || text || resp.statusText;
-    throw new ApiError(resp.status, msg);
-  }
-  return data as T;
-}
-
-export const get = <T,>(path: string) => call<T>(path);
-
-/** getRaw fetches path with the token and returns the response itself, for
- *  downloads; a failed request throws like call does. */
-export async function getRaw(path: string): Promise<Response> {
-  const resp = await fetch(path, { headers: { "X-Tock-Token": token }, cache: "no-store" });
   if (!resp.ok) {
     const text = await resp.text();
     let msg = text || resp.statusText;
     try {
-      msg = (JSON.parse(text) as { error?: string }).error || msg;
+      msg = (JSON.parse(text) as { error?: string } | null)?.error || msg;
     } catch {
       /* not JSON */
     }
@@ -65,6 +48,21 @@ export async function getRaw(path: string): Promise<Response> {
   }
   return resp;
 }
+
+async function call<T>(path: string, body?: unknown): Promise<T> {
+  const text = await (await request(path, body)).text();
+  try {
+    return (text ? JSON.parse(text) : null) as T;
+  } catch {
+    return null as T; // not JSON
+  }
+}
+
+export const get = <T,>(path: string) => call<T>(path);
+
+/** getRaw fetches path with the token and returns the response itself, for
+ *  downloads; a failed request throws like call does. */
+export const getRaw = (path: string) => request(path);
 export const post = <T,>(path: string, body: unknown) => call<T>(path, body);
 
 /** useApi loads path and reloads it when path or the refresh tick change. */
