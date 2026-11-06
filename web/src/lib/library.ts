@@ -1,4 +1,7 @@
 // Pure helpers for the Library view.
+import type { LibGoal } from "./api";
+import { dur } from "./format";
+
 const DAY = 86_400_000;
 
 /** seenText says when a name was last seen; 0 = not in the last 90 days. */
@@ -18,6 +21,11 @@ export function isStale(lastSeenMS: number, nowMS: number): boolean {
 export function rateText(rate: number | null, currency: string): string {
   if (rate == null) return "";
   return currency ? `${rate} ${currency}/h` : `${rate}/h`;
+}
+
+/** goalTarget is a goal without its label: "at least 3h00 a day". */
+export function goalTarget(g: LibGoal): string {
+  return `${g.atMost ? "at most" : "at least"} ${dur(g.ms)} a ${g.week ? "week" : "day"}`;
 }
 
 /** matches: q (case folded) in the name or any extra text. */

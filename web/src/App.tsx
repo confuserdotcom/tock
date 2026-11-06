@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import Today from "@/views/Today";
 import Week from "@/views/Week";
 import Trends from "@/views/Trends";
+import Library from "@/views/Library";
 import Top from "@/views/Top";
 import Inbox from "@/views/Inbox";
 import Palette from "@/components/Palette";
@@ -49,8 +50,8 @@ export default function App() {
       if (e.metaKey || e.ctrlKey || e.altKey || (e.target as HTMLElement).closest("input,textarea,[role=dialog]")) return;
       const n = Number(e.key);
       if (n >= 1 && n <= VIEWS.length) go({ view: VIEWS[n - 1] });
-      else if (e.key === "ArrowLeft" && route.view !== "inbox") step(-1);
-      else if (e.key === "ArrowRight" && route.view !== "inbox" && !isToday) step(1);
+      else if (e.key === "ArrowLeft" && route.view !== "inbox" && route.view !== "library") step(-1);
+      else if (e.key === "ArrowRight" && route.view !== "inbox" && route.view !== "library" && !isToday) step(1);
       else return;
       e.preventDefault();
     };
@@ -82,6 +83,8 @@ export default function App() {
             ))}
           </nav>
           <div className="ml-auto flex items-center gap-1 [-webkit-app-region:no-drag]">
+{route.view !== "library" && (
+              <>
             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => step(-1)} aria-label="Previous day">
               <ChevronLeft className="h-4 w-4" />
             </Button>
@@ -91,6 +94,8 @@ export default function App() {
             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => step(1)} disabled={isToday} aria-label="Next day">
               <ChevronRight className="h-4 w-4" />
             </Button>
+              </>
+            )}
             <kbd className="ml-3 hidden rounded border px-1.5 text-[11px] text-faint md:inline">⌘K</kbd>
           </div>
         </header>
@@ -101,6 +106,7 @@ export default function App() {
           {route.view === "trends" && <Trends date={route.date} />}
           {route.view === "top" && <Top tick={tick} />}
           {route.view === "inbox" && <Inbox onChange={inbox.reload} />}
+          {route.view === "library" && <Library tick={tick} sub={route.sub} />}
         </main>
       </div>
       <Palette />

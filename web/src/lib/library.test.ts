@@ -1,5 +1,5 @@
 import { test, expect } from "vitest";
-import { seenText, isStale, rateText, matches } from "./library";
+import { seenText, isStale, rateText, matches, goalTarget } from "./library";
 
 const DAY = 86_400_000;
 const NOW = Date.UTC(2026, 10, 6, 12);
@@ -28,4 +28,9 @@ test("matches folds case over name and extras", () => {
   expect(matches("tock", ["Code"], "TO")).toBe(true);
   expect(matches("tock", ["Code"], "code")).toBe(true);
   expect(matches("tock", ["Code"], "atlas")).toBe(false);
+});
+
+test("goalTarget reads the goal without its label", () => {
+  expect(goalTarget({ category: "Code", project: "", atMost: false, week: false, ms: 3 * 3_600_000 })).toBe("at least 3h00 a day");
+  expect(goalTarget({ category: "Fun", project: "", atMost: true, week: true, ms: 5_400_000 })).toBe("at most 1h30 a week");
 });

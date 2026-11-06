@@ -237,7 +237,7 @@ func (a *App) checkProject(p ProjectSpec) (ProjectSpec, error) {
 		p.Aliases = &clean
 	}
 	if p.Rate != nil && (math.IsNaN(*p.Rate) || *p.Rate > classify.MaxRate) {
-		return p, fmt.Errorf("rate %v, want 0 to %d", *p.Rate, classify.MaxRate)
+		return p, fmt.Errorf("rate %s, want 0 to %d", rateValue(*p.Rate), classify.MaxRate)
 	}
 	return p, nil
 }
