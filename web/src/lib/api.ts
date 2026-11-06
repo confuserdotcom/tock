@@ -48,6 +48,23 @@ async function call<T>(path: string, body?: unknown): Promise<T> {
 }
 
 export const get = <T,>(path: string) => call<T>(path);
+
+/** getRaw fetches path with the token and returns the response itself, for
+ *  downloads; a failed request throws like call does. */
+export async function getRaw(path: string): Promise<Response> {
+  const resp = await fetch(path, { headers: { "X-Tock-Token": token }, cache: "no-store" });
+  if (!resp.ok) {
+    const text = await resp.text();
+    let msg = text || resp.statusText;
+    try {
+      msg = (JSON.parse(text) as { error?: string }).error || msg;
+    } catch {
+      /* not JSON */
+    }
+    throw new ApiError(resp.status, msg);
+  }
+  return resp;
+}
 export const post = <T,>(path: string, body: unknown) => call<T>(path, body);
 
 /** useApi loads path and reloads it when path or the refresh tick change. */
