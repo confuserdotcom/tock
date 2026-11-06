@@ -1,10 +1,6 @@
 package main
 
-import (
-	"time"
-
-	"tock/internal/report"
-)
+import "tock/internal/report"
 
 // cmdExport writes labelled spans as csv or json to stdout.
 func cmdExport(env Env, args []string) error {
@@ -19,53 +15,18 @@ func cmdExport(env Env, args []string) error {
 	if fs.NArg() > 0 {
 		return usagef("export takes only flags")
 	}
-	if *format != "csv" && *format != "json" {
-		return usagef("export: format %q, want csv or json", *format)
-	}
-	if *by != "" && *by != "project" {
-		return usagef("export: --by %q, want project", *by)
-	}
-	now := env.Now()
-	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-	day := func(s string, def time.Time) (time.Time, error) {
-		if s == "" {
-			return def, nil
-		}
-		d, err := time.ParseInLocation("2006-01-02", s, now.Location())
-		if err != nil {
-			return time.Time{}, usagef("export: date %q, want YYYY-MM-DD", s)
-		}
-		return d, nil
-	}
-	from, err := day(*fromS, today.AddDate(0, 0, -6))
+	o, err := report.ParseExport(*fromS, *toS, *format, *by, env.Now())
 	if err != nil {
-		return err
-	}
-	to, err := day(*toS, today)
-	if err != nil {
-		return err
-	}
-	if from.After(to) {
-		return usagef("export: --from is after --to")
+		return usagef("export: %v", err)
 	}
 	a, err := openApp(env)
 	if err != nil {
 		return err
 	}
 	defer a.Close()
-	rows, err := a.Export(from, to.AddDate(0, 0, 1))
+	rows, err := a.Export(o.From, o.End())
 	if err != nil {
 		return err
 	}
-	if *by == "project" {
-		bill := report.Bill(rows)
-		if *format == "json" {
-			return report.WriteBillJSON(env.Stdout, bill)
-		}
-		return report.WriteBillCSV(env.Stdout, bill)
-	}
-	if *format == "json" {
-		return report.WriteJSON(env.Stdout, rows)
-	}
-	return report.WriteCSV(env.Stdout, rows)
+	return report.WriteExport(env.Stdout, rows, o)
 }
