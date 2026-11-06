@@ -1,14 +1,17 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { Row } from "@/lib/api";
 import { dur, hhmm, parseDate } from "@/lib/format";
 import { kindColor, kindLabel } from "@/lib/kinds";
+import { snapAt } from "@/lib/range";
 
 type Lane = { name: string; kind: string; ms: number; rows: Row[]; away?: boolean };
 
 /** Timeline: one lane per category on a shared hour axis, Away hatched,
- *  a line for now. A click on a bar hands its row to onPick. */
-export function Timeline({ rows, date, first, last, today, onPick }: {
-  rows: Row[]; date: string; first: number; last: number; today: boolean; onPick?: (r: Row) => void;
+ *  a line for now. A click on a bar hands its row to onPick; a drag across
+ *  the lanes hands the range it covers (whole minutes, not past now) to onRange. */
+export function Timeline({ rows, date, first, last, today, onPick, onRange }: {
+  rows: Row[]; date: string; first: number; last: number; today: boolean;
+  onPick?: (r: Row) => void; onRange?: (from: number, to: number) => void;
 }) {
   const day = parseDate(date).getTime();
   const from = day + first * 3_600_000;
@@ -16,6 +19,46 @@ export function Timeline({ rows, date, first, last, today, onPick }: {
   const span = Math.max(1, to - from);
   const x = (t: number) => ((Math.min(Math.max(t, from), to) - from) / span) * 100;
   const [hover, setHover] = useState<{ r: Row; left: number; lane: number } | null>(null);
+  const track = useRef<HTMLDivElement>(null);
+  const drag = useRef<{ x0: number; f0: number; moved: boolean } | null>(null);
+  const [sel, setSel] = useState<{ a: number; b: number } | null>(null);
+  const dragged = useRef(false);
+  const frac = (clientX: number) => {
+    const b = track.current?.getBoundingClientRect();
+    return b && b.width > 0 ? (clientX - b.left) / b.width : 0;
+  };
+  const end = Math.min(to, Date.now());
+  const pick = (f: number) => Math.min(snapAt(f, from, to), Math.max(from, Math.floor(end / 60_000) * 60_000));
+
+  function down(e: React.PointerEvent) {
+    if (!onRange || e.button !== 0) return;
+    drag.current = { x0: e.clientX, f0: frac(e.clientX), moved: false };
+  }
+  function move(e: React.PointerEvent) {
+    const d = drag.current;
+    if (!d) return;
+    if (!d.moved && Math.abs(e.clientX - d.x0) < 4) return;
+    if (!d.moved) (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    d.moved = true;
+    setHover(null);
+    const f = frac(e.clientX);
+    setSel({ a: Math.min(d.f0, f), b: Math.max(d.f0, f) });
+  }
+  function up(e: React.PointerEvent) {
+    const d = drag.current;
+    drag.current = null;
+    if (!d?.moved) return;
+    dragged.current = true;
+    setTimeout(() => (dragged.current = false), 0);
+    setSel(null);
+    const f = frac(e.clientX);
+    const a = pick(Math.min(d.f0, f)), b = pick(Math.max(d.f0, f));
+    if (b > a) onRange?.(a, b);
+  }
+  function clickCapture(e: React.MouseEvent) {
+    // The click that ends a drag is not a click on the bar under it.
+    if (dragged.current) e.stopPropagation();
+  }
 
   const lanes = useMemo(() => {
     // The lane totals count only this day: a run from before midnight starts at midnight.
@@ -41,25 +84,30 @@ export function Timeline({ rows, date, first, last, today, onPick }: {
           <span key={h} className="num w-0 text-center">{String(h % 24).padStart(2, "0")}</span>
         ))}
       </div>
-      <div className="space-y-1">
+      <div
+        className={`relative space-y-1 ${onRange ? "cursor-crosshair select-none" : ""}`}
+        onPointerDown={down} onPointerMove={move} onPointerUp={up}
+        onPointerCancel={() => { drag.current = null; setSel(null); }}
+        onClickCapture={clickCapture}
+      >
         {lanes.map((l, i) => (
           <div key={l.name} className="flex items-center gap-3">
             <div className="flex shrink-0 items-center justify-between gap-2 pr-1" style={{ width: "8.25rem" }}>
               <span className="truncate">{l.name}</span>
               <span className="num text-xs text-muted-foreground">{dur(l.ms)}</span>
             </div>
-            <div className="relative h-6 flex-1 rounded-sm bg-secondary/40">
+            <div ref={i === 0 ? track : undefined} className="relative h-6 flex-1 rounded-sm bg-secondary/40">
               {l.rows.map((r) => {
                 const left = x(r.start);
                 const w = Math.max(0.15, x(r.end) - left);
                 return (
                   <button
                     key={r.start + r.key}
-                    className={l.away ? "hatch absolute inset-y-0 rounded-[2px]" : "absolute inset-y-0 rounded-[2px] hover:brightness-125 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"}
+                    className={l.away ? "hatch absolute inset-y-0 rounded-[2px] hover:brightness-125 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring" : "absolute inset-y-0 rounded-[2px] hover:brightness-125 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"}
                     style={{ left: `${left}%`, width: `${w}%`, background: l.away ? undefined : kindColor(r.kind) }}
                     onMouseEnter={() => setHover({ r, left: left + w / 2, lane: i })}
                     onFocus={() => setHover({ r, left: left + w / 2, lane: i })}
-                    onClick={() => !l.away && onPick?.(r)}
+                    onClick={() => onPick?.(r)}
                     aria-label={`${r.app} ${hhmm(r.start)} to ${hhmm(r.end)}`}
                   />
                 );
@@ -68,6 +116,16 @@ export function Timeline({ rows, date, first, last, today, onPick }: {
             </div>
           </div>
         ))}
+        {sel && (
+          <div
+            className="pointer-events-none absolute -inset-y-1 border-x border-foreground bg-foreground/10"
+            style={{ left: `calc(9rem + (100% - 9rem) * ${Math.max(0, sel.a)})`, width: `calc((100% - 9rem) * ${Math.min(1, sel.b) - Math.max(0, sel.a)})` }}
+          >
+            <span className="num absolute -top-5 left-0 whitespace-nowrap text-[11px] text-muted-foreground">
+              {hhmm(pick(sel.a))}–{hhmm(pick(sel.b))}
+            </span>
+          </div>
+        )}
       </div>
       {hover && (
         <div

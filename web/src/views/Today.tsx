@@ -7,6 +7,7 @@ import { HourBars } from "@/components/charts/HourBars";
 import { Timeline } from "@/components/charts/Timeline";
 import { TimeTable } from "@/components/Tables";
 import { LabelSheet, type Target } from "@/components/LabelSheet";
+import { Button } from "@/components/ui/button";
 import { useApi, type Day } from "@/lib/api";
 import { addDays, delta, dur, hhmm, parseDate } from "@/lib/format";
 import { byKindRows, kindColor, kindLabel } from "@/lib/kinds";
@@ -36,15 +37,40 @@ export default function Today({ date, tick }: { date: string; tick: number }) {
   if (d.firstRun) return <Empty>Nothing recorded yet. Leave tock running for a few minutes and this page fills in.</Empty>;
 
   const u = d.usual;
+  const now = Date.now();
+  const day0 = parseDate(d.date).getTime();
+  // A new entry starts as the half hour before now, or 09:00–10:00 on a past day.
+  const addTime = () => {
+    const to = d.today ? Math.floor(now / 60_000) * 60_000 : day0 + 10 * 3_600_000;
+    const from = Math.max(day0, to - (d.today ? 1_800_000 : 3_600_000));
+    setTarget({ title: "Add time", sub: "Time tock didn't see: a meeting, a call, paper.", range: { date: d.date, from, to, mode: "add" } });
+  };
   const kinds = byKindRows(d.byKind).map((k) => ({ name: kindLabel(k.kind), ms: k.ms, color: kindColor(k.kind) }));
   const sph = d.score.switchesPerHour;
 
   return (
     <div className="space-y-5">
-      <Panel label="Timeline" aside={<span className="num">{dur(d.trackedMS)} tracked · {dur(d.idleMS)} away</span>}>
+      <Panel
+        label="Timeline"
+        aside={
+          <span className="flex items-center gap-3">
+            <span className="num">{dur(d.trackedMS)} tracked · {dur(d.idleMS)} away</span>
+            <Button variant="outline" size="sm" className="h-6 px-2 text-xs" onClick={addTime}>Add time</Button>
+          </span>
+        }
+      >
         {d.timeline.length ? (
-          <Timeline rows={d.timeline} date={d.date} first={d.hourFirst} last={d.hourLast} today={d.today}
-            onPick={(r) => setTarget({ title: r.app, sub: `${r.text ? r.text + " · " : ""}${hhmm(r.start)}–${hhmm(r.end)}`, ids: r.ids })} />
+          <>
+            <Timeline rows={d.timeline} date={d.date} first={d.hourFirst} last={d.hourLast} today={d.today}
+              onPick={(r) => setTarget({
+                title: r.idle ? "Away" : r.app,
+                sub: r.idle ? "Label it to count it as worked." : `${r.text ? r.text + " · " : ""}${hhmm(r.start)}–${hhmm(r.end)}`,
+                ids: r.idle ? undefined : r.ids,
+                range: { date: d.date, from: Math.max(r.start, day0), to: Math.min(r.end, now, day0 + 86_400_000) },
+              })}
+              onRange={(from, to) => setTarget({ title: "Edit the timeline", range: { date: d.date, from, to } })} />
+            <p className="mt-3 text-xs text-faint">Click a bar to label or delete it, or drag across the lanes to pick a range.</p>
+          </>
         ) : (
           <Empty>No activity on this day.</Empty>
         )}
