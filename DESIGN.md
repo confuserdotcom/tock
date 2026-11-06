@@ -139,10 +139,10 @@ Built from shadcn/ui (Radix) and Recharts in `web/`; the build is committed to `
 - Score card: label, the score at 56px, change vs usual, then four stats each with its change.
 - Kind donut: 66% inner radius, total in the middle, a legend with time and share.
 - Goal rings: one ring per goal (at most four), inner first; at-most goals turn brick once passed.
-- Category timeline: an hour axis on top, one lane per category plus Away, bars in the kind colour, a 1px ink line for now. Hover shows app, title, time and label; click opens the label sheet.
+- Category timeline: an hour axis on top, one lane per category plus Away, bars in the kind colour, a 1px ink line for now. Hover shows app, title, time and label; click opens the label sheet; a drag across the lanes shades the range (a hairline ink edge each side, its times above) and opens the sheet on it.
 - Heat map: weekday x hour, deep teal by mean focus minutes. Month calendar: weeks as rows, days shaded by deep time, days with nothing recorded hatched.
 - Tables: faint 11px header, hairline rows, right-aligned tabular time and share, a bold totals row.
-- Label sheet: a side sheet with a command search over categories; Return labels and learns a rule.
+- Label sheet: a side sheet with a command search over categories; Return labels and learns a rule. For a range of the timeline it adds From and To times and Label / Add entry / Delete.
 - ⌘K palette: views, dates, theme.
 - Toasts: every change has an Undo.
 
