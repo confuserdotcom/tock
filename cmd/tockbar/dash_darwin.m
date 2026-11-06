@@ -6,7 +6,7 @@
 #import <WebKit/WebKit.h>
 #include "dash_darwin.h"
 
-@interface DashWindow : NSObject <NSWindowDelegate, WKNavigationDelegate, WKUIDelegate>
+@interface DashWindow : NSObject <NSWindowDelegate, WKNavigationDelegate, WKUIDelegate, WKDownloadDelegate>
 @property(strong) NSWindow *win;
 @property(strong) WKWebView *web;
 @property(copy) NSString *base; // scheme://host:port of the page loaded
@@ -136,12 +136,44 @@ static NSMenu *buildMenu(void) {
     decidePolicyForNavigationAction:(WKNavigationAction *)a
                     decisionHandler:(void (^)(WKNavigationActionPolicy))h {
     NSURL *u = a.request.URL;
+    if (a.shouldPerformDownload) { // the page's Export: a blob link with download set
+        h(WKNavigationActionPolicyDownload);
+        return;
+    }
     if (u.host && !local(u)) {
         [[NSWorkspace sharedWorkspace] openURL:u];
         h(WKNavigationActionPolicyCancel);
         return;
     }
     h(WKNavigationActionPolicyAllow);
+}
+
+- (void)webView:(WKWebView *)w navigationAction:(WKNavigationAction *)a didBecomeDownload:(WKDownload *)d {
+    d.delegate = self;
+}
+
+- (void)webView:(WKWebView *)w navigationResponse:(WKNavigationResponse *)r didBecomeDownload:(WKDownload *)d {
+    d.delegate = self;
+}
+
+// A download asks where to go with a save sheet on the window, in Downloads
+// under the server's name. Cancel drops it.
+- (void)download:(WKDownload *)d
+    decideDestinationUsingResponse:(NSURLResponse *)r
+                 suggestedFilename:(NSString *)name
+                 completionHandler:(void (^)(NSURL *))done {
+    NSSavePanel *p = [NSSavePanel savePanel];
+    p.nameFieldStringValue = name.lastPathComponent ?: @"tock-export";
+    p.directoryURL = [NSFileManager.defaultManager URLsForDirectory:NSDownloadsDirectory inDomains:NSUserDomainMask].firstObject;
+    [p beginSheetModalForWindow:self.win completionHandler:^(NSModalResponse res) {
+        if (res != NSModalResponseOK || !p.URL) {
+            done(nil);
+            return;
+        }
+        // The panel asked before replacing; WebKit refuses a path that exists.
+        [NSFileManager.defaultManager removeItemAtURL:p.URL error:nil];
+        done(p.URL);
+    }];
 }
 
 // target=_blank: same rule, never a second web view.

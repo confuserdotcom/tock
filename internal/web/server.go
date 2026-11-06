@@ -78,6 +78,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/inbox", s.api(s.inbox))
 	mux.HandleFunc("GET /api/labels", s.api(s.labels))
 	mux.HandleFunc("GET /api/propose", s.api(s.propose))
+	mux.HandleFunc("GET /api/report", s.api(s.report))
+	mux.HandleFunc("GET /api/export", s.api(s.export))
 	mux.HandleFunc("POST /api/tag", s.api(s.tag))
 	mux.HandleFunc("POST /api/learn", s.api(s.learn))
 	mux.HandleFunc("POST /api/ignore", s.api(s.ignore))
@@ -115,7 +117,8 @@ func (e httpError) Error() string { return e.msg }
 func badRequest(msg string) error { return httpError{http.StatusBadRequest, msg} }
 
 // api wraps a JSON handler: token check, body limits, one request at a
-// time, rule reload, and errors as {"error": "..."}.
+// time, rule reload, and errors as {"error": "..."}. A handler returning a
+// file sends it as a download instead.
 func (s *Server) api(fn func(*http.Request) (any, error)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
@@ -146,6 +149,10 @@ func (s *Server) api(fn func(*http.Request) (any, error)) http.HandlerFunc {
 				code = http.StatusConflict
 			}
 			writeJSON(w, code, map[string]string{"error": err.Error()})
+			return
+		}
+		if f, ok := v.(file); ok {
+			writeFile(w, f)
 			return
 		}
 		writeJSON(w, http.StatusOK, v)

@@ -1,4 +1,7 @@
+import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Empty, Panel } from "@/components/Panel";
 import { DayBars } from "@/components/charts/DayBars";
 import { ScoreLine } from "@/components/charts/ScoreLine";
@@ -7,7 +10,8 @@ import { Donut, ramp } from "@/components/charts/Donut";
 import { GoalRings } from "@/components/charts/GoalRings";
 import { TimeTable } from "@/components/Tables";
 import { useApi, type Hours, type Week as WeekT } from "@/lib/api";
-import { dur, parseDate, shortDay, dayTitle, addDays } from "@/lib/format";
+import { dur, parseDate, shortDay, dayTitle, addDays, isoDate } from "@/lib/format";
+import { download } from "@/lib/download";
 import { byKindRows, kindColor, kindLabel } from "@/lib/kinds";
 
 export default function Week({ date, tick }: { date: string; tick: number }) {
@@ -28,7 +32,10 @@ export default function Week({ date, tick }: { date: string; tick: number }) {
     <div className="space-y-5">
       <div className="flex items-baseline justify-between">
         <h1 className="text-xl font-semibold tracking-tight">Week of {dayTitle(mon)} – {dayTitle(addDays(mon, 6))}</h1>
-        <span className="num text-muted-foreground">{dur(w.trackedMS)} tracked</span>
+        <span className="flex items-center gap-3">
+          <span className="num text-muted-foreground">{dur(w.trackedMS)} tracked</span>
+          <Export monday={w.monday} />
+        </span>
       </div>
       <div className="grid gap-5 lg:grid-cols-[1.4fr_1fr]">
         <Panel label="Hours per day">
@@ -66,5 +73,41 @@ export default function Week({ date, tick }: { date: string; tick: number }) {
         </Panel>
       </div>
     </div>
+  );
+}
+
+const EXPORTS = [
+  { label: "Week report", sub: "One page with no scripts, to mail or keep", path: (m: string) => `/api/report?date=${m}`, ext: "html" },
+  { label: "Entries as CSV", sub: "Each entry with its app, title and URL", q: "format=csv", ext: "csv" },
+  { label: "Entries as JSON", sub: "The same, for scripts", q: "format=json", ext: "json" },
+  { label: "Hours by project", sub: "Hours, rate and amount, as CSV", q: "by=project", ext: "csv" },
+];
+
+/** Export saves the week as tock report and tock export write it. */
+function Export({ monday }: { monday: string }) {
+  const sun = isoDate(addDays(parseDate(monday), 6));
+  async function save(e: (typeof EXPORTS)[number]) {
+    const path = e.path ? e.path(monday) : `/api/export?from=${monday}&to=${sun}&${e.q}`;
+    try {
+      const name = await download(path, `tock-${monday}.${e.ext}`);
+      toast(`Saved ${name}`);
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
+  }
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="outline" size="sm" className="h-7 px-2.5 text-xs">Export</Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-80 p-1">
+        {EXPORTS.map((e) => (
+          <button key={e.label} onClick={() => save(e)} className="flex w-full flex-col items-start rounded-md px-2.5 py-2 text-left hover:bg-accent">
+            <span className="text-sm">{e.label}</span>
+            <span className="text-xs text-muted-foreground">{e.sub}</span>
+          </button>
+        ))}
+      </PopoverContent>
+    </Popover>
   );
 }
