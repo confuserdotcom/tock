@@ -37,7 +37,7 @@ Sections:
   trackd when a session starts and ends, sets your status and
   do-not-disturb. Nothing about your activity is sent, only the status text
   you chose and the session's end time.
-- `tock export` prints titles and URLs to stdout. Where that output goes is up to you.
+- `tock export` prints titles and URLs to stdout, and the dashboard's Export saves the same as a file. Where that output goes is up to you.
 - `[privacy] keep_titles = 30` deletes window titles, and cuts URLs to their
   host, once they are 30 days old (see Deleting old titles).
 - Screen reading (opt-in, `[ocr]`) reads the text of unclear windows with
@@ -869,10 +869,11 @@ page to your browser and runs until you press ctrl-c.
   minutes per hour stacked by kind and a donut of the kinds of time. Then
   goal rings, tables of categories and apps with totals, and the work
   blocks.
-- **Week:** hours per day by kind, a donut of the week's kinds, the score
-  per day against its mean, a weekday × hour heat map of when you focus,
-  a donut of projects, goal rings (days held), distractions, and
-  categories and apps.
+- **Week:** **Export** saves the week report, the week's entries as CSV or
+  JSON, or its hours by project. Then hours per day by kind, a donut of the
+  week's kinds, the score per day against its mean, a weekday × hour heat
+  map of when you focus, a donut of projects, goal rings (days held),
+  distractions, and categories and apps.
 - **Trends:** a month at a time (pick it top right). Tracked, focus,
   average score and switches against last month; a calendar shaded by
   deep time; deep time per day with its 7-day mean; the score per day;
@@ -998,7 +999,11 @@ categories, projects, apps and sites, distractions, goals with streaks, the
 plan and commits. It defaults to the week `tock review` shows; `--week D`
 picks another. `-o week.html` writes a file and `--open` opens it in the
 browser. The page has no scripts and loads nothing, so it can be mailed or
-archived as it is; window titles never appear in it.
+archived as it is; window titles never appear in it. The dashboard's week
+view has the same page under **Export**, next to the week's entries as CSV
+or JSON and its hours by project (what `tock export` and
+`tock export --by project` write). In the tock window a save sheet asks
+where each file goes.
 
 ## Deleting old titles
 
