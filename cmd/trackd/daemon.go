@@ -183,7 +183,9 @@ func runWithStore(o daemonOpts, log *slog.Logger, st *store.Store) int {
 	ticker := time.NewTicker(o.HeartbeatEvery)
 	defer ticker.Stop()
 	drops := &dropReporter{log: log}
+	rec := &runRec{st: st, log: log, boot: bootMS, version: version, pid: os.Getpid()}
 	p := pipe{
+		rec:   rec,
 		in:    src.Inputs(),
 		m:     m,
 		st:    st,
@@ -273,6 +275,7 @@ func runWithStore(o daemonOpts, log *slog.Logger, st *store.Store) int {
 			src.Stop()
 		}
 	}()
+	reason := store.RunSignal // a clean stop: a signal, or the source ended
 
 	rc := exitNoRestart
 	err = src.Run()
@@ -280,14 +283,21 @@ func runWithStore(o daemonOpts, log *slog.Logger, st *store.Store) int {
 	stopUpdate()
 	if errors.Is(err, collect.ErrAXStale) {
 		log.Warn("accessibility grant stale; exiting for restart")
-		rc = exitRestart
+		rc, reason = exitRestart, store.RunAXStale
 	} else if err != nil {
 		log.Error("source run", "err", err)
-		rc = exitRestart
+		rc, reason = exitRestart, store.RunError
 	}
 	if err := <-pipeErr; err != nil {
 		log.Error("pipeline", "err", err)
-		rc = exitRestart
+		rc, reason = exitRestart, store.RunError
+	}
+	if updated.Load() {
+		reason = store.RunUpdate
+	}
+	// The pipe has returned, so its row is ours to close.
+	if err := rec.end(o.Now(), reason); err != nil {
+		log.Error("end run row", "err", err)
 	}
 	if updated.Load() {
 		return exitUpdated // the new binary restarts anyway
@@ -321,6 +331,7 @@ type pipe struct {
 	ocr    *ocrCoord    // may be nil
 	hide   *hider       // may be nil
 	log    *slog.Logger // may be nil
+	rec    *runRec      // may be nil
 }
 
 func (p pipe) run() error {
@@ -345,14 +356,28 @@ func (p pipe) run() error {
 }
 
 // start reads config.toml once and records whether capture is paused,
-// which also clears a pause an earlier run left behind.
+// which also clears a pause an earlier run left behind, and opens this
+// run's row in that state.
 func (p pipe) start() error {
-	if p.hide == nil {
+	if p.hide == nil && p.rec == nil {
 		return nil
 	}
 	now := p.now()
-	p.hide.check(now)
-	return p.recordPause(now)
+	if p.hide != nil {
+		p.hide.check(now)
+		if err := p.recordPause(now); err != nil {
+			return err
+		}
+	}
+	return p.rec.begin(now, p.captureState())
+}
+
+// captureState is the run state: paused while config.toml does not load.
+func (p pipe) captureState() string {
+	if p.hide.paused() {
+		return store.RunPaused
+	}
+	return store.RunRecording
 }
 
 // feed applies one input. While config.toml does not load, every input is
@@ -382,9 +407,13 @@ func (p pipe) feed(x span.Input) error {
 	return nil
 }
 
-// tickAt applies a pending heartbeat. While paused there is no open span,
-// so the heartbeat is written as is: trackd is alive, only not recording.
+// tickAt moves this run's row on (see runRec.tick) and applies a pending
+// heartbeat. While paused there is no open span, so the heartbeat is
+// written as is: trackd is alive, only not recording.
 func (p pipe) tickAt(now int64) error {
+	if err := p.rec.tick(now); err != nil {
+		return err
+	}
 	if err := p.checkConfig(now); err != nil {
 		return err
 	}
@@ -414,6 +443,9 @@ func (p pipe) checkConfig(ts int64) error {
 		if err := p.flush(); err != nil {
 			return err
 		}
+	}
+	if err := p.rec.setState(ts, p.captureState()); err != nil {
+		return err
 	}
 	return p.recordPause(ts)
 }
