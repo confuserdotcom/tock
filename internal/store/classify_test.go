@@ -21,7 +21,7 @@ func TestMigrateV1ToV2(t *testing.T) {
 		t.Fatal(err)
 	}
 	v1 := fstest.MapFS{"migrations/0001_init.sql": {Data: body}}
-	if err := migrateFS(raw, v1, "migrations"); err != nil {
+	if err := migrateFS(raw, v1, "migrations", nil); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := raw.Exec(`INSERT INTO span(id, start, "end", bundle_id, app) VALUES(1, 1000, 2000, 'a', 'A')`); err != nil {

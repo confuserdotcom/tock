@@ -51,6 +51,18 @@ learned rule (`~/.config/tock/learned.toml`), so the next match is labelled by a
 The model is a small classifier trained on this machine from your labels. It
 retrains every 15 minutes and when you tag something.
 
+## Durability
+
+Before a migration changes the schema, `store.Open` writes a compressed,
+checked copy of the database to `backups/auto/`; if it can't, the
+migration doesn't run. Each migration runs in its own transaction and
+checks again inside it that no other program applied it first. trackd
+takes a daily copy while you're away (`VACUUM INTO`, `quick_check`, gzip,
+rename) and records the result, which `tock doctor`, `tock status` and the
+menu bar read. CI opens databases written by released versions
+(`internal/store/testdata/upgrade`) and checks they still open with every
+row.
+
 ## The menu bar and the notch
 
 tockbar is one process with two halves. The Go half reads the database

@@ -48,11 +48,12 @@ func TestDoctorAllGood(t *testing.T) {
 		store.KeyHeartbeat: nowMS(), store.KeyAXTrusted: "1", store.KeyVersion: "v1",
 	})
 	code, out := te.run(t, "", "doctor", "--open")
-	if code != 0 || strings.Count(out, "ok  ") != 15 || strings.Contains(out, "!!") {
+	if code != 0 || strings.Count(out, "ok  ") != 16 || strings.Contains(out, "!!") {
 		t.Fatalf("exit %d:\n%s%s", code, out, te.errb)
 	}
 	for _, want := range []string{"rules: 3 rules, 0 learned", "config: defaults", "trackd: running (version v1)",
-		"accessibility: granted", "suggestions: on", "afk: idle after 5m without input, 3h while a video plays"} {
+		"accessibility: granted", "suggestions: on", "afk: idle after 5m without input, 3h while a video plays",
+		"backup: no daily snapshot yet"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("output lacks %q:\n%s", want, out)
 		}

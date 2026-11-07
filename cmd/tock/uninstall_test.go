@@ -57,6 +57,13 @@ func TestUninstallPurge(t *testing.T) {
 	if code, _ := te.run(t, "no\n", "uninstall", "--purge"); code != 1 || !exists(te.dbPath()) {
 		t.Fatalf("purge without yes: code %d, db there %v", code, exists(te.dbPath()))
 	}
+	snap := filepath.Join(te.DataDir, "backups", "auto", "daily-20261107T031200Z-v0023.db.gz")
+	if err := os.MkdirAll(filepath.Dir(snap), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(snap, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	bin, unloaded := uninstallRig(t, te, true)
 	code, out := te.run(t, "yes\n", "uninstall", "--purge")
 	if code != 0 || !slices.Equal(*unloaded, []string{"trackd.service"}) {

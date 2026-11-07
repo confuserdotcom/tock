@@ -11,6 +11,14 @@ import (
 const (
 	// KeyHeartbeat is the daemon_state key holding the last heartbeat timestamp.
 	KeyHeartbeat = "heartbeat_ts"
+	// KeyBackupLast is the unix ms of trackd's last good daily snapshot;
+	// KeyBackupErr its last error ("" after a success).
+	KeyBackupLast = "backup.last"
+	KeyBackupErr  = "backup.err"
+	// KeyIntegrityAt is when the database was last checked; KeyIntegrityOK
+	// is "ok" or the first problem quick_check found.
+	KeyIntegrityAt = "integrity.at"
+	KeyIntegrityOK = "integrity.ok"
 	// KeyAXTrusted holds "0" or "1": whether Accessibility is granted.
 	KeyAXTrusted = "ax_trusted"
 	// KeyVersion holds the trackd version string.

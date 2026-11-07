@@ -1,0 +1,14 @@
+//go:build unix
+
+package snapshot
+
+import "syscall"
+
+// FreeDisk is the space available to this user on dir's file system.
+func FreeDisk(dir string) (uint64, error) {
+	var st syscall.Statfs_t
+	if err := syscall.Statfs(dir, &st); err != nil {
+		return 0, err
+	}
+	return uint64(st.Bavail) * uint64(st.Bsize), nil
+}

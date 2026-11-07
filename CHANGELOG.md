@@ -14,6 +14,17 @@ What changed for you in each release. Dates are UTC.
   edit can be undone.
 - **Invoice…** in the week's Export menu makes the `tock invoice` PDF for
   a project with a rate, showing hours and total before you save.
+- trackd keeps a copy of your database every day while you're away, and
+  tock keeps one before an update changes it. `tock restore` lists them
+  and puts one back. `[backup] keep` sets how many daily copies stay
+  (default 7).
+- `tock doctor` shows the last copy and whether the database checked out;
+  `--deep` runs a full check. A damaged database shows in `tock status`
+  and as a notice.
+
+### Fixed
+- Two tock programs starting at once after an update could both try to
+  update the database.
 
 ## v5.3.0 — 2026-11-06
 

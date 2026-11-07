@@ -527,3 +527,20 @@ func TestFocusWakeScreen(t *testing.T) {
 		t.Fatalf("wake = %+v, %v", c.Focus, err)
 	}
 }
+
+func TestBackup(t *testing.T) {
+	if c := Default(); c.Backup.Keep != 7 {
+		t.Fatalf("default keep = %d, want 7", c.Backup.Keep)
+	}
+	if c, err := Load(write(t, "[backup]\nkeep = 0\n")); err != nil || c.Backup.Keep != 0 {
+		t.Fatalf("keep 0: %+v %v", c.Backup, err)
+	}
+	for _, v := range []string{"-1", "366"} {
+		if _, err := Load(write(t, "[backup]\nkeep = "+v+"\n")); err == nil || !strings.Contains(err.Error(), "[backup] keep") {
+			t.Errorf("keep = %s: %v", v, err)
+		}
+	}
+	if _, err := Load(write(t, "[backup]\nevery = 3\n")); err == nil {
+		t.Error("unknown key accepted")
+	}
+}

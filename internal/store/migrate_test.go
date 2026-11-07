@@ -197,7 +197,7 @@ func TestMigrateRejectsMalformedName(t *testing.T) {
 	for _, name := range []string{"1_init.sql", "0001-init.sql", "0001_Init.sql", "0001_.sql", "abcd_init.sql", "0001_init.SQL.sql"} {
 		fsys := fstest.MapFS{"migrations/" + name: {Data: []byte(`CREATE TABLE schema_version(version INTEGER, applied_at INTEGER);`)}}
 		db := rawMem(t)
-		if err := migrateFS(db, fsys, "migrations"); err == nil {
+		if err := migrateFS(db, fsys, "migrations", nil); err == nil {
 			t.Errorf("name %q accepted, want startup error", name)
 		}
 	}
@@ -211,7 +211,7 @@ func TestMigrateFailureRollsBackThatMigration(t *testing.T) {
 		"migrations/0002_bad.sql":  {Data: []byte(`CREATE TABLE half(x INTEGER); INSERT INTO nope VALUES(1);`)},
 	}
 	db := rawMem(t)
-	if err := migrateFS(db, fsys, "migrations"); err == nil {
+	if err := migrateFS(db, fsys, "migrations", nil); err == nil {
 		t.Fatal("broken migration accepted")
 	}
 	if got := versionRows(t, db); len(got) != 1 || got[0] != 1 {
@@ -252,7 +252,7 @@ func TestMigrate14LegacySessions(t *testing.T) {
 		old["migrations/"+e.Name()] = &fstest.MapFile{Data: b}
 	}
 	db := rawMem(t)
-	if err := migrateFS(db, old, "migrations"); err != nil {
+	if err := migrateFS(db, old, "migrations", nil); err != nil {
 		t.Fatal(err)
 	}
 	if got := versionRows(t, db); len(got) != 13 {
@@ -261,7 +261,7 @@ func TestMigrate14LegacySessions(t *testing.T) {
 	if _, err := db.Exec(`INSERT INTO session(kind, start_ms, planned_ms, end_ms, deep_ms) VALUES('manual', 1000, 61000, 61000, 40000)`); err != nil {
 		t.Fatal(err)
 	}
-	if err := migrateFS(db, migrationFS, "migrations"); err != nil {
+	if err := migrateFS(db, migrationFS, "migrations", nil); err != nil {
 		t.Fatal(err)
 	}
 	x, err := scanSession(db.QueryRow(`SELECT ` + sessionCols + ` FROM session`))
@@ -298,7 +298,7 @@ func TestMigrate15Urges(t *testing.T) {
 		old["migrations/"+e.Name()] = &fstest.MapFile{Data: b}
 	}
 	db := rawMem(t)
-	if err := migrateFS(db, old, "migrations"); err != nil {
+	if err := migrateFS(db, old, "migrations", nil); err != nil {
 		t.Fatal(err)
 	}
 	if got := versionRows(t, db); len(got) != 14 {
@@ -307,7 +307,7 @@ func TestMigrate15Urges(t *testing.T) {
 	if _, err := db.Exec(`INSERT INTO session(kind, start_ms, planned_ms, end_ms) VALUES('manual', 1000, 61000, 61000), ('manual', 70000, 80000, NULL)`); err != nil {
 		t.Fatal(err)
 	}
-	if err := migrateFS(db, migrationFS, "migrations"); err != nil {
+	if err := migrateFS(db, migrationFS, "migrations", nil); err != nil {
 		t.Fatal(err)
 	}
 	rows, err := db.Query(`SELECT ` + sessionCols + ` FROM session`)
@@ -350,7 +350,7 @@ func TestMigrate16Slot(t *testing.T) {
 		old["migrations/"+e.Name()] = &fstest.MapFile{Data: b}
 	}
 	db := rawMem(t)
-	if err := migrateFS(db, old, "migrations"); err != nil {
+	if err := migrateFS(db, old, "migrations", nil); err != nil {
 		t.Fatal(err)
 	}
 	if got := versionRows(t, db); len(got) != 15 {
@@ -359,7 +359,7 @@ func TestMigrate16Slot(t *testing.T) {
 	if _, err := db.Exec(`INSERT INTO event(start_ms, end_ms, title, calendar) VALUES(1000, 2000, 'Standup', 'Work')`); err != nil {
 		t.Fatal(err)
 	}
-	if err := migrateFS(db, migrationFS, "migrations"); err != nil {
+	if err := migrateFS(db, migrationFS, "migrations", nil); err != nil {
 		t.Fatal(err)
 	}
 	var join string
@@ -393,7 +393,7 @@ func TestMigrate17EventMine(t *testing.T) {
 		old["migrations/"+e.Name()] = &fstest.MapFile{Data: b}
 	}
 	db := rawMem(t)
-	if err := migrateFS(db, old, "migrations"); err != nil {
+	if err := migrateFS(db, old, "migrations", nil); err != nil {
 		t.Fatal(err)
 	}
 	if got := versionRows(t, db); len(got) != 16 {
@@ -402,7 +402,7 @@ func TestMigrate17EventMine(t *testing.T) {
 	if _, err := db.Exec(`INSERT INTO event(start_ms, end_ms, title, calendar, join_url) VALUES(1000, 2000, 'Standup', 'Work', 'https://zoom.us/j/1')`); err != nil {
 		t.Fatal(err)
 	}
-	if err := migrateFS(db, migrationFS, "migrations"); err != nil {
+	if err := migrateFS(db, migrationFS, "migrations", nil); err != nil {
 		t.Fatal(err)
 	}
 	var mine bool
@@ -430,13 +430,13 @@ func TestMigrate18Recommend(t *testing.T) {
 		old["migrations/"+e.Name()] = &fstest.MapFile{Data: b}
 	}
 	db := rawMem(t)
-	if err := migrateFS(db, old, "migrations"); err != nil {
+	if err := migrateFS(db, old, "migrations", nil); err != nil {
 		t.Fatal(err)
 	}
 	if got := versionRows(t, db); len(got) != 17 {
 		t.Fatalf("schema_version rows = %v, want 17", got)
 	}
-	if err := migrateFS(db, migrationFS, "migrations"); err != nil {
+	if err := migrateFS(db, migrationFS, "migrations", nil); err != nil {
 		t.Fatal(err)
 	}
 	if got := versionRows(t, db); len(got) != 23 {
@@ -474,10 +474,10 @@ func TestMigrate19OCR(t *testing.T) {
 		old["migrations/"+e.Name()] = &fstest.MapFile{Data: b}
 	}
 	db := rawMem(t)
-	if err := migrateFS(db, old, "migrations"); err != nil {
+	if err := migrateFS(db, old, "migrations", nil); err != nil {
 		t.Fatal(err)
 	}
-	if err := migrateFS(db, migrationFS, "migrations"); err != nil {
+	if err := migrateFS(db, migrationFS, "migrations", nil); err != nil {
 		t.Fatal(err)
 	}
 	if got := versionRows(t, db); len(got) != 23 {
@@ -487,5 +487,40 @@ func TestMigrate19OCR(t *testing.T) {
 		if !objectExists(t, db, "table", tbl) {
 			t.Errorf("table %s missing", tbl)
 		}
+	}
+}
+
+// TestMigrateStaleVersionSkipsApplied: a process that read the version
+// before another one migrated must skip what is already applied, not run it
+// again.
+func TestMigrateStaleVersionSkipsApplied(t *testing.T) {
+	fsys := fstest.MapFS{
+		"m/0001_a.sql": {Data: []byte(`CREATE TABLE schema_version(version INTEGER PRIMARY KEY, applied_at INTEGER NOT NULL); CREATE TABLE a(x);`)},
+		"m/0002_b.sql": {Data: []byte(`CREATE TABLE b(x);`)},
+	}
+	db, err := sql.Open("sqlite", "file:"+dbPath(t)+"?_txlock=immediate")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if err := migrateFS(db, fsys, "m", nil); err != nil {
+		t.Fatal(err)
+	}
+	ms, err := loadMigrations(fsys, "m")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// cur = 0 is stale: both are applied already.
+	if err := applyMigrations(db, fsys, "m", ms, 0); err != nil {
+		t.Fatalf("stale apply: %v", err)
+	}
+	if got := versionRows(t, db); !slices.Equal(got, []int{1, 2}) {
+		t.Fatalf("versions = %v, want [1 2]", got)
+	}
+}
+
+func TestLatestVersion(t *testing.T) {
+	if LatestVersion() != 23 {
+		t.Fatalf("LatestVersion = %d, want 23 (update with each new migration)", LatestVersion())
 	}
 }
