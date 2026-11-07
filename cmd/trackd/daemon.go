@@ -220,6 +220,8 @@ func runWithStore(o daemonOpts, log *slog.Logger, st *store.Store) int {
 		defer stopSync()
 		stopPrune := startLoop(sh.turn(&pruneLoop{open: sh.opener, log: log}), pruneEvery)
 		defer stopPrune()
+		stopSnap := startLoop(sh.turn(&snapshotLoop{open: sh.opener, log: log}), snapshotEvery)
+		defer stopSnap()
 		if o.Calendar != nil {
 			every := o.CalendarEvery
 			if every <= 0 {
