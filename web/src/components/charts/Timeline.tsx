@@ -1,16 +1,19 @@
 import { useMemo, useRef, useState } from "react";
-import type { Row } from "@/lib/api";
+import type { Outage, Row } from "@/lib/api";
 import { dur, hhmm, parseDate } from "@/lib/format";
 import { kindColor, kindLabel } from "@/lib/kinds";
 import { snapAt } from "@/lib/range";
+import { onDay } from "@/lib/outage";
 
 type Lane = { name: string; kind: string; ms: number; rows: Row[]; away?: boolean };
 
 /** Timeline: one lane per category on a shared hour axis, Away hatched,
- *  a line for now. A click on a bar hands its row to onPick; a drag across
- *  the lanes hands the range it covers (whole minutes, not past now) to onRange. */
-export function Timeline({ rows, date, first, last, today, onPick, onRange }: {
-  rows: Row[]; date: string; first: number; last: number; today: boolean;
+ *  a line for now, and last a "Not recording" lane, outlined, for the time
+ *  trackd did not record (outages are not rows: nothing was recorded).
+ *  A click on a bar hands its row to onPick; a drag across the lanes hands
+ *  the range it covers (whole minutes, not past now) to onRange. */
+export function Timeline({ rows, outages, date, first, last, today, onPick, onRange }: {
+  rows: Row[]; outages?: Outage[]; date: string; first: number; last: number; today: boolean;
   onPick?: (r: Row) => void; onRange?: (from: number, to: number) => void;
 }) {
   const day = parseDate(date).getTime();
@@ -18,7 +21,7 @@ export function Timeline({ rows, date, first, last, today, onPick, onRange }: {
   const to = day + (last + 1) * 3_600_000;
   const span = Math.max(1, to - from);
   const x = (t: number) => ((Math.min(Math.max(t, from), to) - from) / span) * 100;
-  const [hover, setHover] = useState<{ r: Row; left: number; lane: number } | null>(null);
+  const [hover, setHover] = useState<{ r?: Row; o?: Outage; left: number; lane: number } | null>(null);
   const track = useRef<HTMLDivElement>(null);
   const drag = useRef<{ x0: number; f0: number; moved: boolean } | null>(null);
   const [sel, setSel] = useState<{ a: number; b: number } | null>(null);
@@ -73,6 +76,8 @@ export function Timeline({ rows, date, first, last, today, onPick, onRange }: {
     return [...m.values()].sort((a, b) => Number(!!a.away) - Number(!!b.away) || b.ms - a.ms);
   }, [rows, day]);
 
+  const gaps = useMemo(() => onDay(outages, day, day + 86_400_000), [outages, day]);
+
   const hours = [];
   for (let h = first; h <= last + 1; h++) hours.push(h);
   const now = Date.now();
@@ -116,6 +121,31 @@ export function Timeline({ rows, date, first, last, today, onPick, onRange }: {
             </div>
           </div>
         ))}
+        {gaps.items.length > 0 && (
+          <div className="flex items-center gap-3">
+            <div className="flex shrink-0 items-center justify-between gap-2 pr-1 text-muted-foreground" style={{ width: "8.25rem" }}>
+              <span className="truncate">Not recording</span>
+              <span className="num text-xs">{dur(gaps.ms)}</span>
+            </div>
+            <div ref={lanes.length === 0 ? track : undefined} className="relative h-6 flex-1 rounded-sm bg-secondary/40">
+              {gaps.items.map((o) => {
+                const left = x(o.from);
+                const w = Math.max(0.15, x(o.to) - left);
+                return (
+                  <div
+                    key={o.from}
+                    tabIndex={0}
+                    className="absolute inset-y-0 rounded-[2px] border border-dashed border-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+                    style={{ left: `${left}%`, width: `${w}%` }}
+                    onMouseEnter={() => setHover({ o, left: left + w / 2, lane: lanes.length })}
+                    onFocus={() => setHover({ o, left: left + w / 2, lane: lanes.length })}
+                    aria-label={`Not recording ${hhmm(o.from)} to ${hhmm(o.to)}: ${o.why}`}
+                  />
+                );
+              })}
+            </div>
+          </div>
+        )}
         {sel && (
           <div
             className="pointer-events-none absolute -inset-y-1 border-x border-foreground bg-foreground/10"
@@ -132,12 +162,22 @@ export function Timeline({ rows, date, first, last, today, onPick, onRange }: {
           className="pointer-events-none absolute z-10 w-64 -translate-x-1/2 rounded-md border bg-popover px-3 py-2 text-xs shadow-lg"
           style={{ left: `calc(9rem + (100% - 9rem) * ${hover.left / 100})`, top: `${1.75 + (hover.lane + 1) * 1.75}rem` }}
         >
-          <div className="font-medium">{hover.r.app || "Away"}</div>
-          {hover.r.text && <div className="truncate text-muted-foreground">{hover.r.text}</div>}
-          <div className="num mt-1 flex justify-between text-muted-foreground">
-            <span>{hhmm(hover.r.start)}–{hhmm(hover.r.end)} · {dur(hover.r.end - hover.r.start)}</span>
-            {!hover.r.idle && <span style={{ color: kindColor(hover.r.kind) }}>{hover.r.category || kindLabel(hover.r.kind)}</span>}
-          </div>
+          {hover.o ? (
+            <>
+              <div className="font-medium">Not recording</div>
+              <div className="text-muted-foreground">{hover.o.why}</div>
+              <div className="num mt-1 text-muted-foreground">{hhmm(hover.o.from)}–{hhmm(hover.o.to)} · {dur(hover.o.to - hover.o.from)}</div>
+            </>
+          ) : hover.r && (
+            <>
+              <div className="font-medium">{hover.r.app || "Away"}</div>
+              {hover.r.text && <div className="truncate text-muted-foreground">{hover.r.text}</div>}
+              <div className="num mt-1 flex justify-between text-muted-foreground">
+                <span>{hhmm(hover.r.start)}–{hhmm(hover.r.end)} · {dur(hover.r.end - hover.r.start)}</span>
+                {!hover.r.idle && <span style={{ color: kindColor(hover.r.kind) }}>{hover.r.category || kindLabel(hover.r.kind)}</span>}
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>

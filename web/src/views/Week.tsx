@@ -12,9 +12,10 @@ import { GoalRings } from "@/components/charts/GoalRings";
 import { TimeTable } from "@/components/Tables";
 import { InvoiceDialog } from "@/components/InvoiceDialog";
 import { useApi, type Hours, type Week as WeekT } from "@/lib/api";
-import { dur, parseDate, shortDay, dayTitle, addDays, isoDate } from "@/lib/format";
+import { dur, hhmm, parseDate, shortDay, dayTitle, addDays, isoDate } from "@/lib/format";
 import { download } from "@/lib/download";
 import { byKindRows, kindColor, kindLabel } from "@/lib/kinds";
+import { onDay } from "@/lib/outage";
 
 export default function Week({ date, tick }: { date: string; tick: number }) {
   const { data: w, error, loading } = useApi<WeekT>(`/api/week?date=${date}`, tick);
@@ -29,6 +30,11 @@ export default function Week({ date, tick }: { date: string; tick: number }) {
   const projects = w.projects.slice(0, 6);
   const colors = ramp(projects.length);
   const kinds = byKindRows(w.byKind).map((k) => ({ name: kindLabel(k.kind), ms: k.ms, color: kindColor(k.kind) }));
+  // The time trackd did not record, per day; not part of the bars.
+  const missed = w.days.map((d) => {
+    const from = parseDate(d.date);
+    return { label: shortDay(from), ...onDay(w.outages, from.getTime(), addDays(from, 1).getTime()) };
+  }).filter((m) => m.ms > 0);
 
   return (
     <div className="space-y-5">
@@ -42,6 +48,12 @@ export default function Week({ date, tick }: { date: string; tick: number }) {
       <div className="grid gap-5 lg:grid-cols-[1.4fr_1fr]">
         <Panel label="Hours per day">
           <DayBars days={days} />
+          {missed.length > 0 && (
+            <p className="num mt-3 text-xs text-muted-foreground"
+              title={missed.flatMap((m) => m.items.map((o) => `${m.label} ${hhmm(o.from)}–${hhmm(o.to)} ${o.why}`)).join("\n")}>
+              Not recorded: {missed.map((m) => `${m.label} ${dur(m.ms)}`).join(" · ")}
+            </p>
+          )}
         </Panel>
         <Panel label="Kinds of time">
           {kinds.length ? <Donut data={kinds} center={dur(kinds.reduce((s, k) => s + k.ms, 0))} sub="this week" /> : <Empty>Nothing yet.</Empty>}

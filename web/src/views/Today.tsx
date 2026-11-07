@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { useApi, type Day } from "@/lib/api";
 import { addDays, delta, dur, hhmm, parseDate } from "@/lib/format";
 import { byKindRows, kindColor, kindLabel } from "@/lib/kinds";
+import { onDay } from "@/lib/outage";
 
 export default function Today({ date, tick }: { date: string; tick: number }) {
   const { data: d, error, loading, reload } = useApi<Day>(`/api/day?date=${date}`, tick);
@@ -47,6 +48,7 @@ export default function Today({ date, tick }: { date: string; tick: number }) {
   };
   const kinds = byKindRows(d.byKind).map((k) => ({ name: kindLabel(k.kind), ms: k.ms, color: kindColor(k.kind) }));
   const sph = d.score.switchesPerHour;
+  const notRec = onDay(d.outages, day0, day0 + 86_400_000).ms;
 
   return (
     <div className="space-y-5">
@@ -54,14 +56,14 @@ export default function Today({ date, tick }: { date: string; tick: number }) {
         label="Timeline"
         aside={
           <span className="flex items-center gap-3">
-            <span className="num">{dur(d.trackedMS)} tracked · {dur(d.idleMS)} away</span>
+            <span className="num">{dur(d.trackedMS)} tracked · {dur(d.idleMS)} away{notRec > 0 && ` · ${dur(notRec)} not recorded`}</span>
             <Button variant="outline" size="sm" className="h-6 px-2 text-xs" onClick={addTime}>Add time</Button>
           </span>
         }
       >
-        {d.timeline.length ? (
+        {d.timeline.length || notRec > 0 ? (
           <>
-            <Timeline rows={d.timeline} date={d.date} first={d.hourFirst} last={d.hourLast} today={d.today}
+            <Timeline rows={d.timeline} outages={d.outages} date={d.date} first={d.hourFirst} last={d.hourLast} today={d.today}
               onPick={(r) => setTarget({
                 title: r.idle ? "Away" : r.app,
                 sub: r.idle ? "Label it to count it as worked." : `${r.text ? r.text + " · " : ""}${hhmm(r.start)}–${hhmm(r.end)}`,

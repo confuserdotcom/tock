@@ -112,6 +112,25 @@ type dayJSON struct {
 	Usual *usualJSON `json:"usual"`
 	// FirstRun is true until anything at all has been recorded.
 	FirstRun bool `json:"firstRun"`
+	// Outages is the time trackd did not record, and why; never part of
+	// the timeline or the totals.
+	Outages []outageJSON `json:"outages"`
+}
+
+// outageJSON is one outage: when trackd did not record, and why.
+type outageJSON struct {
+	From int64  `json:"from"`
+	To   int64  `json:"to"`
+	Kind string `json:"kind"`
+	Why  string `json:"why"`
+}
+
+func outagesJSON(gs []stats.Gap) []outageJSON {
+	out := make([]outageJSON, len(gs))
+	for i, g := range gs {
+		out[i] = outageJSON{From: g.From, To: g.To, Kind: g.Kind, Why: report.OutageWhy(g.Kind)}
+	}
+	return out
 }
 
 type usualJSON struct {
@@ -175,6 +194,7 @@ type weekJSON struct {
 	Distractions []nameMS         `json:"distractions"`
 	Goals        []goalJSON       `json:"goals"`
 	Plan         string           `json:"plan"`
+	Outages      []outageJSON     `json:"outages"`
 }
 
 type topRowJSON struct {
@@ -285,6 +305,7 @@ func (s *Server) day(r *http.Request) (any, error) {
 		Categories: cats(d.Categories), HourFirst: d.Hours.First, HourLast: d.Hours.Last, Hours: d.Hours.MS,
 		Timeline: make([]rowJSON, len(d.Timeline)), Goals: []goalJSON{}, Commits: d.Commits,
 		Blocks: make([]blockJSON, len(d.Blocks)), Summary: report.Safe(d.Summary),
+		Outages: outagesJSON(d.Outages),
 	}
 	for i, row := range d.Timeline {
 		out.Timeline[i] = rowJSON{IDs: row.IDs, Start: row.Start, End: row.End, Key: report.Safe(row.Key),
@@ -358,7 +379,7 @@ func (s *Server) week(r *http.Request) (any, error) {
 	}
 	out := weekJSON{Monday: w.Monday.Format(dateLayout), TrackedMS: w.TrackedMS, ByKind: w.ByKind,
 		Categories: cats(w.Categories), Projects: names(w.Projects), Apps: names(w.Apps),
-		Distractions: names(w.Distractions), Plan: w.Plan, Goals: []goalJSON{}}
+		Distractions: names(w.Distractions), Plan: w.Plan, Goals: []goalJSON{}, Outages: outagesJSON(w.Outages)}
 	for _, d := range w.Days {
 		out.Days = append(out.Days, weekDayJSON{Date: d.Date.Format(dateLayout), TrackedMS: d.TrackedMS,
 			ByKind: d.ByKind, Future: d.Future, Score: d.Score.Value, DeepMS: d.Stats.DeepMS})

@@ -121,7 +121,7 @@ export type Day = {
   date: string; today: boolean; trackedMS: number; idleMS: number; byKind: ByKind;
   score: Score; stats: Stats; categories: Cat[]; hourFirst: number; hourLast: number;
   hours: Record<string, number[]>; timeline: Row[]; goals: Goal[]; blocks: Block[];
-  summary: string; usual: Usual | null; firstRun: boolean;
+  summary: string; usual: Usual | null; firstRun: boolean; outages: Outage[];
   work: { from: number; to: number; off: boolean; outsideMS: number; closed: boolean } | null;
 };
 export type Status = {
@@ -131,8 +131,10 @@ export type Status = {
 export type WeekDay = { date: string; trackedMS: number; byKind: ByKind; future: boolean; score: number; deepMS: number };
 export type Week = {
   monday: string; days: WeekDay[]; trackedMS: number; byKind: ByKind; categories: Cat[];
-  projects: NameMS[]; apps: NameMS[]; distractions: NameMS[]; goals: Goal[]; plan: string;
+  projects: NameMS[]; apps: NameMS[]; distractions: NameMS[]; goals: Goal[]; plan: string; outages: Outage[];
 };
+/** Outage: time trackd did not record, and why. Never part of the timeline or the totals. */
+export type Outage = { from: number; to: number; kind: string; why: string };
 export type TopRow = { name: string; ms: number; kind: string; mostly: string };
 export type Top = { from: string; to: string; totalMS: number; sections: Record<string, TopRow[]> };
 export type MonthSide = { trackedMS: number; focusMS: number; workdays: number; avgScore: number; switchesPerHour: number };
