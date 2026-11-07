@@ -41,6 +41,7 @@ type Config struct {
 	Model     Model
 	OCR       OCR
 	Notch     Notch
+	Backup    Backup
 }
 
 // Model is the [model] section: the local classifier that labels what the
@@ -57,6 +58,23 @@ type Privacy struct {
 	// HideApps (bundle ids) and HideSites (hosts, with their subdomains)
 	// are tracked as time only, and are never sent to Claude or read by OCR.
 	HideApps, HideSites []string
+}
+
+// Backup is the [backup] section: how many daily snapshots of tock.db
+// trackd keeps in backups/auto. 0 turns daily snapshots off; a copy is
+// still kept before each migration.
+type Backup struct {
+	Keep int
+}
+
+// MaxBackupKeep is the most daily snapshots kept.
+const MaxBackupKeep = 365
+
+// DefaultBackup keeps a week of daily snapshots.
+func DefaultBackup() Backup { return Backup{Keep: 7} }
+
+type backupTOML struct {
+	Keep *int `toml:"keep"`
 }
 
 // Plan is the [plan] section: the todo.txt file the plan tab shows, and a
@@ -228,7 +246,7 @@ func DefaultLLM() LLM {
 // Default is the configuration used when there is no file.
 func Default() Config {
 	return Config{Score: stats.DefaultWeights, Focus: DefaultFocus(), LLM: DefaultLLM(), Shell: DefaultShell(), Away: DefaultAway(), AFK: DefaultAFK(), Slack: DefaultSlack(), Routine: DefaultRoutine(), Inbox: DefaultInbox(),
-		Recommend: DefaultRecommend(), Plan: DefaultPlan(), Model: Model{Enabled: true}, OCR: DefaultOCR(), Notch: DefaultNotch()}
+		Recommend: DefaultRecommend(), Plan: DefaultPlan(), Model: Model{Enabled: true}, OCR: DefaultOCR(), Notch: DefaultNotch(), Backup: DefaultBackup()}
 }
 
 type scoreTOML struct {
@@ -337,6 +355,7 @@ type fileTOML struct {
 	Model     modelTOML     `toml:"model"`
 	OCR       ocrTOML       `toml:"ocr"`
 	Notch     notchTOML     `toml:"notch"`
+	Backup    backupTOML    `toml:"backup"`
 }
 
 // Load reads path. A missing file is Default() and no error. Any other
@@ -456,6 +475,12 @@ func Parse(name string, b []byte) (Config, error) {
 			return Default(), fmt.Errorf("%s: [privacy] keep_titles = %d, want 1 to %d days", name, *k, MaxKeepTitles)
 		}
 		c.Privacy.KeepTitles = *k
+	}
+	if k := f.Backup.Keep; k != nil {
+		if *k < 0 || *k > MaxBackupKeep {
+			return Default(), fmt.Errorf("%s: [backup] keep = %d, want 0 to %d", name, *k, MaxBackupKeep)
+		}
+		c.Backup.Keep = *k
 	}
 	if err := decodePrivacy(f.Privacy, &c); err != nil {
 		return Default(), fmt.Errorf("%s: %w", name, err)
