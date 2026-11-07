@@ -44,6 +44,13 @@ type Health struct {
 	BarNotify string
 	RulesErr  error
 	ConfigErr error
+	// BackupMS is trackd's last good daily snapshot (0 = none); BackupErr
+	// its last error. IntegrityMS is the last check, IntegrityOK "ok", a
+	// problem, or "" before any check.
+	BackupMS    int64
+	BackupErr   string
+	IntegrityMS int64
+	IntegrityOK string
 }
 
 // Health reads trackd's liveness and permission state.
@@ -81,6 +88,10 @@ func ReadHealth(st *store.Store, nowMS int64) (Health, error) {
 	beat, _ := strconv.ParseInt(states[store.KeyBarBeat], 10, 64)
 	h.BarUp = beat > 0 && nowMS-beat <= BarFreshMS && beat <= nowMS+BarFreshMS
 	h.BarNotify = states[store.KeyBarNotify]
+	h.BackupMS, _ = strconv.ParseInt(states[store.KeyBackupLast], 10, 64)
+	h.BackupErr = states[store.KeyBackupErr]
+	h.IntegrityMS, _ = strconv.ParseInt(states[store.KeyIntegrityAt], 10, 64)
+	h.IntegrityOK = states[store.KeyIntegrityOK]
 	for k, v := range states {
 		id, ok := strings.CutPrefix(k, store.AutomationKey(""))
 		if !ok || v != "denied" {
@@ -95,6 +106,9 @@ func ReadHealth(st *store.Store, nowMS int64) (Health, error) {
 	sort.Strings(h.AutomationOff)
 	return h, nil
 }
+
+// Damaged says the last check found a problem.
+func (h Health) Damaged() bool { return h.IntegrityOK != "" && h.IntegrityOK != "ok" }
 
 // Status is the line `tock status` prints.
 func (a *App) Status() (string, error) {
@@ -118,5 +132,9 @@ func (a *App) Status() (string, error) {
 	if n := len(d.Timeline); n > 0 && d.Timeline[n-1].Open {
 		in.Open = &d.Timeline[n-1]
 	}
-	return report.Status(in), nil
+	line := report.Status(in)
+	if h.Damaged() {
+		line = "db! " + line
+	}
+	return line, nil
 }
