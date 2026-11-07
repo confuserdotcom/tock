@@ -1,6 +1,7 @@
 // Objective-C shim for the macOS collector. Every function here runs on the
 // process main thread (locked by runtime.LockOSThread in collect_darwin.go).
 // Do not create an NSApplication: activation notifications arrive without it.
+#include <stdatomic.h>
 #import <Cocoa/Cocoa.h>
 #import <IOKit/pwr_mgt/IOPMLib.h>
 #include <string.h>
@@ -236,8 +237,21 @@ void tock_poll(tock_poll_t *out) {
     }
 }
 
+// tock_stopping is set once by tock_stop_run_loop and never cleared: trackd
+// stops its run loop once, then exits.
+static atomic_bool tock_stopping;
+
+// tock_run_loop runs the main run loop until tock_stop_run_loop. A plain
+// CFRunLoopRun can miss the stop: when it lands while a nested run is going
+// (NSAppleScript waits for its reply in one), CFRunLoopStop ends only that
+// run and CFRunLoopRun goes on for ever, so launchd had to kill trackd. The
+// flag is checked after every pass instead.
 void tock_run_loop(void) {
-    CFRunLoopRun();
+    while (!atomic_load(&tock_stopping)) {
+        if (CFRunLoopRunInMode(kCFRunLoopDefaultMode, 5.0, false) == kCFRunLoopRunFinished) {
+            return; // no sources left, as CFRunLoopRun
+        }
+    }
 }
 
 void tock_run_loop_slice(double seconds) {
@@ -245,5 +259,7 @@ void tock_run_loop_slice(double seconds) {
 }
 
 void tock_stop_run_loop(void) {
+    atomic_store(&tock_stopping, true);
     CFRunLoopStop(CFRunLoopGetMain());
+    CFRunLoopWakeUp(CFRunLoopGetMain());
 }
