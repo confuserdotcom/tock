@@ -13,7 +13,16 @@ your machine, in one SQLite file.
 row per category. The day gets a focus score out of 100, compared with your
 usual same weekday, and goals you set per day or per week.
 
-<!-- notch -->
+## It lives in the notch
+
+<img src="docs/readme/notch.webp" width="100%" alt="The tock notch on a MacBook: a focus session counting down beside the notch; YouTube pulls you off task and the notch asks to go back, with Snooze; the session ends with deep time, longest run and switches; three unlabelled things are labelled with one pick each, each pick saving a rule; a meeting two minutes away; the evening recap against a usual Saturday; and a dot for a moment you missed.">
+
+The menu bar app draws a panel around the notch, or a notch of its own on
+a screen without one. A focus session counts down beside it and calls you
+back when you drift. When the session ends it shows how it went. Unlabelled
+time can be labelled there with one pick, and each pick saves a rule. It
+warns before meetings and shows a recap in the evening. A moment you
+missed waits as a dot.
 
 ## Fix the record
 
