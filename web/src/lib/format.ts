@@ -67,3 +67,14 @@ export function shortDay(d: Date): string {
 export function monthTitle(d: Date): string {
   return `${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
 }
+
+/** entries is "1 entry" or "n entries". */
+export function entries(n: number): string {
+  return n === 1 ? "1 entry" : `${n} entries`;
+}
+
+/** doneText is a label's toast: the range it covers when it came from the
+ * timeline (tagging rows by id carries no total), else entries and time. */
+export function doneText(d: { label: string; spans: number; ms: number }, range?: string): string {
+  return range ? `Labelled ${range} · ${d.label}` : `${d.label} · ${entries(d.spans)}, ${dur(d.ms)}`;
+}

@@ -1,5 +1,5 @@
 import { test, expect } from "vitest";
-import { dur, clock, delta, pct, dayTitle, isoDate, parseDate, addDays } from "./format";
+import { dur, clock, delta, pct, dayTitle, isoDate, parseDate, addDays, entries, doneText } from "./format";
 
 test("dur", () => {
   expect(dur(8_640_000)).toBe("2h24");
@@ -24,4 +24,16 @@ test("dates", () => {
   expect(isoDate(d)).toBe("2026-11-05");
   expect(dayTitle(d)).toBe("Thu 5 Nov");
   expect(isoDate(addDays(d, -5))).toBe("2026-10-31");
+});
+
+test("entries counts in the singular for one", () => {
+  expect(entries(1)).toBe("1 entry");
+  expect(entries(0)).toBe("0 entries");
+  expect(entries(14)).toBe("14 entries");
+});
+
+test("doneText names the range a timeline label covers, else the count", () => {
+  const d = { label: "Research", spans: 1, ms: 960_000 };
+  expect(doneText(d)).toBe("Research · 1 entry, 16m");
+  expect(doneText({ ...d, ms: 0 }, "14:41–14:53 (12m)")).toBe("Labelled 14:41–14:53 (12m) · Research");
 });

@@ -1,0 +1,26 @@
+{
+  "name": "tock-video",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "capture": "node capture/scenes.mjs",
+    "studio": "remotion studio src/index.ts",
+    "render": "node render.mjs"
+  },
+  "dependencies": {
+    "@remotion/bundler": "4.0.541",
+    "@remotion/cli": "4.0.541",
+    "@remotion/google-fonts": "4.0.541",
+    "@remotion/media-utils": "4.0.541",
+    "@remotion/renderer": "4.0.541",
+    "@types/react": "18.3.11",
+    "playwright-core": "1.65.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "remotion": "4.0.541",
+    "typescript": "5.6.3"
+  },
+  "allowScripts": {
+    "esbuild@0.28.1": true
+  }
+}

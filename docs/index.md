@@ -4,7 +4,7 @@
 
 <picture class="shot">
   <source media="(prefers-color-scheme: dark)" srcset="readme/web-dark.png">
-  <img src="readme/web-light.png" alt="The tock dashboard for one day: a timeline with one row per category, a focus score compared with a usual Saturday, minutes per hour, a donut of the kinds of time, goal rings, and tables of categories and apps.">
+  <img src="readme/web-light.png" alt="The tock dashboard for one day: a timeline with one row per category, a focus score compared with a usual Thursday, minutes per hour, a donut of the kinds of time, goal rings, and tables of categories and apps.">
 </picture>
 
 <picture class="shot">
