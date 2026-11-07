@@ -171,6 +171,21 @@ func sampleFromPoll(p *C.tock_poll_t) *span.Sample {
 	return smp
 }
 
+// session is loginwindow's last word on the session: 0 none (or
+// cancelled), 1 a logout, restart or shutdown asked for, 2 one that can no
+// longer be cancelled.
+var session atomic.Int32
+
+//export goSession
+func goSession(state C.int) { session.Store(int32(state)) }
+
+// sessionSay records loginwindow's word as goSession does (for tests).
+func sessionSay(state int32) { session.Store(state) }
+
+// SessionNotified reports whether loginwindow has said the user's session
+// is ending (a logout, restart or shutdown asked for and not cancelled).
+func SessionNotified() bool { return session.Load() > 0 }
+
 //export goEvent
 func goEvent(kind C.int, ts C.longlong) {
 	s := current()

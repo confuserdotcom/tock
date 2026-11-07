@@ -118,17 +118,20 @@ type dayJSON struct {
 }
 
 // outageJSON is one outage: when trackd did not record, and why.
+// Partial: trackd recorded apps only (Accessibility was off), so the time
+// is not part of "not recorded".
 type outageJSON struct {
-	From int64  `json:"from"`
-	To   int64  `json:"to"`
-	Kind string `json:"kind"`
-	Why  string `json:"why"`
+	From    int64  `json:"from"`
+	To      int64  `json:"to"`
+	Kind    string `json:"kind"`
+	Why     string `json:"why"`
+	Partial bool   `json:"partial"`
 }
 
 func outagesJSON(gs []stats.Gap) []outageJSON {
 	out := make([]outageJSON, len(gs))
 	for i, g := range gs {
-		out[i] = outageJSON{From: g.From, To: g.To, Kind: g.Kind, Why: report.OutageWhy(g.Kind)}
+		out[i] = outageJSON{From: g.From, To: g.To, Kind: g.Kind, Why: report.GapWhy(g), Partial: g.Partial()}
 	}
 	return out
 }

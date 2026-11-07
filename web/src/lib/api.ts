@@ -133,8 +133,9 @@ export type Week = {
   monday: string; days: WeekDay[]; trackedMS: number; byKind: ByKind; categories: Cat[];
   projects: NameMS[]; apps: NameMS[]; distractions: NameMS[]; goals: Goal[]; plan: string; outages: Outage[];
 };
-/** Outage: time trackd did not record, and why. Never part of the timeline or the totals. */
-export type Outage = { from: number; to: number; kind: string; why: string };
+/** Outage: time trackd did not record, and why. Never part of the timeline or the totals.
+ *  partial: apps were recorded without window titles (Accessibility off). */
+export type Outage = { from: number; to: number; kind: string; why: string; partial: boolean };
 export type TopRow = { name: string; ms: number; kind: string; mostly: string };
 export type Top = { from: string; to: string; totalMS: number; sections: Record<string, TopRow[]> };
 export type MonthSide = { trackedMS: number; focusMS: number; workdays: number; avgScore: number; switchesPerHour: number };

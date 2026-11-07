@@ -33,7 +33,7 @@ export default function Week({ date, tick }: { date: string; tick: number }) {
   // The time trackd did not record, per day; not part of the bars.
   const missed = w.days.map((d) => {
     const from = parseDate(d.date);
-    return { label: shortDay(from), ...onDay(w.outages, from.getTime(), addDays(from, 1).getTime()) };
+    return { label: shortDay(from), ...onDay(w.outages, from.getTime(), addDays(from, 1).getTime(), false) };
   }).filter((m) => m.ms > 0);
 
   return (

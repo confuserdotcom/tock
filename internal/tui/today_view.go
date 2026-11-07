@@ -46,7 +46,7 @@ func (t *todayTab) head(w, h int, now time.Time) []string {
 		if a := t.attention(); a != "" {
 			out = append(out, fit(a, w))
 		}
-		if o := t.outages(); o != "" {
+		for _, o := range t.outages() {
 			out = append(out, fit(o, w))
 		}
 		if t.day.Summary != "" {
@@ -156,20 +156,26 @@ func (t *todayTab) notes(w int) []string {
 	if a := t.attention(); a != "" {
 		out = append(out, fit(a, w))
 	}
-	if o := t.outages(); o != "" {
+	for _, o := range t.outages() {
 		out = append(out, fit(o, w))
 	}
 	return out
 }
 
-// outages is the line of the day's outages: when trackd did not record,
-// and why; "" without any. They are not timeline rows: nothing was
-// recorded, and they count as neither tracked nor idle.
-func (t *todayTab) outages() string {
-	if len(t.day.Outages) == 0 {
-		return ""
+// outages is the lines of the day's outages: when trackd did not record,
+// and why, then the apps-only time; none without any. They are not
+// timeline rows, and they count as neither tracked nor idle.
+func (t *todayTab) outages() []string {
+	none, partial := report.SplitPartial(t.day.Outages)
+	loc := t.day.Date.Location()
+	var out []string
+	if len(none) > 0 {
+		out = append(out, " "+sAccent.Render("not recording  ")+sText.Render(report.OutagesLine(none, loc)))
 	}
-	return " " + sAccent.Render("not recording  ") + sText.Render(report.OutagesLine(t.day.Outages, t.day.Date.Location()))
+	if len(partial) > 0 {
+		out = append(out, " "+sAccent.Render("apps only  ")+sText.Render(report.OutagesLine(partial, loc)))
+	}
+	return out
 }
 
 // workLine lists the work blocks as "09:00 tock 1h40 · 11:05 Study 50m".
@@ -415,7 +421,11 @@ func (t todayTab) empty(w int, now time.Time) []string {
 		lines := []string{sText.Render("Nothing tracked on this day.")}
 		if len(t.day.Outages) > 0 {
 			for _, g := range t.day.Outages {
-				lines = append(lines, sAccent.Render("not recording ")+sText.Render(report.OutagesLine([]stats.Gap{g}, t.day.Date.Location())))
+				label := "not recording "
+				if g.Partial() {
+					label = "apps only "
+				}
+				lines = append(lines, sAccent.Render(label)+sText.Render(report.OutagesLine([]stats.Gap{g}, t.day.Date.Location())))
 			}
 		}
 		lines = append(lines, "", keycap("l", "next day")+"   "+keycap(".", "back to today"))

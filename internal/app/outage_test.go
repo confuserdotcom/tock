@@ -65,3 +65,33 @@ func TestDayNoRunsNoOutages(t *testing.T) {
 		t.Fatalf("outages = %+v", d.Outages)
 	}
 }
+
+// A shutdown the OS announced explains the night; apps-only time is
+// listed apart; neither changes the recorded totals.
+func TestDaySessionEndAndAppsOnly(t *testing.T) {
+	e := apptest.New(t, apptest.Rules)
+	e.Seed(t, apptest.DaySpans()...)
+	e.Runs(t,
+		apptest.Run{Start: "07:00", Stop: "09:40", Reason: store.RunSession, Boot: 1},
+		apptest.Run{Start: "10:05", Stop: "11:00", Reason: store.RunState, Boot: apptest.At(t, "10:04", 0)},
+		apptest.Run{Start: "11:00", Stop: "11:30", Reason: store.RunState, State: store.RunNoAccess, Boot: apptest.At(t, "10:04", 0)},
+		apptest.Run{Start: "11:30", Last: "14:59", Boot: apptest.At(t, "10:04", 0)},
+	)
+	d, err := open(t, e).Day(e.Clock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []stats.Gap{{From: apptest.At(t, "11:00", 0), To: apptest.At(t, "11:30", 0), Kind: stats.GapNoAccess}}
+	if !reflect.DeepEqual(d.Outages, want) {
+		t.Fatalf("outages = %+v, want %+v", d.Outages, want)
+	}
+	e2 := apptest.New(t, apptest.Rules)
+	e2.Seed(t, apptest.DaySpans()...)
+	d2, err := open(t, e2).Day(e2.Clock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d.TrackedMS != d2.TrackedMS || d.IdleMS != d2.IdleMS || len(d.Timeline) != len(d2.Timeline) {
+		t.Fatal("run rows changed the recorded day")
+	}
+}

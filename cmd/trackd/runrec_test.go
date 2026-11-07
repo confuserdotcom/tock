@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -156,7 +158,10 @@ func TestRunStopThenStart(t *testing.T) {
 	if len(g) != 1 || g[0] != (outage.Gap{From: pauseT0 + 125_000, To: later, Kind: outage.GapStopped}) {
 		t.Fatalf("gaps = %+v", g)
 	}
-	// stopped before a shutdown: the next start is in a new boot
+	// Stopped by hand (a SIGTERM the OS did not call a session ending),
+	// then the computer restarted hours later: trackd was down while the
+	// computer may still have been on, so up to the new boot it is an
+	// outage whose end is not known; only boot to start is off.
 	r.p.rec.end(later+10_000, store.RunSignal) //nolint:errcheck
 	next := later + 3*60*60_000
 	r.p.now = func() int64 { return next }
@@ -165,11 +170,31 @@ func TestRunStopThenStart(t *testing.T) {
 		t.Fatal(err)
 	}
 	g = r.gaps(later, next+60_000, next+1000)
-	if len(g) != 1 || g[0].Kind != outage.GapOff {
-		t.Fatalf("gaps across a reboot = %+v, want off", g)
+	want := []outage.Gap{
+		{From: later + 10_000, To: next - 60_000, Kind: outage.GapStopped, EndUnknown: true},
+		{From: next - 60_000, To: next, Kind: outage.GapOff},
+	}
+	if len(g) != 2 || g[0] != want[0] || g[1] != want[1] {
+		t.Fatalf("gaps across a reboot = %+v, want %+v", g, want)
+	}
+	if o := outage.Outages(g); len(o) != 1 || o[0] != want[0] {
+		t.Fatalf("outages = %+v, want the stop up to the boot", o)
+	}
+	// The session ended (the OS said so as trackd stopped), then a new
+	// boot: the computer was off, not an outage.
+	r.p.rec.end(next+10_000, store.RunSession) //nolint:errcheck
+	again := next + 8*60*60_000
+	r.p.now = func() int64 { return again }
+	r.p.rec = &runRec{st: r.st, boot: func() int64 { return again - 60_000 }}
+	if err := r.p.start(); err != nil {
+		t.Fatal(err)
+	}
+	g = r.gaps(next, again+60_000, again+1000)
+	if len(g) != 1 || g[0] != (outage.Gap{From: next + 10_000, To: again, Kind: outage.GapOff}) {
+		t.Fatalf("gaps after a session end and a reboot = %+v, want off", g)
 	}
 	if len(outage.Outages(g)) != 0 {
-		t.Fatal("a computer that was off is not an outage")
+		t.Fatal("a computer that was shut down is not an outage")
 	}
 }
 
@@ -319,5 +344,150 @@ func TestRunLockedScreenIsNoOutage(t *testing.T) {
 	}
 	if rs := r.runs(); len(rs) != 1 {
 		t.Fatalf("runs = %+v, want one", rs)
+	}
+}
+
+// A clean stop is recorded as a session ending only when the OS said so
+// (sessionEnding); a stop the OS said nothing about stays a signal, and a
+// restart for a stale grant keeps its own reason either way.
+func TestDaemonStopReasons(t *testing.T) {
+	tests := []struct {
+		name   string
+		src    func() collect.Source
+		ending func() bool
+		rc     int
+		want   string
+	}{
+		{"stopped, no session ending", func() collect.Source { return samplesSource() }, func() bool { return false }, 0, store.RunSignal},
+		{"stopped, OS says the session is ending", func() collect.Source { return samplesSource() }, func() bool { return true }, 0, store.RunSession},
+		{"stopped, nothing to ask", func() collect.Source { return samplesSource() }, nil, 0, store.RunSignal},
+		{"stale grant while the session ends", func() collect.Source { return &staleSource{ch: make(chan span.Input)} }, func() bool { return true }, 1, store.RunAXStale},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			var buf bytes.Buffer
+			rc := runDaemon(daemonOpts{
+				DataDir: dir, StateDir: dir, Stderr: &buf,
+				NewSource:     func() (collect.Source, error) { return tt.src(), nil },
+				SessionEnding: tt.ending,
+			})
+			if rc != tt.rc {
+				t.Fatalf("rc = %d, want %d\n%s", rc, tt.rc, buf.String())
+			}
+			st, err := store.Open(filepath.Join(dir, "tock.db"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer st.Close()
+			rs, err := st.Runs(0, time.Now().Add(time.Hour).UnixMilli())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(rs) != 1 || rs[0].Reason != tt.want {
+				t.Fatalf("runs = %+v, want one ended %q", rs, tt.want)
+			}
+		})
+	}
+}
+
+// sampleAX feeds one sample with Accessibility trusted or not.
+func (r *pauseRig) sampleAX(ts int64, bundle string, trusted bool) {
+	r.t.Helper()
+	title := "doc"
+	s := span.Sample{TS: ts, BundleID: bundle, App: bundle, AXTrusted: trusted}
+	if trusted {
+		s.Title = &title
+	}
+	if err := r.p.feed(span.Input{Sample: &s}); err != nil {
+		r.t.Fatal(err)
+	}
+}
+
+// Accessibility turned off mid-run: apps are still recorded, and the run
+// says so with a row of its own, listed as apps-only time, not as time
+// nothing was recorded in. A config pause meanwhile still wins.
+func TestRunAccessOffIsAppsOnly(t *testing.T) {
+	r := newPauseRig(t, goodConfig).withRun(1)
+	r.p.access = &accessWatch{}
+	if err := r.p.start(); err != nil {
+		t.Fatal(err)
+	}
+	r.sampleAX(pauseT0, "editor", true)
+	off := pauseT0 + 120_000
+	r.ticks(pauseT0+10_000, off-10_000)
+	r.sampleAX(off, "editor", false)
+	r.ticks(off+10_000, off+5*60_000)
+	r.sampleAX(off+5*60_000, "browser", false) // still recorded: apps only
+	back := off + 10*60_000
+	r.ticks(off+5*60_000+10_000, back-10_000)
+	r.sampleAX(back, "editor", true)
+	r.ticks(back+10_000, back+60_000)
+	g := r.gaps(pauseT0, back+120_000, back+60_000)
+	if len(g) != 1 || g[0] != (outage.Gap{From: off, To: back, Kind: outage.GapNoAccess}) {
+		t.Fatalf("gaps = %+v, want apps-only %d–%d", g, off, back)
+	}
+	var browser int
+	if err := r.db().QueryRow(`SELECT count(*) FROM span WHERE bundle_id = 'browser'`).Scan(&browser); err != nil || browser != 1 {
+		t.Fatalf("apps-only span recorded = %d (%v), want 1", browser, err)
+	}
+	if rs := r.runs(); len(rs) != 3 || rs[1].State != store.RunNoAccess || rs[2].State != store.RunRecording {
+		t.Fatalf("runs = %+v, want recording, no_access, recording", rs)
+	}
+	// config.toml breaks while Accessibility is off: paused, then back to
+	// apps-only once the file loads again.
+	r.ticks(back+70_000, back+2*60_000-10_000)
+	r.sampleAX(back+2*60_000, "editor", false)
+	r.writeConfig("[privacy\n")
+	broke := back + 4*60_000
+	r.ticks(back+3*60_000, broke)
+	r.writeConfig(goodConfig)
+	r.ticks(broke+10_000, broke+60_000)
+	rs := r.runs()
+	var states []string
+	for _, x := range rs[3:] {
+		states = append(states, x.State)
+	}
+	if strings.Join(states, ",") != "no_access,paused,no_access" {
+		t.Fatalf("states after the break = %v", states)
+	}
+}
+
+// Linux reports Accessibility as trusted always; a pipe without an access
+// watch (tests, older callers) never leaves recording.
+func TestRunAccessUnwatched(t *testing.T) {
+	r := newPauseRig(t, goodConfig).withRun(1)
+	if err := r.p.start(); err != nil {
+		t.Fatal(err)
+	}
+	r.sampleAX(pauseT0, "editor", false)
+	if rs := r.runs(); len(rs) != 1 || rs[0].State != store.RunRecording {
+		t.Fatalf("runs = %+v", rs)
+	}
+}
+
+// The whole daemon follows the grant: samples without Accessibility put
+// the run in its apps-only state.
+func TestDaemonRecordsAppsOnly(t *testing.T) {
+	dir := t.TempDir()
+	now := time.Now().UnixMilli()
+	src := samplesSource(
+		span.Sample{TS: now, BundleID: "editor", App: "Editor", AXTrusted: true},
+		span.Sample{TS: now + 2000, BundleID: "editor", App: "Editor", AXTrusted: false},
+	)
+	if r := runFakeDaemon(t, dir, src); r.rc != 0 {
+		t.Fatalf("rc = %d\n%s", r.rc, r.log)
+	}
+	st, err := store.Open(filepath.Join(dir, "tock.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	rs, err := st.Runs(0, time.Now().Add(time.Hour).UnixMilli())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rs) != 2 || rs[0].State != store.RunRecording || rs[1].State != store.RunNoAccess || rs[1].Reason != store.RunSignal {
+		t.Fatalf("runs = %+v, want recording then no_access ended by signal", rs)
 	}
 }

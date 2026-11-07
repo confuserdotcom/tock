@@ -64,6 +64,19 @@ static void tock_observe_event(NSNotificationCenter *center, NSString *name, int
     }];
 }
 
+// tock_observe_session forwards loginwindow's session notifications:
+// 1 = a logout, restart or shutdown was asked for, 2 = it can no longer be
+// cancelled, 0 = it was cancelled.
+static void tock_observe_session(NSDistributedNotificationCenter *dc, NSString *name, int state) {
+    [dc addObserverForName:name
+                    object:nil
+                     queue:nil
+                usingBlock:^(NSNotification *n) {
+        (void)n;
+        goSession(state);
+    }];
+}
+
 void tock_start_observers(void) {
     NSNotificationCenter *wc = [[NSWorkspace sharedWorkspace] notificationCenter];
     [wc addObserverForName:NSWorkspaceDidActivateApplicationNotification
@@ -98,6 +111,16 @@ void tock_start_observers(void) {
     NSDistributedNotificationCenter *dc = [NSDistributedNotificationCenter defaultCenter];
     tock_observe_event(dc, @"com.apple.screenIsLocked", 3);
     tock_observe_event(dc, @"com.apple.screenIsUnlocked", 4);
+
+    // loginwindow posts these (names read from its binary) as the user's
+    // session ends. A SIGTERM after them is the session ending, not a stop
+    // by hand; see collect.SessionNotified.
+    tock_observe_session(dc, @"com.apple.logoutInitiated", 1);
+    tock_observe_session(dc, @"com.apple.restartInitiated", 1);
+    tock_observe_session(dc, @"com.apple.shutdownInitiated", 1);
+    tock_observe_session(dc, @"com.apple.loginwindow.logoutNoReturn", 2);
+    tock_observe_session(dc, @"com.apple.loginwindow.shutdownNoReturn", 2);
+    tock_observe_session(dc, @"com.apple.logoutCancelled", 0);
 }
 
 static void tock_timer_fired(CFRunLoopTimerRef timer, void *info) {

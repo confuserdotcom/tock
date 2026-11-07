@@ -75,6 +75,10 @@ type daemonOpts struct {
 	// FreeEvery is how often freed memory goes back to the system (see
 	// freeLoop); 0 never.
 	FreeEvery time.Duration
+	// SessionEnding reports whether the OS has said the user's session is
+	// ending (logout, restart or shutdown); nil = never asked. It tells a
+	// stop by the session ending from one by a person or a script.
+	SessionEnding func() bool
 	// SnapshotExe is the trackd binary run as the snapshot worker; ""
 	// takes snapshots in this process (tests).
 	SnapshotExe string
@@ -185,14 +189,15 @@ func runWithStore(o daemonOpts, log *slog.Logger, st *store.Store) int {
 	drops := &dropReporter{log: log}
 	rec := &runRec{st: st, log: log, boot: bootMS, version: version, pid: os.Getpid()}
 	p := pipe{
-		rec:   rec,
-		in:    src.Inputs(),
-		m:     m,
-		st:    st,
-		tick:  ticker.C,
-		now:   o.Now,
-		watch: newStateWatcher(st, log, o.Now),
-		log:   log,
+		rec:    rec,
+		access: &accessWatch{},
+		in:     src.Inputs(),
+		m:      m,
+		st:     st,
+		tick:   ticker.C,
+		now:    o.Now,
+		watch:  newStateWatcher(st, log, o.Now),
+		log:    log,
 		onTick: func(nowMS int64) {
 			drops.report(src.Dropped(), nowMS)
 		},
@@ -294,6 +299,10 @@ func runWithStore(o daemonOpts, log *slog.Logger, st *store.Store) int {
 	}
 	if updated.Load() {
 		reason = store.RunUpdate
+	} else if reason == store.RunSignal && o.SessionEnding != nil && o.SessionEnding() {
+		// A signal alone does not say the computer is going off: only the
+		// OS saying the session ends lets a later reboot explain the gap.
+		reason = store.RunSession
 	}
 	// The pipe has returned, so its row is ours to close.
 	if err := rec.end(o.Now(), reason); err != nil {
@@ -332,7 +341,25 @@ type pipe struct {
 	hide   *hider       // may be nil
 	log    *slog.Logger // may be nil
 	rec    *runRec      // may be nil
+	access *accessWatch // may be nil
 }
+
+// accessWatch follows the Accessibility grant the samples report, for the
+// run state: without the grant trackd records apps but no window titles.
+// A nil watch never changes the state.
+type accessWatch struct{ off bool }
+
+// observe takes a sample's grant and reports whether it changed.
+func (a *accessWatch) observe(trusted bool) bool {
+	if a == nil || a.off == !trusted {
+		return false
+	}
+	a.off = !trusted
+	return true
+}
+
+// denied reports whether the last sample had no Accessibility grant.
+func (a *accessWatch) denied() bool { return a != nil && a.off }
 
 func (p pipe) run() error {
 	if err := p.start(); err != nil {
@@ -372,10 +399,14 @@ func (p pipe) start() error {
 	return p.rec.begin(now, p.captureState())
 }
 
-// captureState is the run state: paused while config.toml does not load.
+// captureState is the run state: paused while config.toml does not load,
+// else apps only while Accessibility is off.
 func (p pipe) captureState() string {
-	if p.hide.paused() {
+	switch {
+	case p.hide.paused():
 		return store.RunPaused
+	case p.access.denied():
+		return store.RunNoAccess
 	}
 	return store.RunRecording
 }
@@ -386,6 +417,12 @@ func (p pipe) feed(x span.Input) error {
 	if x.Sample != nil {
 		if err := p.checkConfig(x.Sample.TS); err != nil {
 			return err
+		}
+		// Followed while paused too, so capture resumes in the right state.
+		if p.access.observe(x.Sample.AXTrusted) {
+			if err := p.rec.setState(x.Sample.TS, p.captureState()); err != nil {
+				return err
+			}
 		}
 	}
 	if p.hide.paused() {

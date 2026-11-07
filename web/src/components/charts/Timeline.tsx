@@ -135,11 +135,11 @@ export function Timeline({ rows, outages, date, first, last, today, onPick, onRa
                   <div
                     key={o.from}
                     tabIndex={0}
-                    className="absolute inset-y-0 rounded-[2px] border border-dashed border-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+                    className={`absolute inset-y-0 rounded-[2px] border border-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring ${o.partial ? "border-dotted" : "border-dashed"}`}
                     style={{ left: `${left}%`, width: `${w}%` }}
                     onMouseEnter={() => setHover({ o, left: left + w / 2, lane: lanes.length })}
                     onFocus={() => setHover({ o, left: left + w / 2, lane: lanes.length })}
-                    aria-label={`Not recording ${hhmm(o.from)} to ${hhmm(o.to)}: ${o.why}`}
+                    aria-label={`${o.partial ? "Apps only" : "Not recording"} ${hhmm(o.from)} to ${hhmm(o.to)}: ${o.why}`}
                   />
                 );
               })}
@@ -164,7 +164,7 @@ export function Timeline({ rows, outages, date, first, last, today, onPick, onRa
         >
           {hover.o ? (
             <>
-              <div className="font-medium">Not recording</div>
+              <div className="font-medium">{hover.o.partial ? "Apps only" : "Not recording"}</div>
               <div className="text-muted-foreground">{hover.o.why}</div>
               <div className="num mt-1 text-muted-foreground">{hhmm(hover.o.from)}–{hhmm(hover.o.to)} · {dur(hover.o.to - hover.o.from)}</div>
             </>

@@ -6,9 +6,11 @@ import "sort"
 // store's Run* constants are these).
 const (
 	StateRecording = "recording"
-	StatePaused    = "paused" // config.toml did not load: nothing recorded
+	StatePaused    = "paused"    // config.toml did not load: nothing recorded
+	StateNoAccess  = "no_access" // Accessibility is off: apps are recorded, window titles are not
 
-	ReasonSignal  = "signal"   // stopped on purpose (SIGTERM/SIGINT)
+	ReasonSignal  = "signal"   // stopped by a signal the OS did not say was a session ending
+	ReasonSession = "session"  // the OS said the user's session was ending: logout, restart or shutdown
 	ReasonAsleep  = "asleep"   // trackd's own ticks stopped: the computer slept
 	ReasonState   = "state"    // capture paused or resumed; the next row follows at once
 	ReasonClock   = "clock"    // the wall clock went back
@@ -27,8 +29,10 @@ const (
 	GapPermission = "permission" // trackd restarted because Accessibility went stale
 	GapUpdate     = "update"     // trackd restarted into a new build
 	GapError      = "error"      // trackd stopped on an error and restarted
+	GapNoAccess   = "no_access"  // Accessibility was off: apps recorded, window titles not
 	GapAsleep     = "asleep"     // the computer slept (or trackd was suspended)
 	GapOff        = "off"        // the computer was off or restarted
+	GapLoggedOut  = "logged_out" // the user's session had ended (logout)
 )
 
 // LiveMS is how old the open run's last tick may be while trackd still
@@ -50,15 +54,30 @@ type Stretch struct {
 	Boot              int64 // the computer's boot time; 0 = unknown
 }
 
-// Gap is time in which nothing was recorded, and why.
+// Gap is time in which nothing (or, Partial, less) was recorded, and why.
 type Gap struct {
 	From, To int64
 	Kind     string
+	// EndUnknown: trackd stopped and the computer started again before
+	// trackd did. To is the new boot; the computer may have been off for
+	// part of the gap, and nothing says when it went off.
+	EndUnknown bool
 }
 
 // NotRecording says the gap is tock's to explain: trackd should have been
-// recording and was not. Sleep and a computer that was off are not.
-func (g Gap) NotRecording() bool { return g.Kind != GapAsleep && g.Kind != GapOff }
+// recording and was not. Sleep, a computer that was off, a session that
+// had ended and apps-only time are not.
+func (g Gap) NotRecording() bool {
+	switch g.Kind {
+	case GapAsleep, GapOff, GapLoggedOut, GapNoAccess:
+		return false
+	}
+	return true
+}
+
+// Partial says trackd recorded, but less than it should: apps without
+// their window titles while Accessibility was off.
+func (g Gap) Partial() bool { return g.Kind == GapNoAccess }
 
 // Gaps returns, in order, the time in [from, min(to, now)) that no
 // recording run covers and the time in paused runs, each with its kind.
@@ -69,10 +88,10 @@ func Gaps(runs []Stretch, from, to, now int64) []Gap {
 	sort.SliceStable(runs, func(i, j int) bool { return runs[i].Start < runs[j].Start })
 	lim := min(to, now)
 	var out []Gap
-	add := func(a, b int64, kind string) {
+	put := func(a, b int64, kind string, unknownEnd bool) {
 		a, b = max(a, from), min(b, lim)
 		if b > a {
-			out = append(out, Gap{a, b, kind})
+			out = append(out, Gap{From: a, To: b, Kind: kind, EndUnknown: unknownEnd})
 		}
 	}
 	var prev *Stretch
@@ -87,10 +106,13 @@ func Gaps(runs []Stretch, from, to, now int64) []Gap {
 			}
 		}
 		if prev != nil && r.Start > covered {
-			add(covered, r.Start, gapAfter(prev, r))
+			between(prev, r, covered, put)
 		}
-		if r.State == StatePaused {
-			add(r.Start, end, GapConfig)
+		switch r.State {
+		case StatePaused:
+			put(r.Start, end, GapConfig, false)
+		case StateNoAccess:
+			put(r.Start, end, GapNoAccess, false)
 		}
 		if prev == nil || end > covered {
 			covered = end
@@ -98,7 +120,7 @@ func Gaps(runs []Stretch, from, to, now int64) []Gap {
 		prev = r
 	}
 	if prev != nil && covered < lim {
-		add(covered, lim, gapTail(prev))
+		put(covered, lim, gapTail(prev), false)
 	}
 	return out
 }
@@ -109,16 +131,39 @@ func rebooted(a, b *Stretch) bool {
 	return a.Boot > 0 && b.Boot > 0 && b.Boot-a.Boot > rebootSlackMS && b.Boot >= a.Last-rebootSlackMS
 }
 
-// gapAfter is the kind of the gap between run a and the next run b.
-func gapAfter(a, b *Stretch) string {
-	if rebooted(a, b) {
-		return GapOff
+// between puts the gap from `from` to the start of run b, after run a.
+//
+// A new boot explains the gap only when the OS said, as trackd stopped,
+// that the session was ending (ReasonSession), or when the computer had
+// gone to sleep. Any other stop (a signal from a person or a script, a
+// crash, an exit to update or restart) leaves trackd down while the
+// computer may have stayed on for hours before it went off: up to the new
+// boot that is an outage whose end is unknown; only boot to start is off.
+func between(a, b *Stretch, from int64, put func(a, b int64, kind string, unknownEnd bool)) {
+	switch {
+	case a.Reason == ReasonSession || a.Reason == ReasonAsleep:
+		kind := GapAsleep
+		switch {
+		case rebooted(a, b):
+			kind = GapOff
+		case a.Reason == ReasonSession:
+			kind = GapLoggedOut
+		}
+		put(from, b.Start, kind, false)
+	case rebooted(a, b):
+		boot := min(max(b.Boot, from), b.Start)
+		put(from, boot, stopKind(a), true)
+		put(boot, b.Start, GapOff, false)
+	default:
+		put(from, b.Start, stopKind(a), false)
 	}
+}
+
+// stopKind is the outage kind after run a stopped for its reason.
+func stopKind(a *Stretch) string {
 	switch a.Reason {
 	case "", ReasonCrash:
 		return GapCrash
-	case ReasonAsleep:
-		return GapAsleep
 	case ReasonAXStale:
 		return GapPermission
 	case ReasonUpdate:
@@ -140,21 +185,24 @@ func gapTail(a *Stretch) string {
 	return GapDown
 }
 
-// Outages are the gaps that are not recording (see NotRecording), with
-// outages less than MinOutageMS apart joined (a crash loop is one outage,
-// of the longer part's kind) and those shorter than MinOutageMS dropped.
+// Outages are the gaps that are not recording (see NotRecording) and the
+// apps-only ones (Partial), with gaps of the same sort less than
+// MinOutageMS apart joined (a crash loop is one outage, of the longer
+// part's kind) and those shorter than MinOutageMS dropped. Apps-only time
+// is never joined with time nothing was recorded in.
 func Outages(gaps []Gap) []Gap {
 	var out []Gap
 	for _, g := range gaps {
-		if !g.NotRecording() {
+		if !g.NotRecording() && !g.Partial() {
 			continue
 		}
-		if n := len(out); n > 0 && g.From-out[n-1].To < MinOutageMS {
+		if n := len(out); n > 0 && g.From-out[n-1].To < MinOutageMS && g.Partial() == out[n-1].Partial() {
 			last := &out[n-1]
 			if g.To-g.From > last.To-last.From {
 				last.Kind = g.Kind
 			}
 			last.To = max(last.To, g.To)
+			last.EndUnknown = last.EndUnknown || g.EndUnknown
 			continue
 		}
 		out = append(out, g)

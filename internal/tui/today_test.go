@@ -277,3 +277,29 @@ func TestTodayEmptyPastDayOutage(t *testing.T) {
 		t.Fatalf("empty past day:\n%s", ansi.Strip(got))
 	}
 }
+
+// Apps-only time has its own label, apart from time nothing was recorded
+// in, and an outage that ran into a restart says its end is not known.
+func TestTodayEmptyPastDayAppsOnlyAndRestart(t *testing.T) {
+	loc := time.FixedZone("T", 0)
+	day := time.Date(2026, 10, 9, 0, 0, 0, 0, loc)
+	at := func(h int) int64 { return day.Add(time.Duration(h) * time.Hour).UnixMilli() }
+	td := todayTab{loaded: true, date: day, day: report.Day{Date: day, Outages: []stats.Gap{
+		{From: at(9), To: at(11), Kind: stats.GapNoAccess},
+		{From: at(12), To: at(18), Kind: stats.GapStopped, EndUnknown: true},
+	}}}
+	got := ansi.Strip(strings.Join(td.view(160, 30, day.AddDate(0, 0, 1).Add(10*time.Hour)), "\n"))
+	for _, want := range []string{"apps only 09:00–11:00 Accessibility is off", "not recording 12:00–18:00 trackd was stopped"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("empty day: missing %q in:\n%s", want, got)
+		}
+	}
+	lines := td.outages()
+	want := []string{
+		" not recording  12:00–18:00 trackd was stopped (until the restart; the computer may have been off for part of it)",
+		" apps only  09:00–11:00 Accessibility is off: apps only, no window titles",
+	}
+	if len(lines) != 2 || ansi.Strip(lines[0]) != want[0] || ansi.Strip(lines[1]) != want[1] {
+		t.Fatalf("outages lines = %q, want %q", lines, want)
+	}
+}

@@ -9,9 +9,11 @@ import (
 // Run states and stop reasons: the stats package reads them back.
 const (
 	RunRecording = stats.StateRecording
-	RunPaused    = stats.StatePaused // config.toml did not load: nothing recorded
+	RunPaused    = stats.StatePaused   // config.toml did not load: nothing recorded
+	RunNoAccess  = stats.StateNoAccess // Accessibility is off: apps recorded, window titles not
 
-	RunSignal  = stats.ReasonSignal  // stopped on purpose (SIGTERM/SIGINT: tock, launchd, logout)
+	RunSignal  = stats.ReasonSignal  // SIGTERM/SIGINT the OS did not say was a session ending: tock, launchctl, kill
+	RunSession = stats.ReasonSession // SIGTERM while the OS said the session was ending: logout, restart, shutdown
 	RunAsleep  = stats.ReasonAsleep  // trackd's own ticks stopped: the computer slept
 	RunState   = stats.ReasonState   // capture paused or resumed; the next row goes on at once
 	RunClock   = stats.ReasonClock   // the wall clock went back

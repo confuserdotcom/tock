@@ -152,6 +152,7 @@ func main() {
 		// A terminal-launched trackd would attribute the prompt to the
 		// terminal (see newSource).
 		CalendarPrompt: os.Getppid() == 1,
+		SessionEnding:  sessionEnding,
 	}
 	if exe, err := os.Executable(); err == nil {
 		if exe, err = filepath.EvalSymlinks(exe); err == nil {
