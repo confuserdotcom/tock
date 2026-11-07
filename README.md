@@ -62,9 +62,14 @@ time and the score per day.
 Library lists every category, project and goal with the time each got
 lately, so stale names stand out. Rename, re-file, archive or set a rate
 from the sheet: rules, goals and past entries follow the new name.
-Look-alike names get a merge hint. **Rules** lists every rule in the
-order tock checks them, with the time each labelled lately: change one or
-delete a wrong one, with a preview of what it would relabel.
+Look-alike names get a merge hint.
+
+<img src="docs/readme/rules.webp" width="100%" alt="The Rules section of Library lists rules in the order tock checks them, with the time each labelled in the last 30 days and which are always beaten. Adding a rule for dribbble.com as Research previews the time it would label and change before it is saved.">
+
+**Rules** lists every rule in the order tock checks them, with the time
+each labelled lately, and says which never match. Change one, delete a
+wrong one (learned ones too), or add one, with a preview of what it would
+relabel before you save.
 
 <img src="docs/readme/palette.webp" width="100%" alt="Pressing Command-K opens a palette; typing tren jumps to Trends, and typing a date opens that day.">
 

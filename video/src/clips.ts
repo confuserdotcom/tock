@@ -50,7 +50,8 @@ export const CLIPS: ClipDef[] = [
     shots: [
       { at: 0.4, frame: { x: 44, y: 140, width: 760, height: 320 }, caption: "Hours per day, by kind of time.", dot: C.deep },
       { at: 4.6, frame: { x: 44, y: 60, width: 1352, height: 420 }, zoom: 1.15, caption: "When you focus, hour by hour.", sub: "Projects, goals and distractions below.", dot: C.deep },
-      { at: "export", frame: { x: 900, y: 40, width: 540, height: 330 }, zoom: 1.9, caption: "Export the week.", sub: "A report, CSV, JSON, or hours by project to bill.", dot: C.ink },
+      { at: "export", frame: { x: 900, y: 40, width: 540, height: 330 }, zoom: 1.9, caption: "Export the week.", sub: "A report, CSV, JSON, or hours by project.", dot: C.ink },
+      { at: "invoice", frame: "total", zoom: 1.5, caption: "Or bill it.", sub: "A PDF invoice for a project, at its rate.", dot: C.ink },
     ],
   },
   {
@@ -77,6 +78,19 @@ export const CLIPS: ClipDef[] = [
       { at: "row", frame: { x: 20, y: 60, width: 1400, height: 520 }, zoom: 1.12, caption: "Click a row to change it.", dot: C.shallow },
       { at: "sheet", frame: { x: 1040, y: 0, width: 400, height: 460 }, zoom: 1.75, caption: "Rename, re-file, set a rate.", sub: "Rules, goals and past entries follow the name.", dot: C.shallow },
       { at: "toast", frame: { x: 20, y: 60, width: 1400, height: 520 }, zoom: 1.12, caption: "Saved, and undoable.", dot: C.ink },
+    ],
+  },
+  {
+    id: "rules",
+    footage: "rules",
+    kicker: "Rules",
+    title: "Every rule, in plain sight.",
+    shots: [
+      { at: 0.3, frame: { x: 20, y: 60, width: 1400, height: 660 }, zoom: 1.08, caption: "Checked top to bottom.", sub: "With the time each one labelled lately.", dot: C.ink },
+      { at: "row", frame: "row", zoom: 1.5, caption: "Never matched? Always beaten? It says so.", dot: C.distract },
+      { at: "sheet", frame: { x: 1040, y: 0, width: 400, height: 640 }, zoom: 1.4, caption: "Write a rule…", sub: "An app, a site, a title or a folder.", dot: C.browse },
+      { at: "preview", frame: "preview", zoom: 2.0, caption: "…and see what it would change.", sub: "Over the last 30 days, before you save.", dot: C.browse },
+      { at: "save", frame: { x: 20, y: 60, width: 1400, height: 660 }, zoom: 1.08, caption: "Saved, and undoable.", sub: "It goes first among your rules.", dot: C.ink },
     ],
   },
   {
