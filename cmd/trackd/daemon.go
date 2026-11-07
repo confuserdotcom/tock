@@ -71,6 +71,9 @@ type daemonOpts struct {
 	// Exe is the running trackd, resolved. "" turns self-update off (main
 	// sets it on Linux only); its folder is where updates are installed.
 	Exe string
+	// FreeEvery is how often freed memory goes back to the system (see
+	// freeLoop); 0 never.
+	FreeEvery time.Duration
 	// SnapshotExe is the trackd binary run as the snapshot worker; ""
 	// takes snapshots in this process (tests).
 	SnapshotExe string
@@ -229,6 +232,10 @@ func runWithStore(o daemonOpts, log *slog.Logger, st *store.Store) int {
 		}
 		stopSnap := startLoop(sh.turn(snap), snapshotEvery)
 		defer stopSnap()
+		if o.FreeEvery > 0 {
+			stopFree := startLoop(freeLoop{}, o.FreeEvery)
+			defer stopFree()
+		}
 		if o.Calendar != nil {
 			every := o.CalendarEvery
 			if every <= 0 {
