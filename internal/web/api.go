@@ -133,11 +133,13 @@ type sessionJSON struct {
 // statusJSON is what the page's status lines show: is trackd recording,
 // do the rules and config load, and the running session.
 type statusJSON struct {
-	Recording   bool         `json:"recording"`
-	LastSeenMS  int64        `json:"lastSeenMS"`
-	RulesError  string       `json:"rulesError,omitempty"`
-	ConfigError string       `json:"configError,omitempty"`
-	Session     *sessionJSON `json:"session"`
+	Recording   bool   `json:"recording"`
+	LastSeenMS  int64  `json:"lastSeenMS"`
+	RulesError  string `json:"rulesError,omitempty"`
+	ConfigError string `json:"configError,omitempty"`
+	// Paused is why trackd records nothing (config.toml does not load).
+	Paused  string       `json:"paused,omitempty"`
+	Session *sessionJSON `json:"session"`
 }
 
 type blockJSON struct {
@@ -325,7 +327,10 @@ func (s *Server) status(*http.Request) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	out := statusJSON{Recording: h.TrackdUp, LastSeenMS: h.LastSeenMS}
+	out := statusJSON{Recording: h.TrackdUp && !h.Paused(), LastSeenMS: h.LastSeenMS}
+	if h.Paused() {
+		out.Paused = h.CapturePaused
+	}
 	if h.RulesErr != nil {
 		out.RulesError = h.RulesErr.Error()
 	}

@@ -107,6 +107,10 @@ func cmdDoctor(env Env, args []string) error {
 			v = "unknown"
 		}
 		ok("trackd", "running (version "+v+")")
+		if h.Paused() {
+			bad("recording", "paused, nothing is recorded: "+h.CapturePaused,
+				"fix config.toml; trackd starts recording again within seconds")
+		}
 	}
 	if err == nil && cfgErr == nil {
 		doctorBackup(env, cfg.Backup.Keep, h, ok, bad)

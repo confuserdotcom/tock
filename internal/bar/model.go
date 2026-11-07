@@ -98,6 +98,7 @@ type Snapshot struct {
 	Active       bool // the day has activity, so the score means something
 	UnlabelledMS int64
 	TrackdUp     bool
+	Paused       bool           // trackd is up but records nothing: config.toml does not load
 	Session      *focus.Session // the running session, or nil
 	Live         focus.Live     // its focus level; Level -1 when unknown
 	SnoozeUntil  time.Time      // distraction notices are snoozed until then; zero = not snoozed
@@ -163,6 +164,7 @@ func Load(a *app.App, now time.Time, access string) (Snapshot, error) {
 		return s, err
 	}
 	s.TrackdUp = h.TrackdUp
+	s.Paused = h.Paused()
 	s.AXDenied = h.AXTrusted != nil && !*h.AXTrusted
 	d, err := a.Day(now)
 	if err != nil {
@@ -239,7 +241,7 @@ func (s Snapshot) Title(nowMS int64) string {
 		return "◷ tock"
 	case s.Session != nil:
 		return "◉ " + report.Countdown(s.Session.PlannedMS-nowMS)
-	case !s.TrackdUp:
+	case !s.TrackdUp || s.Paused:
 		return "◷ " + report.Dur(s.TrackedMS) + " !"
 	}
 	return "◷ " + report.Dur(s.TrackedMS)
@@ -315,6 +317,8 @@ func (s Snapshot) header(nowMS int64) []Item {
 	}
 	if !s.TrackdUp {
 		out = append(out, label("trackd is not running"))
+	} else if s.Paused {
+		out = append(out, label("Not recording: config.toml has an error (tock doctor)"))
 	}
 	if s.AXDenied {
 		out = append(out, Item{Title: "Allow Accessibility for trackd…", ID: IDAccess})

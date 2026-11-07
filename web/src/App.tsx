@@ -123,7 +123,7 @@ function StatusStrip({ s }: { s: Status | null }) {
     <div className="flex h-[34px] shrink-0 items-center gap-6 border-b px-6 text-xs text-muted-foreground">
       <span className="flex items-center gap-2">
         <span className={cn("h-1.5 w-1.5 rounded-full", s?.recording ? "bg-k-deep" : "bg-k-distract")} />
-        {s ? (s.recording ? "Recording" : "trackd is not running") : "Connecting"}
+        {s ? (s.recording ? "Recording" : s.paused ? "Not recording: config.toml has an error" : "trackd is not running") : "Connecting"}
       </span>
       <span className={cn(s?.rulesError && "text-bad")}>{s?.rulesError ? "Rules have an error" : "Rules OK"}</span>
       {s?.configError && <span className="text-bad">Config has an error</span>}

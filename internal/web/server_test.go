@@ -14,6 +14,7 @@ import (
 
 	"tock/internal/app"
 	"tock/internal/apptest"
+	"tock/internal/store"
 )
 
 const testToken = "test-token"
@@ -340,6 +341,24 @@ func TestStatus(t *testing.T) {
 	f.get("/api/status", &st)
 	if st.Session == nil || st.Session.Goal != "Ship the release" || st.Session.PlannedMS <= st.Session.StartMS {
 		t.Fatalf("session %+v", st.Session)
+	}
+}
+
+// A trackd paused by config.toml is up but not recording, and says why.
+func TestStatusCapturePaused(t *testing.T) {
+	f := newFixture(t)
+	f.e.Heartbeat(t, f.e.Clock.UnixMilli())
+	f.e.State(t, store.KeyCapturePaused, "config.toml: line 3")
+	var st statusJSON
+	f.get("/api/status", &st)
+	if st.Recording || st.Paused != "config.toml: line 3" {
+		t.Fatalf("status %+v, want not recording, paused with the reason", st)
+	}
+	f.e.State(t, store.KeyCapturePaused, "")
+	st = statusJSON{}
+	f.get("/api/status", &st)
+	if !st.Recording || st.Paused != "" {
+		t.Fatalf("status %+v, want recording", st)
 	}
 }
 

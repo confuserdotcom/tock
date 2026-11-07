@@ -656,6 +656,8 @@ func (m Model) banner() string {
 		return "cannot read trackd state: " + m.healthErr.Error()
 	case !h.TrackdUp:
 		return "trackd is not running — showing history. Restart: launchctl kickstart -k gui/$UID/com.tock.trackd"
+	case h.Paused():
+		return "not recording: config.toml does not load (" + h.CapturePaused + "); fix it and recording resumes within seconds"
 	case h.RulesErr != nil:
 		return "rule error, using the last good rules: " + h.RulesErr.Error()
 	case h.ConfigErr != nil:

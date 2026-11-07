@@ -55,3 +55,33 @@ func TestStatus(t *testing.T) {
 		t.Fatalf("up: %q", s)
 	}
 }
+
+// trackd paused by a config.toml that does not load is alive but records
+// nothing: Health says why, and status leads with it.
+func TestHealthCapturePaused(t *testing.T) {
+	e := apptest.New(t, apptest.Rules)
+	e.Seed(t, apptest.DaySpans()...)
+	a := open(t, e)
+	e.Heartbeat(t, e.Clock.UnixMilli()-5_000)
+	e.State(t, store.KeyCapturePaused, "config.toml: toml: line 3: expected '='")
+	h, err := a.Health()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !h.TrackdUp || !h.Paused() || !strings.Contains(h.CapturePaused, "line 3") {
+		t.Fatalf("paused health = %+v", h)
+	}
+	if s, _ := a.Status(); !strings.HasPrefix(s, "paused! ") {
+		t.Fatalf("status = %q, want the paused prefix", s)
+	}
+	e.State(t, store.KeyCapturePaused, "")
+	if h, _ = a.Health(); h.Paused() {
+		t.Fatal("an empty reason means recording")
+	}
+	// a pause left by a trackd that is down now: down says more
+	e.State(t, store.KeyCapturePaused, "config.toml: x")
+	e.Clock = e.Clock.Add(time.Minute)
+	if h, _ = a.Health(); h.Paused() {
+		t.Fatal("paused must not show while trackd is down")
+	}
+}

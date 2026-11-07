@@ -344,3 +344,18 @@ func TestDoctorRemoteRulesRefused(t *testing.T) {
 		t.Fatalf("no refusal:\n%s", out)
 	}
 }
+
+// trackd paused by a config.toml that does not load is a problem doctor
+// names, with the fix.
+func TestDoctorCapturePaused(t *testing.T) {
+	te, _ := doctorEnv(t, testRules)
+	te.seed(t, daySpans()...)
+	setStates(t, te, map[string]string{
+		store.KeyHeartbeat: nowMS(), store.KeyAXTrusted: "1", store.KeyVersion: "v1",
+		store.KeyCapturePaused: "config.toml: toml: line 3: expected '='",
+	})
+	code, out := te.run(t, "", "doctor")
+	if code != 1 || !strings.Contains(out, "!!  recording: paused, nothing is recorded: config.toml: toml: line 3") {
+		t.Fatalf("exit %d:\n%s", code, out)
+	}
+}

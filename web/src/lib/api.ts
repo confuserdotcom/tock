@@ -125,7 +125,7 @@ export type Day = {
   work: { from: number; to: number; off: boolean; outsideMS: number; closed: boolean } | null;
 };
 export type Status = {
-  recording: boolean; lastSeenMS: number; rulesError?: string; configError?: string;
+  recording: boolean; lastSeenMS: number; rulesError?: string; configError?: string; paused?: string;
   session: { goal: string; startMS: number; plannedMS: number } | null;
 };
 export type WeekDay = { date: string; trackedMS: number; byKind: ByKind; future: boolean; score: number; deepMS: number };

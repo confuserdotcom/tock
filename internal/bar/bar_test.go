@@ -196,6 +196,25 @@ func TestSnapshotAccessibility(t *testing.T) {
 	}
 }
 
+// A trackd paused by config.toml is up but records nothing: the title
+// warns and the menu says why.
+func TestSnapshotCapturePaused(t *testing.T) {
+	e, a := seeded(t)
+	e.Heartbeat(t, e.Clock.UnixMilli())
+	e.State(t, store.KeyCapturePaused, "config.toml: line 3")
+	s, err := Load(a, e.Clock, app.NotifyGranted)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := e.Clock.UnixMilli()
+	if !s.Paused || s.Title(now) != "◷ 2h54 !" {
+		t.Fatalf("paused %v, title %q", s.Paused, s.Title(now))
+	}
+	if got := titles(s.Items(now)); !strings.Contains(got, "Not recording: config.toml has an error (tock doctor)\n") {
+		t.Fatalf("menu:\n%s", got)
+	}
+}
+
 func TestLoadAccessibility(t *testing.T) {
 	e, a := seeded(t)
 	for _, c := range []struct {

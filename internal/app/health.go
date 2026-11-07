@@ -51,7 +51,15 @@ type Health struct {
 	BackupErr   string
 	IntegrityMS int64
 	IntegrityOK string
+	// CapturePaused is the config.toml error that paused trackd's
+	// recording; "" while it records (see Paused).
+	CapturePaused string
 }
+
+// Paused says trackd is running but records nothing, because its
+// config.toml does not load. A pause left behind by a trackd that is down
+// now does not count: down says more.
+func (h Health) Paused() bool { return h.TrackdUp && h.CapturePaused != "" }
 
 // Health reads trackd's liveness and permission state.
 func (a *App) Health() (Health, error) {
@@ -92,6 +100,7 @@ func ReadHealth(st *store.Store, nowMS int64) (Health, error) {
 	h.BackupErr = states[store.KeyBackupErr]
 	h.IntegrityMS, _ = strconv.ParseInt(states[store.KeyIntegrityAt], 10, 64)
 	h.IntegrityOK = states[store.KeyIntegrityOK]
+	h.CapturePaused = states[store.KeyCapturePaused]
 	for k, v := range states {
 		id, ok := strings.CutPrefix(k, store.AutomationKey(""))
 		if !ok || v != "denied" {
@@ -135,6 +144,9 @@ func (a *App) Status() (string, error) {
 	line := report.Status(in)
 	if h.Damaged() {
 		line = "db! " + line
+	}
+	if h.Paused() {
+		line = "paused! " + line
 	}
 	return line, nil
 }
