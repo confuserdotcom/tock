@@ -71,6 +71,9 @@ type daemonOpts struct {
 	// Exe is the running trackd, resolved. "" turns self-update off (main
 	// sets it on Linux only); its folder is where updates are installed.
 	Exe string
+	// SnapshotExe is the trackd binary run as the snapshot worker; ""
+	// takes snapshots in this process (tests).
+	SnapshotExe string
 	// UpdateEvery is the update loop period (default 1 min).
 	UpdateEvery time.Duration
 	// OCR reads the front window's text; nil = screen reading is
@@ -220,7 +223,11 @@ func runWithStore(o daemonOpts, log *slog.Logger, st *store.Store) int {
 		defer stopSync()
 		stopPrune := startLoop(sh.turn(&pruneLoop{open: sh.opener, log: log}), pruneEvery)
 		defer stopPrune()
-		stopSnap := startLoop(sh.turn(&snapshotLoop{open: sh.opener, log: log}), snapshotEvery)
+		snap := &snapshotLoop{open: sh.opener, log: log}
+		if o.SnapshotExe != "" {
+			snap.take = workerSnapshot(o.SnapshotExe, o.DataDir, o.ConfigDir)
+		}
+		stopSnap := startLoop(sh.turn(snap), snapshotEvery)
 		defer stopSnap()
 		if o.Calendar != nil {
 			every := o.CalendarEvery
