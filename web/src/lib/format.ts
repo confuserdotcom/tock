@@ -67,3 +67,8 @@ export function shortDay(d: Date): string {
 export function monthTitle(d: Date): string {
   return `${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
 }
+
+/** entries is "1 entry" or "n entries". */
+export function entries(n: number): string {
+  return n === 1 ? "1 entry" : `${n} entries`;
+}
