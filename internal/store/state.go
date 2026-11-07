@@ -37,6 +37,9 @@ const (
 	// KeyOCRPerm is the Screen Recording permission trackd's last read
 	// saw: granted or missing.
 	KeyOCRPerm = "ocr.perm"
+	// KeyCapturePaused is why trackd records nothing: the config.toml
+	// error that paused capture, or "" while it records.
+	KeyCapturePaused = "capture.paused"
 )
 
 // AutomationKey returns the daemon_state key for the Automation permission of

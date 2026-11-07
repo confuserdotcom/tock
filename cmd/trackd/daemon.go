@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -189,6 +190,7 @@ func runWithStore(o daemonOpts, log *slog.Logger, st *store.Store) int {
 		tick:  ticker.C,
 		now:   o.Now,
 		watch: newStateWatcher(st, log, o.Now),
+		log:   log,
 		onTick: func(nowMS int64) {
 			drops.report(src.Dropped(), nowMS)
 		},
@@ -316,40 +318,118 @@ type pipe struct {
 	now    func() int64
 	watch  *stateWatcher // may be nil
 	onTick func(nowMS int64)
-	ocr    *ocrCoord // may be nil
-	hide   *hider    // may be nil
+	ocr    *ocrCoord    // may be nil
+	hide   *hider       // may be nil
+	log    *slog.Logger // may be nil
 }
 
 func (p pipe) run() error {
+	if err := p.start(); err != nil {
+		return err
+	}
 	for {
 		select {
 		case x, ok := <-p.in:
 			if !ok {
-				return p.st.Apply(p.m.Flush())
+				return p.flush()
 			}
-			p.hide.apply(x.Sample)
-			if x.Sample != nil && p.watch != nil {
-				if err := p.watch.observe(x.Sample); err != nil {
-					return err
-				}
-			}
-			ops := p.m.Feed(x)
-			if err := p.st.Apply(ops); err != nil {
+			if err := p.feed(x); err != nil {
 				return err
-			}
-			if p.ocr != nil {
-				p.ocr.observe(ops, x.Sample)
 			}
 		case <-p.tick:
-			now := p.now()
-			if err := p.st.Apply(p.m.Tick(now)); err != nil {
+			if err := p.tickAt(p.now()); err != nil {
 				return err
-			}
-			if p.onTick != nil {
-				p.onTick(now)
 			}
 		}
 	}
+}
+
+// start reads config.toml once and records whether capture is paused,
+// which also clears a pause an earlier run left behind.
+func (p pipe) start() error {
+	if p.hide == nil {
+		return nil
+	}
+	now := p.now()
+	p.hide.check(now)
+	return p.recordPause(now)
+}
+
+// feed applies one input. While config.toml does not load, every input is
+// dropped: nothing reaches the merger or the store.
+func (p pipe) feed(x span.Input) error {
+	if x.Sample != nil {
+		if err := p.checkConfig(x.Sample.TS); err != nil {
+			return err
+		}
+	}
+	if p.hide.paused() {
+		return nil
+	}
+	p.hide.apply(x.Sample)
+	if x.Sample != nil && p.watch != nil {
+		if err := p.watch.observe(x.Sample); err != nil {
+			return err
+		}
+	}
+	ops := p.m.Feed(x)
+	if err := p.st.Apply(ops); err != nil {
+		return err
+	}
+	if p.ocr != nil {
+		p.ocr.observe(ops, x.Sample)
+	}
+	return nil
+}
+
+// tickAt applies a pending heartbeat. While paused there is no open span,
+// so the heartbeat is written as is: trackd is alive, only not recording.
+func (p pipe) tickAt(now int64) error {
+	if err := p.checkConfig(now); err != nil {
+		return err
+	}
+	if p.hide.paused() {
+		if err := p.st.SetState(store.KeyHeartbeat, strconv.FormatInt(now, 10), now); err != nil {
+			return err
+		}
+	} else if err := p.st.Apply(p.m.Tick(now)); err != nil {
+		return err
+	}
+	if p.onTick != nil {
+		p.onTick(now)
+	}
+	return nil
+}
+
+// flush closes the open span, as the input ends.
+func (p pipe) flush() error { return p.st.Apply(p.m.Flush()) }
+
+// checkConfig reads config.toml when due. Pausing closes the open span at
+// its last sample, so nothing after the config broke is stored.
+func (p pipe) checkConfig(ts int64) error {
+	if !p.hide.check(ts) {
+		return nil
+	}
+	if p.hide.paused() {
+		if err := p.flush(); err != nil {
+			return err
+		}
+	}
+	return p.recordPause(ts)
+}
+
+// recordPause writes the pause reason ("" = recording) for tock status,
+// doctor, the TUI, the dashboard and the menu bar, and logs a change.
+func (p pipe) recordPause(ts int64) error {
+	why := p.hide.reason()
+	if p.log != nil {
+		if why != "" {
+			p.log.Error("capture paused: config.toml does not load; nothing is recorded until it does", "err", why)
+		} else {
+			p.log.Info("capture running: config.toml loads")
+		}
+	}
+	return p.st.SetState(store.KeyCapturePaused, why, ts)
 }
 
 // pipeline is pipe.run with wall-clock time and no state watching.

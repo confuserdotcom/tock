@@ -37,19 +37,14 @@ func TestHiderApply(t *testing.T) {
 	if loads != 1 {
 		t.Fatalf("loads = %d within a minute, want 1", loads)
 	}
-	// a minute later the list reloads; a failed load keeps the last list
-	list, fail = config.Privacy{}, errors.New("broken")
+	// a minute later the list reloads; an emptied list hides nothing
+	list = config.Privacy{}
 	s = span.Sample{TS: 62_000, BundleID: "diary", Title: str("x")}
 	h.apply(&s)
-	if loads != 2 || !s.Private {
-		t.Fatalf("after a failed reload: loads %d, sample %+v", loads, s)
+	if loads != 2 || s.Private {
+		t.Fatalf("after an emptied list: loads %d, sample %+v", loads, s)
 	}
-	fail = nil
-	s = span.Sample{TS: 123_000, BundleID: "diary", Title: str("x")}
-	h.apply(&s)
-	if s.Private {
-		t.Fatalf("after an emptied list the app is still hidden: %+v", s)
-	}
+	_ = fail
 	var nilH *hider
 	nilH.apply(&s) // a nil hider changes nothing
 }
@@ -85,5 +80,45 @@ func TestPipeHides(t *testing.T) {
 	}
 	if title.Valid || private != 1 {
 		t.Fatalf("hidden span: title %v, private %d", title, private)
+	}
+}
+
+// A config that does not load pauses capture: no defaults, no last good
+// list. The settings are read again every hidePausedEvery while paused, and
+// capture resumes once they load.
+func TestHiderPausesOnLoadError(t *testing.T) {
+	list := config.Privacy{HideApps: []string{"diary"}}
+	fail := errors.New("config.toml: toml: line 3: expected '='")
+	loads := 0
+	h := &hider{every: 60_000, load: func() (config.Privacy, error) { loads++; return list, fail }}
+
+	if changed := h.check(1000); !changed || !h.paused() {
+		t.Fatalf("first load failed: changed %v, paused %v", changed, h.paused())
+	}
+	if h.reason() != fail.Error() {
+		t.Fatalf("reason = %q", h.reason())
+	}
+	if changed := h.check(1000 + hidePausedEvery - 1); changed || loads != 1 {
+		t.Fatalf("reread too soon: changed %v, loads %d", changed, loads)
+	}
+	fail = nil
+	if changed := h.check(1000 + hidePausedEvery); !changed || h.paused() || loads != 2 {
+		t.Fatalf("after the fix: changed %v, paused %v, loads %d", changed, h.paused(), loads)
+	}
+	s := span.Sample{TS: 7000, BundleID: "diary", Title: str("x")}
+	h.apply(&s)
+	if !s.Private {
+		t.Fatalf("hidden app after resume: %+v", s)
+	}
+
+	// a good list that later fails to load pauses too: no "last good" kept
+	fail = errors.New("broken")
+	if changed := h.check(7000 + 60_000); !changed || !h.paused() {
+		t.Fatalf("a failed reload must pause: changed %v, paused %v", changed, h.paused())
+	}
+
+	var nilH *hider
+	if nilH.check(1) || nilH.paused() {
+		t.Fatal("a nil hider never pauses")
 	}
 }
