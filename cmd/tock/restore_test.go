@@ -97,3 +97,25 @@ func TestRestoreRefusesNewerSchema(t *testing.T) {
 		t.Fatalf("code %d calls %v err %s", code, *calls, te.errb)
 	}
 }
+
+// TestRestoreLeavesServicesOfOtherDataDirs: restoring into a data dir that
+// isn't the one trackd and the menu bar use must not stop or start them.
+func TestRestoreLeavesServicesOfOtherDataDirs(t *testing.T) {
+	te := newTestEnv(t, "")
+	var ran []string
+	old := setupRun
+	setupRun = func(name string, args ...string) (string, error) {
+		ran = append(ran, name+" "+strings.Join(args, " "))
+		return "", nil
+	}
+	t.Cleanup(func() { setupRun = old })
+	if err := stopForRestore(te.Env); err != nil {
+		t.Fatal(err)
+	}
+	if err := startAfterRestore(te.Env); err != nil {
+		t.Fatal(err)
+	}
+	if len(ran) != 0 {
+		t.Fatalf("ran %v for a data dir trackd doesn't use", ran)
+	}
+}

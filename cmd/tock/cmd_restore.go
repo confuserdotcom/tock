@@ -29,7 +29,21 @@ var (
 
 var restoreLabels = []string{"com.tock.trackd", "com.tock.bar"}
 
+// servicesUse reports whether trackd and the menu bar use env's data dir.
+// They run with the default one; a restore into another (TOCK_DATA_DIR)
+// must leave them alone.
+func servicesUse(env Env) bool {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return false
+	}
+	return filepath.Clean(env.DataDir) == filepath.Join(home, ".local", "share", "tock")
+}
+
 func stopForRestore(env Env) error {
+	if !servicesUse(env) {
+		return nil
+	}
 	if env.Linux {
 		_, err := setupRun("systemctl", "--user", "stop", "trackd")
 		return err
@@ -52,6 +66,9 @@ func stopForRestore(env Env) error {
 }
 
 func startAfterRestore(env Env) error {
+	if !servicesUse(env) {
+		return nil
+	}
 	if env.Linux {
 		_, err := setupRun("systemctl", "--user", "start", "trackd")
 		return err
