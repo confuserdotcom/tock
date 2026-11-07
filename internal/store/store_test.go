@@ -361,3 +361,20 @@ func TestBackupTo(t *testing.T) {
 		t.Fatal("BackupTo must not overwrite")
 	}
 }
+
+func TestCacheKiB(t *testing.T) {
+	defer SetCacheKiB(0)
+	SetCacheKiB(512)
+	s, err := Open(filepath.Join(t.TempDir(), "tock.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	var n int
+	if err := s.db.QueryRow(`PRAGMA cache_size`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != -512 {
+		t.Fatalf("cache_size = %d, want -512", n)
+	}
+}
