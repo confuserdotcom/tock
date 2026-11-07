@@ -5,7 +5,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Button } from "@/components/ui/button";
 import { get, post, type Done, type Labels, type Propose } from "@/lib/api";
-import { dur, entries } from "@/lib/format";
+import { doneText, dur } from "@/lib/format";
 import { kindColor } from "@/lib/kinds";
 import { atClock, clockOf, rangeError } from "@/lib/range";
 
@@ -92,7 +92,7 @@ export function LabelSheet({ target, onClose, onDone }: { target: Target | null;
       } else {
         res = await post<Done>("/api/tag", target.key ? { key: target.key, label } : { ids: target.ids, label });
       }
-      await finish(`${res.label} · ${entries(res.spans)}, ${dur(res.ms)}`);
+      await finish(doneText(res, target.key ? undefined : what || undefined));
     } catch (e) {
       toast.error((e as Error).message);
     }

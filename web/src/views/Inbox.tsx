@@ -6,7 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Empty, Panel } from "@/components/Panel";
 import { LabelSheet, undoToast, type Target } from "@/components/LabelSheet";
 import { get, post, useApi, type Done, type Inbox as InboxT, type Item, type Labels, type Propose } from "@/lib/api";
-import { clock, dur, entries } from "@/lib/format";
+import { clock, doneText, dur, entries } from "@/lib/format";
 import { kindColor } from "@/lib/kinds";
 import { cn } from "@/lib/utils";
 
@@ -29,7 +29,7 @@ export default function Inbox({ onChange }: { onChange: () => void }) {
         ? await post<Done>("/api/learn", { key: it.key, label: it.suggestion.label, rule: p.candidates[0].rule })
         : await post<Done>("/api/tag", { key: it.key, label: it.suggestion.label });
       done();
-      undoToast(`${r.label} · ${entries(r.spans)}, ${dur(r.ms)}`, done);
+      undoToast(doneText(r), done);
     } catch (e) {
       toast.error((e as Error).message);
     }
