@@ -84,6 +84,9 @@ func main() {
 	if len(os.Args) > 1 && os.Args[1] == "ocr-worker" {
 		os.Exit(runOCRWorker(os.Args[2:], os.Stdout))
 	}
+	if len(os.Args) > 1 && os.Args[1] == "migrate-worker" {
+		os.Exit(runMigrateWorker(os.Args[2:], os.Stdout))
+	}
 	if len(os.Args) > 1 && os.Args[1] == "snapshot-worker" {
 		os.Exit(runSnapshotWorker(os.Args[2:], os.Stdout))
 	}
@@ -157,6 +160,7 @@ func main() {
 	if exe, err := os.Executable(); err == nil {
 		if exe, err = filepath.EvalSymlinks(exe); err == nil {
 			o.SnapshotExe = exe
+			o.Premigrate = workerMigrate(exe)
 		}
 	}
 	if runtime.GOOS == "linux" {

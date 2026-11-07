@@ -75,6 +75,10 @@ type daemonOpts struct {
 	// FreeEvery is how often freed memory goes back to the system (see
 	// freeLoop); 0 never.
 	FreeEvery time.Duration
+	// Premigrate opens (and so migrates) the database in a child process
+	// before trackd opens it; nil = trackd migrates in-process. An error
+	// is logged and trackd migrates in-process.
+	Premigrate func(dataDir string) error
 	// SessionEnding reports whether the OS has said the user's session is
 	// ending (logout, restart or shutdown); nil = never asked. It tells a
 	// stop by the session ending from one by a person or a script.
@@ -132,6 +136,11 @@ func runDaemon(o daemonOpts) int {
 	if err := os.MkdirAll(o.DataDir, 0o700); err != nil {
 		log.Error("FATAL: cannot create data dir; not restarting", "dir", o.DataDir, "err", err)
 		return exitNoRestart
+	}
+	if o.Premigrate != nil {
+		if err := o.Premigrate(o.DataDir); err != nil {
+			log.Warn("migrate worker failed; migrating in-process", "err", err)
+		}
 	}
 	st, err := store.Open(filepath.Join(o.DataDir, "tock.db"))
 	if errors.Is(err, store.ErrSchemaTooNew) {
