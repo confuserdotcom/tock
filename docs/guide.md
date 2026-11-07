@@ -25,8 +25,9 @@ Sections:
 - Claude suggestions, summaries and `tock ask` are the only features that talk
   to the internet. They run through Claude Code (`claude -p`, on your Claude
   subscription: no API key, no tools, no saved session), or through the API
-  when `ANTHROPIC_API_KEY` is set in the shell that runs `tock`. With neither,
-  they are off.
+  when `ANTHROPIC_API_KEY` is set in the shell that runs `tock`. They are off
+  until you turn them on with `tock choice claude on`, which also lists what
+  is sent. Having Claude Code or an API key is not enough on its own.
   - When on, at most once an hour, tock sends the grouped inbox keys: app name, URL host, cleaned title and minutes. It also sends your category and project names.
   - Password managers, mail and messaging apps, banks and webmail are never sent. Extend the deny lists in `config.toml [llm]`.
   - `tock summary` runs only when you type it. It sends the day's work blocks: the weekday (never the date), clock times, minutes, labels and, per block, at most 8 apps with their URL host or cleaned title, through the same deny lists. The answer is saved in tock.db.
@@ -374,7 +375,7 @@ emoji = ":dart:"
 dnd = true               # pause Slack notifications for the session
 
 [llm]
-enabled = true                # still needs Claude Code (claude) or ANTHROPIC_API_KEY
+enabled = true                # default false: Claude is opt-in; still needs Claude Code (claude) or ANTHROPIC_API_KEY
 model = "claude-haiku-5-5"
 min_minutes = 2               # inbox time a key needs before it is sent
 deny_apps = []                # bundle ids added to the built-in deny list
@@ -841,9 +842,9 @@ where and for how long without leaving your machine.
 totals by category, project, app, site, kind or day, over a range. Claude
 only turns the question into a query; tock runs it on your data.
 
-Both need Claude Code (the `claude` command, logged in) or `ANTHROPIC_API_KEY`,
-and `[llm] enabled = false` turns them off; see
-Privacy for what they send.
+Both need Claude turned on (`tock choice claude on`) and Claude Code (the
+`claude` command, logged in) or `ANTHROPIC_API_KEY`; see Privacy for what
+they send.
 
 ## Trends and review
 

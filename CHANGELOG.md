@@ -4,6 +4,17 @@ What changed for you in each release. Dates are UTC.
 
 ## Unreleased
 
+### Changed
+- **Claude is off until you turn it on.** Having Claude Code or
+  `ANTHROPIC_API_KEY` no longer turns on suggestions, summaries or
+  `tock ask`. `tock choice claude on` turns them on and lists what is sent.
+  If you used them before, run it once; the TUI says so the first time.
+- **trackd records nothing while `config.toml` does not load**, for
+  example after a typo or with a setting from a newer tock. Before, hidden
+  apps and sites could be recorded with their titles and URLs in that
+  state. `tock status`, `tock doctor`, the TUI, the dashboard and the menu
+  bar say why, and recording starts again within seconds of the fix.
+
 ### Added
 - **Library** in the dashboard: categories, projects (with an hourly
   rate) and goals, with their time in the last 30 days and when each was
