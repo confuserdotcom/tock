@@ -1,0 +1,42 @@
+package main
+
+import (
+	"database/sql"
+	"fmt"
+	"os"
+
+	_ "modernc.org/sqlite"
+
+	"tock/internal/store"
+)
+
+// Writes a small, fixed history with this checkout's store: 30 spans over
+// three days (one open), one daemon_state row.
+func main() {
+	path := os.Args[1]
+	st, err := store.Open(path)
+	if err != nil {
+		panic(err)
+	}
+	st.Close()
+	db, err := sql.Open("sqlite", "file:"+path)
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
+	base := int64(1_790_000_000_000)
+	for i := 0; i < 30; i++ {
+		start := base + int64(i)*600_000
+		var end any = start + 500_000
+		if i == 29 {
+			end = nil
+		}
+		if _, err := db.Exec(`INSERT INTO span(id, start, "end", bundle_id, app, title, url, private) VALUES(?,?,?,?,?,?,?,0)`,
+			i+1, start, end, fmt.Sprintf("b%d", i%4), fmt.Sprintf("App%d", i%4), fmt.Sprintf("title %d", i), nil); err != nil {
+			panic(err)
+		}
+	}
+	if _, err := db.Exec(`INSERT INTO daemon_state(key,value,updated) VALUES('version','fixture',0)`); err != nil {
+		panic(err)
+	}
+}

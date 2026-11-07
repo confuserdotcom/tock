@@ -45,6 +45,10 @@ TOCK_DEMO_PORT=7788 go test -tags demo -run TestDemo -timeout 0 ./internal/web
 - Visual changes follow [DESIGN.md](DESIGN.md).
 - A user-visible change gets a line under Unreleased in
   [CHANGELOG.md](CHANGELOG.md).
+- A schema change is a new numbered file in `internal/store/migrations`.
+  After each release tag, `scripts/fixture-db.sh vX.Y.Z` writes a database
+  with that release's code to `internal/store/testdata/upgrade/`; commit it,
+  and `TestUpgradeFixtures` checks every later version still opens it.
 
 ## Things that won't be merged
 
