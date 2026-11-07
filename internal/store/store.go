@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"sync/atomic"
 
 	_ "modernc.org/sqlite"
 
@@ -28,6 +29,15 @@ type Store struct {
 }
 
 // Open creates the data dir (0700) and DB file (0600), opens it in WAL mode
+// cacheKiB is the page cache of every connection Open makes from now on, in
+// KiB; 0 keeps SQLite's default (2 MiB).
+var cacheKiB atomic.Int64
+
+// SetCacheKiB sets the page cache of the stores opened after it. trackd
+// keeps it small: it reads today's rows every few seconds, and each MiB of
+// cache is a MiB of its 40 MB budget.
+func SetCacheKiB(n int64) { cacheKiB.Store(n) }
+
 // and applies migrations.
 func Open(path string) (*Store, error) {
 	dir := filepath.Dir(path)
@@ -44,6 +54,9 @@ func Open(path string) (*Store, error) {
 	_ = f.Close()
 
 	dsn := "file:" + path + "?_txlock=immediate&_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_pragma=synchronous(NORMAL)&_pragma=foreign_keys(on)"
+	if n := cacheKiB.Load(); n > 0 {
+		dsn += fmt.Sprintf("&_pragma=cache_size(-%d)", n)
+	}
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, err
