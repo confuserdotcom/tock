@@ -7,26 +7,41 @@ import (
 	"tock/internal/classify"
 )
 
-// WithRulesUndo runs fn, a change to rules.toml, and journals it so Undo
-// can put rules.toml back. A change that touched learned.toml too (rename,
-// merge) or changed nothing is not journaled. If another process writes
-// rules.toml between fn and the read after it, the entry covers that write
-// too; Undo still refuses once the file differs from what it recorded.
+// WithRulesUndo runs fn, a change to one rule file (rules.toml or
+// learned.toml), and journals it so Undo can put that file back. A change
+// that touched both files (rename, merge) or changed nothing is not
+// journaled. If another process writes the file between fn and the read
+// after it, the entry covers that write too; Undo still refuses once the
+// file differs from what it recorded.
 func (a *App) WithRulesUndo(what string, fn func() error) error {
-	before, rerr := os.ReadFile(a.paths.Rules)
-	learned, _ := os.ReadFile(a.paths.Learned)
+	paths := []string{a.paths.Rules, a.paths.Learned}
+	var before [2][]byte
+	var errs [2]error
+	for i, p := range paths {
+		before[i], errs[i] = os.ReadFile(p)
+	}
 	if err := fn(); err != nil {
 		return err
 	}
-	after, err := os.ReadFile(a.paths.Rules)
-	if err != nil {
-		return nil // the change stands; there is just nothing to journal
+	changed := -1
+	var after []byte
+	for i, p := range paths {
+		now, err := os.ReadFile(p)
+		if err != nil && errs[i] == nil {
+			return nil // the change stands; there is just nothing to journal
+		}
+		if string(now) == string(before[i]) {
+			continue
+		}
+		if changed >= 0 {
+			return nil // both files: not undoable from here
+		}
+		changed, after = i, now
 	}
-	learnedNow, _ := os.ReadFile(a.paths.Learned)
-	if string(after) == string(before) || string(learnedNow) != string(learned) {
+	if changed < 0 {
 		return nil
 	}
-	return a.journal(what, undoData{File: &undoFile{Path: a.paths.Rules, Existed: rerr == nil, Before: string(before), After: string(after)}})
+	return a.journal(what, undoData{File: &undoFile{Path: paths[changed], Existed: errs[changed] == nil, Before: string(before[changed]), After: string(after)}})
 }
 
 // LibraryDays is how far back Library looks for a name's last use.

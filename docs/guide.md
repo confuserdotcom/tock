@@ -874,7 +874,10 @@ page to your browser and runs until you press ctrl-c.
   goal rings, tables of categories and apps with totals, and the work
   blocks.
 - **Week:** **Export** saves the week report, the week's entries as CSV or
-  JSON, or its hours by project. Then hours per day by kind, a donut of the
+  JSON, or its hours by project. **Invoice…** there makes the PDF
+  `tock invoice` writes, for a project with a rate over the month before,
+  the week's month or the week, with the hours and total shown before you
+  save. Then hours per day by kind, a donut of the
   week's kinds, the score per day against its mean, a weekday × hour heat
   map of when you focus, a donut of projects, goal rings (days held),
   distractions, and categories and apps.
@@ -897,6 +900,14 @@ page to your browser and runs until you press ctrl-c.
   which invoices and `tock export --by project` use), or **Add**. Adding,
   changing and removing can be undone from the toast; a rename moves past
   entries too, and a merge asks first because it can't be undone.
+  **Rules** lists every rule in the order tock checks them, learned ones
+  first, with the time each labelled in the last 30 days; a rule that never
+  matched or is always beaten by an earlier one says so. Click a rule to
+  change its patterns or what it files time as, or to delete it (a wrong
+  learned rule too), or **Add** one: it goes first among your rules in
+  rules.toml. While you type, the sheet shows what the rule would label and
+  change over the last 30 days. Edits keep the file's comments and can be
+  undone from the toast.
 
 The status strip under the views shows whether trackd is recording, whether
 rules.toml loads, and a running focus session with its progress. Keys `1`–`5`

@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"fmt"
 	"os"
-	"strings"
 	"time"
 
+	"tock/internal/app"
 	"tock/internal/report"
 )
 
@@ -56,27 +56,13 @@ func cmdInvoice(env Env, args []string) error {
 	if err != nil {
 		return usagef("invoice: %v", err)
 	}
-	rate := a.Rules().Rate(name)
-	if rate == nil {
-		return fmt.Errorf("project %s has no rate: set rate = … on it in rules.toml", name)
-	}
-	rows, err := a.Export(from, to.AddDate(0, 0, 1))
+	inv, err := a.Invoice(app.InvoiceSpec{Project: name, From: from, To: to, Client: *client, Number: *number}, now)
 	if err != nil {
 		return err
 	}
-	lines := report.InvoiceLines(rows, name, *rate)
-	if len(lines) == 0 {
-		return fmt.Errorf("no time on %s from %s to %s", name, from.Format("2006-01-02"), to.Format("2006-01-02"))
-	}
-	cfg := a.Config().Invoice
-	inv := report.Invoice{Number: *number, Project: name, Client: *client, From: cfg.Name, Address: cfg.Address,
-		Currency: cfg.Currency, Note: cfg.Note, Issued: now, PeriodFrom: from, PeriodTo: to, Rate: *rate, Lines: lines}
-	if inv.Number == "" {
-		inv.Number = from.Format("200601") + "-" + slug(name)
-	}
 	path := *out
 	if path == "" {
-		path = "invoice-" + slug(inv.Number) + ".pdf"
+		path = "invoice-" + report.Slug(inv.Number) + ".pdf"
 	}
 	var b bytes.Buffer
 	if err := report.WriteInvoicePDF(&b, inv); err != nil {
@@ -89,24 +75,7 @@ func cmdInvoice(env Env, args []string) error {
 	if inv.Currency != "" {
 		amount += " " + inv.Currency
 	}
-	fmt.Fprintf(env.Stdout, "wrote %s: %s, %d days, %s h, %s\n", path, name, len(lines),
+	fmt.Fprintf(env.Stdout, "wrote %s: %s, %d days, %s h, %s\n", path, inv.Project, len(inv.Lines),
 		fmt.Sprintf("%.2f", float64(inv.TotalSeconds())/3600), amount)
 	return nil
-}
-
-// slug keeps letters, digits, - and _ for a file name; anything else is -.
-func slug(s string) string {
-	var b strings.Builder
-	for _, r := range strings.ToLower(s) {
-		switch {
-		case r >= 'a' && r <= 'z', r >= '0' && r <= '9', r == '-', r == '_':
-			b.WriteRune(r)
-		default:
-			b.WriteRune('-')
-		}
-	}
-	if b.Len() == 0 {
-		return "invoice"
-	}
-	return b.String()
 }

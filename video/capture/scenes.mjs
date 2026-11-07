@@ -123,7 +123,11 @@ const scenes = {
       await r.wait(700);
       await r.mark("menu", p.getByRole("dialog"));
       await r.hover(p.getByRole("dialog").getByRole("button").nth(2), "pick", 800);
-      await r.wait(2200);
+      await r.wait(1400);
+      await r.click(p.getByText("Invoice…"), "invoice", 800);
+      await r.wait(1500);
+      await r.mark("total", p.getByRole("dialog").getByText(/EUR/));
+      await r.wait(2600);
       await p.keyboard.press("Escape");
       await r.wait(500);
     },
@@ -168,6 +172,33 @@ const scenes = {
       await r.wait(700);
       await r.mark("toast", p.locator("[data-sonner-toast]").first());
       await r.wait(2400);
+    },
+  },
+
+  // Rules: the list in check order, then a new rule with its preview.
+  rules: {
+    async setup(r) {
+      await view(r, "library/rules");
+    },
+    async run(r) {
+      const p = r.page;
+      await r.wait(1200);
+      await r.hover(p.getByRole("row", { name: /always beaten/ }).first(), "row", 1200);
+      await r.wait(1500);
+      await r.click(p.getByRole("button", { name: "Add", exact: true }), "add", 1000);
+      await r.wait(700);
+      await r.mark("sheet", p.getByRole("dialog"));
+      await r.click(p.getByRole("dialog").locator("input").nth(1), "site", 700);
+      await r.type("dribbble\\.com", 120);
+      await r.click(p.getByRole("dialog").locator("input[list]"), "label", 700);
+      await r.type("Research", 120);
+      await r.wait(1600);
+      await r.mark("preview", p.getByRole("dialog").getByText(/would label/));
+      await r.wait(1800);
+      await r.click(p.getByRole("dialog").getByRole("button", { name: "Add", exact: true }), "save", 900);
+      await r.wait(700);
+      await r.mark("toast", p.locator("[data-sonner-toast]").first());
+      await r.wait(2200);
     },
   },
 

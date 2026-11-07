@@ -7,14 +7,16 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Empty, Panel } from "@/components/Panel";
 import { LibrarySheet, type Edit } from "@/components/LibrarySheet";
-import { post, useApi, type LibChange, type LibDup, type Library as Lib } from "@/lib/api";
+import { RuleSheet } from "@/components/RuleSheet";
+import { post, useApi, type LibChange, type LibDup, type Library as Lib, type Rule, type Rules as RuleList } from "@/lib/api";
 import { clock } from "@/lib/format";
 import { kindColor, kindLabel } from "@/lib/kinds";
 import { goalTarget, isStale, matches, rateText, seenText } from "@/lib/library";
+import { labelOf, parts, ruleText, statusText } from "@/lib/rules";
 import { go, LIB_SECTIONS, type LibSection } from "@/lib/route";
 import { cn } from "@/lib/utils";
 
-const TITLE: Record<LibSection, string> = { projects: "Projects", categories: "Categories", goals: "Goals" };
+const TITLE: Record<LibSection, string> = { projects: "Projects", categories: "Categories", goals: "Goals", rules: "Rules" };
 const HIDDEN_KEY = "tock-lookalikes-hidden";
 
 function hidden(): string[] {
@@ -28,7 +30,7 @@ const head = "h-8 px-0 text-[11px] font-medium text-faint";
 const cell = "px-0 py-1.5";
 
 /** Library: the categories, projects and goals the rules declare, their
- *  recent use, and the edits and clean-up for them. */
+ *  recent use, and the edits and clean-up for them; and the rules. */
 export default function Library({ tick, sub }: { tick: number; sub: LibSection }) {
   const [n, setN] = useState(0);
   const { data: lib, error, loading } = useApi<Lib>("/api/library", tick + n);
@@ -63,7 +65,7 @@ export default function Library({ tick, sub }: { tick: number; sub: LibSection }
           {LIB_SECTIONS.map((s) => <ToggleGroupItem key={s} value={s}>{TITLE[s]}</ToggleGroupItem>)}
         </ToggleGroup>
       </div>
-      {error ? <Empty>Couldn't load: {error}</Empty> : loading && !lib ? <Skeleton className="h-96" /> : lib && (
+      {sub === "rules" ? <RulesSection tick={tick} lib={lib} /> : error ? <Empty>Couldn't load: {error}</Empty> : loading && !lib ? <Skeleton className="h-96" /> : lib && (
         <Panel
           label={TITLE[sub]}
           aside={
@@ -203,5 +205,74 @@ function Categories({ lib, now, q, staleOnly, onEdit }: { lib: Lib; now: number;
         ))}
       </TableBody>
     </Table>
+  );
+}
+
+/** RulesSection lists the rules in the order they are checked, with the
+ *  time each decided lately, and opens a rule to change or delete it. */
+function RulesSection({ tick, lib }: { tick: number; lib: Lib | null }) {
+  const [n, setN] = useState(0);
+  const { data, error, loading } = useApi<RuleList>("/api/rules", tick + n);
+  const [q, setQ] = useState("");
+  const [staleOnly, setStaleOnly] = useState(false);
+  const [open, setOpen] = useState<{ rule: Rule | null } | null>(null);
+  if (error) return <Empty>Couldn't load: {error}</Empty>;
+  if (loading && !data) return <Skeleton className="h-96" />;
+  if (!data) return null;
+  const shown = data.rules.filter((r) => matches("", ruleText(r), q) && (!staleOnly || r.status !== ""));
+  const learned = shown.filter((r) => r.learned);
+  const yours = shown.filter((r) => !r.learned);
+  const row = (r: Rule) => (
+    <TableRow key={`${r.file}#${r.index}`} className={cn("cursor-pointer", r.status && "text-muted-foreground")} onClick={() => setOpen({ rule: r })}>
+      <TableCell className={cn(cell, "max-w-0")}>
+        <div className="flex flex-wrap gap-x-3 gap-y-0.5">
+          {parts(r).map((p) => (
+            <span key={p.field} className="min-w-0 truncate"><span className="text-faint">{p.field}</span> <span className="font-mono text-[12.5px]">{p.value}</span></span>
+          ))}
+        </div>
+      </TableCell>
+      <TableCell className={cn(cell, "w-56 truncate")}>
+        <i className="mr-2 inline-block h-2 w-2 rounded-sm align-[1px]" style={{ background: kindColor(r.kind) }} />{labelOf(r)}
+      </TableCell>
+      <TableCell className={cn(cell, "num w-20 text-right")}>{r.decidedMS ? clock(r.decidedMS) : ""}</TableCell>
+      <TableCell className={cn(cell, "w-28 text-right text-xs")}>{statusText(r.status)}</TableCell>
+    </TableRow>
+  );
+  const group = (title: string, rows: Rule[]) => rows.length > 0 && (
+    <>
+      <TableRow className="hover:bg-transparent"><TableCell colSpan={4} className="lbl px-0 pt-4">{title} ({rows.length})</TableCell></TableRow>
+      {rows.map(row)}
+    </>
+  );
+  return (
+    <>
+      <Panel
+        label="Rules"
+        aside={
+          <div className="flex items-center gap-3">
+            <input className="h-7 w-44 rounded-md border bg-background px-2 text-xs" placeholder="Filter" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Filter" />
+            <label className="flex items-center gap-1.5"><input type="checkbox" checked={staleOnly} onChange={(e) => setStaleOnly(e.target.checked)} /> Stale only</label>
+            <Button size="sm" variant="outline" className="h-7 px-2.5 text-xs" onClick={() => setOpen({ rule: null })}>Add</Button>
+          </div>
+        }
+      >
+        <p className="mb-1 text-xs text-muted-foreground">Checked top to bottom; the first rule that matches labels the time. Time is what each rule labelled in the last {data.days} days.</p>
+        {shown.length ? (
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead className={head}>Matches</TableHead><TableHead className={head}>Files it as</TableHead>
+                <TableHead className={cn(head, "text-right")}>{data.days} days</TableHead><TableHead className={head} />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {group("Learned from your labels", learned)}
+              {group("Your rules", yours)}
+            </TableBody>
+          </Table>
+        ) : <Empty>{data.rules.length ? "No rules match." : "No rules yet. Label something in the inbox, or add one."}</Empty>}
+      </Panel>
+      <RuleSheet open={!!open} rule={open?.rule ?? null} lib={lib} onClose={() => setOpen(null)} onDone={() => setN((x) => x + 1)} />
+    </>
   );
 }

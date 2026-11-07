@@ -90,6 +90,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/library/project", s.api(s.libProject))
 	mux.HandleFunc("POST /api/library/goal", s.api(s.libGoal))
 	mux.HandleFunc("POST /api/library/merge", s.api(s.libMerge))
+	mux.HandleFunc("GET /api/rules", s.api(s.rulesList))
+	mux.HandleFunc("POST /api/rules", s.api(s.ruleChange))
+	mux.HandleFunc("POST /api/rules/preview", s.api(s.rulePreview))
+	mux.HandleFunc("GET /api/invoice", s.api(s.invoice))
 	return s.guard(mux)
 }
 
