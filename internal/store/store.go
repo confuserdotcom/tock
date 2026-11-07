@@ -54,7 +54,7 @@ func Open(path string) (*Store, error) {
 		_ = db.Close()
 		return nil, err
 	}
-	if err := migrate(db); err != nil {
+	if err := migrate(db, nil); err != nil {
 		_ = db.Close()
 		return nil, err
 	}
