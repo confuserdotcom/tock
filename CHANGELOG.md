@@ -2,6 +2,19 @@
 
 What changed for you in each release. Dates are UTC.
 
+## Unreleased
+
+### Added
+- **Library** in the dashboard: categories, projects (with an hourly
+  rate) and goals, with their time in the last 30 days and when each was
+  last seen. Add, edit, rename, archive and merge look-alike names there.
+- **Rules** in Library: every rule in the order tock checks them, with the
+  time each labelled lately and which never match. Add, edit or delete a
+  rule, learned ones too, with a preview of what it would change; every
+  edit can be undone.
+- **Invoice…** in the week's Export menu makes the `tock invoice` PDF for
+  a project with a rate, showing hours and total before you save.
+
 ## v5.3.0 — 2026-11-06
 
 ### Added

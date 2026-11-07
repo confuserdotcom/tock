@@ -47,7 +47,8 @@ the rest.
 
 The week shows hours per day, when in the day you focus, and where the
 time went by project. **Export** saves the week report, the entries as CSV
-or JSON, or hours by project with your rates, for an invoice.
+or JSON, hours by project with your rates, or a PDF invoice for one
+project.
 
 <img src="docs/readme/trends.webp" width="100%" alt="The trends view for October: tracked time, focus, average score and switches against September; a calendar shaded by deep time with a tooltip for one day; deep time and focus score per day against the mean.">
 
@@ -61,7 +62,9 @@ time and the score per day.
 Library lists every category, project and goal with the time each got
 lately, so stale names stand out. Rename, re-file, archive or set a rate
 from the sheet: rules, goals and past entries follow the new name.
-Look-alike names get a merge hint.
+Look-alike names get a merge hint. **Rules** lists every rule in the
+order tock checks them, with the time each labelled lately: change one or
+delete a wrong one, with a preview of what it would relabel.
 
 <img src="docs/readme/palette.webp" width="100%" alt="Pressing Command-K opens a palette; typing tren jumps to Trends, and typing a date opens that day.">
 
