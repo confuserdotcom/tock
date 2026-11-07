@@ -85,12 +85,15 @@ Looking back:
 
 Setup and data:
   tock init                              write starter ~/.config/tock/rules.toml
-  tock doctor [--wait] [--open]          check trackd, permissions, rules and config
+  tock doctor [--wait] [--open] [--deep] check trackd, permissions, rules, config and snapshots;
+                                         --deep: a full check of the database
   tock version                           the version of this build
   tock choice [<feature> on|off]         turn features on and off (screen text, wake screen, Slack…),
                                          open the dashboard; piped: each feature and whether it is on
   tock backup [--out FILE]               archive tock.db and the rule, config and shell files
                                          (default ~/.local/share/tock/backups/)
+  tock restore [<n|path> [--yes]]        list snapshots of the database, or put one back
+                                         (stops and starts trackd)
   tock prune [--days N] [--dry-run]      delete window titles (and URL paths) older than N days
                                          (default [privacy] keep_titles); labels stay
   tock import activitywatch <export.json>
@@ -255,6 +258,7 @@ var commands = map[string]func(Env, []string) error{
 	"export":     cmdExport,
 	"doctor":     cmdDoctor,
 	"backup":     cmdBackup,
+	"restore":    cmdRestore,
 	"sync":       cmdSync,
 	"shell-init": cmdShellInit,
 	"away":       cmdAway,
