@@ -44,8 +44,9 @@ the install line.
   `rest`) and the caption. The camera moves between shots on a deep ease and
   zooms in log space, so a push feels straight.
 - **Notch footage.** `capture/notch.sh` stops the menu bar app, puts the
-  dashboard full screen, plays `tockbar notch-demo` over it and records the
-  screen, then starts the menu bar app again. `src/Notch.tsx` crops it to the
+  dashboard full screen on the display with the notch, parks the pointer
+  there (moments open under it), plays `tockbar notch-demo` and records that
+  display, then starts the menu bar app again. `src/Notch.tsx` crops it to the
   notch; `BEATS` there says when each moment opens.
 - **Look.** The tock dark palette, Inter, kind colours only where they mean
   a kind of time (DESIGN.md).

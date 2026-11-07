@@ -14,20 +14,22 @@ const K = W / CROP_W;
 
 export type Beat = { t: number; caption: string; sub?: string; zoom?: number; dot?: string };
 
-// Seconds into footage/notch/screen.mp4 where each demo moment opens
-// (measured from the recording; the demo cycles 4/5/6/3/6/label/5/8/4 s).
-export const NOTCH_START = 0.5;
-export const NOTCH_LEN = 58;
+// Seconds after NOTCH_START where each demo moment opens, measured from
+// footage/notch/screen.mp4 (brightness jumps under the notch): session 2.4,
+// drift 7.3, back 13.3, done 16.3, label 22.3, inbox ~30.8, meeting 34.3,
+// recap 39.3, dot 47.3 s into the recording.
+export const NOTCH_START = 1.8;
+export const NOTCH_LEN = 51.5;
 export const BEATS: Beat[] = [
-  { t: 0, caption: "tock lives in the notch.", sub: "Today's time and score, a hover away.", zoom: 1.7, dot: C.deep },
-  { t: 4, caption: "A focus session, beside the notch.", sub: "Its goal and the time left.", zoom: 1.9, dot: C.deep },
-  { t: 9, caption: "Drift off, and it calls you back.", sub: "Snooze it, or go back to work.", zoom: 1.25, dot: C.distract },
-  { t: 15, caption: "Back on task.", zoom: 1.9, dot: C.deep },
-  { t: 18, caption: "Every session ends with how it went.", sub: "Deep time, longest run, switches.", zoom: 1.15, dot: C.deep },
-  { t: 24, caption: "Label the day from the notch.", sub: "1 to 3 picks; each pick saves a rule.", zoom: 1.15, dot: C.browse },
-  { t: 37, caption: "Meetings, before they start.", zoom: 1.7, dot: C.shallow },
-  { t: 42, caption: "The evening recap.", sub: "Against your usual day.", zoom: 1.0, dot: C.ink },
-  { t: 50, caption: "Missed something? It waits as a dot.", zoom: 1.9, dot: C.neutral },
+  { t: 0, caption: "A focus session, beside the notch.", sub: "Its goal and the time left.", zoom: 1.9, dot: C.deep },
+  { t: 5.4, caption: "Drift off, and it calls you back.", sub: "Snooze it, or go back to work.", zoom: 1.3, dot: C.distract },
+  { t: 11.4, caption: "Back on task.", zoom: 1.9, dot: C.deep },
+  { t: 14.4, caption: "Every session ends with how it went.", sub: "Deep time, longest run, switches.", zoom: 1.25, dot: C.deep },
+  { t: 20.4, caption: "Label the day from the notch.", sub: "One pick each; every pick saves a rule.", zoom: 1.25, dot: C.browse },
+  { t: 28.9, caption: "Inbox clear.", sub: "New rules apply to past days too.", zoom: 1.4, dot: C.deep },
+  { t: 32.4, caption: "Meetings, before they start.", zoom: 1.9, dot: C.shallow },
+  { t: 37.4, caption: "The evening recap.", sub: "Against your usual day.", zoom: 1.1, dot: C.ink },
+  { t: 45.4, caption: "Missed something? It waits as a dot.", zoom: 1.9, dot: C.neutral },
 ];
 
 const INTRO = 1.7;
