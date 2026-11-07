@@ -38,6 +38,9 @@ Sections:
   do-not-disturb. Nothing about your activity is sent, only the status text
   you chose and the session's end time.
 - `tock export` prints titles and URLs to stdout, and the dashboard's Export saves the same as a file. Where that output goes is up to you.
+- Daily copies of the database stay in `~/.local/share/tock/backups/auto`
+  (owner-only), the newest 7 by default. They keep titles up to 7 days past
+  `keep_titles`. `tock uninstall --purge` deletes them.
 - `[privacy] keep_titles = 30` deletes window titles, and cuts URLs to their
   host, once they are 30 days old (see Deleting old titles).
 - Screen reading (opt-in, `[ocr]`) reads the text of unclear windows with
@@ -186,12 +189,15 @@ tock model [why <app> "<title>" [<label>]]
 
 Setup and data:
 tock init                              write starter ~/.config/tock/rules.toml
-tock doctor [--wait] [--open]          check trackd, permissions, rules and config
+tock doctor [--wait] [--open] [--deep] check trackd, permissions, rules, config and snapshots;
+                                       --deep: a full check of the database
 tock version                           the version of this build
 tock choice [<feature> on|off]         turn features on and off (screen text, wake screen, Slack…),
                                        open the dashboard; piped: each feature and whether it is on
 tock backup [--out FILE]               archive tock.db and the rule, config and shell files
                                        (default ~/.local/share/tock/backups/)
+tock restore [<n|path> [--yes]]        list snapshots of the database, or put one back
+                                       (stops and starts trackd)
 tock prune [--days N] [--dry-run]      delete window titles (and URL paths) older than N days
                                        (default [privacy] keep_titles); labels stay
 tock import activitywatch <export.json>
@@ -351,6 +357,9 @@ open_on_hover = false    # true: resting the pointer opens it, no click needed
 keep_titles = 30         # off unless set: days window titles are kept
 hide_apps = []           # bundle ids recorded as private time only: no title, no URL
 hide_sites = []          # hosts recorded the same way; subdomains too
+
+[backup]
+keep = 7                 # daily copies of tock.db trackd keeps; 0 = none
 
 [invoice]                # for tock invoice; all optional
 name = "Your Name"
@@ -1643,21 +1652,46 @@ do not run `make install` or copy files.
 
 ## Backup
 
-`tock backup` writes `~/.local/share/tock/backups/tock-YYYYMMDD-HHMMSS.tar.gz`
-(owner-only) with a consistent snapshot of `tock.db`, safe while trackd runs,
-plus `rules.toml`, `learned.toml`, `config.toml` and `shell.log` when they
-exist. `--out FILE` writes elsewhere; an existing file is never overwritten.
-The archive holds your titles and URLs, so keep it out of git and shared
-folders.
+trackd keeps a copy of `tock.db` every day, while you're away from the
+computer, in `~/.local/share/tock/backups/auto/`. It keeps the newest 7;
+`[backup] keep` in `config.toml` changes that, and `keep = 0` turns the
+daily copies off. Before a new version changes the database, tock also
+keeps a copy of it as it was (`pre-v0023-to-v0024.db.gz`) for 14 days. If
+that copy can't be made, for example because the disk is full, the new
+version doesn't change the database and says why.
 
-To restore:
+Each copy is checked as it is made. If the check finds damage, `tock
+doctor` and `tock status` say so, and the menu bar shows a notice once a
+day. `tock doctor --deep` checks the whole live database now.
 
-1. `make uninstall` to stop trackd.
-2. Move `~/.local/share/tock/tock.db` and its `-wal` and `-shm` files aside.
-3. Extract the archive in a temp directory. Put `tock.db` in
-   `~/.local/share/tock/`, the `.toml` files in `~/.config/tock/` and
-   `shell.log` in `~/.local/state/tock/`.
-4. `make install`.
+`tock backup` still writes one archive with the database, your rules and
+your config, for keeping somewhere else:
+`~/.local/share/tock/backups/tock-YYYYMMDD-HHMMSS.tar.gz` (owner-only),
+with `tock.db`, `rules.toml`, `learned.toml`, `config.toml` and
+`shell.log` when they exist. `--out FILE` writes elsewhere; an existing
+file is never overwritten.
+
+Copies on this machine don't help if the disk dies: Time Machine, or the
+sync folder, covers that. The copies and archives hold your titles and
+URLs, so keep them out of git and shared folders. The daily copies keep
+titles up to 7 days past `[privacy] keep_titles`.
+
+## Restore
+
+`tock restore` lists the daily copies, the copies made before updates and
+your `tock backup` archives, newest first. `tock restore 2` puts the
+second one back:
+
+1. It checks the copy, and refuses one made by a newer tock.
+2. It says what you lose (activity recorded after the copy was made) and
+   asks; `--yes` skips the question.
+3. It stops trackd (and the menu bar on a Mac), keeps the current database
+   as `tock.db.before-restore-<time>`, puts the copy in its place, and
+   starts them again.
+
+From a `tock backup` archive only the database is restored; your rules and
+config are in the archive, to copy back by hand if you want them. Close
+`tock web` and the terminal UI first: they keep the old database open.
 
 ## Import
 
