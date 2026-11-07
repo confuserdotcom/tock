@@ -194,3 +194,20 @@ func wrap(s string, width, size float64) []string {
 	}
 	return lines
 }
+
+// Slug keeps letters, digits, - and _ for a file name; anything else is -.
+func Slug(s string) string {
+	var b strings.Builder
+	for _, r := range strings.ToLower(s) {
+		switch {
+		case r >= 'a' && r <= 'z', r >= '0' && r <= '9', r == '-', r == '_':
+			b.WriteRune(r)
+		default:
+			b.WriteRune('-')
+		}
+	}
+	if b.Len() == 0 {
+		return "invoice"
+	}
+	return b.String()
+}
