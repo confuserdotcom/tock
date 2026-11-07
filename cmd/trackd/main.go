@@ -75,6 +75,9 @@ func main() {
 	if len(os.Args) > 1 && os.Args[1] == "ocr-worker" {
 		os.Exit(runOCRWorker(os.Args[2:], os.Stdout))
 	}
+	if len(os.Args) > 1 && os.Args[1] == "snapshot-worker" {
+		os.Exit(runSnapshotWorker(os.Args[2:], os.Stdout))
+	}
 	if host, _ := browserHostCaller(os.Args); host {
 		os.Exit(runBrowserHost(os.Args, stateDir()))
 	}
@@ -134,6 +137,11 @@ func main() {
 		// A terminal-launched trackd would attribute the prompt to the
 		// terminal (see newSource).
 		CalendarPrompt: os.Getppid() == 1,
+	}
+	if exe, err := os.Executable(); err == nil {
+		if exe, err = filepath.EvalSymlinks(exe); err == nil {
+			o.SnapshotExe = exe
+		}
 	}
 	if runtime.GOOS == "linux" {
 		o.Notifier, o.Camera, o.Mic, o.Calendar, o.OCR = notifySendNotifier{}, nil, nil, nil, nil

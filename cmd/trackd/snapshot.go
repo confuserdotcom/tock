@@ -20,6 +20,9 @@ type snapshotLoop struct {
 	log     *slog.Logger
 	a       *app.App
 	lastErr string
+	// take writes the snapshot; nil writes it in this process
+	// (app.DailySnapshot). trackd sets a worker (snapshot_worker.go).
+	take func() (snapshot.Info, int, error)
 }
 
 func (p *snapshotLoop) tick() {
@@ -40,7 +43,11 @@ func (p *snapshotLoop) tick() {
 		return
 	}
 	start := time.Now()
-	info, removed, err := p.a.DailySnapshot()
+	take := p.take
+	if take == nil {
+		take = p.a.DailySnapshot
+	}
+	info, removed, err := take()
 	if err != nil {
 		var dmg *snapshot.DamagedError
 		if errors.As(err, &dmg) {
