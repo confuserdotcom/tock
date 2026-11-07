@@ -7,23 +7,56 @@ tock records what you work on, on a Mac or on Linux under Hyprland, and
 labels it with rules you write. You never start a timer. Your data stays on
 your machine, in one SQLite file.
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/readme/web-dark.png">
-  <img src="docs/readme/web-light.png" width="100%" alt="The tock dashboard for one day: a timeline with one row per category; a focus score of 80, 17 above a usual Saturday, with focus time, longest block, distraction and switches; minutes per hour; a donut of the kinds of time; goal rings; tables of categories and apps with totals; work blocks.">
-</picture>
+<img src="docs/readme/today.webp" width="100%" alt="The tock dashboard for a Thursday: a timeline with one row per category, a focus score of 92 against a usual Thursday, minutes per hour, a donut of deep, shallow, browsing and distracting time, and goals.">
 
-<table>
-  <tr>
-    <td width="50%"><picture>
-      <source media="(prefers-color-scheme: dark)" srcset="docs/readme/web-week-dark.png">
-      <img src="docs/readme/web-week-light.png" alt="The week view: hours per day stacked by kind of time, a donut of the week, the focus score per day against its mean, and a weekday-by-hour heat map of when you focus.">
-    </picture></td>
-    <td width="50%"><picture>
-      <source media="(prefers-color-scheme: dark)" srcset="docs/readme/web-trends-dark.png">
-      <img src="docs/readme/web-trends-light.png" alt="The trends view: the month's tracked time, focus, average score and switches; a calendar shaded by deep time; deep time and focus score per day.">
-    </picture></td>
-  </tr>
-</table>
+**Today.** Every app, window and site you used, on one timeline with a
+row per category. The day gets a focus score out of 100, compared with your
+usual same weekday, and goals you set per day or per week.
+
+<!-- notch -->
+
+## Fix the record
+
+<img src="docs/readme/edit.webp" width="100%" alt="Clicking an unlabelled bar on the timeline opens a sheet; typing Research and pressing return labels it, and a toast offers Undo. Dragging across the lanes picks a range to label, add or delete.">
+
+Click a bar to label it, or drag across the lanes to pick a range: label
+it, add time tock didn't see, or delete it. Every change can be undone
+from its toast.
+
+## Label each thing once
+
+<img src="docs/readme/inbox.webp" width="100%" alt="The inbox lists unlabelled time grouped by site. Labelling dribbble.com as Research saves a rule, and the inbox drops to one item.">
+
+Time no rule covers waits in the inbox, grouped by app, site or title.
+Labelling it writes a rule, so tock files the same thing by itself from
+then on. A model trained on your own labels, on your machine, suggests
+the rest.
+
+## The week, and the month
+
+<img src="docs/readme/week.webp" width="100%" alt="The week view: hours per day stacked by kind of time, a donut of the week, focus score per day, a weekday-by-hour heat map of when you focus, projects, goals and distractions, then the Export menu: week report, entries as CSV or JSON, hours by project.">
+
+The week shows hours per day, when in the day you focus, and where the
+time went by project. **Export** saves the week report, the entries as CSV
+or JSON, or hours by project with your rates, for an invoice.
+
+<img src="docs/readme/trends.webp" width="100%" alt="The trends view for October: tracked time, focus, average score and switches against September; a calendar shaded by deep time with a tooltip for one day; deep time and focus score per day against the mean.">
+
+Trends puts the month on a calendar shaded by deep time, next to deep
+time and the score per day.
+
+## Your names, kept tidy
+
+<img src="docs/readme/library.webp" width="100%" alt="The Library view lists projects with category, hourly rate, time in the last 30 days and when each was last seen, flags North-wind as looking like Northwind with a Merge button, and edits Atlas's hourly rate from 95 to 110 EUR.">
+
+Library lists every category, project and goal with the time each got
+lately, so stale names stand out. Rename, re-file, archive or set a rate
+from the sheet: rules, goals and past entries follow the new name.
+Look-alike names get a merge hint.
+
+<img src="docs/readme/palette.webp" width="100%" alt="Pressing Command-K opens a palette; typing tren jumps to Trends, and typing a date opens that day.">
+
+`⌘K` jumps to any view or any date.
 
 ## How it works
 
@@ -35,13 +68,13 @@ your machine, in one SQLite file.
 - Time no rule covers goes to an inbox. Labelling an entry there also writes
   a rule, so you label each thing once. A model trained on your own labels,
   on your machine, suggests labels for the rest.
-- `tock` is the CLI and a terminal UI. `tock web` serves the dashboard
-  above on 127.0.0.1. A menu bar app shows today's time and starts focus
-  sessions (`⌥⌘F` from any app).
+- `tock` is the CLI and a terminal UI. On a Mac the dashboard opens in its
+  own window from the menu bar; `tock web` serves it on 127.0.0.1 for any
+  browser. The menu bar app shows today's time, draws the notch panel and
+  starts focus sessions (`⌥⌘F` from any app).
 
-The day gets a focus score out of 100 from deep time, long unbroken blocks
-and few switches, minus distraction. Every number is compared with your
-usual same weekday.
+The focus score adds up deep time, long unbroken blocks and few
+switches, minus distraction.
 
 <img src="docs/assets/diagrams/pieces.svg" width="100%" alt="trackd takes events from the desktop (NSWorkspace, the Accessibility API, AppleScript, or Hyprland's socket) and writes spans to tock.db. tock and tockbar read tock.db and label it with rules.toml, learned.toml and config.toml. tockbar runs tock web as a child for the dashboard window. Only tock reaches the internet, for Claude and Slack, when you turn them on.">
 
