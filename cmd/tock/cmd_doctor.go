@@ -40,6 +40,7 @@ func cmdDoctor(env Env, args []string) error {
 	fs := newFlags("doctor")
 	wait := fs.Bool("wait", false, "wait up to 15 s for trackd to report")
 	openPanes := fs.Bool("open", false, "open System Settings for missing permissions")
+	deep := fs.Bool("deep", false, "also run a full integrity check of tock.db")
 	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
@@ -106,6 +107,12 @@ func cmdDoctor(env Env, args []string) error {
 			v = "unknown"
 		}
 		ok("trackd", "running (version "+v+")")
+	}
+	if err == nil && cfgErr == nil {
+		doctorBackup(env, cfg.Backup.Keep, h, ok, bad)
+	}
+	if *deep && err == nil {
+		doctorDeep(env, ok, bad)
 	}
 	if err == nil && env.Linux {
 		if cfgErr == nil {
