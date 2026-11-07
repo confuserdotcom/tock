@@ -640,6 +640,26 @@ label. A labelled absence counts towards totals and goals, but not towards
 focus blocks, context switches or break reminders. Absences that cross
 midnight are never asked about.
 
+### When trackd was not recording
+
+trackd notes once a minute that it is running, whether or not anything is
+in front, and why it stopped when it stops. Time it should have recorded
+and did not shows as **not recording**, with the reason: a line under the
+day in the TUI, a lane under the timeline in the dashboard, and a
+"Not recorded" line under the week's bars.
+
+- *trackd stopped unexpectedly*: it crashed or was killed, and started again later.
+- *trackd is not running*: it stopped that way and has not started since.
+- *trackd was stopped*: stopped on purpose (`launchctl`, `systemctl`, `make install`).
+- *config.toml did not load*: trackd ran but recorded nothing until the file was fixed.
+- *Accessibility permission lost*, *trackd was updating*, *trackd stopped on an error*.
+
+Sleep, a locked screen, nothing in front, and a computer that was off or
+restarted are not "not recording". Gaps under a minute are not shown. This
+time is never counted as tracked or idle; the time-away prompt still covers
+it, so you can label what you did. tock has no record of trackd before this
+version, so older days show nothing here.
+
 ## Categories
 
 Categories are yours: `rules.toml` declares them, and `tock category`

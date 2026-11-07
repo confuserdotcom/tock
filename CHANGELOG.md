@@ -16,6 +16,12 @@ What changed for you in each release. Dates are UTC.
   bar say why, and recording starts again within seconds of the fix.
 
 ### Added
+- **Time trackd did not record is shown, with why**: a crash, a stop,
+  `config.toml` not loading or a lost permission. The TUI's today tab lists
+  it under the day, the dashboard draws a "Not recording" lane under the
+  timeline and a line under the week's bars. Sleep, a locked screen and a
+  computer that was off are not counted, and the time is never added to
+  tracked or idle time.
 - **Library** in the dashboard: categories, projects (with an hourly
   rate) and goals, with their time in the last 30 days and when each was
   last seen. Add, edit, rename, archive and merge look-alike names there.

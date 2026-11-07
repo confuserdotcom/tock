@@ -294,3 +294,30 @@ func TestDaemonRecordsRuns(t *testing.T) {
 }
 
 var _ collect.Source = (*staleSource)(nil)
+
+// A locked screen closes the span and nothing is recorded until unlock,
+// but trackd runs throughout: away, not an outage.
+func TestRunLockedScreenIsNoOutage(t *testing.T) {
+	r := newPauseRig(t, goodConfig).withRun(1)
+	if err := r.p.start(); err != nil {
+		t.Fatal(err)
+	}
+	r.sample(pauseT0, "editor", "work", "")
+	lock := pauseT0 + 60_000
+	if err := r.p.feed(span.Input{Event: &span.Event{TS: lock, Kind: span.EventLock}}); err != nil {
+		t.Fatal(err)
+	}
+	r.ticks(lock+10_000, lock+40*60_000)
+	unlock := lock + 40*60_000 + 5_000
+	if err := r.p.feed(span.Input{Event: &span.Event{TS: unlock, Kind: span.EventUnlock}}); err != nil {
+		t.Fatal(err)
+	}
+	r.sample(unlock+1000, "editor", "work", "")
+	r.ticks(unlock+10_000, unlock+60_000)
+	if g := r.gaps(pauseT0, unlock+120_000, unlock+60_000); len(g) != 0 {
+		t.Fatalf("gaps = %+v, want none", g)
+	}
+	if rs := r.runs(); len(rs) != 1 {
+		t.Fatalf("runs = %+v, want one", rs)
+	}
+}
