@@ -650,15 +650,31 @@ day in the TUI, a lane under the timeline in the dashboard, and a
 
 - *trackd stopped unexpectedly*: it crashed or was killed, and started again later.
 - *trackd is not running*: it stopped that way and has not started since.
-- *trackd was stopped*: stopped on purpose (`launchctl`, `systemctl`, `make install`).
+- *trackd was stopped*: stopped by hand (`tock`, `launchctl`, `systemctl`, `kill`).
 - *config.toml did not load*: trackd ran but recorded nothing until the file was fixed.
-- *Accessibility permission lost*, *trackd was updating*, *trackd stopped on an error*.
+- *trackd was updating*, *trackd stopped on an error*, *Accessibility permission lost*
+  (trackd restarted to pick up a stale grant).
 
-Sleep, a locked screen, nothing in front, and a computer that was off or
-restarted are not "not recording". Gaps under a minute are not shown. This
-time is never counted as tracked or idle; the time-away prompt still covers
-it, so you can label what you did. tock has no record of trackd before this
-version, so older days show nothing here.
+When trackd stopped that way and the computer restarted before trackd ran
+again, the time up to the restart is shown with *(until the restart; the
+computer may have been off for part of it)*: nothing records when the
+computer went off, so tock does not hide that time.
+
+Logging out, restarting and shutting down are not "not recording": as
+trackd stops, macOS (loginwindow, or `kern.willshutdown` for `shutdown`
+and `reboot`) or systemd (the user service manager stopping) says the
+session is ending, and trackd notes it. A stop with no such word is
+treated as a stop by hand.
+
+**Apps only.** While trackd has no Accessibility permission it still
+records which app is in front, but not window titles. That time shows
+apart, as *apps only*, and does not count as "not recorded".
+
+Sleep, a locked screen and nothing in front are not "not recording".
+Gaps under a minute are not shown. This time is never counted as tracked
+or idle; the time-away prompt still covers it, so you can label what you
+did. tock has no record of trackd before this version, so older days show
+nothing here.
 
 ## Categories
 

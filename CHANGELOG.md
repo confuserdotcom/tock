@@ -14,14 +14,19 @@ What changed for you in each release. Dates are UTC.
   apps and sites could be recorded with their titles and URLs in that
   state. `tock status`, `tock doctor`, the TUI, the dashboard and the menu
   bar say why, and recording starts again within seconds of the fix.
+- trackd upgrades the database in a short-lived child process, so the
+  safety copy taken before an upgrade no longer leaves trackd about 7 MB
+  larger until its next restart.
 
 ### Added
 - **Time trackd did not record is shown, with why**: a crash, a stop,
-  `config.toml` not loading or a lost permission. The TUI's today tab lists
-  it under the day, the dashboard draws a "Not recording" lane under the
-  timeline and a line under the week's bars. Sleep, a locked screen and a
-  computer that was off are not counted, and the time is never added to
-  tracked or idle time.
+  an update or `config.toml` not loading. The TUI's today tab lists it
+  under the day, the dashboard draws a "Not recording" lane under the
+  timeline and a line under the week's bars. Sleep, a locked screen, a
+  logout and a shutdown are not counted; a restart only explains the time
+  when the OS said the session was ending as trackd stopped, so a stop by
+  hand before a restart still shows. Time with no Accessibility permission
+  shows apart as "apps only". None of it is added to tracked or idle time.
 - **Library** in the dashboard: categories, projects (with an hourly
   rate) and goals, with their time in the last 30 days and when each was
   last seen. Add, edit, rename, archive and merge look-alike names there.
