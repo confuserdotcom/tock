@@ -9,6 +9,7 @@ import (
 
 	"tock/internal/report"
 	"tock/internal/span"
+	"tock/internal/stats"
 )
 
 // minTimeline is the fewest timeline rows the today tab keeps.
@@ -44,6 +45,9 @@ func (t *todayTab) head(w, h int, now time.Time) []string {
 	if side > 0 {
 		if a := t.attention(); a != "" {
 			out = append(out, fit(a, w))
+		}
+		if o := t.outages(); o != "" {
+			out = append(out, fit(o, w))
 		}
 		if t.day.Summary != "" {
 			out = append(out, fit(" "+sBrand.Render("✎ ")+sText.Render(report.Safe(t.day.Summary)), w))
@@ -152,7 +156,20 @@ func (t *todayTab) notes(w int) []string {
 	if a := t.attention(); a != "" {
 		out = append(out, fit(a, w))
 	}
+	if o := t.outages(); o != "" {
+		out = append(out, fit(o, w))
+	}
 	return out
+}
+
+// outages is the line of the day's outages: when trackd did not record,
+// and why; "" without any. They are not timeline rows: nothing was
+// recorded, and they count as neither tracked nor idle.
+func (t *todayTab) outages() string {
+	if len(t.day.Outages) == 0 {
+		return ""
+	}
+	return " " + sAccent.Render("not recording  ") + sText.Render(report.OutagesLine(t.day.Outages, t.day.Date.Location()))
 }
 
 // workLine lists the work blocks as "09:00 tock 1h40 · 11:05 Study 50m".
@@ -395,9 +412,14 @@ func (t todayTab) sidebar(w, h int) []string {
 // empty is the today tab of a day with nothing tracked.
 func (t todayTab) empty(w int, now time.Time) []string {
 	if !t.isToday(now) {
-		return emptyState(w, t.day.Date.Format("Mon 2 Jan"),
-			sText.Render("Nothing tracked on this day."),
-			"", keycap("l", "next day")+"   "+keycap(".", "back to today"))
+		lines := []string{sText.Render("Nothing tracked on this day.")}
+		if len(t.day.Outages) > 0 {
+			for _, g := range t.day.Outages {
+				lines = append(lines, sAccent.Render("not recording ")+sText.Render(report.OutagesLine([]stats.Gap{g}, t.day.Date.Location())))
+			}
+		}
+		lines = append(lines, "", keycap("l", "next day")+"   "+keycap(".", "back to today"))
+		return emptyState(w, t.day.Date.Format("Mon 2 Jan"), lines...)
 	}
 	if t.trackdUp {
 		return emptyState(w, "Today",

@@ -324,6 +324,9 @@ func (a *App) Day(day time.Time) (report.Day, error) {
 		d.AwayBefore = append(d.AwayBefore, classify.Before(vs, labels, iv.From))
 	}
 	d.Commits = a.commits(from.UnixMilli(), to.UnixMilli())
+	if d.Outages, err = a.Outages(from.UnixMilli(), to.UnixMilli()); err != nil {
+		return report.Day{}, err
+	}
 	if err := a.fillSummaries(from, &d.Summary, func(start int64, text string) {
 		for i := range d.Blocks {
 			if d.Blocks[i].Start == start {
@@ -372,6 +375,9 @@ func (a *App) Week(anyDay time.Time) (report.Week, error) {
 		}
 	}
 	w := report.BuildWeek(in)
+	if w.Outages, err = a.Outages(mon.UnixMilli(), mon.AddDate(0, 0, 7).UnixMilli()); err != nil {
+		return report.Week{}, err
+	}
 	if len(w.Goals) > 0 {
 		// Streaks as of today, or the week's Sunday for a past week.
 		anchor := mon.AddDate(0, 0, 6)

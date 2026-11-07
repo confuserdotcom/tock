@@ -5,8 +5,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/charmbracelet/x/ansi"
+
 	"tock/internal/app"
 	"tock/internal/apptest"
+	"tock/internal/report"
+	"tock/internal/stats"
 )
 
 func TestTodayShowsTheDay(t *testing.T) {
@@ -258,4 +262,18 @@ func TestWorkBlocksAndSummary(t *testing.T) {
 	e.Summary(t, "2026-10-10", 0, "Built the tock TUI, then reviewed a PR.")
 	m = step(t, m, tickMsg{})
 	mustContain(t, m, " ✎ Built the tock TUI, then reviewed a PR.")
+}
+
+// A past day trackd missed entirely says so, instead of only "nothing
+// tracked".
+func TestTodayEmptyPastDayOutage(t *testing.T) {
+	loc := time.FixedZone("T", 0)
+	day := time.Date(2026, 10, 9, 0, 0, 0, 0, loc)
+	td := todayTab{loaded: true, date: day, day: report.Day{Date: day, Outages: []stats.Gap{
+		{From: day.Add(9 * time.Hour).UnixMilli(), To: day.Add(17 * time.Hour).UnixMilli(), Kind: stats.GapDown},
+	}}}
+	got := strings.Join(td.view(100, 30, day.AddDate(0, 0, 1).Add(10*time.Hour)), "\n")
+	if !strings.Contains(ansi.Strip(got), "not recording 09:00–17:00 trackd is not running") {
+		t.Fatalf("empty past day:\n%s", ansi.Strip(got))
+	}
 }

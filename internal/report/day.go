@@ -58,6 +58,9 @@ type Day struct {
 	Off        bool        // a day off: nothing is scored
 	OutsideMS  int64       // active time outside the window
 	Closed     bool        // the window has ended
+	// Outages is the time trackd should have recorded and did not, filled
+	// by the caller; never part of the tracked or idle time.
+	Outages []stats.Gap
 }
 
 // CatRow is one category's time.

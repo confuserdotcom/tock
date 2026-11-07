@@ -25,6 +25,21 @@ func TestGoldenToday(t *testing.T) {
 	golden.RequireEqual(t, screen(m))
 }
 
+// Time trackd did not record shows as its own line, with why; the
+// timeline and the totals are the recorded ones.
+func TestGoldenTodayOutage(t *testing.T) {
+	m, e := seeded(t)
+	e.Heartbeat(t, e.Clock.UnixMilli())
+	e.Runs(t,
+		apptest.Run{Start: "08:00", Last: "12:30", Boot: 1}, // left open: crashed
+		apptest.Run{Start: "13:10", Stop: "13:40", Reason: store.RunState, Boot: 1},
+		apptest.Run{Start: "13:40", Stop: "14:10", Reason: store.RunState, State: store.RunPaused, Boot: 1},
+		apptest.Run{Start: "14:10", Last: "14:59", Boot: 1},
+	)
+	m = step(t, m, tickMsg{})
+	golden.RequireEqual(t, screen(m))
+}
+
 // Phase 3 criterion 3: with trackd stopped the history still shows, under
 // the banner.
 func TestGoldenTodayTrackdDown(t *testing.T) {

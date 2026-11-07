@@ -262,6 +262,40 @@ func (e *Env) Heartbeat(t testing.TB, ms int64) {
 	e.State(t, store.KeyHeartbeat, strconv.FormatInt(ms, 10))
 }
 
+// Run is one trackd_run row for Runs: "HH:MM" times on Day (days from
+// Now); Stop "" leaves it open with its last tick at Last.
+type Run struct {
+	Start, Last, Stop string
+	Day               int
+	Reason, State     string
+	Boot              int64
+}
+
+// Runs inserts trackd_run rows, as trackd would.
+func (e *Env) Runs(t testing.TB, runs ...Run) {
+	t.Helper()
+	db := e.raw(t)
+	defer db.Close()
+	for _, r := range runs {
+		var stop, reason any
+		if r.Stop != "" {
+			stop, reason = At(t, r.Stop, r.Day), r.Reason
+		}
+		last := r.Last
+		if last == "" {
+			last = r.Stop
+		}
+		state := r.State
+		if state == "" {
+			state = store.RunRecording
+		}
+		if _, err := db.Exec(`INSERT INTO trackd_run(start_ms, last_ms, stop_ms, reason, state, boot_ms) VALUES(?,?,?,?,?,?)`,
+			At(t, r.Start, r.Day), At(t, last, r.Day), stop, reason, state, r.Boot); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
 // Rules is a small rule set covering the seeded day.
 const Rules = `
 [[category]]

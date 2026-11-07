@@ -41,6 +41,7 @@ type Week struct {
 	Plan         string      // the week's plan from tock review; filled by the caller
 	Modules      []ModuleRow // filled by the caller
 	Commits      []NameN     // commits per project, filled by the caller
+	Outages      []stats.Gap // not recorded, filled by the caller (see Day)
 }
 
 // ModuleRow is a module's week: a project filed under a category, its time
