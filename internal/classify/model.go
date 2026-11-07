@@ -507,6 +507,12 @@ func (rs *Ruleset) ApplyModel(m *Model, views []SpanView, labels []Label) {
 	if m == nil {
 		return
 	}
+	rs.mu.Lock()
+	if rs.modelFor != m {
+		clear(rs.modelMemo)
+		rs.modelFor = m
+	}
+	rs.mu.Unlock()
 	generic := rs.genericRefs()
 	for i := range views {
 		v, l := views[i], &labels[i]
@@ -531,6 +537,7 @@ func (rs *Ruleset) ApplyModel(m *Model, views []SpanView, labels []Label) {
 			}
 			return ""
 		}
+		pick = rs.modelPick(m, l, pick)
 		c := pick(v)
 		if c == "" || !rs.HasCategory(c) {
 			continue
@@ -610,4 +617,46 @@ func (rs *Ruleset) Unclear(l Label) bool {
 		return rs.genericRefs()[l.CategoryRule]
 	}
 	return false
+}
+
+// modelKey is everything ApplyModel's pick reads of a view and its label.
+type modelKey struct {
+	bundle, app, title, url, screen string
+	hasTitle, hasURL, private       bool
+	remote                          bool
+	category, rule                  string
+	source                          Source
+}
+
+// modelPick wraps pick in the model memo: trackd labels the day every few
+// seconds, and the model's answer for a view only changes with the model,
+// which ApplyModel resets the memo for.
+func (rs *Ruleset) modelPick(m *Model, l *Label, pick func(SpanView) string) func(SpanView) string {
+	return func(v SpanView) string {
+		k := modelKey{bundle: v.BundleID, app: v.App, private: v.Private, remote: IsRemote(v),
+			screen:   strings.Join(v.Screen, "\x00"),
+			category: l.Category, rule: l.CategoryRule, source: l.CategorySource}
+		if v.Title != nil {
+			k.title, k.hasTitle = *v.Title, true
+		}
+		if v.URL != nil {
+			k.url, k.hasURL = *v.URL, true
+		}
+		rs.mu.Lock()
+		c, ok := rs.modelMemo[k]
+		rs.mu.Unlock()
+		if ok {
+			return c
+		}
+		c = pick(v)
+		rs.mu.Lock()
+		if rs.modelFor == m {
+			if len(rs.modelMemo) >= memoMax {
+				clear(rs.modelMemo)
+			}
+			rs.modelMemo[k] = c
+		}
+		rs.mu.Unlock()
+		return c
+	}
 }

@@ -206,6 +206,10 @@ type Ruleset struct {
 
 	mu   sync.Mutex
 	memo map[memoKey]Label
+	// modelMemo is ApplyModel's answer per view and label, for the model
+	// modelFor (see modelPick).
+	modelMemo map[modelKey]string
+	modelFor  *Model
 }
 
 type ruleTOML struct {
@@ -303,6 +307,7 @@ func Parse(rulesData, learnedData []byte) (*Ruleset, error) {
 		projByLower: map[string]Project{},
 		quietRules:  map[string]bool{},
 		memo:        map[memoKey]Label{},
+		modelMemo:   map[modelKey]string{},
 	}
 	for i, c := range rf.Category {
 		lower := nameKey(c.Name)

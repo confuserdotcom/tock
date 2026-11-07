@@ -126,8 +126,11 @@ func (rs *Ruleset) Label(v SpanView, o *Override) Label {
 	return l
 }
 
-// memoMax bounds the label memo; past it the memo starts over.
-const memoMax = 50_000
+// memoMax bounds the label memo and the model memo; past it a memo starts
+// over. A day has under a thousand distinct titles; a bigger memo only
+// pays during a rebuild of history, and costs a daemon its memory budget
+// (50,000 entries held about 25 MB).
+const memoMax = 4_096
 
 // keyOf is v's memo key and its cleaned title ("" when it has none).
 func keyOf(v *SpanView) (memoKey, string) {
