@@ -228,7 +228,7 @@ type LLM struct {
 // call returns fresh slices.
 func DefaultLLM() LLM {
 	return LLM{
-		Enabled: true, Model: "claude-haiku-5-5", MinMS: 2 * 60_000,
+		Enabled: false, Model: "claude-haiku-5-5", MinMS: 2 * 60_000, // opt-in: a backend is not consent
 		DenyApps: []string{
 			"com.1password.1password", "com.agilebits.onepassword7", "com.bitwarden.desktop",
 			"com.apple.keychainaccess", "com.apple.Passwords",

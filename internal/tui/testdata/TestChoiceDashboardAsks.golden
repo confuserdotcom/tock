@@ -2,7 +2,7 @@ tock · choices   space turn on/off · enter save · q quit
 
 Tracking
   ● Local model labels           labels activity on this machine
-  ● Claude                       suggestions, summaries and tock ask
+  ○ Claude                       opt-in; sends app, site and title snippets to Anthropic
   ○ Screen text                  reads the front window; needs Screen Recording
   ○ Calendar meetings            events from macOS Calendar explain idle time
 

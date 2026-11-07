@@ -115,6 +115,46 @@ func afterSave(env Env, saved map[string]bool) {
 	if saved["slack"] && env.slackToken() == "" {
 		fmt.Fprintln(env.Stdout, "Slack needs a token: run tock slack login")
 	}
+	if saved["claude"] {
+		fmt.Fprint(env.Stdout, claudeSends)
+	}
+}
+
+// claudeSends is said when Claude is turned on: what leaves the machine,
+// to whom, and how to look first.
+const claudeSends = `Claude sends to Anthropic (through the claude CLI or ANTHROPIC_API_KEY):
+  suggestions: app names, sites and title snippets of unlabelled time, with minutes
+  tock summary: the day's work blocks; tock ask: your question and your names
+  never: private windows, hidden apps and sites, the [llm] deny lists, screen text
+  look first: tock suggest --dry-run, tock summary --dry-run, tock ask --dry-run
+  turn off: tock choice claude off
+`
+
+// llmNoticeFile marks that the opt-in notice was shown.
+const llmNoticeFile = "llm-optin-notice"
+
+// llmOptInNotice is said once, to someone whose Claude came on by itself
+// before Claude became opt-in: a backend is there and config.toml does not
+// say either way. "" otherwise, and after the first time.
+func llmOptInNotice(env Env) string {
+	if !env.hasClaude() {
+		return ""
+	}
+	src, err := os.ReadFile(env.configPath())
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return ""
+	}
+	if config.Sets(src, "llm", "enabled") {
+		return ""
+	}
+	marker := filepath.Join(env.StateDir, llmNoticeFile)
+	if _, err := os.Stat(marker); err == nil {
+		return ""
+	}
+	if os.MkdirAll(env.StateDir, 0o700) != nil || os.WriteFile(marker, nil, 0o600) != nil {
+		return "" // no marker, no notice: it would repeat every start
+	}
+	return "Claude suggestions are now off until you turn them on: tock choice claude on"
 }
 
 type choiceState struct {

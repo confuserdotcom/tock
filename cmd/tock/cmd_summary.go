@@ -28,6 +28,10 @@ type AI interface {
 }
 
 // errNoClaude is returned when neither backend is there.
+// claudeOff is what a command says when Claude is not turned on. Having a
+// backend (an API key or the claude CLI) is never consent.
+const claudeOff = "Claude is off until you turn it on: tock choice claude on"
+
 var errNoClaude = errors.New("no Claude: install Claude Code (the claude command) and log in, or set ANTHROPIC_API_KEY")
 
 // hasClaude reports whether a backend is there: an API key, else the
@@ -178,7 +182,7 @@ func cmdSummary(env Env, args []string) error {
 		}
 		printBlocks(env, d)
 		if !a.Config().LLM.Enabled {
-			fmt.Fprintln(env.Stdout, "\nClaude is off, so this is the day's work blocks. tock choice turns Claude on for a written summary.")
+			fmt.Fprintln(env.Stdout, "\nThis is the day's work blocks. For a written summary: "+claudeOff+".")
 		} else {
 			fmt.Fprintf(env.Stdout, "\nThis is the day's work blocks. For a written summary, %s.\n", strings.TrimPrefix(errNoClaude.Error(), "no Claude: "))
 		}

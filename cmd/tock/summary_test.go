@@ -27,6 +27,7 @@ func (f *fakeLLM) Ask(_ context.Context, model string, p []byte) (json.RawMessag
 	return json.RawMessage(f.query), nil
 }
 
+// withLLM sets a key whose client is f; tests turn Claude on with optIn.
 func withLLM(te *tenv, f *fakeLLM) {
 	te.APIKey = "test-key"
 	te.NewLLM = func(key string) LLM { return f }
@@ -41,6 +42,7 @@ func TestBlocksAndSummary(t *testing.T) {
 	}
 	f := &fakeLLM{summary: `{"day":"You spent the morning coding tock and ATLAS, then watched a video.","blocks":[{"id":"b1","summary":"Coding in the terminal"}]}`}
 	withLLM(te, f)
+	optIn(t, te)
 	code, dry := te.run(t, "", "summary", "--dry-run")
 	if code != 0 || f.calls != 0 || !strings.Contains(dry, `"day": "Saturday"`) || strings.Contains(dry, "2026") {
 		t.Fatalf("dry-run = %d %d\n%s", code, f.calls, dry)
@@ -79,6 +81,7 @@ func TestAsk(t *testing.T) {
 	te.seed(t, daySpans()...)
 	f := &fakeLLM{query: `{"range":"today","group_by":"site","category":"Entertainment"}`}
 	withLLM(te, f)
+	optIn(t, te)
 	code, dry := te.run(t, "", "ask", "--dry-run", "how much", "video today?")
 	if code != 0 || f.calls != 0 || !strings.Contains(dry, `"question": "how much video today?"`) || strings.Contains(dry, "youtube") {
 		t.Fatalf("dry = %d\n%s", code, dry)

@@ -158,9 +158,12 @@ func cmdDoctor(env Env, args []string) error {
 		doctorOCR(env, cfg.OCR, h, ok, bad)
 	}
 
-	if env.hasClaude() {
+	switch {
+	case cfgErr != nil || !cfg.LLM.Enabled:
+		ok("suggestions", "off, Claude is opt-in (tock choice claude on)")
+	case env.hasClaude():
 		ok("suggestions", "on via "+env.claudeVia())
-	} else {
+	default:
 		ok("suggestions", "off (install Claude Code and log in, or set ANTHROPIC_API_KEY)")
 	}
 

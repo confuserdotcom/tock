@@ -93,7 +93,7 @@ func TestFeaturesRoundTrip(t *testing.T) {
 // The defaults the list shows come from Default().
 func TestFeaturesDefaults(t *testing.T) {
 	d := Default()
-	for id, want := range map[string]bool{"ocr": false, "break_screen": false, "claude": true, "notify": true} {
+	for id, want := range map[string]bool{"ocr": false, "break_screen": false, "claude": false, "notify": true} {
 		if got := FeatureByID(id).On(d); got != want {
 			t.Errorf("%s default = %v, want %v", id, got, want)
 		}

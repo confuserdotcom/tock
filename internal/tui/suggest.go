@@ -25,6 +25,12 @@ type suggestedMsg struct {
 	err  error
 }
 
+// WithNotice shows s in the footer until the first key, as a flash does.
+func (m Model) WithNotice(s string) Model {
+	m.flash = s
+	return m
+}
+
 // WithSuggester enables background suggestions through c.
 func (m Model) WithSuggester(c suggest.Client) Model {
 	m.suggester = c

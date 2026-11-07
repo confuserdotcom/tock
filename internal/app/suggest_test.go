@@ -16,6 +16,7 @@ import (
 func TestSuggestPrepareSaveAndCache(t *testing.T) {
 	e := apptest.New(t, apptest.Rules)
 	e.Seed(t, apptest.DaySpans()...)
+	e.WriteConfig(t, "[llm]\nenabled = true\n")
 	a := open(t, e)
 
 	p, err := a.SuggestPrepare(false)
@@ -54,6 +55,7 @@ func TestSuggestPrepareSaveAndCache(t *testing.T) {
 func TestSuggestForceAndOff(t *testing.T) {
 	e := apptest.New(t, apptest.Rules)
 	e.Seed(t, apptest.DaySpans()...)
+	e.WriteConfig(t, "[llm]\nenabled = true\n")
 	a := open(t, e)
 	if p, _ := a.SuggestPrepare(false); p.Status != suggest.Ready {
 		t.Fatalf("first = %+v", p)

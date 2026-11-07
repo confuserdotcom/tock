@@ -21,6 +21,21 @@ func SetBool(src []byte, table, key string, v bool) ([]byte, error) {
 	return check(src, b, table, key, func(got any) bool { return got == v })
 }
 
+// Sets reports whether src sets key in [table] itself, whatever its value;
+// a file that does not parse sets nothing.
+func Sets(src []byte, table, key string) bool {
+	var m map[string]any
+	if _, err := toml.Decode(string(src), &m); err != nil {
+		return false
+	}
+	t, ok := m[table].(map[string]any)
+	if !ok {
+		return false
+	}
+	_, ok = t[key]
+	return ok
+}
+
 // SetList is SetBool for a list of strings: the key's value, on one line or
 // several, becomes a one-line array.
 func SetList(src []byte, table, key string, vals []string) ([]byte, error) {

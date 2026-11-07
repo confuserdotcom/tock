@@ -16,7 +16,7 @@ type Feature struct {
 var Features = []Feature{
 	{"model", "Tracking", "Local model labels", "labels activity on this machine", "model", "enabled",
 		func(c Config) bool { return c.Model.Enabled }},
-	{"claude", "Tracking", "Claude", "suggestions, summaries and tock ask", "llm", "enabled",
+	{"claude", "Tracking", "Claude", "opt-in; sends app, site and title snippets to Anthropic", "llm", "enabled",
 		func(c Config) bool { return c.LLM.Enabled }},
 	{"ocr", "Tracking", "Screen text", "reads the front window; needs Screen Recording", "ocr", "enabled",
 		func(c Config) bool { return c.OCR.Enabled }},

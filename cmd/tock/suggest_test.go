@@ -34,9 +34,14 @@ func withClient(te *tenv, fc *fakeClient) {
 	}
 }
 
+// optIn turns Claude on, as tock choice claude on does: a backend alone
+// is not consent.
+func optIn(t *testing.T, te *tenv) { te.writeConfig(t, "[llm]\nenabled = true\n") }
+
 func TestSuggestCommand(t *testing.T) {
 	te := newTestEnv(t, testRules)
 	te.seed(t, daySpans()...)
+	optIn(t, te)
 	fc := &fakeClient{answer: `{"suggestions":[{"id":"k1","category":"Study","project":"tock"}]}`}
 	withClient(te, fc)
 
@@ -72,6 +77,7 @@ func TestSuggestCommand(t *testing.T) {
 func TestSuggestWithoutKeyAndErrors(t *testing.T) {
 	te := newTestEnv(t, testRules)
 	te.seed(t, daySpans()...)
+	optIn(t, te)
 	if code, _ := te.run(t, "", "suggest"); code != 1 || !strings.HasPrefix(te.errb.String(), "tock: no Claude: install Claude Code") {
 		t.Fatalf("no key: code %d err %q", code, te.errb.String())
 	}
@@ -105,6 +111,7 @@ func (f *fakeAI) Ask(context.Context, string, []byte) (json.RawMessage, error) {
 func TestSuggestThroughCLI(t *testing.T) {
 	te := newTestEnv(t, testRules)
 	te.seed(t, daySpans()...)
+	optIn(t, te)
 	fa := &fakeAI{fakeClient{answer: `{"suggestions":[{"id":"k1","category":"Study","project":"tock"}]}`}}
 	te.ClaudeCLI = "/x/claude"
 	te.NewCLI = func(path string) AI {

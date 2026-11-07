@@ -52,7 +52,7 @@ func TestDoctorAllGood(t *testing.T) {
 		t.Fatalf("exit %d:\n%s%s", code, out, te.errb)
 	}
 	for _, want := range []string{"rules: 3 rules, 0 learned", "config: defaults", "trackd: running (version v1)",
-		"accessibility: granted", "suggestions: on", "afk: idle after 5m without input, 3h while a video plays",
+		"accessibility: granted", "suggestions: off, Claude is opt-in", "afk: idle after 5m without input, 3h while a video plays",
 		"backup: no daily snapshot yet"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("output lacks %q:\n%s", want, out)

@@ -44,7 +44,7 @@ func cmdSuggest(env Env, args []string) error {
 	}
 	switch p.Status {
 	case suggest.Off:
-		fmt.Fprintln(env.Stdout, "suggestions are off: [llm] enabled = false in config.toml")
+		fmt.Fprintln(env.Stdout, "suggestions are off. "+claudeOff)
 		return nil
 	case suggest.Nothing:
 		fmt.Fprintln(env.Stdout, "nothing to send")

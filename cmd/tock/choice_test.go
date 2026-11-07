@@ -39,7 +39,7 @@ func TestChoiceList(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit %d: %s", code, te.errb)
 	}
-	for _, want := range []string{"on   ocr           Screen text", "off  break_screen  Break screen", "on   claude        Claude"} {
+	for _, want := range []string{"on   ocr           Screen text", "off  break_screen  Break screen", "off  claude        Claude"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("list lacks %q:\n%s", want, out)
 		}

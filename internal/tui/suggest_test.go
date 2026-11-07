@@ -6,6 +6,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"tock/internal/apptest"
 )
@@ -28,6 +29,7 @@ func withSuggestions(t *testing.T, f *fakeSuggester) (Model, *apptest.Env) {
 	e := apptest.New(t, apptest.Rules)
 	e.Seed(t, apptest.DaySpans()...)
 	e.Heartbeat(t, e.Clock.UnixMilli())
+	e.WriteConfig(t, "[llm]\nenabled = true\n") // Claude is opt-in
 	return newModelWith(t, e, f), e
 }
 
@@ -99,5 +101,23 @@ func TestPickerOffersSuggestion(t *testing.T) {
 	mustContain(t, m, "→ Study / tock")
 	if m.picker != nil {
 		t.Fatal("a quick option must finish the pick")
+	}
+}
+
+// Without [llm] enabled = true the TUI never calls Claude, though a
+// backend is there: an hour of ticks makes no call.
+func TestNoBackgroundSuggestWithoutOptIn(t *testing.T) {
+	e := apptest.New(t, apptest.Rules)
+	e.Seed(t, apptest.DaySpans()...)
+	e.Heartbeat(t, e.Clock.UnixMilli())
+	e.WriteConfig(t, "")
+	f := &fakeSuggester{answer: studyTock}
+	m := newModelWith(t, e, f)
+	for i := 0; i < 70; i++ {
+		e.Clock = e.Clock.Add(time.Minute)
+		m = step(t, m, tickMsg{})
+	}
+	if f.calls != 0 {
+		t.Fatalf("%d Claude calls without opt-in", f.calls)
 	}
 }

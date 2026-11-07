@@ -35,7 +35,7 @@ func cmdAsk(env Env, args []string) error {
 		return nil
 	}
 	if !a.Config().LLM.Enabled {
-		return errors.New("Claude is off: [llm] enabled = false in config.toml")
+		return errors.New(claudeOff)
 	}
 	if !env.hasClaude() {
 		return errNoClaude

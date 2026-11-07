@@ -62,6 +62,9 @@ func cmdTUIOn(env Env, tab string) error {
 	if env.hasClaude() {
 		m = m.WithSuggester(env.suggester())
 	}
+	if n := llmOptInNotice(env); n != "" {
+		m = m.WithNotice(n)
+	}
 	return runProgram(env, m)
 }
 

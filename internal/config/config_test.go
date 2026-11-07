@@ -245,7 +245,7 @@ func TestFocusErrors(t *testing.T) {
 
 func TestLLMDefaults(t *testing.T) {
 	l := Default().LLM
-	if !l.Enabled || l.Model != "claude-haiku-5-5" || l.MinMS != 120_000 ||
+	if l.Enabled || l.Model != "claude-haiku-5-5" || l.MinMS != 120_000 ||
 		len(l.DenyApps) != 13 || len(l.DenyHosts) != 2 || l.DenyTitles != nil {
 		t.Fatalf("defaults = %+v", l)
 	}
@@ -542,5 +542,23 @@ func TestBackup(t *testing.T) {
 	}
 	if _, err := Load(write(t, "[backup]\nevery = 3\n")); err == nil {
 		t.Error("unknown key accepted")
+	}
+}
+
+// Claude is opt-in: no [llm] enabled in the file means off.
+func TestLLMOptIn(t *testing.T) {
+	if DefaultLLM().Enabled {
+		t.Fatal("DefaultLLM().Enabled must be false")
+	}
+	c, err := Parse("config.toml", []byte("[llm]\nmodel = \"x\"\n"))
+	if err != nil || c.LLM.Enabled {
+		t.Fatalf("no enabled key: %v %v", c.LLM.Enabled, err)
+	}
+	c, err = Parse("config.toml", []byte("[llm]\nenabled = true\n"))
+	if err != nil || !c.LLM.Enabled {
+		t.Fatalf("enabled = true: %v %v", c.LLM.Enabled, err)
+	}
+	if !Sets([]byte("[llm]\nenabled = false\n"), "llm", "enabled") || Sets([]byte("[llm]\nmodel = \"x\"\n"), "llm", "enabled") || Sets(nil, "llm", "enabled") {
+		t.Fatal("Sets misreads which keys the file sets")
 	}
 }
