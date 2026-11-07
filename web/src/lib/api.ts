@@ -159,3 +159,13 @@ export type LibGoal = { category: string; project: string; name?: string; text?:
 export type LibDup = { kind: "category" | "project"; a: string; b: string };
 export type Library = { categories: LibCategory[]; projects: LibProject[]; goals: LibGoal[]; lookalikes: LibDup[]; currency: string; nowMS: number };
 export type LibChange = { what: string; undo: boolean };
+
+export type Rule = {
+  file: string; index: number; fingerprint: string; learned: boolean; bundle: string[];
+  app: string; title: string; url: string; dir: string; category: string; project: string; kind: string;
+  matchedMS: number; decidedMS: number; status: "" | "unused" | "shadowed";
+};
+export type Rules = { rules: Rule[]; days: number };
+export type RuleExample = { text: string; ms: number; from: string; to: string };
+export type RulePreview = { matchedMS: number; changedMS: number; examples: RuleExample[] };
+export type InvoicePreview = { project: string; number: string; seconds: number; total: number; currency: string; days: number };

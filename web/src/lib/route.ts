@@ -1,11 +1,11 @@
 // Routing lives in the fragment once the token is gone: #week/2026-11-05,
-// #library/goals.
+// #library/goals, #library/rules.
 import { useEffect, useState } from "react";
 import { isoDate } from "./format";
 
 export const VIEWS = ["today", "week", "trends", "top", "inbox", "library"] as const;
 export type View = (typeof VIEWS)[number];
-export const LIB_SECTIONS = ["projects", "categories", "goals"] as const;
+export const LIB_SECTIONS = ["projects", "categories", "goals", "rules"] as const;
 export type LibSection = (typeof LIB_SECTIONS)[number];
 export type Route = { view: View; date: string; sub: LibSection };
 

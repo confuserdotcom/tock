@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,7 @@ import { HeatGrid } from "@/components/charts/HeatGrid";
 import { Donut, ramp } from "@/components/charts/Donut";
 import { GoalRings } from "@/components/charts/GoalRings";
 import { TimeTable } from "@/components/Tables";
+import { InvoiceDialog } from "@/components/InvoiceDialog";
 import { useApi, type Hours, type Week as WeekT } from "@/lib/api";
 import { dur, parseDate, shortDay, dayTitle, addDays, isoDate } from "@/lib/format";
 import { download } from "@/lib/download";
@@ -85,6 +87,7 @@ const EXPORTS = [
 
 /** Export saves the week as tock report and tock export write it. */
 function Export({ monday }: { monday: string }) {
+  const [inv, setInv] = useState(false);
   const sun = isoDate(addDays(parseDate(monday), 6));
   async function save(e: (typeof EXPORTS)[number]) {
     const path = e.path ? e.path(monday) : `/api/export?from=${monday}&to=${sun}&${e.q}`;
@@ -99,6 +102,7 @@ function Export({ monday }: { monday: string }) {
     }
   }
   return (
+    <>
     <Popover>
       <PopoverTrigger asChild>
         <Button variant="outline" size="sm" className="h-7 px-2.5 text-xs">Export</Button>
@@ -110,7 +114,13 @@ function Export({ monday }: { monday: string }) {
             <span className="text-xs text-muted-foreground">{e.sub}</span>
           </button>
         ))}
+        <button onClick={() => setInv(true)} className="flex w-full flex-col items-start rounded-md px-2.5 py-2 text-left hover:bg-accent">
+          <span className="text-sm">Invoice…</span>
+          <span className="text-xs text-muted-foreground">A PDF for one project at its rate</span>
+        </button>
       </PopoverContent>
     </Popover>
+    <InvoiceDialog open={inv} monday={monday} onClose={() => setInv(false)} />
+    </>
   );
 }
