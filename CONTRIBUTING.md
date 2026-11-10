@@ -46,6 +46,14 @@ TOCK_DEMO_PORT=7788 go test -tags demo -run TestDemo -timeout 0 ./internal/web
 - A user-visible change gets a line under Unreleased in
   [CHANGELOG.md](CHANGELOG.md).
 - A schema change is a new numbered file in `internal/store/migrations`.
+  It must leave an older trackd able to write: new tables, new columns
+  with a `DEFAULT`, new indexes. A newer `tock` migrates while the old
+  trackd keeps running, and that trackd goes on with the tables it knows.
+  `TestMigrationsAreAdditive` fails on `DROP`, `RENAME` and `ADD COLUMN …
+  NOT NULL` without a `DEFAULT`. A change that has to break older writers
+  raises `compat` in `schema_meta` (and `store.CompatLevel`), carries the
+  comment `-- breaks-older-writers`, and says so in CHANGELOG.md; an older
+  trackd then stops and tells the user to update it.
   After each release tag, `scripts/fixture-db.sh vX.Y.Z` writes a database
   with that release's code to `internal/store/testdata/upgrade/`; commit it,
   and `TestUpgradeFixtures` checks every later version still opens it.

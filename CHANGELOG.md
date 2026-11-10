@@ -17,6 +17,15 @@ What changed for you in each release. Dates are UTC.
 - trackd upgrades the database in a short-lived child process, so the
   safety copy taken before an upgrade no longer leaves trackd about 7 MB
   larger until its next restart.
+- **An older trackd keeps running after a newer `tock` updates the
+  database**, as long as the update only adds to it (all of them so far).
+  Before, a trackd restarted after `brew upgrade` but before `tock setup`
+  refused the database and stayed down with no word outside `tock doctor`.
+  When an update does need a newer trackd, trackd stops, and `tock
+  status`, `tock doctor`, the TUI and the menu bar say "trackd is older
+  than the database" with the command that fixes it for your install.
+- Fix hints follow how tock was installed: `tock setup` for Homebrew,
+  opening tock for the .dmg, `make install` from source.
 - **`tock restore` refuses while something else has the database open**
   and names it, for example a `tock web` you started by hand. Before, the
   copy was put back under it and that process went on using the old file.
