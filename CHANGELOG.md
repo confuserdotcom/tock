@@ -17,6 +17,9 @@ What changed for you in each release. Dates are UTC.
 - trackd upgrades the database in a short-lived child process, so the
   safety copy taken before an upgrade no longer leaves trackd about 7 MB
   larger until its next restart.
+- **`tock restore` refuses while something else has the database open**
+  and names it, for example a `tock web` you started by hand. Before, the
+  copy was put back under it and that process went on using the old file.
 
 ### Added
 - **Time trackd did not record is shown, with why**: a crash, a stop,

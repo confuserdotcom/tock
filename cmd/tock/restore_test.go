@@ -1,10 +1,15 @@
 package main
 
 import (
+	"bufio"
+	"crypto/sha256"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"tock/internal/snapshot"
 	"tock/internal/store"
@@ -118,4 +123,64 @@ func TestRestoreLeavesServicesOfOtherDataDirs(t *testing.T) {
 	if len(ran) != 0 {
 		t.Fatalf("ran %v for a data dir trackd doesn't use", ran)
 	}
+}
+
+// TestRestoreRefusesWhileHeld (AC3): another process with the store open
+// makes restore refuse, name that pid, and leave tock.db as it was.
+func TestRestoreRefusesWhileHeld(t *testing.T) {
+	te := newTestEnv(t, "")
+	calls := stubService(t)
+	seededSnapshot(t, te)
+
+	cmd := exec.Command(os.Args[0])
+	cmd.Env = append(os.Environ(), "TOCK_TEST_HOLD_DB="+te.dbPath())
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = stdin.Close(); _ = cmd.Wait() })
+	line, _ := bufio.NewReader(stdout).ReadString('\n')
+	if strings.TrimSpace(line) != "ready" {
+		t.Fatalf("helper: %q", line)
+	}
+
+	waits := 0
+	te.Sleep = func(time.Duration) { waits++ }
+	before := fileHash(t, te.dbPath())
+	code, _ := te.run(t, "", "restore", "1", "--yes")
+	if waits == 0 {
+		t.Fatal("refused without waiting for a holder that may be exiting")
+	}
+	if code == 0 {
+		t.Fatal("restore succeeded while another process held the store")
+	}
+	if pid := strconv.Itoa(cmd.Process.Pid); !strings.Contains(te.errb.String(), "pid "+pid) {
+		t.Fatalf("error does not name pid %s: %s", pid, te.errb)
+	}
+	if fileHash(t, te.dbPath()) != before {
+		t.Fatal("tock.db changed")
+	}
+	if old, _ := filepath.Glob(te.dbPath() + ".before-restore-*"); len(old) != 0 {
+		t.Fatalf("kept a copy though nothing was restored: %v", old)
+	}
+	// Services stopped for the attempt come back.
+	if strings.Join(*calls, ",") != "stop,start" {
+		t.Fatalf("service calls = %v", *calls)
+	}
+}
+
+func fileHash(t *testing.T, p string) [32]byte {
+	t.Helper()
+	b, err := os.ReadFile(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return sha256.Sum256(b)
 }

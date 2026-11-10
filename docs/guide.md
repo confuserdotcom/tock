@@ -1725,10 +1725,12 @@ second one back:
 3. It stops trackd (and the menu bar on a Mac), keeps the current database
    as `tock.db.before-restore-<time>`, puts the copy in its place, and
    starts them again.
+4. If anything else still has the database open, such as a `tock web` or
+   terminal UI you started yourself, it changes nothing, starts trackd
+   again and names what to close: `close these first: tock web (pid 4123)`.
 
 From a `tock backup` archive only the database is restored; your rules and
-config are in the archive, to copy back by hand if you want them. Close
-`tock web` and the terminal UI first: they keep the old database open.
+config are in the archive, to copy back by hand if you want them.
 
 ## Import
 

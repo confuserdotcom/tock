@@ -187,7 +187,23 @@ func cmdRestore(env Env, args []string) error {
 	if err := restoreStop(env); err != nil {
 		return err
 	}
+	// With trackd and the menu bar stopped, nothing else may have the
+	// database open: a tock web or tock tui started by hand would go on
+	// reading or writing the old file after the swap.
+	// The menu bar's tock web can outlive its parent by a moment.
+	release, err := store.Exclusive(env.dbPath())
+	for i := 0; err != nil && i < 6; i++ {
+		env.Sleep(500 * time.Millisecond)
+		release, err = store.Exclusive(env.dbPath())
+	}
+	if err != nil {
+		if startErr := restoreStart(env); startErr != nil {
+			fmt.Fprintln(env.Stderr, startErr)
+		}
+		return fmt.Errorf("restore: %w; nothing changed", err)
+	}
 	swapErr := swapDB(env.dbPath(), tmp, keep)
+	release()
 	startErr := restoreStart(env)
 	if swapErr != nil {
 		return swapErr
