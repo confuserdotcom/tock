@@ -25,7 +25,8 @@ var ErrNotWAL = errors.New("store: journal_mode is not wal")
 
 // Store is a handle on tock.db.
 type Store struct {
-	db *sql.DB
+	db     *sql.DB
+	unlock func()
 }
 
 // Open creates the data dir (0700) and DB file (0600), opens it in WAL mode
@@ -52,6 +53,10 @@ func Open(path string) (*Store, error) {
 		return nil, fmt.Errorf("store: create db file: %w", err)
 	}
 	_ = f.Close()
+	unlock, err := shareLock(path)
+	if err != nil {
+		return nil, err
+	}
 
 	dsn := "file:" + path + "?_txlock=immediate&_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_pragma=synchronous(NORMAL)&_pragma=foreign_keys(on)"
 	if n := cacheKiB.Load(); n > 0 {
@@ -59,26 +64,30 @@ func Open(path string) (*Store, error) {
 	}
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
+		unlock()
 		return nil, err
 	}
 	db.SetMaxOpenConns(1)
 
 	if err := checkPragmas(db); err != nil {
 		_ = db.Close()
+		unlock()
 		return nil, err
 	}
 	if err := migrate(db, preMigration(db, path)); err != nil {
 		_ = db.Close()
+		unlock()
 		return nil, err
 	}
 	// SQLite creates -wal and -shm itself; make sure they are owner-only too.
 	for _, suffix := range []string{"-wal", "-shm"} {
 		if err := os.Chmod(path+suffix, 0o600); err != nil && !errors.Is(err, os.ErrNotExist) {
 			_ = db.Close()
+			unlock()
 			return nil, fmt.Errorf("store: chmod %s: %w", suffix, err)
 		}
 	}
-	return &Store{db: db}, nil
+	return &Store{db: db, unlock: unlock}, nil
 }
 
 // checkPragmas reads back the connection settings the DSN requested and fails
@@ -112,8 +121,14 @@ func (s *Store) SchemaVersion() (int, error) {
 	return currentVersion(s.db)
 }
 
-// Close closes the database.
-func (s *Store) Close() error { return s.db.Close() }
+// Close closes the database and drops its shared lock.
+func (s *Store) Close() error {
+	err := s.db.Close()
+	if s.unlock != nil {
+		s.unlock()
+	}
+	return err
+}
 
 // Apply runs ops in one transaction using parameterized statements only. The
 // first failing op rolls back the whole call; the error names its index and kind.
