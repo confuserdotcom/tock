@@ -17,6 +17,7 @@ import (
 	"tock/internal/config"
 	"tock/internal/plan"
 	"tock/internal/report"
+	"tock/internal/service"
 	"tock/internal/suggest"
 )
 
@@ -648,12 +649,18 @@ func (m Model) trackdText() string {
 	return sAccent.Render("● trackd down")
 }
 
+// reinstallHint is how to replace trackd with the newer one, for how tock
+// was installed. Tests pin it.
+var reinstallHint = func() string { return service.Installed().Reinstall(app.HostOS == "linux") }
+
 // banner is the most important problem, or "".
 func (m Model) banner() string {
 	h := m.health
 	switch {
 	case m.healthErr != nil:
 		return "cannot read trackd state: " + m.healthErr.Error()
+	case h.TooOld():
+		return app.TooOldText + "; update it: " + reinstallHint()
 	case !h.TrackdUp:
 		return "trackd is not running — showing history. Restart: launchctl kickstart -k gui/$UID/com.tock.trackd"
 	case h.Paused():

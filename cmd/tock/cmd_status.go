@@ -1,6 +1,10 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+
+	"tock/internal/app"
+)
 
 // cmdStatus prints one line for a status bar.
 func cmdStatus(env Env, args []string) error {
@@ -17,5 +21,9 @@ func cmdStatus(env Env, args []string) error {
 		return err
 	}
 	fmt.Fprintln(env.Stdout, line)
+	// The status line stays one line for prompts; the fix goes to stderr.
+	if h, err := a.Health(); err == nil && h.TooOld() {
+		fmt.Fprintf(env.Stderr, "%s; update it: %s\n", app.TooOldText, installMethod().Reinstall(env.Linux))
+	}
 	return nil
 }

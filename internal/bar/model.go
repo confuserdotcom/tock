@@ -99,6 +99,7 @@ type Snapshot struct {
 	UnlabelledMS int64
 	TrackdUp     bool
 	Paused       bool           // trackd is up but records nothing: config.toml does not load
+	TooOld       bool           // trackd stopped: the database needs a newer one
 	Session      *focus.Session // the running session, or nil
 	Live         focus.Live     // its focus level; Level -1 when unknown
 	SnoozeUntil  time.Time      // distraction notices are snoozed until then; zero = not snoozed
@@ -165,6 +166,7 @@ func Load(a *app.App, now time.Time, access string) (Snapshot, error) {
 	}
 	s.TrackdUp = h.TrackdUp
 	s.Paused = h.Paused()
+	s.TooOld = h.TooOld()
 	s.AXDenied = h.AXTrusted != nil && !*h.AXTrusted
 	d, err := a.Day(now)
 	if err != nil {
@@ -315,7 +317,9 @@ func (s Snapshot) header(nowMS int64) []Item {
 			out = append(out, label("Notices snoozed until %s", s.SnoozeUntil.Format("15:04")))
 		}
 	}
-	if !s.TrackdUp {
+	if s.TooOld {
+		out = append(out, label("trackd is older than the database (tock doctor)"))
+	} else if !s.TrackdUp {
 		out = append(out, label("trackd is not running"))
 	} else if s.Paused {
 		out = append(out, label("Not recording: config.toml has an error (tock doctor)"))

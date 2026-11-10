@@ -379,3 +379,13 @@ func TestDoctorFixFollowsInstallMethod(t *testing.T) {
 		}
 	}
 }
+
+func TestDoctorTrackdTooOld(t *testing.T) {
+	te, _ := doctorEnv(t, testRules)
+	te.seed(t, daySpans()...)
+	setStates(t, te, map[string]string{store.KeyTrackdStopped: store.StoppedSchemaNewer, store.KeyVersion: "v1"})
+	code, out := te.run(t, "", "doctor")
+	if code != 1 || !strings.Contains(out, "!!  trackd: trackd is older than the database (a newer tock updated it) — make install") {
+		t.Fatalf("exit %d:\n%s", code, out)
+	}
+}

@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"testing"
 
+	"tock/internal/service"
 	"tock/internal/store"
 )
 
@@ -34,5 +35,23 @@ func TestStatusNeedsData(t *testing.T) {
 	te := newTestEnv(t, testRules)
 	if code, _ := te.run(t, "", "status"); code != 1 || te.errb.String() != "tock: no data yet: is trackd running? (tock doctor says how to start it)\n" {
 		t.Fatalf("no db: code %d err %q", code, te.errb.String())
+	}
+}
+
+// AC7: trackd stopped because a newer tock raised compat; status says so
+// and prints the fix for this install on stderr, keeping stdout one line.
+func TestStatusTrackdTooOld(t *testing.T) {
+	te := newTestEnv(t, testRules)
+	te.seed(t, daySpans()...)
+	setStates(t, te, map[string]string{store.KeyTrackdStopped: store.StoppedSchemaNewer})
+	old := installMethod
+	installMethod = func() service.Method { return service.Brew }
+	t.Cleanup(func() { installMethod = old })
+	code, out := te.run(t, "", "status")
+	if code != 0 || out != "old! trackd down · 2h54\n" {
+		t.Fatalf("code %d out %q", code, out)
+	}
+	if got := te.errb.String(); got != "trackd is older than the database; update it: tock setup\n" {
+		t.Fatalf("stderr %q", got)
 	}
 }

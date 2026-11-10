@@ -54,7 +54,18 @@ type Health struct {
 	// CapturePaused is the config.toml error that paused trackd's
 	// recording; "" while it records (see Paused).
 	CapturePaused string
+	// TrackdStopped is why trackd stopped and stays down
+	// (store.StoppedSchemaNewer), "" otherwise. See TooOld.
+	TrackdStopped string
 }
+
+// TooOldText says what TooOld means, for every surface.
+const TooOldText = "trackd is older than the database"
+
+// TooOld says trackd is down because a newer tock raised the database's
+// compat level: restarting the same trackd would not help, replacing it
+// with the newer one does.
+func (h Health) TooOld() bool { return !h.TrackdUp && h.TrackdStopped == store.StoppedSchemaNewer }
 
 // Paused says trackd is running but records nothing, because its
 // config.toml does not load. A pause left behind by a trackd that is down
@@ -101,6 +112,7 @@ func ReadHealth(st *store.Store, nowMS int64) (Health, error) {
 	h.IntegrityMS, _ = strconv.ParseInt(states[store.KeyIntegrityAt], 10, 64)
 	h.IntegrityOK = states[store.KeyIntegrityOK]
 	h.CapturePaused = states[store.KeyCapturePaused]
+	h.TrackdStopped = states[store.KeyTrackdStopped]
 	for k, v := range states {
 		id, ok := strings.CutPrefix(k, store.AutomationKey(""))
 		if !ok || v != "denied" {
@@ -147,6 +159,9 @@ func (a *App) Status() (string, error) {
 	}
 	if h.Paused() {
 		line = "paused! " + line
+	}
+	if h.TooOld() {
+		line = "old! " + line
 	}
 	return line, nil
 }

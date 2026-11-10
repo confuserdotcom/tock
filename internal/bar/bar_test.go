@@ -215,6 +215,22 @@ func TestSnapshotCapturePaused(t *testing.T) {
 	}
 }
 
+// trackd stopped for a database that needs a newer trackd: the menu says
+// that, not just "not running".
+func TestSnapshotTrackdTooOld(t *testing.T) {
+	e, a := seeded(t)
+	e.State(t, store.KeyTrackdStopped, store.StoppedSchemaNewer)
+	e.Clock = e.Clock.Add(time.Minute) // the heartbeat goes stale: trackd is down
+	s, err := Load(a, e.Clock, app.NotifyGranted)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := titles(s.Items(e.Clock.UnixMilli()))
+	if !s.TooOld || !strings.Contains(got, "trackd is older than the database (tock doctor)\n") || strings.Contains(got, "not running") {
+		t.Fatalf("too old %v, menu:\n%s", s.TooOld, got)
+	}
+}
+
 func TestLoadAccessibility(t *testing.T) {
 	e, a := seeded(t)
 	for _, c := range []struct {

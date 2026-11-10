@@ -97,6 +97,8 @@ func cmdDoctor(env Env, args []string) error {
 		bad("trackd", "no database yet", installMethod().Reinstall(env.Linux))
 	case err != nil:
 		bad("trackd", err.Error(), installMethod().Reinstall(env.Linux))
+	case h.TooOld():
+		bad("trackd", app.TooOldText+" (a newer tock updated it)", installMethod().Reinstall(env.Linux))
 	case !h.TrackdUp && env.Linux:
 		bad("trackd", "not running", "systemctl --user restart trackd")
 	case !h.TrackdUp:

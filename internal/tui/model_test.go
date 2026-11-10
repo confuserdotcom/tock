@@ -34,6 +34,9 @@ func TestBannerPriority(t *testing.T) {
 	e.Clock = e.Clock.Add(31e9)
 	m = step(t, m, tickMsg{})
 	mustContain(t, m, "trackd is not running — showing history", "trackd down")
+	e.State(t, store.KeyTrackdStopped, store.StoppedSchemaNewer)
+	m = step(t, m, tickMsg{})
+	mustContain(t, m, "trackd is older than the database; update it: "+reinstallHint())
 }
 
 func TestTabsHelpAndQuit(t *testing.T) {
