@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -387,5 +388,42 @@ func TestDoctorTrackdTooOld(t *testing.T) {
 	code, out := te.run(t, "", "doctor")
 	if code != 1 || !strings.Contains(out, "!!  trackd: trackd is older than the database (a newer tock updated it) — make install") {
 		t.Fatalf("exit %d:\n%s", code, out)
+	}
+}
+
+// AC6: doctor --json is JSON, every check has ok and fix, and the
+// versions and counters are there.
+func TestDoctorJSON(t *testing.T) {
+	te, _ := doctorEnv(t, testRules)
+	te.seed(t, daySpans()...)
+	setStates(t, te, map[string]string{store.KeyHeartbeat: nowMS(), store.KeyAXTrusted: "1",
+		store.KeyVersion: "v1", store.KeyApplyFailed: "3"})
+	code, out := te.run(t, "", "doctor", "--json")
+	var r struct {
+		Version, Install string
+		Schema           int `json:"schema_version"`
+		Compat           int
+		Counters         map[string]any
+		Checks           []map[string]any
+	}
+	if err := json.Unmarshal([]byte(out), &r); err != nil {
+		t.Fatalf("exit %d, not JSON: %v\n%s", code, err, out)
+	}
+	if r.Schema != store.LatestVersion() || r.Compat != store.CompatLevel || r.Install != "source" {
+		t.Fatalf("report %+v", r)
+	}
+	if r.Counters["apply_failed_total"] != float64(3) {
+		t.Fatalf("counters %v", r.Counters)
+	}
+	if len(r.Checks) < 5 {
+		t.Fatalf("checks %v", r.Checks)
+	}
+	for _, c := range r.Checks {
+		if _, ok := c["ok"]; !ok {
+			t.Fatalf("check without ok: %v", c)
+		}
+		if _, ok := c["fix"]; !ok {
+			t.Fatalf("check without fix: %v", c)
+		}
 	}
 }

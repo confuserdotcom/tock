@@ -41,6 +41,7 @@ func cmdDoctor(env Env, args []string) error {
 	wait := fs.Bool("wait", false, "wait up to 15 s for trackd to report")
 	openPanes := fs.Bool("open", false, "open System Settings for missing permissions")
 	deep := fs.Bool("deep", false, "also run a full integrity check of tock.db")
+	asJSON := fs.Bool("json", false, "print the checks and versions as JSON")
 	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
@@ -48,10 +49,19 @@ func cmdDoctor(env Env, args []string) error {
 		return usagef("doctor takes only flags")
 	}
 	problems := 0
-	ok := func(name, detail string) { fmt.Fprintf(env.Stdout, "ok  %s: %s\n", name, detail) }
+	var checks []doctorCheck
+	ok := func(name, detail string) {
+		checks = append(checks, doctorCheck{Name: name, OK: true, Detail: detail})
+		if !*asJSON {
+			fmt.Fprintf(env.Stdout, "ok  %s: %s\n", name, detail)
+		}
+	}
 	bad := func(name, detail, fix string) {
 		problems++
-		fmt.Fprintf(env.Stdout, "!!  %s: %s — %s\n", name, detail, fix)
+		checks = append(checks, doctorCheck{Name: name, Detail: detail, Fix: fix})
+		if !*asJSON {
+			fmt.Fprintf(env.Stdout, "!!  %s: %s — %s\n", name, detail, fix)
+		}
 	}
 	open := func(url string) {
 		if *openPanes && env.Open != nil {
@@ -172,6 +182,11 @@ func cmdDoctor(env Env, args []string) error {
 		ok("suggestions", "off (install Claude Code and log in, or set ANTHROPIC_API_KEY)")
 	}
 
+	if *asJSON {
+		if err := writeDoctorJSON(env, checks); err != nil {
+			return err
+		}
+	}
 	if problems > 0 {
 		if problems == 1 {
 			return errors.New("doctor: 1 problem")
