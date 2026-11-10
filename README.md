@@ -79,7 +79,7 @@ relabel before you save.
 
 - `trackd`, a small daemon, records the app and window in front and the
   browser URL, and notices when you are away. It has no network code. It
-  uses under 1 % CPU and about 36 MB of memory.
+  uses about 1 to 1.5 % CPU when idle and about 36 MB of memory.
 - `rules.toml` maps apps, titles and sites to categories and projects. A
   rule applies to past days as well as new ones.
 - Time no rule covers goes to an inbox. Labelling an entry there also writes
@@ -114,7 +114,9 @@ summaries. See [the guide](docs/guide.md).
   summaries and Slack status. All three are off by default. `--dry-run`
   prints exactly what would be sent.
 
-The full list is in [Privacy in detail](docs/guide.md#privacy-in-detail).
+The full list is in [Privacy in detail](docs/guide.md#privacy-in-detail);
+[docs/privacy.md](docs/privacy.md) says what is recorded and what can leave
+your machine.
 
 ## Install
 
@@ -172,7 +174,8 @@ the same `brew install` and `tock setup` as on macOS. Without Go, download
 against `SHA256SUMS`, and run:
 
 ```sh
-tar xzf tock-v5.2.0-linux-amd64.tar.gz && cd tock-v5.2.0-linux-amd64
+v=v5.3.0   # the version you downloaded
+tar xzf tock-$v-linux-amd64.tar.gz && cd tock-$v-linux-amd64
 install -m 755 trackd tock ~/.local/bin/ && ~/.local/bin/trackd install && tock init
 ```
 

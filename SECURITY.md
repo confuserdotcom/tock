@@ -16,10 +16,26 @@ attacker can read or change, and steps to reproduce.
 
 - Activity leaving the machine when it shouldn't: from trackd or tockbar at
   all, or from `tock` beyond the Claude and Slack features you turned on.
+  trackd has no network code, but it runs `tock slack` at the start and
+  end of a focus session when Slack is on; that child is in scope too.
+  [docs/privacy.md](docs/privacy.md) lists what each feature sends.
 - The dashboard on 127.0.0.1: other pages or local users reading it without
   the per-run token, or the page loading anything from the internet.
 - File permissions on the database, backups and sync files.
-- Private-window and hidden-app titles or URLs being stored.
+- Private-window and hidden-app titles or URLs being stored, or recorded
+  while `config.toml` does not load.
+- Screen text (OCR) or calendar events leaving the machine, or OCR reading
+  an app you did not list.
+- Linux updates through the sync folder: a build installed without a valid
+  signature from your Mac.
+
+## Out of scope
+
+- Someone who can already write to your sync folder reading your activity
+  in it: the folder holds your spans by design. Pick a sync tool and
+  sharing settings you trust.
+- Someone with your user account on the machine: they can read tock.db
+  like any of your files.
 
 ## Supported versions
 
