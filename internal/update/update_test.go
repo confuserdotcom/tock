@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"syscall"
@@ -189,7 +190,24 @@ func TestVerifyRejects(t *testing.T) {
 	}
 }
 
-func TestPin(t *testing.T) {
+// (a) No key is ever taken from the sync folder by itself.
+func TestPinnedNeverTrustsOnFirstUse(t *testing.T) {
+	d := t.TempDir()
+	pinned, offered := filepath.Join(d, "cfg", "update.pub"), filepath.Join(d, "update.pub")
+	k := newKey(t)
+	if err := os.WriteFile(offered, EncodePub(k.Public().(ed25519.PublicKey)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Pinned(pinned, offered); !errors.Is(err, ErrNoTrustedKey) {
+		t.Fatalf("err = %v; want ErrNoTrustedKey", err)
+	}
+	if _, err := os.Stat(pinned); !os.IsNotExist(err) {
+		t.Fatal("a key was pinned from the sync folder")
+	}
+}
+
+// (b) Trust pins only the key with the given fingerprint.
+func TestTrust(t *testing.T) {
 	d := t.TempDir()
 	pinned, offered := filepath.Join(d, "cfg", "update.pub"), filepath.Join(d, "update.pub")
 	k1, k2 := newKey(t), newKey(t)
@@ -197,40 +215,46 @@ func TestPin(t *testing.T) {
 	if err := os.WriteFile(offered, EncodePub(p1), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	got, err := Pin(pinned, offered)
-	if err != nil || !got.Equal(p1) {
-		t.Fatalf("first use: %v %v", got, err)
+	for _, fp := range []string{Fingerprint(p2), "", "abc", Fingerprint(p1)[:63]} {
+		if _, err := Trust(pinned, offered, fp); !errors.Is(err, ErrFingerprint) {
+			t.Fatalf("fp %q: err = %v; want ErrFingerprint", fp, err)
+		}
 	}
-	if read(t, pinned) != string(EncodePub(p1)) {
-		t.Fatal("key not pinned")
+	if _, err := os.Stat(pinned); !os.IsNotExist(err) {
+		t.Fatal("pinned with a wrong fingerprint")
 	}
-	if got, err = Pin(pinned, offered); err != nil || !got.Equal(p1) {
-		t.Fatalf("same key: %v %v", got, err)
+	// Typed with capitals and colons, it still matches.
+	fp := strings.ToUpper(Fingerprint(p1)[:2]) + ":" + Fingerprint(p1)[2:]
+	if got, err := Trust(pinned, offered, fp); err != nil || !got.Equal(p1) {
+		t.Fatalf("right fingerprint: %v %v", got, err)
 	}
-	if err := os.Remove(offered); err != nil {
-		t.Fatal(err)
+	if got, err := Pinned(pinned, offered); err != nil || !got.Equal(p1) {
+		t.Fatalf("Pinned after Trust: %v %v", got, err)
 	}
-	if got, err = Pin(pinned, offered); err != nil || !got.Equal(p1) {
-		t.Fatalf("offered missing: %v %v", got, err)
-	}
+	// A different key in the sync folder is refused, and pinned stays.
 	if err := os.WriteFile(offered, EncodePub(p2), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = Pin(pinned, offered); !errors.Is(err, ErrKeyChanged) {
+	if _, err := Pinned(pinned, offered); !errors.Is(err, ErrKeyChanged) {
 		t.Fatalf("err = %v; want ErrKeyChanged", err)
 	}
 	if read(t, pinned) != string(EncodePub(p1)) {
 		t.Fatal("pinned key changed")
 	}
+	// The offered key missing is fine: the pinned one is what counts.
+	os.Remove(offered)
+	if got, err := Pinned(pinned, offered); err != nil || !got.Equal(p1) {
+		t.Fatalf("offered missing: %v %v", got, err)
+	}
 }
 
-func TestPinNeedsAKey(t *testing.T) {
+func TestTrustNeedsAKey(t *testing.T) {
 	d := t.TempDir()
-	if _, err := Pin(filepath.Join(d, "p"), filepath.Join(d, "o")); err == nil {
+	if _, err := Trust(filepath.Join(d, "p"), filepath.Join(d, "o"), strings.Repeat("a", 64)); err == nil {
 		t.Fatal("pinned nothing from nothing")
 	}
 	os.WriteFile(filepath.Join(d, "o"), []byte("junk\n"), 0o644)
-	if _, err := Pin(filepath.Join(d, "p"), filepath.Join(d, "o")); err == nil {
+	if _, err := Trust(filepath.Join(d, "p"), filepath.Join(d, "o"), strings.Repeat("a", 64)); err == nil {
 		t.Fatal("pinned a junk key")
 	}
 	if _, err := os.Stat(filepath.Join(d, "p")); err == nil {
@@ -244,6 +268,9 @@ func published(t *testing.T, v string, at time.Time) (bin, pinned string, key ed
 	t.Helper()
 	bin, pinned, key = filepath.Join(t.TempDir(), "bin"), filepath.Join(t.TempDir(), "update.pub"), newKey(t)
 	if err := Publish(bin, "amd64", src(t, "TRACKD-"+v, "TOCK-"+v), v, at, key); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Trust(pinned, filepath.Join(bin, PubFile), Fingerprint(key.Public().(ed25519.PublicKey))); err != nil {
 		t.Fatal(err)
 	}
 	return bin, pinned, key
@@ -444,13 +471,105 @@ func TestPublishedSkipsBadManifests(t *testing.T) {
 }
 
 func TestBootstrapCommand(t *testing.T) {
-	got := BootstrapCommand("/home/a/Sync/tock", "/home/a", "amd64")
-	want := "bash -c 'mkdir -p ~/.local/bin && cd ~/.local/bin && for f in trackd tock; do cp ~/Sync/tock/bin/linux-amd64/$f $f.new && chmod 755 $f.new && mv -f $f.new $f || exit 1; done && ./trackd install'"
-	if got != want {
-		t.Fatalf("got  %s\nwant %s", got, want)
+	m := Manifest{Files: map[string]string{"trackd": sum("T"), "tock": sum("K")}}
+	got := BootstrapCommand("/home/a/Sync/tock", "/home/a", "amd64", m, "ff00")
+	for _, want := range []string{"cp ~/Sync/tock/bin/linux-amd64/trackd trackd.new", sum("T") + " trackd.new", sum("K") + " tock.new",
+		"sha256sum -c", "./tock update trust ff00", "./trackd install"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("lacks %q:\n%s", want, got)
+		}
 	}
-	if got := BootstrapCommand("/mnt/s", "/home/a", "arm64"); !strings.Contains(got, "/mnt/s/bin/linux-arm64/$f") {
+	if got := BootstrapCommand("/mnt/s", "/home/a", "arm64", m, "ff00"); !strings.Contains(got, "/mnt/s/bin/linux-arm64/trackd") {
 		t.Fatalf("got %s", got)
+	}
+}
+
+// (e) The printed command installs nothing when a binary in the sync
+// folder was altered, and installs both when they match.
+func TestBootstrapCommandRuns(t *testing.T) {
+	if _, err := exec.LookPath("sha256sum"); err != nil {
+		t.Skip("no sha256sum")
+	}
+	home := t.TempDir()
+	syncDir := filepath.Join(home, "Sync")
+	key := newKey(t)
+	trackd := "#!/bin/sh\necho trackd \"$@\" >> \"$HOME/ran\"\n"
+	tock := "#!/bin/sh\necho tock \"$@\" >> \"$HOME/ran\"\n"
+	if err := Publish(filepath.Join(syncDir, BinDir), "amd64", src(t, trackd, tock), "v2", t0, key); err != nil {
+		t.Fatal(err)
+	}
+	cmd, err := Bootstrap(syncDir, home, "amd64", key.Public().(ed25519.PublicKey))
+	if err != nil {
+		t.Fatal(err)
+	}
+	run := func() error {
+		c := exec.Command("sh", "-c", cmd)
+		c.Env = append(os.Environ(), "HOME="+home)
+		out, err := c.CombinedOutput()
+		if err != nil {
+			t.Logf("%s", out)
+		}
+		return err
+	}
+	bin := filepath.Join(syncDir, BinDir, "linux-amd64", "trackd")
+	if err := os.WriteFile(bin, []byte("#!/bin/sh\necho evil\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if run() == nil {
+		t.Fatal("altered build: command succeeded")
+	}
+	for _, n := range []string{"trackd", "tock", "trackd.new", "tock.new"} {
+		if _, err := os.Stat(filepath.Join(home, ".local", "bin", n)); err == nil {
+			t.Fatalf("altered build: %s left in ~/.local/bin", n)
+		}
+	}
+	if err := os.WriteFile(bin, []byte(trackd), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := run(); err != nil {
+		t.Fatalf("matching build: %v", err)
+	}
+	ran := read(t, filepath.Join(home, "ran"))
+	if !strings.Contains(ran, "tock update trust "+Fingerprint(key.Public().(ed25519.PublicKey))) || !strings.Contains(ran, "trackd install") {
+		t.Fatalf("ran:\n%s", ran)
+	}
+}
+
+// Bootstrap refuses a manifest the Mac's key did not sign.
+func TestBootstrapChecksTheManifest(t *testing.T) {
+	syncDir := t.TempDir()
+	key, other := newKey(t), newKey(t)
+	if err := Publish(filepath.Join(syncDir, BinDir), "amd64", src(t, "a", "b"), "v2", t0, other); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Bootstrap(syncDir, "", "amd64", key.Public().(ed25519.PublicKey)); err == nil {
+		t.Fatal("printed a command for a manifest signed by another key")
+	}
+}
+
+// (c) A rename that fails part way puts every binary back as it was.
+func TestApplyRollsBackAFailedRename(t *testing.T) {
+	p, _ := plan(t, "v2")
+	dir := installed(t)
+	old := rename
+	t.Cleanup(func() { rename = old })
+	rename = func(from, to string) error {
+		if to == filepath.Join(dir, Names[1]) && strings.HasSuffix(from, ".new") {
+			return errors.New("injected")
+		}
+		return os.Rename(from, to)
+	}
+	if err := Apply(p, dir, func() error { return nil }); err == nil || !strings.Contains(err.Error(), "injected") {
+		t.Fatalf("err = %v", err)
+	}
+	if read(t, filepath.Join(dir, "trackd")) != "OLD-TRACKD" || read(t, filepath.Join(dir, "tock")) != "OLD-TOCK" {
+		t.Fatal("binaries not put back")
+	}
+	ents, _ := os.ReadDir(dir)
+	for _, e := range ents {
+		if strings.HasSuffix(e.Name(), ".new") || strings.HasSuffix(e.Name(), ".old") {
+			t.Fatalf("left %s behind", e.Name())
+		}
 	}
 }
 

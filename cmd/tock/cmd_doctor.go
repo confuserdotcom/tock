@@ -379,8 +379,8 @@ func doctorUpdates(env Env, s config.Sync, ok func(name, detail string), bad fun
 			e, _, _ = st.State(update.KeyError)
 		}
 		switch {
-		case s.NoUpdate:
-			ok("updates", "off ([sync] update = false)")
+		case !s.Update:
+			ok("updates", "off (to take the Mac's builds: tock update trust <fingerprint>, then [sync] update = true)")
 		case e != "":
 			bad("updates", e, "see ~/.local/state/tock/trackd.log and README › Updates")
 		case published:
@@ -397,7 +397,6 @@ func doctorUpdates(env Env, s config.Sync, ok func(name, detail string), bad fun
 	if err != nil {
 		return
 	}
-	home, _ := os.UserHomeDir()
 	for _, m := range ms {
 		if hid, _, _ := st.State(app.RemoteHIDKey(m.Name)); hid == "1" {
 			continue // only Linux machines take published builds
@@ -424,7 +423,7 @@ func doctorUpdates(env Env, s config.Sync, ok func(name, detail string), bad fun
 			ok("updates", fmt.Sprintf("%s runs %s; %s published %s ago, not taken yet%s", m.Name, runs, pub.Version, classify.FormatDur(age), says))
 		case v == "":
 			bad("updates", fmt.Sprintf("%s runs %s, but %s was published %s ago%s", m.Name, runs, pub.Version, classify.FormatDur(age), says),
-				"run once on "+m.Name+": "+update.BootstrapCommand(s.Dir, home, "amd64"))
+				"on this Mac run make bootstrap-hint, then run what it prints on "+m.Name)
 		default:
 			bad("updates", fmt.Sprintf("%s runs %s, but %s was published %s ago%s", m.Name, runs, pub.Version, classify.FormatDur(age), says),
 				"on "+m.Name+": check that Syncthing syncs "+filepath.Join(s.Dir, update.BinDir)+", then see ~/.local/state/tock/trackd.log")

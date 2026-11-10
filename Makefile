@@ -282,7 +282,7 @@ publish-linux:
 
 # bootstrap-hint: print the one-time command for a Linux machine.
 bootstrap-hint:
-	@go run ./cmd/tockpub -hint $(if $(SYNC_DIR),-sync "$(SYNC_DIR)")
+	@go run ./cmd/tockpub -hint $(if $(SYNC_DIR),-sync "$(SYNC_DIR)") $(if $(ARCH),-arch $(ARCH))
 
 # update-here: install on this Mac and publish for Linux, from this tree.
 # Neither failure stops the other, but the run fails, so it is tried again.

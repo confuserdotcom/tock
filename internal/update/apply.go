@@ -59,7 +59,7 @@ func Check(binDir, arch, pinned string, run Running, applied string) (Plan, bool
 	if head.Version == run.Version {
 		return Plan{}, false, nil
 	}
-	pub, err := Pin(pinned, filepath.Join(binDir, PubFile))
+	pub, err := Pinned(pinned, filepath.Join(binDir, PubFile))
 	if err != nil {
 		return Plan{}, false, err
 	}
@@ -82,10 +82,14 @@ func Check(binDir, arch, pinned string, run Running, applied string) (Plan, bool
 	return p, true, nil
 }
 
+// rename is os.Rename; tests make it fail.
+var rename = os.Rename
+
 // Apply installs the files of p into binDir. Each is copied to name.new and
 // hashed as it is written, so the bytes that are renamed are the ones that
 // were checked. mark runs once, after every copy is staged and before the
-// first rename. Any error leaves binDir as it was.
+// first rename. Each installed file is kept as name.old until every file is
+// in place, so any error, a failed rename included, leaves binDir as it was.
 func Apply(p Plan, binDir string, mark func() error) error {
 	var staged []string
 	cleanup := func() {
@@ -105,11 +109,34 @@ func Apply(p Plan, binDir string, mark func() error) error {
 		cleanup()
 		return fmt.Errorf("update: record: %w", err)
 	}
+	var kept []string // files moved to .old, to put back on failure
+	var placed []string
+	rollback := func() {
+		for _, dst := range placed {
+			os.Remove(dst)
+		}
+		for _, dst := range kept {
+			_ = rename(dst+".old", dst)
+		}
+		cleanup()
+	}
 	for i, name := range Names {
-		if err := os.Rename(staged[i], filepath.Join(binDir, name)); err != nil {
-			cleanup()
+		dst := filepath.Join(binDir, name)
+		if _, err := os.Lstat(dst); err == nil {
+			if err := rename(dst, dst+".old"); err != nil {
+				rollback()
+				return fmt.Errorf("update: keep %s: %w", name, err)
+			}
+			kept = append(kept, dst)
+		}
+		if err := rename(staged[i], dst); err != nil {
+			rollback()
 			return fmt.Errorf("update: install %s: %w", name, err)
 		}
+		placed = append(placed, dst)
+	}
+	for _, dst := range kept {
+		os.Remove(dst + ".old")
 	}
 	return nil
 }

@@ -90,6 +90,7 @@ Setup and data:
                                          --deep: a full check of the database
   tock bug-report [-o FILE] [--include-rules]
                                          a file to attach to an issue, without titles or URLs
+  tock update [trust <fingerprint>]      Linux: the key trusted for the Mac's builds; trust one
   tock version                           the version of this build
   tock choice [<feature> on|off]         turn features on and off (screen text, wake screen, Slack…),
                                          open the dashboard; piped: each feature and whether it is on
@@ -288,6 +289,7 @@ var commands = map[string]func(Env, []string) error{
 	"import":     cmdImport,
 	"uninstall":  cmdUninstall,
 	"setup":      cmdSetup,
+	"update":     cmdUpdate,
 }
 
 // run executes one command and returns the exit code: 0 ok, 1 error, 2 usage.

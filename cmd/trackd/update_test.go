@@ -31,6 +31,7 @@ type updFix struct {
 	logb     *bytes.Buffer
 	restarts int
 	arch     string
+	noTrust  bool // publish leaves the key unpinned
 	newLoop  func() *updateLoop
 }
 
@@ -50,7 +51,7 @@ func newUpdFix(t *testing.T, cfg string) *updFix {
 		}
 	}
 	if cfg == "" {
-		cfg = "[sync]\ndir = \"SYNC\"\n"
+		cfg = "[sync]\ndir = \"SYNC\"\nupdate = true\n"
 	}
 	cfg = strings.ReplaceAll(cfg, "SYNC", filepath.Join(dir, "sync"))
 	if err := os.WriteFile(f.cfgPath, []byte(cfg), 0o600); err != nil {
@@ -84,6 +85,18 @@ func (f *updFix) publish(v, trackd string) {
 	os.WriteFile(filepath.Join(src, "trackd"), []byte(trackd), 0o755)
 	os.WriteFile(filepath.Join(src, "tock"), []byte("TOCK-"+v), 0o755)
 	if err := update.Publish(f.syncBin, f.arch, src, v, updBuilt, f.key); err != nil {
+		f.t.Fatal(err)
+	}
+	if !f.noTrust {
+		f.trust()
+	}
+}
+
+// trust pins the fixture's key the way tock update trust does.
+func (f *updFix) trust() {
+	f.t.Helper()
+	fp := update.Fingerprint(f.key.Public().(ed25519.PublicKey))
+	if _, err := update.Trust(f.pinned, filepath.Join(f.syncBin, update.PubFile), fp); err != nil {
 		f.t.Fatal(err)
 	}
 }
@@ -147,6 +160,7 @@ func TestUpdateLoopNeverAppliesTheSameManifestTwice(t *testing.T) {
 func TestUpdateLoopOff(t *testing.T) {
 	for name, cfg := range map[string]string{
 		"update = false": "[sync]\ndir = \"SYNC\"\nupdate = false\n",
+		"update not set": "[sync]\ndir = \"SYNC\"\n", // (d) opt-in, even with a pinned key
 		"no sync dir":    "# nothing\n",
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -160,6 +174,24 @@ func TestUpdateLoopOff(t *testing.T) {
 				t.Fatalf("state = %v, %v; want none", m, err)
 			}
 		})
+	}
+}
+
+// (a) A key and a signed build in the sync folder are not enough: with no
+// key pinned on this machine, nothing is installed.
+func TestUpdateLoopNoTrustedKey(t *testing.T) {
+	f := newUpdFix(t, "")
+	f.noTrust = true
+	f.publish("v2", "TRACKD-v2")
+	f.newLoop().tick()
+	if f.restarts != 0 || f.body("trackd") != "OLD-TRACKD" || f.body("tock") != "OLD-TOCK" {
+		t.Fatal("installed without a trusted key")
+	}
+	if !strings.Contains(f.logb.String(), "no trusted key") {
+		t.Fatalf("log lacks no trusted key:\n%s", f.logb.String())
+	}
+	if _, err := os.Stat(f.pinned); !os.IsNotExist(err) {
+		t.Fatal("pinned the key from the sync folder")
 	}
 }
 

@@ -36,7 +36,7 @@ func (u *updateLoop) tick() {
 		u.warn("update waiting", err)
 		return
 	}
-	if c.Sync.Dir == "" || c.Sync.NoUpdate {
+	if c.Sync.Dir == "" || !c.Sync.Update { // opt-in (ADR 0003)
 		return
 	}
 	applied, _, err := u.st.State(update.KeyApplied)

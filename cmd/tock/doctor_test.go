@@ -270,7 +270,7 @@ func TestDoctorUpdatesLag(t *testing.T) {
 
 func TestDoctorUpdatesUnknownVersion(t *testing.T) {
 	_, out := lagDoctor(t, `{"input":true}`, "new2", 2*time.Hour)
-	if !strings.Contains(out, "!!  updates: ryuk runs unknown, but new2 was published 2h ago") || !strings.Contains(out, "trackd install") {
+	if !strings.Contains(out, "!!  updates: ryuk runs unknown, but new2 was published 2h ago") || !strings.Contains(out, "make bootstrap-hint") {
 		t.Errorf("output:\n%s", out)
 	}
 }
@@ -297,14 +297,18 @@ func TestDoctorUpdatesLinux(t *testing.T) {
 		_, out := te.run(t, "", "doctor")
 		return out
 	}
-	if out := linux("[sync]\ndir = \"SYNC\"\n", map[string]string{update.KeyError: "update: key changed"}); !strings.Contains(out, "!!  updates: update: key changed") {
+	if out := linux("[sync]\ndir = \"SYNC\"\nupdate = true\n", map[string]string{update.KeyError: "update: key changed"}); !strings.Contains(out, "!!  updates: update: key changed") {
 		t.Errorf("error:\n%s", out)
 	}
-	if out := linux("[sync]\ndir = \"SYNC\"\nupdate = false\n", map[string]string{update.KeyError: "x"}); !strings.Contains(out, "ok  updates: off ([sync] update = false)") {
+	if out := linux("[sync]\ndir = \"SYNC\"\nupdate = false\n", map[string]string{update.KeyError: "x"}); !strings.Contains(out, "ok  updates: off (to take the Mac's builds") {
 		t.Errorf("off:\n%s", out)
 	}
-	if out := linux("[sync]\ndir = \"SYNC\"\n", map[string]string{}); !strings.Contains(out, "ok  updates: on; nothing published yet") {
+	if out := linux("[sync]\ndir = \"SYNC\"\nupdate = true\n", map[string]string{}); !strings.Contains(out, "ok  updates: on; nothing published yet") {
 		t.Errorf("on:\n%s", out)
+	}
+	// Opt-in: a sync folder alone does not turn updates on.
+	if out := linux("[sync]\ndir = \"SYNC\"\n", map[string]string{}); !strings.Contains(out, "ok  updates: off") {
+		t.Errorf("not set:\n%s", out)
 	}
 }
 

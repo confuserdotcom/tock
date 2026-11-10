@@ -3,6 +3,7 @@
 package main
 
 import (
+	"crypto/ed25519"
 	"flag"
 	"fmt"
 	"io"
@@ -29,6 +30,7 @@ func run(args []string, out io.Writer) error {
 	syncDir := fs.String("sync", "", "sync folder (default: [sync] dir in config.toml)")
 	keyPath := fs.String("key", filepath.Join(dataDir(), "update.key"), "signing key, made if missing")
 	hint := fs.Bool("hint", false, "print the one-time command for a Linux machine and exit")
+	arch := fs.String("arch", "amd64", "the Linux machine's architecture, for -hint")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -49,8 +51,11 @@ func run(args []string, out io.Writer) error {
 	*syncDir = abs
 	home, _ := os.UserHomeDir()
 	if *hint {
-		printHint(out, *syncDir, home)
-		return nil
+		k, err := update.LoadOrCreateKey(*keyPath)
+		if err != nil {
+			return err
+		}
+		return printHint(out, *syncDir, home, *arch, k.Public().(ed25519.PublicKey))
 	}
 	if *version == "" || *builtAt == "" || fs.NArg() == 0 {
 		return fmt.Errorf("usage: tockpub -version V -built-at RFC3339 [-sync DIR] [-key FILE] linux-ARCH...")
@@ -83,8 +88,7 @@ func run(args []string, out io.Writer) error {
 		names = append(names, update.ArchDir(arch))
 	}
 	fmt.Fprintf(out, "published %s for %s in %s\n", *version, strings.Join(names, ", "), bin)
-	printHint(out, *syncDir, home)
-	return nil
+	return printHint(out, *syncDir, home, "amd64", k.Public().(ed25519.PublicKey))
 }
 
 // inside reports whether path is dir or below it.
@@ -93,9 +97,22 @@ func inside(dir, path string) bool {
 	return err == nil && rel != ".." && !strings.HasPrefix(rel, "../")
 }
 
-func printHint(out io.Writer, syncDir, home string) {
-	fmt.Fprintf(out, "On a Linux machine running a tock from before updates, run once:\n\n  %s\n\n(use linux-arm64 in place of linux-amd64 on an ARM machine)\n",
-		update.BootstrapCommand(syncDir, home, "amd64"))
+// printHint prints what a Linux machine needs once: the key's fingerprint,
+// and a command that checks the build against sums it carries itself.
+// Copy it from this terminal, not through the sync folder.
+func printHint(out io.Writer, syncDir, home, arch string, pub ed25519.PublicKey) error {
+	fp := update.Fingerprint(pub)
+	fmt.Fprintf(out, "Update key fingerprint: %s\n", fp)
+	fmt.Fprintf(out, "On a Linux machine with tock: tock update trust %s, and [sync] update = true in config.toml.\n", fp)
+	cmd, err := update.Bootstrap(syncDir, home, arch, pub)
+	if err != nil {
+		fmt.Fprintf(out, "(no checked %s build to print an install command for: %v)\n", update.ArchDir(arch), err)
+		return nil
+	}
+	fmt.Fprintf(out, "On a Linux machine without tock (or one from before updates), run once:\n\n  %s\n\n"+
+		"It installs nothing unless both files match the sums in the command. Then set [sync] update = true there.\n"+
+		"(This is for %s; make bootstrap-hint ARCH=arm64 prints the one for an ARM machine.)\n", cmd, update.ArchDir(arch))
+	return nil
 }
 
 func dataDir() string {

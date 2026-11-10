@@ -129,9 +129,9 @@ type Sync struct {
 	// NoRules keeps rules.toml out of the sync: by default each machine
 	// shares its copy and takes a newer one from another machine.
 	NoRules bool
-	// NoUpdate stops trackd on Linux from installing the builds the Mac
-	// publishes to <dir>/bin.
-	NoUpdate bool
+	// Update lets trackd on Linux install the builds the Mac publishes to
+	// <dir>/bin, signed by a key pinned with tock update trust. Opt-in.
+	Update bool
 }
 
 // machineRE is a valid machine name: it becomes a folder name.
@@ -548,7 +548,7 @@ func Parse(name string, b []byte) (Config, error) {
 		c.Sync.NoRules = !*f.Sync.Rules
 	}
 	if f.Sync.Update != nil {
-		c.Sync.NoUpdate = !*f.Sync.Update
+		c.Sync.Update = *f.Sync.Update
 	}
 	return c, nil
 }

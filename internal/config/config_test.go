@@ -332,14 +332,14 @@ func TestSync(t *testing.T) {
 
 func TestSyncUpdate(t *testing.T) {
 	c, err := Load(write(t, "[sync]\ndir = \"/tmp/s\"\n"))
-	if err != nil || c.Sync.NoUpdate {
-		t.Fatalf("default: NoUpdate = %v, %v", c.Sync.NoUpdate, err)
+	if err != nil || c.Sync.Update {
+		t.Fatalf("default: Update = %v, %v (updates are opt-in)", c.Sync.Update, err)
 	}
-	if c, err = Load(write(t, "[sync]\nupdate = false\n")); err != nil || !c.Sync.NoUpdate {
-		t.Fatalf("update = false: NoUpdate = %v, %v", c.Sync.NoUpdate, err)
+	if c, err = Load(write(t, "[sync]\nupdate = false\n")); err != nil || c.Sync.Update {
+		t.Fatalf("update = false: Update = %v, %v", c.Sync.Update, err)
 	}
-	if c, err = Load(write(t, "[sync]\nupdate = true\n")); err != nil || c.Sync.NoUpdate {
-		t.Fatalf("update = true: NoUpdate = %v, %v", c.Sync.NoUpdate, err)
+	if c, err = Load(write(t, "[sync]\nupdate = true\n")); err != nil || !c.Sync.Update {
+		t.Fatalf("update = true: Update = %v, %v", c.Sync.Update, err)
 	}
 	// bin is the folder the builds are published to
 	if _, err := Load(write(t, "[sync]\nmachine = \"bin\"\n")); err == nil || !strings.Contains(err.Error(), "[sync]") {

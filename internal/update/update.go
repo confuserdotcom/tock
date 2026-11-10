@@ -2,8 +2,10 @@
 // installs them on Linux.
 //
 // The Mac signs a manifest of sha256 sums with an ed25519 key and writes it
-// last, next to the builds. A Linux machine pins the key the first time it
-// sees it, and installs a build only when the signature and every sum hold.
+// last, next to the builds. A Linux machine installs a build only when the
+// signature and every sum hold, and only with a key it was told to trust by
+// fingerprint (tock update trust): the sync folder never carries trust, so
+// whoever can write to it cannot make a machine run their code.
 package update
 
 import (
@@ -52,6 +54,24 @@ var Names = []string{"tock", "trackd"}
 // ErrKeyChanged means the key offered in the sync folder is not the one
 // pinned on this machine.
 var ErrKeyChanged = errors.New("update: key changed")
+
+// ErrNoTrustedKey means no key is pinned on this machine yet.
+var ErrNoTrustedKey = errors.New("update: no trusted key")
+
+// ErrFingerprint means the key in the sync folder is not the one the user
+// said to trust.
+var ErrFingerprint = errors.New("update: the key in the sync folder does not have that fingerprint")
+
+// Fingerprint names a public key: the sha256 of its bytes, in hex.
+func Fingerprint(pub ed25519.PublicKey) string {
+	s := sha256.Sum256(pub)
+	return hex.EncodeToString(s[:])
+}
+
+// normFP lets a fingerprint be typed with colons, spaces or capitals.
+func normFP(fp string) string {
+	return strings.ToLower(strings.NewReplacer(":", "", " ", "", "-", "").Replace(fp))
+}
 
 var sumRE = regexp.MustCompile(`^[0-9a-f]{64}$`)
 
@@ -255,29 +275,44 @@ func Verify(manifest, sig []byte, pub ed25519.PublicKey) (Manifest, error) {
 	return m, nil
 }
 
-// Pin is trust on first use. pinned is this machine's copy of the key and
-// offered the one in the sync folder. A missing pinned key takes the offered
-// one; a different offered key is refused with ErrKeyChanged and pinned stays.
-func Pin(pinned, offered string) (ed25519.PublicKey, error) {
-	have, perr := os.ReadFile(pinned)
-	if perr != nil && !errors.Is(perr, os.ErrNotExist) {
-		return nil, fmt.Errorf("update: pinned key: %w", perr)
+// Pinned is the key this machine trusts. It never takes the one offered
+// in the sync folder: a missing pinned key is ErrNoTrustedKey, and an
+// offered key that differs is ErrKeyChanged (pinned stays).
+func Pinned(pinned, offered string) (ed25519.PublicKey, error) {
+	have, err := os.ReadFile(pinned)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, fmt.Errorf("%w: run tock update trust <fingerprint> on this machine (on the Mac, make bootstrap-hint prints it)", ErrNoTrustedKey)
 	}
-	got, oerr := os.ReadFile(offered)
-	if oerr != nil && !errors.Is(oerr, os.ErrNotExist) {
-		return nil, fmt.Errorf("update: key: %w", oerr)
+	if err != nil {
+		return nil, fmt.Errorf("update: pinned key: %w", err)
 	}
-	switch {
-	case perr == nil && oerr == nil && !bytes.Equal(bytes.TrimSpace(have), bytes.TrimSpace(got)):
-		return nil, fmt.Errorf("%w: %s differs from the pinned %s; delete the pinned key to trust it", ErrKeyChanged, offered, pinned)
-	case perr == nil:
-		return parsePub(have, pinned)
-	case oerr != nil:
+	pub, err := parsePub(have, pinned)
+	if err != nil {
+		return nil, err
+	}
+	if got, err := os.ReadFile(offered); err == nil && !bytes.Equal(bytes.TrimSpace(have), bytes.TrimSpace(got)) {
+		return nil, fmt.Errorf("%w: %s differs from the pinned %s; if you made a new key on the Mac, run tock update trust with its fingerprint", ErrKeyChanged, offered, pinned)
+	}
+	return pub, nil
+}
+
+// Trust pins the key offered in the sync folder if its fingerprint is fp,
+// which the user got from the Mac through a channel they trust (their
+// terminal), not through the sync folder.
+func Trust(pinned, offered, fp string) (ed25519.PublicKey, error) {
+	got, err := os.ReadFile(offered)
+	if errors.Is(err, os.ErrNotExist) {
 		return nil, fmt.Errorf("update: no key at %s yet (still syncing?)", offered)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("update: key: %w", err)
 	}
 	pub, err := parsePub(got, offered)
 	if err != nil {
 		return nil, err
+	}
+	if want := normFP(fp); len(want) != 64 || Fingerprint(pub) != want {
+		return nil, ErrFingerprint
 	}
 	if err := os.MkdirAll(filepath.Dir(pinned), 0o700); err != nil {
 		return nil, fmt.Errorf("update: pin: %w", err)
@@ -294,6 +329,15 @@ func Pin(pinned, offered string) (ed25519.PublicKey, error) {
 		return nil, fmt.Errorf("update: pin: %w", err)
 	}
 	return pub, nil
+}
+
+// ParsePub reads a key file's contents (EncodePub's format).
+func ParsePub(b []byte) (ed25519.PublicKey, error) {
+	raw, err := decode(b, ed25519.PublicKeySize)
+	if err != nil {
+		return nil, err
+	}
+	return ed25519.PublicKey(raw), nil
 }
 
 func parsePub(b []byte, path string) (ed25519.PublicKey, error) {
@@ -328,16 +372,44 @@ func Published(binDir string) (Manifest, bool) {
 }
 
 // BootstrapCommand is the one command for a Linux machine that runs a tock
-// from before updates: it installs the published build and the unit. It
-// copies to .new and renames, as a running trackd cannot be overwritten, and
-// runs under bash because the login shell may be fish.
-func BootstrapCommand(syncDir, home, arch string) string {
+// from before updates, or none: it copies the build m lists for arch out of
+// the sync folder, checks each file against the sum written in the command
+// itself (sha256sum -c) before anything is moved into place, pins the key
+// with fingerprint fp, and installs the unit. The command's text carries
+// the trust; nothing in the sync folder is believed. It runs under bash
+// because the login shell may be fish.
+func BootstrapCommand(syncDir, home, arch string, m Manifest, fp string) string {
 	dir := syncDir
 	if home != "" {
 		if rel, err := filepath.Rel(home, syncDir); err == nil && rel != "." && rel != ".." && !strings.HasPrefix(rel, "../") {
 			dir = "~/" + rel
 		}
 	}
-	return "bash -c 'mkdir -p ~/.local/bin && cd ~/.local/bin && for f in trackd tock; do cp " +
-		dir + "/" + BinDir + "/" + ArchDir(arch) + "/$f $f.new && chmod 755 $f.new && mv -f $f.new $f || exit 1; done && ./trackd install'"
+	src := dir + "/" + BinDir + "/" + ArchDir(arch)
+	return "bash -c 'set -e; mkdir -p ~/.local/bin; cd ~/.local/bin; " +
+		"cp " + src + "/trackd trackd.new; cp " + src + "/tock tock.new; " +
+		"printf \"%s  %s\\n\" " + m.Files["trackd"] + " trackd.new " + m.Files["tock"] + " tock.new | sha256sum -c - >/dev/null 2>&1 " +
+		"|| { rm -f trackd.new tock.new; echo \"the build in the sync folder does not match; nothing installed\" >&2; exit 1; }; " +
+		"chmod 755 trackd.new tock.new; mv -f tock.new tock; mv -f trackd.new trackd; " +
+		"./tock update trust " + fp + "; ./trackd install'"
+}
+
+// Bootstrap is BootstrapCommand for the build published for arch, checked
+// against pub (the Mac's own key) first, so a manifest someone else wrote
+// to the sync folder never makes it into the printed command.
+func Bootstrap(syncDir, home, arch string, pub ed25519.PublicKey) (string, error) {
+	dir := filepath.Join(syncDir, BinDir, ArchDir(arch))
+	mb, err := os.ReadFile(filepath.Join(dir, ManifestFile))
+	if err != nil {
+		return "", fmt.Errorf("update: %w", err)
+	}
+	sig, err := os.ReadFile(filepath.Join(dir, SigFile))
+	if err != nil {
+		return "", fmt.Errorf("update: %w", err)
+	}
+	m, err := Verify(mb, sig, pub)
+	if err != nil {
+		return "", err
+	}
+	return BootstrapCommand(syncDir, home, arch, m, Fingerprint(pub)), nil
 }
