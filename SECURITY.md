@@ -28,7 +28,8 @@ attacker can read or change, and steps to reproduce. For an ordinary bug,
 - Screen text (OCR) or calendar events leaving the machine, or OCR reading
   an app you did not list.
 - Linux updates through the sync folder: a build installed without a valid
-  signature from your Mac.
+  signature from the key you trusted with `tock update trust`, a key
+  trusted without that step, or updates running with `[sync] update` unset.
 
 ## Out of scope
 

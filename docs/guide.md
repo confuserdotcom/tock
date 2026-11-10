@@ -195,6 +195,7 @@ tock doctor [--wait] [--open] [--deep] [--json]
                                        --deep: a full check of the database; --json: for scripts
 tock bug-report [-o FILE] [--include-rules]
                                        a file to attach to an issue, without titles or URLs
+tock update [trust <fingerprint>]      Linux: the key trusted for the Mac's builds; trust one
 tock version                           the version of this build
 tock choice [<feature> on|off]         turn features on and off (screen text, wake screen, Slack…),
                                        open the dashboard; piped: each feature and whether it is on
@@ -1619,7 +1620,7 @@ network share, and name it on both machines in `config.toml`:
 dir = "~/Sync/tock"
 machine = "mac"        # optional; default: the host name
 rules = true           # optional; share rules.toml (see Rules below)
-update = true          # optional; Linux: install the builds the Mac publishes (see Updates)
+update = true          # optional, off by default; Linux: install the Mac's builds (see Updates)
 ```
 
 Every minute, trackd writes this machine's last two days to
@@ -1668,23 +1669,29 @@ do not run `make install` or copy files.
   (`make publish-linux` does only this). The signing key is
   `~/.local/share/tock/update.key`, made on the first run. It never goes in
   the sync folder: back it up, and keep it private.
-- **On Linux,** trackd checks `<sync dir>/bin` every minute. It trusts the
-  first public key it sees and pins it at `~/.config/tock/update.pub`. It
-  installs a build only when the signature and the sha256 of each file hold
-  and the build is newer than the one it runs. It then replaces
-  `~/.local/bin/trackd` and `tock` and restarts itself. A different key is
-  refused and shown by `tock doctor`; to trust a new one, delete the pinned
-  key on that machine. Before the first pin, anyone who can write the sync
-  folder can offer a key, so run the command below soon after you set the
-  folder up. `update = false` under `[sync]` turns this off.
-- **Once on a Linux machine that runs a tock from before updates** (it
-  cannot update itself yet), run this there (use `linux-arm64` on an ARM machine;
-  `make bootstrap-hint` prints it for your sync folder):
+- **On Linux,** updates are off until you turn them on, because they run
+  code from the sync folder. Two steps, once per machine:
+  1. On the Mac, `make bootstrap-hint` prints the key's fingerprint. On
+     the Linux machine, `tock update trust <fingerprint>` pins the key in
+     the sync folder only if it has that fingerprint, at
+     `~/.config/tock/update.pub`. Copy the fingerprint from your terminal
+     (or over SSH), not through the sync folder: the point is that the
+     folder alone can never make a machine trust a key.
+  2. Set `update = true` under `[sync]` in that machine's `config.toml`.
 
-  ```sh
-  bash -c 'mkdir -p ~/.local/bin && cd ~/.local/bin && for f in trackd tock; do cp ~/Sync/tock/bin/linux-amd64/$f $f.new && chmod 755 $f.new && mv -f $f.new $f || exit 1; done && ./trackd install'
-  ```
-
+  trackd then checks `<sync dir>/bin` every minute. It installs a build
+  only when the signature holds under the pinned key, the sha256 of each
+  file holds, and the build is newer than the one it runs. It replaces
+  `~/.local/bin/trackd` and `tock` together (if either fails, both are put
+  back) and restarts itself. A different key in the folder is refused and
+  shown by `tock doctor`; if you made a new key on the Mac, trust its
+  fingerprint the same way. `tock update` shows the trusted key.
+- **Once on a Linux machine without tock, or with one from before
+  updates,** run the command `make bootstrap-hint` prints there
+  (`make bootstrap-hint ARCH=arm64` for an ARM machine). It copies the
+  build out of the sync folder, checks both files against sums written in
+  the command itself, installs nothing if either differs, then trusts the
+  key and installs trackd's service. Set `update = true` afterwards.
 - **Checking.** `tock doctor` shows each machine's version in the `sync`
   line. On the Mac, an `updates` line warns when a Linux machine has run an
   older build for more than an hour, and shows the error that machine

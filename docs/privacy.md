@@ -70,9 +70,11 @@ included), its `machine.json` and, unless `rules = false`, its
 syncs the folder (Syncthing, iCloud Drive, Dropbox) decides where it goes.
 Pick one you trust with your activity.
 
-On Linux, the sync folder is also how the Mac hands over new tock builds;
-see "Updates" in the [guide](guide.md). Anyone who can write to the folder
-is trusted that far, so do not share it with others.
+On Linux, the sync folder can also carry new tock builds from the Mac, if
+you turn that on (`[sync] update = true`). A build is installed only when
+it is signed by the key you trusted by fingerprint with `tock update
+trust`; the folder alone can never make a machine trust a key. See
+"Updates" in the [guide](guide.md).
 
 ## No telemetry
 

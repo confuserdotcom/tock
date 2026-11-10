@@ -5,6 +5,16 @@ What changed for you in each release. Dates are UTC.
 ## Unreleased
 
 ### Changed
+- **Linux updates through the sync folder are off until you turn them
+  on, and never trust a key by themselves.** Before, a Linux machine
+  trusted the first key it found in the sync folder, so anyone who could
+  write there first could run code on it. Now: `make bootstrap-hint` on
+  the Mac prints the key's fingerprint, `tock update trust <fingerprint>`
+  on the Linux machine pins it, and `update = true` under `[sync]` turns
+  updates on. A machine that already pinned a key keeps it, but needs
+  `update = true`. An update that fails part way puts both binaries back.
+  The one-time install command now checks both files against sums it
+  carries itself.
 - **Claude is off until you turn it on.** Having Claude Code or
   `ANTHROPIC_API_KEY` no longer turns on suggestions, summaries or
   `tock ask`. `tock choice claude on` turns them on and lists what is sent.
