@@ -49,6 +49,9 @@ func TestMigrateWorkerRefuses(t *testing.T) {
 	if _, err := db.Exec(`INSERT INTO schema_version(version, applied_at) VALUES(999, 0)`); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := db.Exec(`UPDATE schema_meta SET value = '999' WHERE key = 'compat'`); err != nil {
+		t.Fatal(err)
+	}
 	db.Close()
 	var out bytes.Buffer
 	if rc := runMigrateWorker([]string{"--data", dir}, &out); rc != 1 {

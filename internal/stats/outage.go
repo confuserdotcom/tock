@@ -9,15 +9,16 @@ const (
 	StatePaused    = "paused"    // config.toml did not load: nothing recorded
 	StateNoAccess  = "no_access" // Accessibility is off: apps are recorded, window titles are not
 
-	ReasonSignal  = "signal"   // stopped by a signal the OS did not say was a session ending
-	ReasonSession = "session"  // the OS said the user's session was ending: logout, restart or shutdown
-	ReasonAsleep  = "asleep"   // trackd's own ticks stopped: the computer slept
-	ReasonState   = "state"    // capture paused or resumed; the next row follows at once
-	ReasonClock   = "clock"    // the wall clock went back
-	ReasonAXStale = "ax_stale" // the Accessibility grant went stale; restarting
-	ReasonUpdate  = "update"   // replaced by a new build
-	ReasonError   = "error"    // a source or write error; restarting
-	ReasonCrash   = "crash"    // ended without saying why
+	ReasonSignal  = "signal"       // stopped by a signal the OS did not say was a session ending
+	ReasonSession = "session"      // the OS said the user's session was ending: logout, restart or shutdown
+	ReasonAsleep  = "asleep"       // trackd's own ticks stopped: the computer slept
+	ReasonState   = "state"        // capture paused or resumed; the next row follows at once
+	ReasonClock   = "clock"        // the wall clock went back
+	ReasonAXStale = "ax_stale"     // the Accessibility grant went stale; restarting
+	ReasonUpdate  = "update"       // replaced by a new build
+	ReasonError   = "error"        // a source or write error; restarting
+	ReasonCrash   = "crash"        // ended without saying why
+	ReasonSchema  = "schema_newer" // the database needs a newer trackd; stays down
 )
 
 // Gap kinds: why nothing was recorded in a gap.

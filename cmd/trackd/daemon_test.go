@@ -88,6 +88,9 @@ func TestSchemaTooNewExitsZero(t *testing.T) {
 	if _, err := db.Exec(`INSERT INTO schema_version(version, applied_at) VALUES(99, 0)`); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := db.Exec(`UPDATE schema_meta SET value = '99' WHERE key = 'compat'`); err != nil {
+		t.Fatal(err)
+	}
 	db.Close()
 
 	r := runFakeDaemon(t, dir, samplesSource())

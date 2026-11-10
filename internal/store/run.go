@@ -21,6 +21,7 @@ const (
 	RunUpdate  = stats.ReasonUpdate  // replaced by a new build
 	RunError   = stats.ReasonError   // a source or write error; restarting
 	RunCrash   = stats.ReasonCrash   // ended without saying why; set by the next start
+	RunSchema  = stats.ReasonSchema  // a newer tock raised compat; stays down
 )
 
 // RunTickMS is how often trackd writes last_ms; RunSlackMS is how late a

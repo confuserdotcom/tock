@@ -142,9 +142,13 @@ func runDaemon(o daemonOpts) int {
 			log.Warn("migrate worker failed; migrating in-process", "err", err)
 		}
 	}
-	st, err := store.Open(filepath.Join(o.DataDir, "tock.db"))
+	dbPath := filepath.Join(o.DataDir, "tock.db")
+	st, err := store.Open(dbPath)
 	if errors.Is(err, store.ErrSchemaTooNew) {
 		log.Error("FATAL: database schema is newer than this trackd; not restarting", "err", err)
+		if err := store.MarkStopped(dbPath, store.StoppedSchemaNewer, o.Now()); err != nil {
+			log.Warn("record stop reason", "err", err)
+		}
 		return exitNoRestart
 	}
 	if err != nil {
@@ -170,6 +174,10 @@ func runWithStore(o daemonOpts, log *slog.Logger, st *store.Store) int {
 	log.Info("recovered open spans", "count", n)
 	if err := st.SetState(store.KeyVersion, version, o.Now()); err != nil {
 		log.Error("write version", "err", err)
+		return exitRestart
+	}
+	if err := st.SetState(store.KeyTrackdStopped, "", o.Now()); err != nil {
+		log.Error("clear stop reason", "err", err)
 		return exitRestart
 	}
 	next, err := st.NextID()
@@ -302,7 +310,15 @@ func runWithStore(o daemonOpts, log *slog.Logger, st *store.Store) int {
 		log.Error("source run", "err", err)
 		rc, reason = exitRestart, store.RunError
 	}
-	if err := <-pipeErr; err != nil {
+	if err := <-pipeErr; errors.Is(err, errSchemaNewer) {
+		// Restarting would only fail again: the old binary stays down
+		// until tock setup (or the install's equivalent) replaces it.
+		log.Error("FATAL: a newer tock raised the database's compat level; not restarting")
+		rc, reason = exitNoRestart, store.RunSchema
+		if err := st.SetState(store.KeyTrackdStopped, store.StoppedSchemaNewer, o.Now()); err != nil {
+			log.Warn("record stop reason", "err", err)
+		}
+	} else if err != nil {
 		log.Error("pipeline", "err", err)
 		rc, reason = exitRestart, store.RunError
 	}
@@ -322,6 +338,10 @@ func runWithStore(o daemonOpts, log *slog.Logger, st *store.Store) int {
 	}
 	return rc
 }
+
+// errSchemaNewer stops the pipeline when a newer tock raised the database's
+// compat level above this trackd's (ADR 0002).
+var errSchemaNewer = errors.New("trackd: the database needs a newer trackd")
 
 // mergerConfig is the daemon's span configuration: the Phase 1 defaults with
 // titles compared after classify.Clean, so a spinner or counter change in a
@@ -459,6 +479,12 @@ func (p pipe) feed(x span.Input) error {
 func (p pipe) tickAt(now int64) error {
 	if err := p.rec.tick(now); err != nil {
 		return err
+	}
+	if c, err := p.st.Compat(); err != nil {
+		return err
+	} else if c > store.CompatLevel {
+		_ = p.flush() // best effort: the next trackd recovers an open span anyway
+		return errSchemaNewer
 	}
 	if err := p.checkConfig(now); err != nil {
 		return err
