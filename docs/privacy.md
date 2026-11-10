@@ -76,5 +76,9 @@ is trusted that far, so do not share it with others.
 
 ## No telemetry
 
-tock sends no usage data, crash reports or analytics. `tock bug-report`,
-when it exists, will write a file for you to look at and send yourself.
+tock sends no usage data, crash reports or analytics. `tock bug-report`
+writes a file for you to look through and attach to an issue yourself:
+`tock doctor --json`, `config.toml` with every text value removed, the
+end of the logs without lines that could hold a title or URL, and when
+trackd ran in the last two weeks. Your home and sync folders are replaced
+by `~` and `<sync>`. Your rules go in only with `--include-rules`.

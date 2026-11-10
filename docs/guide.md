@@ -190,8 +190,11 @@ tock model [why <app> "<title>" [<label>]]
 
 Setup and data:
 tock init                              write starter ~/.config/tock/rules.toml
-tock doctor [--wait] [--open] [--deep] check trackd, permissions, rules, config and snapshots;
-                                       --deep: a full check of the database
+tock doctor [--wait] [--open] [--deep] [--json]
+                                       check trackd, permissions, rules, config and snapshots;
+                                       --deep: a full check of the database; --json: for scripts
+tock bug-report [-o FILE] [--include-rules]
+                                       a file to attach to an issue, without titles or URLs
 tock version                           the version of this build
 tock choice [<feature> on|off]         turn features on and off (screen text, wake screen, Slack…),
                                        open the dashboard; piped: each feature and whether it is on

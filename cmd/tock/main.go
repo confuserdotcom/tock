@@ -85,8 +85,11 @@ Looking back:
 
 Setup and data:
   tock init                              write starter ~/.config/tock/rules.toml
-  tock doctor [--wait] [--open] [--deep] check trackd, permissions, rules, config and snapshots;
+  tock doctor [--wait] [--open] [--deep] [--json]
+                                         check trackd, permissions, rules, config and snapshots;
                                          --deep: a full check of the database
+  tock bug-report [-o FILE] [--include-rules]
+                                         a file to attach to an issue, without titles or URLs
   tock version                           the version of this build
   tock choice [<feature> on|off]         turn features on and off (screen text, wake screen, Slack…),
                                          open the dashboard; piped: each feature and whether it is on
@@ -257,6 +260,7 @@ var commands = map[string]func(Env, []string) error{
 	"suggest":    cmdSuggest,
 	"export":     cmdExport,
 	"doctor":     cmdDoctor,
+	"bug-report": cmdBugReport,
 	"backup":     cmdBackup,
 	"restore":    cmdRestore,
 	"sync":       cmdSync,

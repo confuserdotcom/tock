@@ -28,6 +28,10 @@ What changed for you in each release. Dates are UTC.
   status` starts with `write failed!` or `dropped!` for 24 hours after
   one, and `tock doctor` says when and how many. Before, both were only in
   trackd's log.
+- **`tock bug-report`** writes a file to attach to an issue: doctor's
+  checks, your config with every text value removed, the end of the logs
+  without titles or URLs, and when trackd ran. It sends nothing.
+  `tock doctor --json` prints the checks for scripts.
 - Fix hints follow how tock was installed: `tock setup` for Homebrew,
   opening tock for the .dmg, `make install` from source.
 - **`tock restore` refuses while something else has the database open**

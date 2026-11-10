@@ -10,7 +10,8 @@ Please report privately through GitHub:
 Don't open a public issue. You should hear back within a week.
 
 Useful things to include: the version (`tock version` and `tock doctor`), the OS, what an
-attacker can read or change, and steps to reproduce.
+attacker can read or change, and steps to reproduce. For an ordinary bug,
+`tock bug-report` writes a file without your titles or URLs to attach.
 
 ## In scope
 
