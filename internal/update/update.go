@@ -391,7 +391,7 @@ func BootstrapCommand(syncDir, home, arch string, m Manifest, fp string) string 
 		"printf \"%s  %s\\n\" " + m.Files["trackd"] + " trackd.new " + m.Files["tock"] + " tock.new | sha256sum -c - >/dev/null 2>&1 " +
 		"|| { rm -f trackd.new tock.new; echo \"the build in the sync folder does not match; nothing installed\" >&2; exit 1; }; " +
 		"chmod 755 trackd.new tock.new; mv -f tock.new tock; mv -f trackd.new trackd; " +
-		"./tock update trust " + fp + "; ./trackd install'"
+		"./tock update --sync " + dir + " trust " + fp + "; ./trackd install'"
 }
 
 // Bootstrap is BootstrapCommand for the build published for arch, checked

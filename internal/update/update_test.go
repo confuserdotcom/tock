@@ -474,7 +474,7 @@ func TestBootstrapCommand(t *testing.T) {
 	m := Manifest{Files: map[string]string{"trackd": sum("T"), "tock": sum("K")}}
 	got := BootstrapCommand("/home/a/Sync/tock", "/home/a", "amd64", m, "ff00")
 	for _, want := range []string{"cp ~/Sync/tock/bin/linux-amd64/trackd trackd.new", sum("T") + " trackd.new", sum("K") + " tock.new",
-		"sha256sum -c", "./tock update trust ff00", "./trackd install"} {
+		"sha256sum -c", "./tock update --sync ~/Sync/tock trust ff00", "./trackd install"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("lacks %q:\n%s", want, got)
 		}
@@ -530,7 +530,7 @@ func TestBootstrapCommandRuns(t *testing.T) {
 		t.Fatalf("matching build: %v", err)
 	}
 	ran := read(t, filepath.Join(home, "ran"))
-	if !strings.Contains(ran, "tock update trust "+Fingerprint(key.Public().(ed25519.PublicKey))) || !strings.Contains(ran, "trackd install") {
+	if !strings.Contains(ran, " trust "+Fingerprint(key.Public().(ed25519.PublicKey))) || !strings.Contains(ran, "trackd install") {
 		t.Fatalf("ran:\n%s", ran)
 	}
 }

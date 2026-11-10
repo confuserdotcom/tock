@@ -18,9 +18,24 @@ import (
 // bootstrap-hint), never from the sync folder.
 func cmdUpdate(env Env, args []string) error {
 	pinned := filepath.Join(env.ConfigDir, update.PubFile)
-	cfg, err := config.Load(env.configPath())
-	if err != nil {
+	fs := newFlags("update")
+	syncFlag := fs.String("sync", "", "the sync folder (default: [sync] dir in config.toml)")
+	if err := parseFlags(fs, args); err != nil {
 		return err
+	}
+	args = fs.Args()
+	if len(args) == 2 { // flags after the subcommand: tock update trust FP --sync DIR
+		if err := parseFlags(fs, args[2:]); err != nil {
+			return err
+		}
+	}
+	cfg, err := config.Load(env.configPath())
+	if err != nil && *syncFlag == "" {
+		return err
+	}
+	syncDir := cfg.Sync.Dir
+	if *syncFlag != "" {
+		syncDir = *syncFlag
 	}
 	switch {
 	case len(args) == 0:
@@ -41,10 +56,10 @@ func cmdUpdate(env Env, args []string) error {
 		}
 		return nil
 	case len(args) == 2 && args[0] == "trust":
-		if cfg.Sync.Dir == "" {
-			return errors.New("update: sync is off; set [sync] dir in config.toml first")
+		if syncDir == "" {
+			return errors.New("update: sync is off; set [sync] dir in config.toml, or pass --sync DIR")
 		}
-		offered := filepath.Join(cfg.Sync.Dir, update.BinDir, update.PubFile)
+		offered := filepath.Join(syncDir, update.BinDir, update.PubFile)
 		pub, err := update.Trust(pinned, offered, args[1])
 		if errors.Is(err, update.ErrFingerprint) {
 			return fmt.Errorf("update: the key in %s does not have fingerprint %s; nothing trusted. Check the fingerprint on the Mac (make bootstrap-hint)", offered, args[1])
@@ -58,5 +73,5 @@ func cmdUpdate(env Env, args []string) error {
 		}
 		return nil
 	}
-	return usagef("usage: tock update | tock update trust <fingerprint>")
+	return usagef("usage: tock update | tock update [--sync DIR] trust <fingerprint>")
 }

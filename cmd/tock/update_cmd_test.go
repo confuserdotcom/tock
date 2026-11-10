@@ -49,3 +49,24 @@ func TestUpdateTrust(t *testing.T) {
 		t.Fatalf("status after:\n%s", out)
 	}
 }
+
+// A fresh machine has no [sync] dir yet: the bootstrap command passes it.
+func TestUpdateTrustWithSyncFlag(t *testing.T) {
+	te := newTestEnv(t, "")
+	syncDir := filepath.Join(t.TempDir(), "sync")
+	key, err := update.LoadOrCreateKey(filepath.Join(t.TempDir(), "k", "update.key"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := t.TempDir()
+	for _, n := range update.Names {
+		os.WriteFile(filepath.Join(src, n), []byte(n), 0o755)
+	}
+	if err := update.Publish(filepath.Join(syncDir, update.BinDir), "amd64", src, "v2", time.Now(), key); err != nil {
+		t.Fatal(err)
+	}
+	fp := update.Fingerprint(key.Public().(ed25519.PublicKey))
+	if code, out := te.run(t, "", "update", "--sync", syncDir, "trust", fp); code != 0 || !strings.Contains(out, "trusted key "+fp) {
+		t.Fatalf("code %d out %s err %s", code, out, te.errb)
+	}
+}
