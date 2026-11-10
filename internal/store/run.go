@@ -12,16 +12,17 @@ const (
 	RunPaused    = stats.StatePaused   // config.toml did not load: nothing recorded
 	RunNoAccess  = stats.StateNoAccess // Accessibility is off: apps recorded, window titles not
 
-	RunSignal  = stats.ReasonSignal  // SIGTERM/SIGINT the OS did not say was a session ending: tock, launchctl, kill
-	RunSession = stats.ReasonSession // SIGTERM while the OS said the session was ending: logout, restart, shutdown
-	RunAsleep  = stats.ReasonAsleep  // trackd's own ticks stopped: the computer slept
-	RunState   = stats.ReasonState   // capture paused or resumed; the next row goes on at once
-	RunClock   = stats.ReasonClock   // the wall clock went back
-	RunAXStale = stats.ReasonAXStale // the Accessibility grant went stale; restarting
-	RunUpdate  = stats.ReasonUpdate  // replaced by a new build
-	RunError   = stats.ReasonError   // a source or write error; restarting
-	RunCrash   = stats.ReasonCrash   // ended without saying why; set by the next start
-	RunSchema  = stats.ReasonSchema  // a newer tock raised compat; stays down
+	RunSignal      = stats.ReasonSignal  // SIGTERM/SIGINT the OS did not say was a session ending: tock, launchctl, kill
+	RunSession     = stats.ReasonSession // SIGTERM while the OS said the session was ending: logout, restart, shutdown
+	RunAsleep      = stats.ReasonAsleep  // trackd's own ticks stopped: the computer slept
+	RunState       = stats.ReasonState   // capture paused or resumed; the next row goes on at once
+	RunClock       = stats.ReasonClock   // the wall clock went back
+	RunAXStale     = stats.ReasonAXStale // the Accessibility grant went stale; restarting
+	RunUpdate      = stats.ReasonUpdate  // replaced by a new build
+	RunError       = stats.ReasonError   // a source or write error; restarting
+	RunCrash       = stats.ReasonCrash   // ended without saying why; set by the next start
+	RunSchema      = stats.ReasonSchema  // a newer tock raised compat; stays down
+	RunWriteFailed = stats.ReasonWrite   // a database write failed; restarting
 )
 
 // RunTickMS is how often trackd writes last_ms; RunSlackMS is how late a

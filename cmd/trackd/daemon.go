@@ -180,6 +180,9 @@ func runWithStore(o daemonOpts, log *slog.Logger, st *store.Store) int {
 		log.Error("clear stop reason", "err", err)
 		return exitRestart
 	}
+	if err := countFailure(o.StateDir, st, o.Now()); err != nil {
+		log.Warn("count last write failure", "err", err)
+	}
 	next, err := st.NextID()
 	if err != nil {
 		log.Error("next id", "err", err)
@@ -203,7 +206,7 @@ func runWithStore(o daemonOpts, log *slog.Logger, st *store.Store) int {
 
 	ticker := time.NewTicker(o.HeartbeatEvery)
 	defer ticker.Stop()
-	drops := &dropReporter{log: log}
+	drops := &dropReporter{log: log, st: st}
 	rec := &runRec{st: st, log: log, boot: bootMS, version: version, pid: os.Getpid()}
 	p := pipe{
 		rec:    rec,
@@ -319,8 +322,13 @@ func runWithStore(o daemonOpts, log *slog.Logger, st *store.Store) int {
 			log.Warn("record stop reason", "err", err)
 		}
 	} else if err != nil {
+		// Every pipeline error is a write to the database. It may not take
+		// one now, so the count waits for the next start (failure file).
 		log.Error("pipeline", "err", err)
-		rc, reason = exitRestart, store.RunError
+		rc, reason = exitRestart, store.RunWriteFailed
+		if err := noteFailure(o.StateDir, o.Now(), err); err != nil {
+			log.Warn("note write failure", "err", err)
+		}
 	}
 	if updated.Load() {
 		reason = store.RunUpdate
@@ -591,12 +599,24 @@ func (w *stateWatcher) observe(s *span.Sample) error {
 // dropReporter logs the dropped-sample total at most once per minute.
 type dropReporter struct {
 	log      *slog.Logger
+	st       *store.Store // counts drops for tock status; may be nil
+	counted  uint64       // this process's drops already added to the store
 	reported uint64
 	lastMS   int64
 	warned   bool
 }
 
 func (d *dropReporter) report(total uint64, nowMS int64) {
+	if d.st != nil && total > d.counted {
+		n := total - d.counted
+		if err := d.st.AddState(store.KeySamplesDropped, int64(n), nowMS); err != nil {
+			d.log.Warn("count dropped samples", "err", err)
+		} else if err := d.st.SetState(store.KeyDroppedMS, strconv.FormatInt(nowMS, 10), nowMS); err != nil {
+			d.log.Warn("count dropped samples", "err", err)
+		} else {
+			d.counted = total
+		}
+	}
 	if total <= d.reported || (d.warned && nowMS-d.lastMS < dropWarnEveryMS) {
 		return
 	}

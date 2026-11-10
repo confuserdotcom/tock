@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strconv"
 )
 
 // daemon_state keys. Phase 3's banner reads ax_trusted, automation.* and
@@ -40,6 +41,17 @@ const (
 	// KeyCapturePaused is why trackd records nothing: the config.toml
 	// error that paused capture, or "" while it records.
 	KeyCapturePaused = "capture.paused"
+	// KeyApplyFailed counts runs stopped by a failed write; KeyLastError
+	// and KeyLastErrorMS are the last such error and when. trackd writes
+	// them at the start after the failure (the database may not take
+	// writes at the time).
+	KeyApplyFailed = "apply_failed_total"
+	KeyLastError   = "last_error"
+	KeyLastErrorMS = "last_error_ms"
+	// KeySamplesDropped counts samples the collector dropped because the
+	// pipeline fell behind; KeyDroppedMS is the last time it grew.
+	KeySamplesDropped = "samples_dropped_total"
+	KeyDroppedMS      = "samples_dropped_ms"
 )
 
 // AutomationKey returns the daemon_state key for the Automation permission of
@@ -57,6 +69,17 @@ func (s *Store) SetState(key, value string, nowMS int64) error {
 		key, value, nowMS)
 	if err != nil {
 		return fmt.Errorf("store: set state %q: %w", key, err)
+	}
+	return nil
+}
+
+// AddState adds n to the integer held in key (0 when absent).
+func (s *Store) AddState(key string, n, nowMS int64) error {
+	_, err := s.db.Exec(`INSERT INTO daemon_state(key,value,updated) VALUES(?,?,?)
+		ON CONFLICT(key) DO UPDATE SET value=CAST(CAST(daemon_state.value AS INTEGER) + ? AS TEXT), updated=excluded.updated`,
+		key, strconv.FormatInt(n, 10), nowMS, n)
+	if err != nil {
+		return fmt.Errorf("store: add state %q: %w", key, err)
 	}
 	return nil
 }

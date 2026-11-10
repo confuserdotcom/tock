@@ -19,6 +19,7 @@ const (
 	ReasonError   = "error"        // a source or write error; restarting
 	ReasonCrash   = "crash"        // ended without saying why
 	ReasonSchema  = "schema_newer" // the database needs a newer trackd; stays down
+	ReasonWrite   = "write_failed" // a write to the database failed; restarting
 )
 
 // Gap kinds: why nothing was recorded in a gap.
@@ -169,7 +170,7 @@ func stopKind(a *Stretch) string {
 		return GapPermission
 	case ReasonUpdate:
 		return GapUpdate
-	case ReasonError:
+	case ReasonError, ReasonWrite:
 		return GapError
 	}
 	return GapStopped
