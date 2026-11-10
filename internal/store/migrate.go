@@ -101,7 +101,16 @@ func migrateFS(db *sql.DB, fsys fs.FS, dir string, before func(from, to int) err
 		latest = ms[len(ms)-1].version
 	}
 	if cur > latest {
-		return fmt.Errorf("%w (database v%d, this binary v%d)", ErrSchemaTooNew, cur, latest)
+		// A newer tock migrated. Its additive changes leave compat alone,
+		// and this binary goes on with the tables it knows (ADR 0002).
+		c, err := readCompat(db)
+		if err != nil {
+			return fmt.Errorf("store: read compat: %w", err)
+		}
+		if c > CompatLevel {
+			return fmt.Errorf("%w (database v%d compat %d, this binary v%d compat %d)", ErrSchemaTooNew, cur, c, latest, CompatLevel)
+		}
+		return nil
 	}
 	if cur == latest {
 		return nil
