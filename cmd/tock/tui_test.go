@@ -28,7 +28,7 @@ func TestFirstRunWelcome(t *testing.T) {
 	// trackd.
 	code, out = te.run(t, "\n")
 	if code != 1 || !strings.Contains(out, "wrote "+te.rulesPath()) ||
-		!strings.Contains(te.errb.String(), "make install") {
+		!strings.Contains(te.errb.String(), "tock doctor") {
 		t.Fatalf("yes: exit %d\n%s%s", code, out, te.errb)
 	}
 	if _, err := os.Stat(te.rulesPath()); err != nil {

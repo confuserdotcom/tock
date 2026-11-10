@@ -32,7 +32,7 @@ func TestStatus(t *testing.T) {
 
 func TestStatusNeedsData(t *testing.T) {
 	te := newTestEnv(t, testRules)
-	if code, _ := te.run(t, "", "status"); code != 1 || te.errb.String() != "tock: no data yet: is trackd running? (make install)\n" {
+	if code, _ := te.run(t, "", "status"); code != 1 || te.errb.String() != "tock: no data yet: is trackd running? (tock doctor says how to start it)\n" {
 		t.Fatalf("no db: code %d err %q", code, te.errb.String())
 	}
 }

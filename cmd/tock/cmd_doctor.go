@@ -94,9 +94,9 @@ func cmdDoctor(env Env, args []string) error {
 	h, err := doctorHealth(env, *wait)
 	switch {
 	case errors.Is(err, errNoDB):
-		bad("trackd", "no database yet", "make install")
+		bad("trackd", "no database yet", installMethod().Reinstall(env.Linux))
 	case err != nil:
-		bad("trackd", err.Error(), "make install")
+		bad("trackd", err.Error(), installMethod().Reinstall(env.Linux))
 	case !h.TrackdUp && env.Linux:
 		bad("trackd", "not running", "systemctl --user restart trackd")
 	case !h.TrackdUp:
@@ -202,7 +202,7 @@ func doctorCalendar(env Env, enabled bool, h app.Health, ok func(name, detail st
 	case "error":
 		bad("calendar", "EventKit read failed", "see ~/.local/state/tock/trackd.log")
 	default:
-		bad("calendar", "waiting for the permission prompt", "restart trackd: make install")
+		bad("calendar", "waiting for the permission prompt", "restart trackd: launchctl kickstart -k gui/$(id -u)/com.tock.trackd")
 	}
 }
 
@@ -213,7 +213,7 @@ func doctorNotify(on bool, h app.Health, ok func(name, detail string)) {
 	case !on:
 		ok("notifications", "off (config.toml [focus] notify = false)")
 	case !h.BarUp:
-		ok("notifications", "plain, without buttons (menu bar app not running; make install)")
+		ok("notifications", "plain, without buttons (menu bar app not running; "+installMethod().Reinstall(false)+")")
 	case h.BarNotify == app.NotifyGranted:
 		ok("notifications", "native, with buttons (menu bar)")
 	case h.BarNotify == app.NotifyDenied:

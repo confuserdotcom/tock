@@ -23,7 +23,7 @@ var HostOS = runtime.GOOS
 
 // ErrNoDB means trackd has not created the database yet. tock never creates
 // it.
-var ErrNoDB = errors.New("no data yet: is trackd running? (make install)")
+var ErrNoDB = errors.New("no data yet: is trackd running? (tock doctor says how to start it)")
 
 // Paths locates tock's files. Config and ShellLog may name missing files;
 // ShellLog "" turns shell dirs off.

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"tock/internal/app"
+	"tock/internal/service"
 	"tock/internal/store"
 )
 
@@ -16,6 +17,7 @@ func TestMain(m *testing.M) {
 		return
 	}
 	app.HostOS = "darwin"
+	installMethod = func() service.Method { return service.Source }
 	os.Exit(m.Run())
 }
 

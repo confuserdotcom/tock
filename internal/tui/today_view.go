@@ -441,7 +441,7 @@ func (t todayTab) empty(w int, now time.Time) []string {
 	return emptyState(w, "Today",
 		sText.Render("Nothing tracked yet today."),
 		sAccent.Render("trackd is not running."),
-		sDim.Render("Start it with make install, or check tock doctor."),
+		sDim.Render("tock doctor says why and how to start it."),
 		"", keycap("r", "retry")+"   "+keycap("h", "yesterday"))
 }
 

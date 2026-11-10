@@ -44,7 +44,7 @@ func installService(dataDir, stateDir string) error {
 		return err
 	}
 	return service.InstallUnit(service.Unit{Name: unitName, Description: "tock activity tracker", Program: exe,
-		LogPath: filepath.Join(stateDir, "trackd.log"), Missing: "trackd not found; run make install-linux"})
+		LogPath: filepath.Join(stateDir, "trackd.log"), Missing: "trackd not found; reinstall tock"})
 }
 
 // uninstallService removes the service. tock.db and the log are kept.

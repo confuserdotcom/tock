@@ -9,6 +9,7 @@ import (
 	"time"
 	"tock/internal/config"
 	"tock/internal/fronttab"
+	"tock/internal/service"
 
 	"tock/internal/store"
 	"tock/internal/update"
@@ -129,7 +130,7 @@ func TestDoctorCalendar(t *testing.T) {
 		{"granted", stale, "!!  calendar: no sync in the last 30 min", 1},
 		{"denied", "", "!!  calendar: access denied — System Settings › Privacy & Security › Calendars › trackd", 1},
 		{"error", "", "!!  calendar: EventKit read failed", 1},
-		{"", "", "!!  calendar: waiting for the permission prompt — restart trackd: make install", 1},
+		{"", "", "!!  calendar: waiting for the permission prompt — restart trackd: launchctl kickstart -k gui/$(id -u)/com.tock.trackd", 1},
 	} {
 		te, opened := doctorEnv(t, testRules)
 		te.seed(t, daySpans()...)
@@ -357,5 +358,24 @@ func TestDoctorCapturePaused(t *testing.T) {
 	code, out := te.run(t, "", "doctor")
 	if code != 1 || !strings.Contains(out, "!!  recording: paused, nothing is recorded: config.toml: toml: line 3") {
 		t.Fatalf("exit %d:\n%s", code, out)
+	}
+}
+
+// The fix doctor prints follows how tock was installed: a Homebrew user
+// has no checkout to run make in.
+func TestDoctorFixFollowsInstallMethod(t *testing.T) {
+	for m, want := range map[service.Method]string{
+		service.Brew: "tock setup", service.DMG: "open tock from Applications", service.Source: "make install"} {
+		te, _ := doctorEnv(t, testRules)
+		old := installMethod
+		installMethod = func() service.Method { return m }
+		_, out := te.run(t, "", "doctor")
+		installMethod = old
+		if !strings.Contains(out, "trackd: no database yet") || !strings.Contains(out, want) {
+			t.Errorf("%v: output lacks %q:\n%s", m, want, out)
+		}
+		if m != service.Source && strings.Contains(out, "make install") {
+			t.Errorf("%v: hints make install:\n%s", m, out)
+		}
 	}
 }

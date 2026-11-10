@@ -13,9 +13,11 @@ import (
 
 // Seams for tests: where tock runs from, and unloading the background jobs.
 var (
-	selfPath    = os.Executable
-	unloadAgent = service.Uninstall
-	unloadUnit  = service.UninstallUnit
+	selfPath = os.Executable
+	// installMethod is how this tock was installed; fix hints follow it.
+	installMethod = service.Installed
+	unloadAgent   = service.Uninstall
+	unloadUnit    = service.UninstallUnit
 )
 
 // cmdUninstall stops trackd and the menu bar and removes what make install
