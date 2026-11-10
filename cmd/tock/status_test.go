@@ -2,7 +2,9 @@ package main
 
 import (
 	"strconv"
+	"strings"
 	"testing"
+	"time"
 
 	"tock/internal/service"
 	"tock/internal/store"
@@ -53,5 +55,38 @@ func TestStatusTrackdTooOld(t *testing.T) {
 	}
 	if got := te.errb.String(); got != "trackd is older than the database; update it: tock setup\n" {
 		t.Fatalf("stderr %q", got)
+	}
+}
+
+// AC2 (tock half): a write failure in the last 24 h marks the status line,
+// and doctor names write_failed with a time.
+func TestStatusAndDoctorWriteFailed(t *testing.T) {
+	te := newTestEnv(t, testRules)
+	te.seed(t, daySpans()...)
+	at := strconv.FormatInt(testNow.UnixMilli()-3600_000, 10)
+	setStates(t, te, map[string]string{store.KeyApplyFailed: "2", store.KeyLastErrorMS: at,
+		store.KeyLastError: "store: apply op 0 (insert): disk I/O error"})
+	if code, out := te.run(t, "", "status"); code != 0 || out != "write failed! trackd down · 2h54\n" {
+		t.Fatalf("status: code %d out %q", code, out)
+	}
+	_, out := te.run(t, "", "doctor")
+	when := testNow.Add(-time.Hour).Format("Mon 2 Jan 15:04")
+	if !strings.Contains(out, "!!  writes: write_failed at "+when+" (2 in all): store: apply op 0 (insert): disk I/O error") {
+		t.Fatalf("doctor:\n%s", out)
+	}
+	// A day later it is history, not a problem.
+	te.now = te.now.Add(25 * time.Hour)
+	if _, out := te.run(t, "", "doctor"); !strings.Contains(out, "ok  writes: none failed in 24 h (2 in all") {
+		t.Fatalf("doctor a day later:\n%s", out)
+	}
+}
+
+func TestStatusDropped(t *testing.T) {
+	te := newTestEnv(t, testRules)
+	te.seed(t, daySpans()...)
+	setStates(t, te, map[string]string{store.KeySamplesDropped: "5",
+		store.KeyDroppedMS: strconv.FormatInt(testNow.UnixMilli()-60_000, 10)})
+	if code, out := te.run(t, "", "status"); code != 0 || out != "dropped! trackd down · 2h54\n" {
+		t.Fatalf("status: code %d out %q", code, out)
 	}
 }

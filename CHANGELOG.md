@@ -24,6 +24,10 @@ What changed for you in each release. Dates are UTC.
   When an update does need a newer trackd, trackd stops, and `tock
   status`, `tock doctor`, the TUI and the menu bar say "trackd is older
   than the database" with the command that fixes it for your install.
+- **Failed writes and dropped samples are counted and shown.** `tock
+  status` starts with `write failed!` or `dropped!` for 24 hours after
+  one, and `tock doctor` says when and how many. Before, both were only in
+  trackd's log.
 - Fix hints follow how tock was installed: `tock setup` for Homebrew,
   opening tock for the .dmg, `make install` from source.
 - **`tock restore` refuses while something else has the database open**

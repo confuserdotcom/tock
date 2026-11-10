@@ -57,6 +57,27 @@ type Health struct {
 	// TrackdStopped is why trackd stopped and stays down
 	// (store.StoppedSchemaNewer), "" otherwise. See TooOld.
 	TrackdStopped string
+	// WriteFails counts trackd runs stopped by a failed database write;
+	// LastError and LastErrorMS are the last one. Dropped counts samples
+	// the collector dropped, DroppedMS when that last grew.
+	WriteFails  int64
+	LastError   string
+	LastErrorMS int64
+	Dropped     int64
+	DroppedMS   int64
+}
+
+// RecentMS is how far back a failure still marks tock status.
+const RecentMS = 24 * 3600 * 1000
+
+// WriteFailedSince says a write failed in the last RecentMS.
+func (h Health) WriteFailedSince(nowMS int64) bool {
+	return h.LastErrorMS > 0 && nowMS-h.LastErrorMS <= RecentMS
+}
+
+// DroppedSince says samples were dropped in the last RecentMS.
+func (h Health) DroppedSince(nowMS int64) bool {
+	return h.DroppedMS > 0 && nowMS-h.DroppedMS <= RecentMS
 }
 
 // TooOldText says what TooOld means, for every surface.
@@ -113,6 +134,11 @@ func ReadHealth(st *store.Store, nowMS int64) (Health, error) {
 	h.IntegrityOK = states[store.KeyIntegrityOK]
 	h.CapturePaused = states[store.KeyCapturePaused]
 	h.TrackdStopped = states[store.KeyTrackdStopped]
+	h.WriteFails, _ = strconv.ParseInt(states[store.KeyApplyFailed], 10, 64)
+	h.LastError = states[store.KeyLastError]
+	h.LastErrorMS, _ = strconv.ParseInt(states[store.KeyLastErrorMS], 10, 64)
+	h.Dropped, _ = strconv.ParseInt(states[store.KeySamplesDropped], 10, 64)
+	h.DroppedMS, _ = strconv.ParseInt(states[store.KeyDroppedMS], 10, 64)
 	for k, v := range states {
 		id, ok := strings.CutPrefix(k, store.AutomationKey(""))
 		if !ok || v != "denied" {
@@ -159,6 +185,12 @@ func (a *App) Status() (string, error) {
 	}
 	if h.Paused() {
 		line = "paused! " + line
+	}
+	if h.DroppedSince(a.nowMS()) {
+		line = "dropped! " + line
+	}
+	if h.WriteFailedSince(a.nowMS()) {
+		line = "write failed! " + line
 	}
 	if h.TooOld() {
 		line = "old! " + line

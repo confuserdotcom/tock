@@ -114,6 +114,9 @@ func cmdDoctor(env Env, args []string) error {
 				"fix config.toml; trackd starts recording again within seconds")
 		}
 	}
+	if err == nil {
+		doctorFailures(env, h, ok, bad)
+	}
 	if err == nil && cfgErr == nil {
 		doctorBackup(env, cfg.Backup.Keep, h, ok, bad)
 	}
@@ -565,4 +568,25 @@ func doctorBrowser(env Env, ok func(name, detail string)) {
 		return
 	}
 	ok("browser", "the tock extension sends the tab in front (last "+time.UnixMilli(st.AtMS).In(env.Now().Location()).Format("15:04")+")")
+}
+
+// doctorFailures reports trackd's failed writes and dropped samples: a
+// problem while recent, history after that.
+func doctorFailures(env Env, h app.Health, ok func(name, detail string), bad func(name, detail, fix string)) {
+	now := env.Now()
+	at := func(ms int64) string { return time.UnixMilli(ms).In(now.Location()).Format("Mon 2 Jan 15:04") }
+	switch {
+	case h.WriteFailedSince(now.UnixMilli()):
+		bad("writes", fmt.Sprintf("write_failed at %s (%d in all): %s", at(h.LastErrorMS), h.WriteFails, h.LastError),
+			"trackd restarted itself; if it repeats, check free disk space and tock doctor --deep")
+	case h.WriteFails > 0:
+		ok("writes", fmt.Sprintf("none failed in 24 h (%d in all, last %s)", h.WriteFails, at(h.LastErrorMS)))
+	}
+	switch {
+	case h.DroppedSince(now.UnixMilli()):
+		bad("samples", fmt.Sprintf("%d dropped in all, last at %s", h.Dropped, at(h.DroppedMS)),
+			"trackd fell behind writing; if it repeats, check free disk space and the load on the machine")
+	case h.Dropped > 0:
+		ok("samples", fmt.Sprintf("none dropped in 24 h (%d in all)", h.Dropped))
+	}
 }

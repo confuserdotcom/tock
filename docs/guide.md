@@ -10,7 +10,7 @@ Sections:
 - **Labels:** [Categories](#categories) · [The model](#the-model) · [Modules](#modules) · [AFK](#afk) · [Editing the timeline](#editing-the-timeline) · [Undo](#undo) · [Duplicate names](#duplicate-names)
 - **Looking back:** [Work blocks, summaries and questions](#work-blocks-summaries-and-questions) · [Trends and review](#trends-and-review) · [Web dashboard](#web-dashboard) · [Week report](#week-report) · [Billing](#billing) · [Commits](#commits) · [Calls](#calls)
 - **Your day around it:** [Calendar](#calendar) · [Planned sessions and meetings](#planned-sessions-and-meetings) · [Recommendations](#recommendations) · [Screen reading](#screen-reading) · [Menu bar and notifications](#menu-bar-and-notifications)
-- **Running it:** [Linux (Hyprland)](#linux-hyprland) · [Sync between machines](#sync-between-machines) · [Deleting old titles](#deleting-old-titles) · [Updates](#updates) · [Backup](#backup) · [Import](#import) · [Uninstall](#uninstall)
+- **Running it:** [Linux (Hyprland)](#linux-hyprland) · [Sync between machines](#sync-between-machines) · [Deleting old titles](#deleting-old-titles) · [Updates](#updates) · [Backup](#backup) · [When something went wrong](#when-something-went-wrong) · [Import](#import) · [Uninstall](#uninstall)
 
 ## Privacy in detail
 
@@ -1712,6 +1712,23 @@ Copies on this machine don't help if the disk dies: Time Machine, or the
 sync folder, covers that. The copies and archives hold your titles and
 URLs, so keep them out of git and shared folders. The daily copies keep
 titles up to 7 days past `[privacy] keep_titles`.
+
+## When something went wrong
+
+`tock status` starts with a word and `!` when trackd needs a look:
+
+- `old!` trackd stopped because a newer tock changed the database in a
+  way it can't follow. `tock status` prints the command that updates it.
+- `write failed!` a write to the database failed in the last 24 hours.
+  trackd restarts itself and records it; the time it lost shows as not
+  recording on that day.
+- `dropped!` trackd fell behind and dropped samples in the last 24 hours.
+- `paused!` `config.toml` does not load, so nothing is recorded.
+- `db!` the last check found damage in the database.
+
+`tock doctor` names each with when it happened and what to do. After 24
+hours a failure is history: doctor still counts it, status no longer
+marks it.
 
 ## Restore
 
