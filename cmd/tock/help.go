@@ -18,6 +18,9 @@ func wantsHelp(name string, args []string) bool {
 		case n == 1:
 			return args[0] == "help" || isHelpFlag(args[0])
 		}
+		if args[0] == "help" || isHelpFlag(args[0]) {
+			return true // tock session --help list
+		}
 		return args[0] != "--" && isHelpFlag(args[1])
 	}
 	if len(args) > 0 && args[0] == "help" {

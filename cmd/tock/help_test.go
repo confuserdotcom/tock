@@ -148,10 +148,20 @@ func TestHelpAfterSubcommand(t *testing.T) {
 func TestSessionHelpChangesNothing(t *testing.T) {
 	te := newTestEnv(t, testRules)
 	te.seed(t, daySpans()...)
+	if code, _ := te.run(t, "", "session", "start", "50", "--goal", "write"); code != 0 {
+		t.Fatalf("start: %s", te.errb)
+	}
+	_, before := te.run(t, "", "session")
 	for _, sub := range []string{"note", "refile", "list", "stop", "snooze", "weights"} {
 		if code, out := te.run(t, "", "session", sub, "--help"); code != 0 || !strings.HasPrefix(out, "usage:") {
 			t.Errorf("session %s --help: %d %q %s", sub, code, out, te.errb)
 		}
+	}
+	if code, out := te.run(t, "", "session", "--help", "list"); code != 0 || !strings.HasPrefix(out, "usage:") {
+		t.Errorf("session --help list: %d %q", code, out)
+	}
+	if _, after := te.run(t, "", "session"); after != before {
+		t.Errorf("help changed the session:\n%s\n---\n%s", before, after)
 	}
 	if code, _ := te.run(t, "", "-help"); code != 0 {
 		t.Errorf("tock -help: %d", code)

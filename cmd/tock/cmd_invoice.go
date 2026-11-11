@@ -327,8 +327,15 @@ func invoiceList(env Env, a *app.App, args []string) error {
 		return nil
 	}
 	// Each invoice's dates in its own zone, as its PDF and show print them.
+	here := env.Now().Location()
+	zones := map[string]*time.Location{}
 	day := func(i store.Invoice, ms int64) string {
-		return time.UnixMilli(ms).In(app.InvoiceLocation(i, env.Now().Location())).Format("2006-01-02")
+		loc, ok := zones[i.TZ]
+		if !ok {
+			loc = app.InvoiceLocation(i, here)
+			zones[i.TZ] = loc
+		}
+		return time.UnixMilli(ms).In(loc).Format("2006-01-02")
 	}
 	replacedBy := map[string]string{}
 	for _, i := range list {

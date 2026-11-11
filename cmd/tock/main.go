@@ -339,7 +339,7 @@ func run(args []string, env Env) int {
 	switch {
 	case err == nil:
 		return 0
-	case errors.Is(err, errHelp):
+	case errors.Is(err, errHelp) && len(args) > 0:
 		fmt.Fprint(env.Stdout, commandHelp(args[0]))
 		return 0
 	case errors.As(err, &es):

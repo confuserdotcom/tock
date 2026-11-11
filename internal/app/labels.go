@@ -224,6 +224,18 @@ type ProjectSpec struct {
 
 func rateValue(r float64) string { return strconv.FormatFloat(r, 'f', -1, 64) }
 
+// checkRate refuses a rate with more decimals than [invoice] minor_units:
+// every invoice for the project would fail on it.
+func (a *App) checkRate(r *float64) error {
+	if r == nil || *r < 0 {
+		return nil
+	}
+	if _, err := report.RateMinor(*r, a.cfg.Invoice.MinorUnits); err != nil {
+		return fmt.Errorf("rate %s has more decimals than [invoice] minor_units = %d", rateValue(*r), a.cfg.Invoice.MinorUnits)
+	}
+	return nil
+}
+
 func (a *App) checkProject(p ProjectSpec) (ProjectSpec, error) {
 	if p.Category != nil && *p.Category != "" {
 		c, err := a.rs.ResolveCategory(*p.Category)
@@ -244,11 +256,7 @@ func (a *App) checkProject(p ProjectSpec) (ProjectSpec, error) {
 	if p.Rate != nil && (math.IsNaN(*p.Rate) || *p.Rate > classify.MaxRate) {
 		return p, fmt.Errorf("rate %s, want 0 to %d", rateValue(*p.Rate), classify.MaxRate)
 	}
-	if p.Rate != nil && *p.Rate >= 0 && !a.sameRate(p.Name, *p.Rate) {
-		if _, err := report.RateMinor(*p.Rate, a.cfg.Invoice.MinorUnits); err != nil {
-			return p, fmt.Errorf("rate %s has more decimals than [invoice] minor_units = %d", rateValue(*p.Rate), a.cfg.Invoice.MinorUnits)
-		}
-	}
+
 	if p.Client != nil {
 		c := strings.TrimSpace(*p.Client)
 		if len([]rune(c)) > classify.MaxClient {
@@ -257,18 +265,6 @@ func (a *App) checkProject(p ProjectSpec) (ProjectSpec, error) {
 		p.Client = &c
 	}
 	return p, nil
-}
-
-// sameRate reports whether project name already has rate: the Library
-// sends the rate with every save, and a rate set before minor_units was
-// lowered must not block an edit of the aliases.
-func (a *App) sameRate(name string, rate float64) bool {
-	for _, p := range a.rs.Projects {
-		if strings.EqualFold(p.Name, strings.TrimSpace(name)) {
-			return p.Rate != nil && *p.Rate == rate
-		}
-	}
-	return false
 }
 
 // AddProject declares a new project; with a category it is a module.
@@ -282,6 +278,9 @@ func (a *App) AddProject(p ProjectSpec) error {
 	}
 	p, err := a.checkProject(p)
 	if err != nil {
+		return err
+	}
+	if err := a.checkRate(p.Rate); err != nil {
 		return err
 	}
 	fields := []classify.Field{{Key: "name", Value: classify.TOMLString(p.Name)}}
@@ -314,6 +313,13 @@ func (a *App) EditProject(p ProjectSpec) error {
 	}
 	if p, err = a.checkProject(p); err != nil {
 		return err
+	}
+	// The Library sends the stored rate with every save: one set before
+	// minor_units was lowered must not block an edit of the aliases.
+	if cur := a.rs.Rate(name); p.Rate == nil || cur == nil || *cur != *p.Rate {
+		if err := a.checkRate(p.Rate); err != nil {
+			return err
+		}
 	}
 	return a.rewriteRules(func(rules, learned []byte) ([]byte, []byte, error) {
 		text := string(rules)

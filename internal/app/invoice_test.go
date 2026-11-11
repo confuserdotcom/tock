@@ -238,6 +238,14 @@ func TestInvoiceRefusals(t *testing.T) {
 		t.Fatalf("edit keeping the stored rate: %v", err)
 	}
 	a = reopen(t, a, e)
+	if err := a.EditProject(ProjectSpec{Name: "ac", Rate: &fine, Archived: &yes}); err != nil {
+		t.Fatalf("edit through an alias keeping the stored rate: %v", err)
+	}
+	unarchived := false
+	if err := a.EditProject(ProjectSpec{Name: "ac", Archived: &unarchived}); err != nil {
+		t.Fatal(err)
+	}
+	a = reopen(t, a, e)
 	// The project's client is used unless one is given.
 	two := 95.5
 	if err := a.EditProject(ProjectSpec{Name: "Acme", Rate: &two}); err != nil {
