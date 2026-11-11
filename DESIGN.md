@@ -141,6 +141,9 @@ Built from shadcn/ui (Radix) and Recharts in `web/`; the build is committed to `
 - Kind donut: 66% inner radius, total in the middle, a legend with time and share.
 - Goal rings: one ring per goal (at most four), inner first; at-most goals turn brick once passed.
 - Category timeline: an hour axis on top, one lane per category plus Away, bars in the kind colour, a 1px ink line for now. Hover shows app, title, time and label; click opens the label sheet; a drag across the lanes shades the range (a hairline ink edge each side, its times above) and opens the sheet on it.
+- The timeline zooms (to 15 minutes at most): its range and − + buttons sit above the hour axis, and a 12px strip under the lanes shows the whole day with the zoomed window outlined in ink and the rest dimmed. Picked-out bars stay at full colour, the others drop to 20 %.
+- Every chart is a control: hours and work blocks zoom the timeline, legends and table rows pick out bars (the selected row on a sunk grey), days open their Today. A hint in the panel's aside says what a click does.
+- Switches (Settings) are ink when on, grey when off.
 - Heat map: weekday x hour, deep teal by mean focus minutes. Month calendar: weeks as rows, days shaded by deep time, days with nothing recorded hatched.
 - Tables: faint 11px header, hairline rows, right-aligned tabular time and share, a bold totals row.
 - Label sheet: a side sheet with a command search over categories; Return labels and learns a rule. For a range of the timeline it adds From and To times and Label / Add entry / Delete.
@@ -183,3 +186,4 @@ Built from shadcn/ui (Radix) and Recharts in `web/`; the build is committed to `
 | 2026-11-05 | A drawn notch on displays without one | Owner asked for the island on every display, as notch apps do; one shape everywhere instead of a pill that looks like another product |
 | 2026-11-05 | The notch panel moves on springs | Owner approved the notch prototype; a surface that grows out of hardware reads as physical only with springs. Kept to the notch |
 | 2026-11-05 | Dashboard moves to variant A "Instrument panel": React + shadcn/ui + Recharts, Inter, dark first, a big score, donuts and rings, in a native tock window; kind colours change on every surface | Owner: "I don't like the GUI at all", wants components, many charts and a circular one, and an app feel. Supersedes the Ledger rules on hero numbers and rings |
+| 2026-11-11 | Switches are ink, the timeline zooms with a whole-day strip under it | Owner rated the dashboard's UX 1–2 of 5: charts were pictures, not controls. Every chart now points somewhere; ink stays the only accent, so on switches are ink, not a colour |

@@ -4,7 +4,25 @@ What changed for you in each release. Dates are UTC.
 
 ## Unreleased
 
+### Added
+- **Dashboard settings.** The gear in the top bar (or `,`) turns the
+  groups and features on and off as `tock choice` does, edits the apps and
+  sites tock never records, and picks the theme.
+- **Zoom.** The dashboard timeline zooms to a quarter of an hour (⌘-scroll,
+  pinch, double click, shift-drag, or the − + buttons), with a strip of
+  the whole day to drag. The tock window zooms with ⌘+, ⌘− and ⌘0 and
+  remembers the size.
+
 ### Changed
+- **The dashboard answers clicks.** Hours, work blocks and lane names zoom
+  the timeline; kinds, categories and apps pick out their bars; a day in
+  the week's bars, the score line or the month calendar opens it; Top rows
+  lead to the Inbox or the Library; the status strip links to the rules.
+  The date in the top bar steps by day, week or month with the view and
+  opens a calendar. `?` lists every key and gesture.
+- **Billed time says so everywhere.** Learning a rule from the inbox (TUI,
+  CLI or dashboard) now says when it relabels time on an issued invoice,
+  as tagging does, and the TUI marks billed rows with the invoice number.
 - **Focus, Day routine and Billing are groups you can turn off.** `tock
   choice focus off` hides sessions, the focus score and every focus
   notice in the TUI, the dashboard, the menu bar and the notch, and trackd

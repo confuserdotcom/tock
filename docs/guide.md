@@ -955,14 +955,26 @@ project` lists projects.
 
 The menu bar's **Open dashboard** shows the dashboard in its own tock
 window. While the window is open tock has a Dock icon and a menu (⌘W
-closes it, ⌘R reloads); closing it puts tock back in the menu bar only.
+closes it, ⌘R reloads, ⌘+ and ⌘− zoom and ⌘0 sets the size back; the
+window keeps the size you pick); closing it puts tock back in the menu bar
+only.
 Links that leave the page open in your browser. `tock web` serves the same
 page to your browser and runs until you press ctrl-c.
 
 - **Today:** the timeline, with one row per category on a shared hour axis
   (hover a bar for its app and title, click it to label or delete it, drag
   across the lanes to edit a range, **Add time** for time tock didn't see;
-  see [Editing the timeline](#editing-the-timeline)).
+  see [Editing the timeline](#editing-the-timeline)). It zooms down to a
+  quarter of an hour: ⌘-scroll or pinch around the pointer, the − + buttons
+  (or `-`, `+` and `0` with the timeline focused), a double click, or a
+  shift-drag across a range; scroll sideways to move along the day. The
+  strip under it shows the whole day with the zoomed part outlined: drag
+  it, or drag elsewhere on it to zoom there. A lane's name zooms to that
+  category's time, an hour in **Minutes per hour** to that hour, and a work
+  block to its stretch. A kind in the donut, or a category or app in the
+  tables, picks out its bars on the timeline (click it again, or the
+  **Showing** chip, to show everything). **How it's scored** next to the
+  score lists its four parts.
   Then the focus score with its change against your usual same weekday
   (the middle of the last four), and four stats with their changes:
   focus time, longest block, distraction and switches per hour. Next to it,
@@ -977,19 +989,23 @@ page to your browser and runs until you press ctrl-c.
   only the model labelled and one for days another invoice bills. Then hours per day by kind, a donut of the
   week's kinds, the score per day against its mean, a weekday × hour heat
   map of when you focus, a donut of projects, goal rings (days held),
-  distractions, and categories and apps.
-- **Trends:** a month at a time (pick it top right). Tracked, focus,
+  distractions, and categories and apps. Click a day's bar or score to
+  open that day.
+- **Trends:** a month at a time. Tracked, focus,
   average score and switches against last month; a calendar shaded by
   deep time; deep time per day with its 7-day mean; the score per day;
-  categories against last month; and your best hours.
+  categories against last month; and your best hours. Click a day in the
+  calendar to open it.
 - **Top:** categories, apps, sites and projects for today, the week or the
-  month.
+  month. Unlabelled time leads to the Inbox, a category or a project to
+  the Library.
 - **Inbox:** unlabelled activity with the local guess or Claude's
   suggestion. **Accept** learns the suggestion's broadest safe rule, as
   `tock tag <n>` does. **Other…** opens the label sheet: search a category
-  (type `Category / project` for a project) and Return. **Ignore** has an
-  undo. Keys: `j`/`k` move, Return or `a` accept, `l` label, `i` ignore,
-  `u` undo.
+  (type `Category / project` for a project) and Return; with no guess the
+  button is **Label…**, and a double click on a row opens the sheet too.
+  **Ignore** has an undo. Keys: `j`/`k` move, Return or `a` accept, `l`
+  label, `i` ignore, `u` undo.
 - **Library:** your categories, projects and goals. Each row shows its time
   in the last 30 days and when it was last seen; names unseen for 30 days
   are greyed, with **Archive** on projects, and look-alike names offer a
@@ -1006,11 +1022,21 @@ page to your browser and runs until you press ctrl-c.
   change over the last 30 days. Edits keep the file's comments and can be
   undone from the toast.
 
-The status strip under the views shows whether trackd is recording, whether
-rules.toml loads, and a running focus session with its progress. Keys `1`–`5`
-switch views, ← → move between days, and ⌘K opens a palette for views,
-dates and the light or dark theme. Every change shows a toast with **Undo**.
-The page refreshes itself every minute.
+- **Settings** (the gear, or `,`): every switch of `tock choice`, by group,
+  written to config.toml as you flip it, with **Undo**. A setting whose
+  group is off says it waits for it. Turning Claude on asks first and says
+  what is sent. **Never record** edits `[privacy] hide_apps` and
+  `hide_sites`. The theme (system, dark or light) is kept in the window or
+  browser.
+
+The top bar's date steps by the view's unit: a day on Today, a week on
+Week, a month on Trends; click it for a calendar, and **Today** (or `t`)
+comes back. The status strip under the views shows whether trackd is
+recording (hover for when it last wrote), whether rules.toml loads (click
+for the rules), and a running focus session with its progress. Keys `1`–`6`
+switch views, ← → step the date, ⌘K opens a palette for views, dates,
+settings and the theme, and `?` lists every key and gesture. Every change
+shows a toast with **Undo**. The page refreshes itself every minute.
 
 The server listens on 127.0.0.1 only, on a free port (`--port N` to choose
 one). The link it prints carries a random token after the `#`. Browsers
