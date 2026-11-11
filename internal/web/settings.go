@@ -52,7 +52,7 @@ type invoiceJSON struct {
 }
 
 type settingsJSON struct {
-	Hours       workHoursJSON     `json:"hours"`
+	Hours       workHoursJSON `json:"hours"`
 	Presets     []int         `json:"presets"`
 	MaxSession  int           `json:"maxSession"`
 	Invoice     invoiceJSON   `json:"invoice"`
@@ -219,7 +219,9 @@ func (s *Server) settingsPresets(r *http.Request) (any, error) {
 	if b.Presets == nil {
 		b.Presets = []int{}
 	}
-	return s.saved(r, func(p string) error { return config.SaveValues(p, []config.Change{{Table: "focus", Key: "presets", Value: b.Presets}}) })
+	return s.saved(r, func(p string) error {
+		return config.SaveValues(p, []config.Change{{Table: "focus", Key: "presets", Value: b.Presets}})
+	})
 }
 
 func (s *Server) settingsInvoice(r *http.Request) (any, error) {
