@@ -14,6 +14,30 @@ What changed for you in each release. Dates are UTC.
   pinch, double click, shift-drag, or the − + buttons), with a strip of
   the whole day to drag. The tock window zooms with ⌘+, ⌘− and ⌘0 and
   remembers the size.
+- **Time trackd did not record is shown, with why**: a crash, a stop,
+  an update or `config.toml` not loading. The TUI's today tab lists it
+  under the day, the dashboard draws a "Not recording" lane under the
+  timeline and a line under the week's bars. Sleep, a locked screen, a
+  logout and a shutdown are not counted; a restart only explains the time
+  when the OS said the session was ending as trackd stopped, so a stop by
+  hand before a restart still shows. Time with no Accessibility permission
+  shows apart as "apps only". None of it is added to tracked or idle time.
+- **Library** in the dashboard: categories, projects (with an hourly
+  rate) and goals, with their time in the last 30 days and when each was
+  last seen. Add, edit, rename, archive and merge look-alike names there.
+- **Rules** in Library: every rule in the order tock checks them, with the
+  time each labelled lately and which never match. Add, edit or delete a
+  rule, learned ones too, with a preview of what it would change; every
+  edit can be undone.
+- **Invoice…** in the week's Export menu makes the `tock invoice` PDF for
+  a project with a rate, showing hours and total before you save.
+- trackd keeps a copy of your database every day while you're away, and
+  tock keeps one before an update changes it. `tock restore` lists them
+  and puts one back. `[backup] keep` sets how many daily copies stay
+  (default 7).
+- `tock doctor` shows the last copy and whether the database checked out;
+  `--deep` runs a full check. A damaged database shows in `tock status`
+  and as a notice.
 
 ### Changed
 - **The dashboard answers clicks.** Hours, work blocks and lane names zoom
@@ -93,33 +117,12 @@ What changed for you in each release. Dates are UTC.
   and names it, for example a `tock web` you started by hand. Before, the
   copy was put back under it and that process went on using the old file.
 
-### Added
-- **Time trackd did not record is shown, with why**: a crash, a stop,
-  an update or `config.toml` not loading. The TUI's today tab lists it
-  under the day, the dashboard draws a "Not recording" lane under the
-  timeline and a line under the week's bars. Sleep, a locked screen, a
-  logout and a shutdown are not counted; a restart only explains the time
-  when the OS said the session was ending as trackd stopped, so a stop by
-  hand before a restart still shows. Time with no Accessibility permission
-  shows apart as "apps only". None of it is added to tracked or idle time.
-- **Library** in the dashboard: categories, projects (with an hourly
-  rate) and goals, with their time in the last 30 days and when each was
-  last seen. Add, edit, rename, archive and merge look-alike names there.
-- **Rules** in Library: every rule in the order tock checks them, with the
-  time each labelled lately and which never match. Add, edit or delete a
-  rule, learned ones too, with a preview of what it would change; every
-  edit can be undone.
-- **Invoice…** in the week's Export menu makes the `tock invoice` PDF for
-  a project with a rate, showing hours and total before you save.
-- trackd keeps a copy of your database every day while you're away, and
-  tock keeps one before an update changes it. `tock restore` lists them
-  and puts one back. `[backup] keep` sets how many daily copies stay
-  (default 7).
-- `tock doctor` shows the last copy and whether the database checked out;
-  `--deep` runs a full check. A damaged database shows in `tock status`
-  and as a notice.
-
 ### Fixed
+- `tock <command> --help` prints that command's lines and works before
+  trackd has recorded anything; a mistyped flag shows the command's lines
+  instead of all of the usage.
+- Reading a day no longer slows down as history grows: it scanned every
+  span before the day (8 ms after six months, 2 ms now).
 - Two tock programs starting at once after an update could both try to
   update the database.
 
