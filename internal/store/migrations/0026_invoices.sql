@@ -64,10 +64,12 @@ CREATE TABLE invoice_lines (
     PRIMARY KEY (invoice_id, line_no)
 );
 
--- The billed time behind the lines, for audit and drift checks.
+-- The billed time behind the lines, for audit and drift checks: a span of
+-- this machine, a timeline edit, away time, a calendar meeting or another
+-- machine's span (origin_id is that row's id).
 CREATE TABLE invoice_items (
     invoice_id      INTEGER NOT NULL REFERENCES invoices(id),
-    origin          TEXT NOT NULL CHECK (origin IN ('span', 'edit')),
+    origin          TEXT NOT NULL CHECK (origin IN ('span', 'edit', 'away', 'meeting', 'remote')),
     origin_id       INTEGER NOT NULL,
     start_ms        INTEGER NOT NULL,
     end_ms          INTEGER NOT NULL,

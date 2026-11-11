@@ -97,7 +97,7 @@ func TestInvoiceAPI(t *testing.T) {
 	}
 	code, h, b := f.do("GET", q+"&client=Acme", testToken, nil)
 	if code != 200 || h.Get("Content-Type") != "application/pdf" || !strings.HasPrefix(string(b), "%PDF") ||
-		!strings.Contains(h.Get("Content-Disposition"), "invoice-") {
+		!strings.Contains(h.Get("Content-Disposition"), "invoice-draft-") || !strings.Contains(string(b), "(DRAFT) Tj") {
 		t.Fatalf("pdf: %d %v %.40q", code, h, b)
 	}
 	for _, bad := range []string{"/api/invoice?project=tock", "/api/invoice?project=nope&from=" + day + "&to=" + day,

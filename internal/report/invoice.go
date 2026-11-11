@@ -8,77 +8,70 @@ import (
 	"strings"
 	"time"
 
+	"tock/internal/classify"
 	"tock/internal/pdf"
 )
 
-// InvoiceLine is one day of work on the invoiced project.
-type InvoiceLine struct {
-	Date    time.Time // local midnight
-	Seconds int64
-	Amount  float64 // rounded to cents
+// Party is who an invoice is from or to.
+type Party struct {
+	Name    string
+	Address []string // lines
+	TaxID   string
 }
 
-// Invoice is everything tock invoice prints.
+// Invoice is what an invoice document shows. Amounts are minor units
+// (ADR 0001); nothing here is computed again from live data.
 type Invoice struct {
-	Number, Project, Client string
-	From                    string   // [invoice] name
-	Address                 []string // [invoice] address
-	Currency, Note          string
-	Issued                  time.Time
-	PeriodFrom, PeriodTo    time.Time // local midnights; PeriodTo is the last day
-	Rate                    float64
-	Lines                   []InvoiceLine
+	Number, Project      string // Number "" on a draft
+	Issuer, Client       Party
+	Currency, Note       string
+	Issued               time.Time
+	PeriodFrom, PeriodTo time.Time // local midnights; PeriodTo is the last day
+	MinorUnits           int
+	RateMinor            int64
+	Lines                []BillLine
+	SecondsBilled        int64
+	SubtotalMinor        int64
+	TaxLabel, TaxNote    string
+	TaxBP                int64 // 0 = no tax line
+	TaxMinor, TotalMinor int64
+	Supersedes           string // the number of the invoice this one replaces
+	// Draft marks a preview: DRAFT on the page, and no number.
+	Draft bool
 }
 
-// TotalSeconds is the time of every line.
-func (inv Invoice) TotalSeconds() int64 {
-	var s int64
-	for _, l := range inv.Lines {
-		s += l.Seconds
+// ItemOrigin tells what a view id from App.Export is: a span of this
+// machine, away time, a calendar meeting, another machine's span or a
+// timeline edit, with that row's id.
+func ItemOrigin(id int64) (string, int64) {
+	if id > 0 {
+		return "span", id
 	}
-	return s
+	if e, ok := classify.EditRowID(id); ok {
+		return "edit", e
+	}
+	if r, ok := classify.RemoteRowID(id); ok {
+		return "remote", r
+	}
+	if m, ok := classify.MeetingEventID(id); ok {
+		return "meeting", m
+	}
+	return "away", -id
 }
 
-// Total is the sum of the line amounts, so the lines add up to it.
-func (inv Invoice) Total() float64 {
-	var t float64
-	for _, l := range inv.Lines {
-		t += l.Amount
-	}
-	return math.Round(t*100) / 100
-}
-
-// InvoiceLines groups the rows of project by the local day they start on,
-// in date order, pricing each day at rate.
-func InvoiceLines(rows []ExportRow, project string, rate float64) []InvoiceLine {
-	var out []InvoiceLine
-	idx := map[string]int{}
-	for _, r := range rows {
-		if r.Project != project {
-			continue
-		}
-		day := time.Date(r.Start.Year(), r.Start.Month(), r.Start.Day(), 0, 0, 0, 0, r.Start.Location())
-		k := day.Format("2006-01-02")
-		i, ok := idx[k]
-		if !ok {
-			i = len(out)
-			idx[k] = i
-			out = append(out, InvoiceLine{Date: day})
-		}
-		out[i].Seconds += r.DurationS()
-	}
-	for i := range out {
-		out[i].Amount = math.Round(rate*float64(out[i].Seconds)/3600*100) / 100
-	}
-	// Rows come in start order, so days are already in order.
-	return out
+// FormatPercent writes basis points as a percentage: 2000 is "20", 550 is
+// "5.5".
+func FormatPercent(bp int64) string {
+	s := FormatMinor(bp, 2)
+	s = strings.TrimRight(s, "0")
+	return strings.TrimSuffix(s, ".")
 }
 
 // hours is seconds as decimal hours: "2.50".
 func hours(s int64) string { return strconv.FormatFloat(math.Round(float64(s)/36)/100, 'f', 2, 64) }
 
-func (inv Invoice) money(v float64) string {
-	s := strconv.FormatFloat(v, 'f', 2, 64)
+func (inv Invoice) money(v int64) string {
+	s := FormatMinor(v, inv.MinorUnits)
 	if inv.Currency != "" {
 		s += " " + inv.Currency
 	}
@@ -98,18 +91,30 @@ func WriteInvoicePDF(w io.Writer, inv Invoice) error {
 	var d pdf.Doc
 	p := d.AddPage()
 	y := invMargin + 10
-	if inv.From != "" {
-		p.Text(invMargin, y, 15, true, inv.From)
+	if inv.Issuer.Name != "" {
+		p.Text(invMargin, y, 15, true, inv.Issuer.Name)
 		y += 16
 	}
-	for _, l := range inv.Address {
+	for _, l := range inv.Issuer.Address {
 		p.Text(invMargin, y, 10, false, l)
 		y += 13
 	}
-	p.TextRight(invRight, invMargin+12, 24, true, "INVOICE")
+	if inv.Issuer.TaxID != "" {
+		p.Text(invMargin, y, 9, false, "Tax ID ")
+		p.Text(invMargin+pdf.Width("Tax ID ", 9, false), y, 9, false, inv.Issuer.TaxID)
+		y += 13
+	}
+	title, number := "INVOICE", inv.Number
+	if inv.Draft {
+		title = "DRAFT"
+		if number == "" {
+			number = "not issued"
+		}
+	}
+	p.TextRight(invRight, invMargin+12, 24, true, title)
 	ry := invMargin + 34.0
 	for _, kv := range [][2]string{
-		{"Number", inv.Number},
+		{"Number", number},
 		{"Date", inv.Issued.Format("2006-01-02")},
 		{"Period", inv.PeriodFrom.Format("2006-01-02") + " – " + inv.PeriodTo.Format("2006-01-02")},
 	} {
@@ -118,14 +123,29 @@ func WriteInvoicePDF(w io.Writer, inv Invoice) error {
 		ry += 14
 	}
 	y = max(y, ry) + 24
-	if inv.Client != "" {
+	if inv.Client.Name != "" {
 		p.Text(invMargin, y, 9, false, "BILL TO")
-		p.Text(invMargin, y+15, 12, true, inv.Client)
-		y += 40
+		p.Text(invMargin, y+15, 12, true, inv.Client.Name)
+		y += 30
+		for _, l := range inv.Client.Address {
+			p.Text(invMargin, y, 10, false, l)
+			y += 13
+		}
+		if inv.Client.TaxID != "" {
+			p.Text(invMargin, y, 9, false, "Tax ID ")
+			p.Text(invMargin+pdf.Width("Tax ID ", 9, false), y, 9, false, inv.Client.TaxID)
+			y += 13
+		}
+		y += 10
 	}
+	if inv.Supersedes != "" {
+		p.Text(invMargin, y, 9, false, "Replaces invoice "+inv.Supersedes)
+		y += 18
+	}
+	rate := FormatMinor(inv.RateMinor, inv.MinorUnits)
 	p.Text(invMargin, y, 11, false, "Project ")
 	p.Text(invMargin+pdf.Width("Project ", 11, false), y, 11, true, inv.Project)
-	p.TextRight(invRight, y, 11, false, inv.money(inv.Rate)+" / hour")
+	p.TextRight(invRight, y, 11, false, inv.money(inv.RateMinor)+" / hour")
 	y += 26
 
 	header := func(y float64) float64 {
@@ -142,27 +162,40 @@ func WriteInvoicePDF(w io.Writer, inv Invoice) error {
 			p = d.AddPage()
 			y = header(invMargin + 10)
 		}
-		p.Text(invMargin+8, y, 10, false, l.Date.Format("Mon 2006-01-02"))
-		p.TextRight(invRight-220, y, 10, false, hours(l.Seconds))
-		p.TextRight(invRight-110, y, 10, false, strconv.FormatFloat(inv.Rate, 'f', 2, 64))
-		p.TextRight(invRight-8, y, 10, false, inv.money(l.Amount))
+		day := l.Day
+		if t, err := time.Parse("2006-01-02", l.Day); err == nil {
+			day = t.Format("Mon 2006-01-02")
+		}
+		p.Text(invMargin+8, y, 10, false, day)
+		p.TextRight(invRight-220, y, 10, false, hours(l.SecondsBilled))
+		p.TextRight(invRight-110, y, 10, false, rate)
+		p.TextRight(invRight-8, y, 10, false, inv.money(l.AmountMinor))
 		p.Line(invMargin, y+6, invRight, y+6, 0.4, 0.85)
 		y += invRowH
 	}
-	if y > invBottom-40 {
+	if y > invBottom-80 {
 		p = d.AddPage()
 		y = invMargin + 10
 	}
 	y += 8
 	p.TextRight(invRight-110, y, 10, false, "Total hours")
-	p.TextRight(invRight-8, y, 10, false, hours(inv.TotalSeconds()))
+	p.TextRight(invRight-8, y, 10, false, hours(inv.SecondsBilled))
+	if inv.TaxBP > 0 {
+		y += 16
+		p.TextRight(invRight-110, y, 10, false, "Subtotal")
+		p.TextRight(invRight-8, y, 10, false, inv.money(inv.SubtotalMinor))
+		y += 16
+		label := strings.TrimSpace(inv.TaxLabel + " " + FormatPercent(inv.TaxBP) + "%")
+		p.TextRight(invRight-110, y, 10, false, label)
+		p.TextRight(invRight-8, y, 10, false, inv.money(inv.TaxMinor))
+	}
 	y += 20
 	p.Line(invRight-220, y-13, invRight, y-13, 0.8, 0.2)
 	p.TextRight(invRight-110, y+2, 12, true, "Total")
-	p.TextRight(invRight-8, y+2, 12, true, inv.money(inv.Total()))
-	if inv.Note != "" {
-		ny := max(y+50, invBottom+20)
-		for _, l := range wrap(inv.Note, invRight-invMargin, 9) {
+	p.TextRight(invRight-8, y+2, 12, true, inv.money(inv.TotalMinor))
+	ny := max(y+50, invBottom+8)
+	for _, text := range []string{inv.TaxNote, inv.Note} {
+		for _, l := range wrap(text, invRight-invMargin, 9) {
 			p.Text(invMargin, ny, 9, false, l)
 			ny += 12
 		}

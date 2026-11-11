@@ -117,8 +117,10 @@ Extras (optional; some need a setting, Claude or Slack):
   tock ask [--dry-run] "<question>"      ask about your time in plain words; answered on this machine
   tock recommend [accept | dismiss]      the pending suggestion: show it, take it, or not now
   tock ocr test [--now] | grant          read the front window's text once (in 3 s) | ask for Screen Recording
-  tock invoice --project P [--from D] [--to D] [--client NAME] [--number N] [-o FILE]
-                                         a PDF invoice from the project's rate (default last month)
+  tock invoice --project P [--from D] [--to D] [--client NAME] [-o FILE]
+                                         preview an invoice from the project's rate (DRAFT PDF; default last month)
+  tock invoice issue|void|list|show|check|verify|recover …
+                                         issue and keep invoices (tock invoice help)
   tock sync [--days N]                   write this machine's last N days (default 2) to the
                                          [sync] folder now and read the other machines'
   tock slack [login | logout | status]   Slack status and do-not-disturb during focus sessions
@@ -292,7 +294,8 @@ var commands = map[string]func(Env, []string) error{
 	"update":     cmdUpdate,
 }
 
-// run executes one command and returns the exit code: 0 ok, 1 error, 2 usage.
+// run executes one command and returns the exit code: 0 ok, 1 error, 2
+// usage, or the code of an exitStatus (tock invoice check: 3, verify: 4).
 func run(args []string, env Env) int {
 	var err error
 	switch {
@@ -313,9 +316,15 @@ func run(args []string, env Env) int {
 		err = cmd(env, args[1:])
 	}
 	var ue usageError
+	var es exitStatus
 	switch {
 	case err == nil:
 		return 0
+	case errors.As(err, &es):
+		if es.msg != "" {
+			fmt.Fprintf(env.Stderr, "tock: %s\n", es.msg)
+		}
+		return es.code
 	case errors.As(err, &ue):
 		fmt.Fprintf(env.Stderr, "tock: %v\n%s", err, usage)
 		return 2

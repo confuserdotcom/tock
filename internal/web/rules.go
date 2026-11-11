@@ -1,9 +1,9 @@
 package web
 
 import (
-	"bytes"
 	"errors"
 	"net/http"
+	"strconv"
 	"time"
 
 	"tock/internal/app"
@@ -148,9 +148,10 @@ func (s *Server) rulePreview(r *http.Request) (any, error) {
 	return out, nil
 }
 
-// invoice is `tock invoice`: ?project=, ?from= and ?to= (days, both
-// included), ?client=, ?number=. With ?preview=1 it answers the totals as
-// JSON instead of the PDF.
+// invoice is `tock invoice` (the preview): ?project=, ?from= and ?to=
+// (days, both included), ?client=, ?number=. With ?preview=1 it answers
+// the totals as JSON, else the PDF marked DRAFT. It never issues: an
+// invoice is issued with tock invoice issue, which records it.
 func (s *Server) invoice(r *http.Request) (any, error) {
 	q := r.URL.Query()
 	now := s.now()
@@ -165,11 +166,12 @@ func (s *Server) invoice(r *http.Request) (any, error) {
 	if exportTooLong(days[0], days[1]) {
 		return nil, badRequest("an invoice covers at most a year")
 	}
-	inv, err := s.a.Invoice(app.InvoiceSpec{Project: q.Get("project"), From: days[0], To: days[1], Client: q.Get("client"), Number: q.Get("number")}, now)
+	d, err := s.a.DraftInvoice(app.InvoiceSpec{Project: q.Get("project"), From: days[0], To: days[1], Client: q.Get("client"), Number: q.Get("number")})
 	if err != nil {
 		return nil, badRequest(err.Error())
 	}
 	if q.Get("preview") == "1" {
+		total, _ := strconv.ParseFloat(report.FormatMinor(d.Record.TotalMinor, d.Record.MinorUnits), 64) // display only
 		return struct {
 			Project  string  `json:"project"`
 			Number   string  `json:"number"`
@@ -177,11 +179,11 @@ func (s *Server) invoice(r *http.Request) (any, error) {
 			Total    float64 `json:"total"`
 			Currency string  `json:"currency"`
 			Days     int     `json:"days"`
-		}{inv.Project, inv.Number, inv.TotalSeconds(), inv.Total(), inv.Currency, len(inv.Lines)}, nil
+		}{d.Record.Project, d.Record.Number, d.Record.SecondsBilled, total, d.Record.Currency, len(d.Record.Lines)}, nil
 	}
-	var buf bytes.Buffer
-	if err := report.WriteInvoicePDF(&buf, inv); err != nil {
+	b, err := app.DraftPDF(d)
+	if err != nil {
 		return nil, err
 	}
-	return file{"invoice-" + report.Slug(inv.Number) + ".pdf", "application/pdf", buf.Bytes()}, nil
+	return file{"invoice-draft-" + report.Slug(d.Record.Project) + ".pdf", "application/pdf", b}, nil
 }

@@ -88,10 +88,10 @@ type InvoiceLine struct {
 	AmountMinor   int64  `json:"amount_minor"`
 }
 
-// InvoiceItem is billed time behind the lines: a span or a timeline edit.
-// It never holds a title or URL.
+// InvoiceItem is billed time behind the lines. It never holds a title or
+// URL.
 type InvoiceItem struct {
-	Origin         string `json:"origin"` // span or edit
+	Origin         string `json:"origin"` // span, edit, away, meeting or remote
 	OriginID       int64  `json:"origin_id"`
 	StartMS        int64  `json:"start_ms"`
 	EndMS          int64  `json:"end_ms"`
