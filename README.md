@@ -3,26 +3,56 @@
 [![ci](https://github.com/confuserdotcom/tock/actions/workflows/ci.yml/badge.svg)](https://github.com/confuserdotcom/tock/actions/workflows/ci.yml)
 [![license: MIT](https://img.shields.io/badge/license-MIT-lightgrey.svg)](LICENSE)
 
-tock records what you work on, on a Mac or on Linux under Hyprland, and
-labels it with rules you write. You never start a timer. Your data stays on
-your machine, in one SQLite file.
+tock keeps a record of your working time that you never have to start,
+stop or fill in. It runs on a Mac or on Linux under Hyprland, labels the
+time with rules you can read, and turns it into invoices that don't
+change once issued. Your data stays on your machine, in one
+SQLite file.
+
+- **Automatic.** A small daemon notes the app, window and site in front
+  of you. There is no timer.
+- **Explainable.** Every label comes from a rule you wrote, a label you
+  gave, or a local model, and says which. A rule shows the time it
+  labels before you save it.
+- **Billable.** Rates per project, exact amounts, and issued invoices
+  that keep their numbers when labels change later.
+
+It is made for developers and freelancers first. It works for study and
+side projects too.
 
 <img src="docs/readme/today.webp" width="100%" alt="The tock dashboard for a Thursday: a timeline with one row per category, a focus score of 92 against a usual Thursday, minutes per hour, a donut of deep, shallow, browsing and distracting time, and goals.">
 
 **Today.** Every app, window and site you used, on one timeline with a
-row per category. The day gets a focus score out of 100, compared with your
-usual same weekday, and goals you set per day or per week.
+row per category, and the day's totals by category and project.
 
-## It lives in the notch
+## Bill from the record
 
-<img src="docs/readme/notch.webp" width="100%" alt="The tock notch on a MacBook: a focus session counting down beside the notch; YouTube pulls you off task and the notch asks to go back, with Snooze; the session ends with deep time, longest run and switches; three unlabelled things are labelled with one pick each, each pick saving a rule; a meeting two minutes away; the evening recap against a usual Saturday; and a dot for a moment you missed.">
+Give a project a rate in rules.toml or in the Library, and an optional
+client:
 
-The menu bar app draws a panel around the notch, or a notch of its own on
-a screen without one. A focus session counts down beside it and calls you
-back when you drift. When the session ends it shows how it went. Unlabelled
-time can be labelled there with one pick, and each pick saves a rule. It
-warns before meetings and shows a recap in the evening. A moment you
-missed waits as a dot.
+```sh
+tock invoice --project acme --from 2026-11-01 --to 2026-11-30       # a preview marked DRAFT
+tock invoice issue --project acme --from 2026-11-01 --to 2026-11-30 # 2026-0007, stored
+```
+
+An issued invoice gets the next number of the year and is stored with its
+PDF in the database and in `~/.local/share/tock/invoices/`. Relabelling
+the month later, raising the rate or editing your address changes nothing
+in it: `tock invoice check 2026-0007` tells you how today's labels would
+differ. A mistake is fixed with a void, which needs a reason, and a new
+invoice that replaces the old one. Amounts are exact to the cent, days can
+be rounded up to the quarter hour, and an invoice can carry tax numbers
+and one tax rate. Backups include the invoices, and a restore warns before
+it would lose one.
+
+## Every label says why
+
+Each entry carries where its category and project came from: a rule, a
+label you gave, the model, or nothing yet. `tock export` writes it in its
+own columns, and `tock model why` says why the model chose what it did.
+The Rules list (below) shows the time each rule labels and which rules
+never win, and a new rule previews what it would relabel before you save
+it. Rules apply to past days too, so fixing one fixes the record.
 
 ## Fix the record
 
@@ -76,6 +106,29 @@ relabel before you save.
 
 `⌘K` jumps to any view or any date.
 
+## Focus, if you want it
+
+<img src="docs/readme/notch.webp" width="100%" alt="The tock notch on a MacBook: a focus session counting down beside the notch; YouTube pulls you off task and the notch asks to go back, with Snooze; the session ends with deep time, longest run and switches; three unlabelled things are labelled with one pick each, each pick saving a rule; a meeting two minutes away; the evening recap against a usual Saturday; and a dot for a moment you missed.">
+
+The menu bar app draws a panel around the notch, or a notch of its own on
+a screen without one. A focus session counts down beside it and calls you
+back when you drift. When the session ends it shows how it went. Unlabelled
+time can be labelled there with one pick, and each pick saves a rule. It
+warns before meetings and shows a recap in the evening. A moment you
+missed waits as a dot.
+
+Sessions, the focus score, break reminders and the daily notices are
+groups you can turn off with `tock choice focus off` and `tock choice
+routine off`. Off, they leave the TUI, the dashboard, the menu bar and the
+notch, and the record is the same.
+
+## Also for study and side projects
+
+Categories, projects and goals don't assume client work. A course can be
+a project with a weekly goal, a side project can have its own rules, and
+Billing can be turned off (`tock choice billing off`) so no rates or
+invoices show anywhere.
+
 ## How it works
 
 - `trackd`, a small daemon, records the app and window in front and the
@@ -99,10 +152,9 @@ switches, minus distraction.
 How a span gets its label, how the notch is fed and how the install
 signs the apps are drawn in [Architecture](docs/architecture.md).
 
-Optional, and off until you turn them on: focus sessions that call you back
-when you drift, goals, work hours, a calendar view, week reports, billing,
-git commit counts, sync between machines, and Claude suggestions and
-summaries. See [the guide](docs/guide.md).
+Optional, and off until you turn them on: the break and wake screens,
+work hours, a calendar view, git commit counts, sync between machines, and
+Claude suggestions and summaries. See [the guide](docs/guide.md).
 
 ## Privacy
 
@@ -213,6 +265,8 @@ the tokens, the type scale, the components and the motion rules.
 
 - [confuserdotcom.github.io/tock](https://confuserdotcom.github.io/tock/): the guide and the architecture as a site.
 - [Guide](docs/guide.md): every command, file and feature.
+- [Product](docs/product.md): what tock is for, who it is for first, and what it won't do.
+- [Privacy](docs/privacy.md): what is recorded and what can leave your machine.
 - [Architecture](docs/architecture.md): how the pieces fit, with diagrams, and what they cost.
 - [CHANGELOG](CHANGELOG.md): what changed in each release.
 - [DESIGN.md](DESIGN.md): the design system for the dashboard, TUI and menu.

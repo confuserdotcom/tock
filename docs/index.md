@@ -1,6 +1,6 @@
 # tock
 
-<p class="lead">tock records what you work on, on a Mac or on Linux under Hyprland, and labels it with rules you write. You never start a timer. Your data stays on your machine, in one SQLite file.</p>
+<p class="lead">tock keeps a record of your working time that you never have to start, stop or fill in, labels it with rules you can read, and turns it into invoices that don't change once issued. On a Mac or on Linux under Hyprland; your data stays on your machine, in one SQLite file.</p>
 
 <picture class="shot">
   <source media="(prefers-color-scheme: dark)" srcset="readme/web-dark.png">
@@ -22,10 +22,16 @@
 - **Asks once.** Time no rule covers goes to an inbox. Labelling it there
   writes a rule, so the same thing is never asked again. A model trained on
   your own labels, on your machine, suggests the rest.
+- **Says why.** Every label records whether a rule, you, or the model
+  set it, and a new rule shows what it would relabel before you save it.
+- **Bills from the record.** Rates per project and `tock invoice issue`:
+  a numbered invoice, stored with its PDF, that later relabelling never
+  changes. `tock invoice check` shows what would differ today.
 - **Shows the day plainly.** A terminal UI, a dashboard on 127.0.0.1, and a
   menu bar app. Every number is compared with your usual same weekday.
-- **Focus sessions.** `tock session start 50` or `⌥⌘F` from any app. tock
-  calls you back when you drift.
+- **Focus sessions, if you want them.** `tock session start 50` or `⌥⌘F`
+  from any app. tock calls you back when you drift. `tock choice focus off`
+  hides all of it.
 
 ## Install
 
