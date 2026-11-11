@@ -17,6 +17,7 @@ import { download } from "@/lib/download";
 import { byKindRows, kindColor, kindLabel } from "@/lib/kinds";
 import { onDay } from "@/lib/outage";
 import { useGroups, weekExports, type WeekExport } from "@/lib/groups";
+import { go } from "@/lib/route";
 
 export default function Week({ date, tick }: { date: string; tick: number }) {
   const { data: w, error, loading } = useApi<WeekT>(`/api/week?date=${date}`, tick);
@@ -28,6 +29,7 @@ export default function Week({ date, tick }: { date: string; tick: number }) {
 
   const mon = parseDate(w.monday);
   const days = w.days.map((d) => ({ label: shortDay(parseDate(d.date)), byKind: d.byKind, faint: d.future }));
+  const openDay = (i: number) => w.days[i] && !w.days[i].future && go({ view: "today", date: w.days[i].date });
   const scores = w.days.map((d) => ({ label: shortDay(parseDate(d.date)), score: d.future || d.trackedMS < 3_600_000 ? null : d.score }));
   const projects = w.projects.slice(0, 6);
   const billed = w.days.reduce((n, d) => n + (d.billedMS ?? 0), 0);
@@ -42,15 +44,15 @@ export default function Week({ date, tick }: { date: string; tick: number }) {
   return (
     <div className="space-y-5">
       <div className="flex items-baseline justify-between">
-        <h1 className="text-xl font-semibold tracking-tight">Week of {dayTitle(mon)} – {dayTitle(addDays(mon, 6))}</h1>
+        <h1 className="text-xl font-semibold tracking-tight">{dayTitle(mon)} – {dayTitle(addDays(mon, 6))}</h1>
         <span className="flex items-center gap-3">
           <span className="num text-muted-foreground">{dur(w.trackedMS)} tracked</span>
           <Export monday={w.monday} />
         </span>
       </div>
       <div className="grid gap-5 lg:grid-cols-[1.4fr_1fr]">
-        <Panel label="Hours per day">
-          <DayBars days={days} />
+        <Panel label="Hours per day" aside="click a day to open it">
+          <DayBars days={days} onDay={openDay} />
           {missed.length > 0 && (
             <p className="num mt-3 text-xs text-muted-foreground"
               title={missed.flatMap((m) => m.items.map((o) => `${m.label} ${hhmm(o.from)}–${hhmm(o.to)} ${o.why}`)).join("\n")}>
@@ -65,7 +67,7 @@ export default function Week({ date, tick }: { date: string; tick: number }) {
       <div className={groups.focus ? "grid gap-5 lg:grid-cols-[1fr_1.4fr]" : "grid gap-5"}>
         {groups.focus && (
           <Panel label="Focus score">
-            <ScoreLine points={scores} />
+            <ScoreLine points={scores} onPoint={openDay} />
           </Panel>
         )}
         <Panel label="When you focus" aside={hours.data ? `mean focus minutes, last ${hours.data.activeDays} active days` : undefined}>
@@ -74,10 +76,15 @@ export default function Week({ date, tick }: { date: string; tick: number }) {
       </div>
       <div className="grid gap-5 lg:grid-cols-3">
         <Panel label="Projects" aside={billed > 0 ? `${dur(billed)} on issued invoices` : undefined}>
-          {projects.length ? <Donut data={projects.map((p, i) => ({ name: p.name || "No project", ms: p.ms, color: colors[i] }))} center={String(w.projects.length)} sub="projects" /> : <Empty>No projects this week.</Empty>}
+          {projects.length ? <Donut data={projects.map((p, i) => ({ name: p.name || "No project", ms: p.ms, color: colors[i] }))} center={String(w.projects.length)} sub="projects" onSelect={() => go({ view: "library", sub: "projects" })} /> : <Empty>No projects this week.</Empty>}
         </Panel>
-        <Panel label="Goals">
-          {w.goals.length ? <GoalRings goals={w.goals} /> : <Empty>No goals yet.</Empty>}
+        <Panel label="Goals" aside={<button className="underline-offset-2 hover:text-foreground hover:underline" onClick={() => go({ view: "library", sub: "goals" })}>Edit</button>}>
+          {w.goals.length ? <GoalRings goals={w.goals} /> : (
+            <div className="py-6 text-center">
+              <p className="text-sm text-muted-foreground">No goals yet.</p>
+              <Button variant="outline" size="sm" className="mt-3" onClick={() => go({ view: "library", sub: "goals" })}>Add a goal</Button>
+            </div>
+          )}
         </Panel>
         <Panel label="Distractions">
           <TimeTable head="Where" rows={w.distractions.map((d) => ({ name: d.name, ms: d.ms, kind: "distract" }))} limit={6} />

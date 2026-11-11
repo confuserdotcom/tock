@@ -4,7 +4,8 @@ import { SERIES, kindColor, kindLabel } from "@/lib/kinds";
 import { dur } from "@/lib/format";
 
 /** HourBars: minutes per hour, stacked by kind, from hourFirst to hourLast. */
-export function HourBars({ hours, first, last, height = 220 }: { hours: Record<string, number[]>; first: number; last: number; height?: number }) {
+/** onHour gets the hour of a clicked bar. */
+export function HourBars({ hours, first, last, height = 220, onHour }: { hours: Record<string, number[]>; first: number; last: number; height?: number; onHour?: (h: number) => void }) {
   const rows = [];
   for (let h = first; h <= last; h++) {
     const r: Record<string, number | string> = { h: String(h).padStart(2, "0") };
@@ -13,7 +14,8 @@ export function HourBars({ hours, first, last, height = 220 }: { hours: Record<s
   }
   return (
     <ChartContainer config={{}} className="w-full" style={{ height }}>
-      <BarChart data={rows} margin={{ top: 4, right: 0, left: -24, bottom: 0 }}>
+      <BarChart data={rows} margin={{ top: 4, right: 0, left: -24, bottom: 0 }} className={onHour ? "cursor-pointer" : undefined}
+        onClick={(e) => e?.activeLabel !== undefined && onHour?.(Number(e.activeLabel))}>
         <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="hsl(var(--border))" />
         <XAxis dataKey="h" tickLine={false} axisLine={false} tick={{ fill: "hsl(var(--faint))", fontSize: 11 }} />
         <YAxis domain={[0, 60]} ticks={[0, 15, 30, 45, 60]} tickLine={false} axisLine={false} tick={{ fill: "hsl(var(--faint))", fontSize: 11 }} />
@@ -23,6 +25,7 @@ export function HourBars({ hours, first, last, height = 220 }: { hours: Record<s
             active && payload?.length ? (
               <div className="rounded-md border bg-popover px-2.5 py-1.5 text-xs shadow">
                 <div className="mb-1 font-medium">{label}:00</div>
+                {onHour && <div className="mb-1 text-faint">Click to zoom the timeline</div>}
                 {payload.filter((p) => Number(p.value) > 0).map((p) => (
                   <div key={String(p.dataKey)} className="flex items-center gap-2">
                     <i className="h-2 w-2 rounded-sm" style={{ background: kindColor(p.dataKey === "unlabelled" ? "" : String(p.dataKey)) }} />

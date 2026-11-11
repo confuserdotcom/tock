@@ -5,7 +5,7 @@ import { dur, parseDate, dayTitle } from "@/lib/format";
 const HEAD = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 /** CalendarHeat: the month as a calendar, each day shaded by deep time. */
-export function CalendarHeat({ first, days }: { first: string; days: MonthDay[] }) {
+export function CalendarHeat({ first, days, onDay }: { first: string; days: MonthDay[]; onDay?: (date: string) => void }) {
   const start = parseDate(first);
   const lead = (start.getDay() + 6) % 7;
   const max = Math.max(1, ...days.map((d) => d.deepMS));
@@ -19,12 +19,15 @@ export function CalendarHeat({ first, days }: { first: string; days: MonthDay[] 
         d ? (
           <Tooltip key={d.date}>
             <TooltipTrigger asChild>
-              <div
-                className={d.score < 0 ? "hatch flex aspect-[1.6] items-start justify-end rounded-md p-1.5" : "flex aspect-[1.6] items-start justify-end rounded-md p-1.5"}
+              <button
+                type="button"
+                onClick={() => onDay?.(d.date)}
+                aria-label={`Open ${dayTitle(parseDate(d.date))}`}
+                className={`${d.score < 0 ? "hatch " : ""}flex aspect-[1.6] items-start justify-end rounded-md p-1.5 transition-[filter] hover:brightness-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring`}
                 style={d.score < 0 ? undefined : { background: `hsl(var(--k-deep) / ${0.12 + 0.88 * (d.deepMS / max)})` }}
               >
                 <span className="num text-[11px] text-foreground/80">{parseDate(d.date).getDate()}</span>
-              </div>
+              </button>
             </TooltipTrigger>
             <TooltipContent className="num text-xs">
               <div className="font-medium">{dayTitle(parseDate(d.date))}</div>

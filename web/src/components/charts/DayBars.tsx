@@ -6,7 +6,8 @@ import { dur } from "@/lib/format";
 export type DayPoint = { label: string; byKind: Record<string, number>; faint?: boolean };
 
 /** DayBars: hours per day, stacked by kind. */
-export function DayBars({ days, height = 240 }: { days: DayPoint[]; height?: number }) {
+/** onDay gets the index of a clicked day. */
+export function DayBars({ days, height = 240, onDay }: { days: DayPoint[]; height?: number; onDay?: (i: number) => void }) {
   const rows = days.map((d) => {
     const r: Record<string, number | string> = { label: d.label };
     for (const k of SERIES) r[k || "unlabelled"] = (d.byKind[k] ?? 0) / 3_600_000;
@@ -14,7 +15,8 @@ export function DayBars({ days, height = 240 }: { days: DayPoint[]; height?: num
   });
   return (
     <ChartContainer config={{}} className="w-full" style={{ height }}>
-      <BarChart data={rows} margin={{ top: 4, right: 0, left: -24, bottom: 0 }}>
+      <BarChart data={rows} margin={{ top: 4, right: 0, left: -24, bottom: 0 }} className={onDay ? "cursor-pointer" : undefined}
+        onClick={(e) => e?.activeTooltipIndex !== undefined && onDay?.(e.activeTooltipIndex)}>
         <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="hsl(var(--border))" />
         <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: "hsl(var(--faint))", fontSize: 11 }} />
         <YAxis tickLine={false} axisLine={false} tick={{ fill: "hsl(var(--faint))", fontSize: 11 }} tickFormatter={(v) => `${v}h`} allowDecimals={false} />
@@ -24,6 +26,7 @@ export function DayBars({ days, height = 240 }: { days: DayPoint[]; height?: num
             active && payload?.length ? (
               <div className="rounded-md border bg-popover px-2.5 py-1.5 text-xs shadow">
                 <div className="mb-1 font-medium">{label}</div>
+                {onDay && <div className="mb-1 text-faint">Click to open the day</div>}
                 {payload.filter((p) => Number(p.value) > 0).map((p) => (
                   <div key={String(p.dataKey)} className="flex items-center gap-2">
                     <i className="h-2 w-2 rounded-sm" style={{ background: kindColor(p.dataKey === "unlabelled" ? "" : String(p.dataKey)) }} />
