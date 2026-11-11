@@ -209,12 +209,16 @@ func (a *App) LabelTree(days int) ([]TreeCategory, error) {
 
 // ProjectSpec is a project to add, or what to change in one (Edit): nil
 // leaves a field, Category "" unfiles it. Rate < 0 drops the rate.
+// Billable false writes billable = false, true removes it (billable is the
+// default with a rate). Client "" drops the client.
 type ProjectSpec struct {
 	Name     string
 	Category *string
 	Aliases  *[]string
 	Archived *bool
 	Rate     *float64
+	Billable *bool
+	Client   *string
 }
 
 func rateValue(r float64) string { return strconv.FormatFloat(r, 'f', -1, 64) }
@@ -238,6 +242,13 @@ func (a *App) checkProject(p ProjectSpec) (ProjectSpec, error) {
 	}
 	if p.Rate != nil && (math.IsNaN(*p.Rate) || *p.Rate > classify.MaxRate) {
 		return p, fmt.Errorf("rate %s, want 0 to %d", rateValue(*p.Rate), classify.MaxRate)
+	}
+	if p.Client != nil {
+		c := strings.TrimSpace(*p.Client)
+		if len([]rune(c)) > classify.MaxClient {
+			return p, fmt.Errorf("client is longer than %d characters", classify.MaxClient)
+		}
+		p.Client = &c
 	}
 	return p, nil
 }
@@ -265,12 +276,19 @@ func (a *App) AddProject(p ProjectSpec) error {
 	if p.Rate != nil && *p.Rate >= 0 {
 		fields = append(fields, classify.Field{Key: "rate", Value: rateValue(*p.Rate)})
 	}
+	if p.Billable != nil && !*p.Billable {
+		fields = append(fields, classify.Field{Key: "billable", Value: "false"})
+	}
+	if p.Client != nil && *p.Client != "" {
+		fields = append(fields, classify.Field{Key: "client", Value: classify.TOMLString(*p.Client)})
+	}
 	return a.rewriteRules(func(rules, learned []byte) ([]byte, []byte, error) {
 		return []byte(classify.AddTable(string(rules), classify.NameProject, fields)), learned, nil
 	})
 }
 
-// EditProject changes a project's category, aliases or archived flag.
+// EditProject changes a project's category, aliases, archived flag, rate,
+// billable flag or client.
 func (a *App) EditProject(p ProjectSpec) error {
 	name, err := a.rs.ResolveName(classify.NameProject, p.Name)
 	if err != nil {
@@ -313,6 +331,20 @@ func (a *App) EditProject(p ProjectSpec) error {
 				v = rateValue(*p.Rate)
 			}
 			set("rate", v)
+		}
+		if p.Billable != nil {
+			v := ""
+			if !*p.Billable {
+				v = "false"
+			}
+			set("billable", v)
+		}
+		if p.Client != nil {
+			v := ""
+			if *p.Client != "" {
+				v = classify.TOMLString(*p.Client)
+			}
+			set("client", v)
 		}
 		return []byte(text), learned, err
 	})

@@ -3,6 +3,7 @@ package app
 import (
 	"errors"
 	"os"
+	"strings"
 	"testing"
 
 	"tock/internal/apptest"
@@ -50,6 +51,38 @@ func TestProjectRate(t *testing.T) {
 	}
 	if err := a.EditProject(ProjectSpec{Name: "Client", Rate: big}); err == nil {
 		t.Fatal("set a rate over MaxRate")
+	}
+}
+
+func TestProjectBillableAndClient(t *testing.T) {
+	e := apptest.New(t, apptest.Rules)
+	e.Seed(t, apptest.DaySpans()...)
+	a := open(t, e)
+	f := func(v float64) *float64 { return &v }
+	b := func(v bool) *bool { return &v }
+	str := func(v string) *string { return &v }
+
+	if err := a.AddProject(ProjectSpec{Name: "Acme", Rate: f(95.5), Billable: b(false), Client: str(" Acme Corp ")}); err != nil {
+		t.Fatal(err)
+	}
+	if p := projectNamed(t, a, "Acme"); p.Billable == nil || *p.Billable || p.Client != "Acme Corp" || a.Rules().Billable("Acme") {
+		t.Fatalf("added %+v", p)
+	}
+	if err := a.EditProject(ProjectSpec{Name: "acme", Billable: b(true), Client: str("Globex")}); err != nil {
+		t.Fatal(err)
+	}
+	if p := projectNamed(t, a, "Acme"); p.Billable != nil || p.Client != "Globex" || !a.Rules().Billable("Acme") {
+		t.Fatalf("edited %+v", p)
+	}
+	if err := a.EditProject(ProjectSpec{Name: "Acme", Client: str("")}); err != nil {
+		t.Fatal(err)
+	}
+	if p := projectNamed(t, a, "Acme"); p.Client != "" || p.Rate == nil {
+		t.Fatalf("cleared client %+v", p)
+	}
+	long := str(strings.Repeat("c", classify.MaxClient+1))
+	if err := a.EditProject(ProjectSpec{Name: "Acme", Client: long}); err == nil {
+		t.Fatal("set a client over MaxClient")
 	}
 }
 

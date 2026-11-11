@@ -9,7 +9,8 @@ import (
 
 // InvoiceSpec is one invoice to make: the project (a unique prefix will
 // do), the first and last day billed (both included, local midnight), who
-// it is to and its number ("" = YYYYMM-project).
+// it is to ("" = the project's client) and its number ("" =
+// YYYYMM-project).
 type InvoiceSpec struct {
 	Project        string
 	From, To       time.Time
@@ -29,6 +30,12 @@ func (a *App) Invoice(s InvoiceSpec, now time.Time) (report.Invoice, error) {
 	rate := a.rs.Rate(name)
 	if rate == nil {
 		return report.Invoice{}, fmt.Errorf("project %s has no rate: set one in Library, or rate = … on it in rules.toml", name)
+	}
+	if !a.rs.Billable(name) {
+		return report.Invoice{}, fmt.Errorf("project %s is not billable: remove billable = false on it in rules.toml", name)
+	}
+	if s.Client == "" {
+		s.Client = a.rs.Client(name)
 	}
 	rows, err := a.Export(s.From, s.To.AddDate(0, 0, 1))
 	if err != nil {

@@ -29,7 +29,7 @@ func (a *App) Export(from, to time.Time) ([]report.ExportRow, error) {
 			Category: l.Category, Kind: l.Kind, Project: l.Project,
 			CategorySource: string(l.CategorySource), ProjectSource: string(l.ProjectSource)}
 		if l.Project != "" {
-			rows[i].Rate = a.rs.Rate(l.Project)
+			rows[i].Rate = a.rs.BillableRate(l.Project)
 		}
 	}
 	return rows, nil
