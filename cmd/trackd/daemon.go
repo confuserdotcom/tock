@@ -16,6 +16,7 @@ import (
 	"tock/internal/classify"
 	"tock/internal/collect"
 	"tock/internal/config"
+	"tock/internal/service"
 	"tock/internal/span"
 	"tock/internal/store"
 	"tock/internal/update"
@@ -110,7 +111,7 @@ func runDaemon(o daemonOpts) int {
 
 	logPath := filepath.Join(o.StateDir, "trackd.log")
 	mkErr := os.MkdirAll(o.StateDir, 0o700)
-	truncErr := truncateLogIfLarge(logPath, logMaxBytes)
+	truncErr := service.RotateLog(logPath, service.LogMaxBytes)
 	log := newLogger(o.Stderr)
 	log.Info("trackd starting", "version", version, "pid", os.Getpid(),
 		"db", filepath.Join(o.DataDir, "tock.db"))
@@ -119,7 +120,7 @@ func runDaemon(o daemonOpts) int {
 		return exitNoRestart
 	}
 	if truncErr != nil {
-		log.Warn("log truncation failed", "path", logPath, "err", truncErr)
+		log.Warn("log rotation failed", "path", logPath, "err", truncErr)
 	}
 
 	release, err := acquireLock(filepath.Join(o.StateDir, "trackd.lock"))

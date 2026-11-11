@@ -42,6 +42,8 @@ What changed for you in each release. Dates are UTC.
   checks, your config with every text value removed, the end of the logs
   without titles or URLs, and when trackd ran. It sends nothing.
   `tock doctor --json` prints the checks for scripts.
+- trackd and the menu bar keep their previous log as `trackd.log.1` and
+  `tockbar.log.1` when the log passes 10 MB, instead of emptying it.
 - Fix hints follow how tock was installed: `tock setup` for Homebrew,
   opening tock for the .dmg, `make install` from source.
 - **`tock restore` refuses while something else has the database open**

@@ -106,8 +106,12 @@ func main() {
 		}
 		return
 	}
+	rotErr := service.RotateLog(barAgent().LogPath, service.LogMaxBytes)
 	log := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	log.Info("tockbar starting", "version", version)
+	if rotErr != nil {
+		log.Warn("log rotation failed", "err", rotErr)
+	}
 	open := func() (*app.App, error) { return app.Open(paths(), time.Now) }
 	r := &runner{
 		open:  open,

@@ -170,29 +170,6 @@ func TestLogNeverContainsTitlesOrURLs(t *testing.T) {
 	}
 }
 
-func TestTruncateLogIfLarge(t *testing.T) {
-	dir := t.TempDir()
-	big := filepath.Join(dir, "big.log")
-	small := filepath.Join(dir, "small.log")
-	if err := os.WriteFile(big, make([]byte, 11<<20), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(small, make([]byte, 1024), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	for _, p := range []string{big, small, filepath.Join(dir, "missing.log")} {
-		if err := truncateLogIfLarge(p, logMaxBytes); err != nil {
-			t.Fatalf("truncateLogIfLarge(%s): %v", p, err)
-		}
-	}
-	if fi, _ := os.Stat(big); fi.Size() != 0 {
-		t.Errorf("11 MiB log size = %d; want 0", fi.Size())
-	}
-	if fi, _ := os.Stat(small); fi.Size() != 1024 {
-		t.Errorf("1 KiB log size = %d; want 1024", fi.Size())
-	}
-}
-
 func TestVersionWrittenAtStartup(t *testing.T) {
 	r := runFakeDaemon(t, t.TempDir(), samplesSource())
 	if r.rc != 0 {
