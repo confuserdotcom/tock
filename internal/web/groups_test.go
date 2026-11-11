@@ -2,6 +2,7 @@ package web
 
 import (
 	"encoding/json"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -98,5 +99,45 @@ func TestBilledMarkers(t *testing.T) {
 	code, _, b := f.do("POST", "/api/tag", testToken, map[string]any{"ids": billed[:1], "label": "Code"})
 	if code != 200 || !strings.Contains(string(b), "On invoice "+inv.Number+"; the invoice stays as issued.") {
 		t.Fatalf("tag billed: %d %s", code, b)
+	}
+}
+
+// Learning a rule that relabels billed time says so too, as tagging does.
+func TestLearnBilledNote(t *testing.T) {
+	f := newFixture(t)
+	if code, _, b := f.do("POST", "/api/library/project", testToken, map[string]any{"op": "set", "name": "tock", "rate": 60}); code != 200 {
+		t.Fatalf("set rate: %d %s", code, b)
+	}
+	now := time.UnixMilli(f.library().NowMS).In(apptest.Zone)
+	day := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	inv, err := f.a.IssueInvoice(app.InvoiceSpec{Project: "tock", From: day, To: day})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var d dayJSON
+	f.get("/api/day", &d)
+	key := ""
+	for _, r := range d.Timeline {
+		if r.Invoice != "" {
+			key = r.Key
+			break
+		}
+	}
+	if key == "" {
+		t.Fatal("no billed row")
+	}
+	var p proposeJSON
+	f.get("/api/propose?key="+url.QueryEscape(key)+"&label=Study", &p)
+	rule := ""
+	for _, c := range p.Candidates {
+		rule = c.Rule
+		break
+	}
+	if rule == "" {
+		t.Fatalf("no safe rule for %q: %+v", key, p)
+	}
+	code, _, b := f.do("POST", "/api/learn", testToken, map[string]any{"key": key, "label": "Study", "rule": rule})
+	if code != 200 || !strings.Contains(string(b), "On invoice "+inv.Number) {
+		t.Fatalf("learn on billed time: %d %s", code, b)
 	}
 }

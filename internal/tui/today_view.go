@@ -471,14 +471,21 @@ func (t todayTab) timelineRow(i int, r report.Row, w int, sel bool, loc *time.Lo
 		label = dot("") + " " + sUnl.Render(fit("unlabelled", labelW-2))
 	}
 	tail := ""
+	inv := t.billedOn(r)
 	if want, ok := t.sugg[r.Key]; ok && !r.Idle && r.Label.Category == "" {
 		tail = sUnl.Render("→ "+report.Safe(report.LabelText(want.Category, want.Project))) + " " + sBrand.Render("⏎")
+	} else if inv != "" {
+		tail = sDim.Render("on " + inv)
 	}
 	fixed := 2 + 11 + 2 + 5 + 2 + labelW + 2 + 10 + 2
 	textW := max(w-fixed-ansi.StringWidth(tail)-1, 0)
 	text := sDim.Render(fit(r.Text, textW))
 	times := sText.Render(clock(r.Start)) + sFaint.Render("–") + sText.Render(clock(r.End))
-	line := mark + times + "  " + sBright.Render(fitRight(report.Dur(r.End-r.Start), 5)) + "  " + label + "  " +
+	durStyle := sBright
+	if inv != "" {
+		durStyle = durStyle.Underline(true) // as the dashboard underlines billed time
+	}
+	line := mark + times + "  " + durStyle.Render(fitRight(report.Dur(r.End-r.Start), 5)) + "  " + label + "  " +
 		sText.Render(fit(r.App, 10)) + "  " + text
 	if tail != "" {
 		line += " " + tail

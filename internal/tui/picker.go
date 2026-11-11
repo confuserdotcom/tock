@@ -233,21 +233,31 @@ func (m Model) finishPick(p *picker) tea.Cmd {
 			if err != nil {
 				return "", err
 			}
-			return "tagged " + spansWhat(len(ids), ms) + " → " + label, a.Tag(ids, want)
+			msg, err := withBilledNote(a, "tagged "+spansWhat(len(ids), ms)+" → "+label, ids)
+			if err != nil {
+				return "", err
+			}
+			return msg, a.Tag(ids, want)
 		})
 	}
 	ids, what := p.ids, p.what
 	return m.act(func(a *app.App) (string, error) {
-		on, err := a.BilledOn(ids)
+		msg, err := withBilledNote(a, "tagged "+what+" → "+label, ids)
 		if err != nil {
 			return "", err
 		}
-		msg := "tagged " + what + " → " + label
-		if n := app.BilledNote(on); n != "" {
-			msg += " · " + n
-		}
 		return msg, a.Tag(ids, want)
 	})
+}
+
+// withBilledNote adds, to a relabel's flash, that some of ids is on an
+// issued invoice; read before the relabel.
+func withBilledNote(a *app.App, msg string, ids []int64) (string, error) {
+	n, err := a.BilledNoteFor(ids)
+	if n != "" {
+		msg += " · " + n
+	}
+	return msg, err
 }
 
 // window is the range of options shown in a body of h lines.

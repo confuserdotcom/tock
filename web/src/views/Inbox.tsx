@@ -30,7 +30,7 @@ export default function Inbox({ onChange }: { onChange: () => void }) {
         ? await post<Done>("/api/learn", { key: it.key, label: it.suggestion.label, rule: p.candidates[0].rule })
         : await post<Done>("/api/tag", { key: it.key, label: it.suggestion.label });
       done();
-      undoToast(doneText(r), done);
+      undoToast(doneText(r), done, r.note);
     } catch (e) {
       toast.error((e as Error).message);
     }

@@ -273,6 +273,9 @@ func TestInvoiceBilledMarkers(t *testing.T) {
 	if n := BilledNote([]string{"a", "b", "c"}); n != "On invoices a, b and c; the invoices stay as issued." {
 		t.Fatal(n)
 	}
+	if n, err := a.BilledNoteFor([]int64{1}); err != nil || n != "On invoice 2026-0001; the invoice stays as issued." {
+		t.Fatalf("note for 1: %q %v", n, err)
+	}
 	// Voided: no longer billed.
 	if _, err := a.VoidInvoice(inv.Number, "wrong"); err != nil {
 		t.Fatal(err)

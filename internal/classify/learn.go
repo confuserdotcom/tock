@@ -41,6 +41,9 @@ type Candidate struct {
 	// this rule covers completely; Learn removes them.
 	Replaces []int
 	Safe     bool // Relabeled == 0
+	// IDs are the views the rule matches, so a caller can tell what it
+	// relabels (time on an issued invoice, say).
+	IDs []int64
 }
 
 // unicodeWord matches a whole word without relying on RE2's ASCII-only \b.
@@ -154,6 +157,7 @@ func (rs *Ruleset) Propose(key string, want Want, history []SpanView, overrides 
 			}
 			c.Matches++
 			c.MatchMS += v.DurMS()
+			c.IDs = append(c.IDs, v.ID)
 			if inTarget[i] {
 				c.ThisKey++
 				continue

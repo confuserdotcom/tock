@@ -670,10 +670,14 @@ func (s *Server) learn(r *http.Request) (any, error) {
 	if i < 0 {
 		return nil, httpError{http.StatusConflict, "that rule is no longer safe: look again"}
 	}
+	on, err := s.a.BilledOn(cs[i].IDs)
+	if err != nil {
+		return nil, err
+	}
 	if err := s.a.Learn(body.Key, cs[i], w); err != nil {
 		return nil, err
 	}
-	return doneJSON{cs[i].Matches, cs[i].MatchMS, report.LabelText(w.Category, w.Project), ""}, nil
+	return doneJSON{cs[i].Matches, cs[i].MatchMS, report.LabelText(w.Category, w.Project), app.BilledNote(on)}, nil
 }
 
 func (s *Server) ignore(r *http.Request) (any, error) {

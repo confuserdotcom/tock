@@ -106,3 +106,13 @@ func BilledNote(numbers []string) string {
 	}
 	return "On invoices " + l + " and " + numbers[len(numbers)-1] + "; the invoices stay as issued."
 }
+
+// BilledNoteFor is BilledNote for the views ids, read before they are
+// relabelled: "" when none of them is on an issued invoice.
+func (a *App) BilledNoteFor(ids []int64) (string, error) {
+	on, err := a.BilledOn(ids)
+	if err != nil {
+		return "", err
+	}
+	return BilledNote(on), nil
+}

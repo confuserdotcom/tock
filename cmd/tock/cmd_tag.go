@@ -101,11 +101,18 @@ func cmdTag(env Env, args []string) error {
 		}
 		switch ans := answer(in); {
 		case ans == 'y':
+			note, err := a.BilledNoteFor(c.IDs)
+			if err != nil {
+				return err
+			}
 			if err := a.Learn(key, c, want); err != nil {
 				return err
 			}
 			fmt.Fprintf(env.Stdout, "learned: %s now covers %d spans (%s)\n",
 				report.LabelText(want.Category, want.Project), c.Matches, report.Dur(c.MatchMS))
+			if note != "" {
+				fmt.Fprintln(env.Stdout, note)
+			}
 			return nil
 		case ans == 's' && more:
 			continue

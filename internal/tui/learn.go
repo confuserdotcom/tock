@@ -72,8 +72,11 @@ func (m Model) learnKey(k string) (tea.Model, tea.Cmd) {
 		c, key, want := d.cands[d.i], d.key, d.want
 		m.learn = nil
 		return m, m.act(func(a *app.App) (string, error) {
-			return fmt.Sprintf("learned: %s now covers %d spans (%s)", label, c.Matches, report.Dur(c.MatchMS)),
-				a.Learn(key, c, want)
+			msg, err := withBilledNote(a, fmt.Sprintf("learned: %s now covers %d spans (%s)", label, c.Matches, report.Dur(c.MatchMS)), c.IDs)
+			if err != nil {
+				return "", err
+			}
+			return msg, a.Learn(key, c, want)
 		})
 	case k == "s" && d.i+1 < len(d.cands):
 		d.i++
@@ -81,7 +84,11 @@ func (m Model) learnKey(k string) (tea.Model, tea.Cmd) {
 		ids, what, want := d.ids, spansWhat(len(d.ids), d.ms), d.want
 		m.learn = nil
 		return m, m.act(func(a *app.App) (string, error) {
-			return "tagged " + what + " → " + label, a.Tag(ids, want)
+			msg, err := withBilledNote(a, "tagged "+what+" → "+label, ids)
+			if err != nil {
+				return "", err
+			}
+			return msg, a.Tag(ids, want)
 		})
 	case k == "n" || k == "esc":
 		m.learn = nil

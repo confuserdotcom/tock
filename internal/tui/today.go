@@ -30,6 +30,18 @@ type todayTab struct {
 	// both copied from the model on each load.
 	sugg     map[string]classify.Want
 	trackdUp bool
+	// billed maps the day's views on an issued invoice to its number.
+	billed map[int64]string
+}
+
+// billedOn is the invoice that bills any of r's views, or "".
+func (t todayTab) billedOn(r report.Row) string {
+	for _, id := range r.IDs {
+		if n := t.billed[id]; n != "" {
+			return n
+		}
+	}
+	return ""
 }
 
 func (t *todayTab) dateOr(now time.Time) time.Time {
@@ -464,4 +476,22 @@ func (t *todayTab) kindOf(name string) string {
 		}
 	}
 	return ""
+}
+
+// billedViews maps the views of d's timeline that are on an issued invoice
+// to its number; empty while Billing is off.
+func billedViews(a *app.App, d report.Day) (map[int64]string, error) {
+	b, err := a.Billed(d.Date.UnixMilli(), d.Date.AddDate(0, 0, 1).UnixMilli())
+	if err != nil {
+		return nil, err
+	}
+	out := map[int64]string{}
+	for _, r := range d.Timeline {
+		for _, id := range r.IDs {
+			if n := b.Number(id); n != "" {
+				out[id] = n
+			}
+		}
+	}
+	return out, nil
 }

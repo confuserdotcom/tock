@@ -123,6 +123,7 @@ type loadedMsg struct {
 	items     []classify.Item
 	small     []classify.Item // under [inbox] min_minutes
 	day       *report.Day
+	billed    map[int64]string // the day's views on an issued invoice, to its number
 	week      *report.Week
 	month     *report.Month
 	focus     *report.Focus
@@ -186,6 +187,9 @@ func (m *Model) load() tea.Cmd {
 			case tabToday:
 				d, err := a.Day(dayDate)
 				msg.day, msg.err = &d, err
+				if err == nil {
+					msg.billed, msg.err = billedViews(a, d)
+				}
 			case tabWeek:
 				if month {
 					mo, err := a.Month(monthDate)
@@ -276,6 +280,7 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.inbox.recorded = msg.health.Recorded
 			m.today.sugg, m.today.trackdUp = msg.sugg, msg.health.TrackdUp
 			if msg.day != nil {
+				m.today.billed = msg.billed
 				m.today.set(*msg.day, m.now())
 			}
 			if msg.week != nil {
