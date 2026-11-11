@@ -179,3 +179,8 @@ export type InvoicePreview = {
   modelOnlyS: number; overlaps: string[];
 };
 export type InvoiceIssued = { number: string; total: number; currency: string };
+export type Feature = {
+  id: string; group: string; name: string; note: string; on: boolean; live: boolean;
+  isGroup: boolean; needs?: string; waits: boolean;
+};
+export type Settings = { features: Feature[]; hideApps: string[]; hideSites: string[]; configPath: string; configError?: string };

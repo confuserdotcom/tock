@@ -37,3 +37,28 @@ test("doneText names the range a timeline label covers, else the count", () => {
   expect(doneText(d)).toBe("Research · 1 entry, 16m");
   expect(doneText({ ...d, ms: 0 }, "14:41–14:53 (12m)")).toBe("Labelled 14:41–14:53 (12m) · Research");
 });
+
+import { holdsToday, mondayOf, periodTitle, stepDate } from "./format";
+
+test("the date control steps by the view's unit and stops at today", () => {
+  const today = new Date(2026, 10, 11); // Wed 11 Nov
+  expect(stepDate("2026-11-10", "day", 1, today)).toBe("2026-11-11");
+  expect(stepDate("2026-11-11", "day", 1, today)).toBe("2026-11-11");
+  expect(stepDate("2026-11-04", "week", 1, today)).toBe("2026-11-11");
+  expect(stepDate("2026-11-11", "week", -1, today)).toBe("2026-11-04");
+  expect(stepDate("2026-11-11", "month", -1, today)).toBe("2026-10-01");
+  expect(stepDate("2026-10-01", "month", 1, today)).toBe("2026-11-01");
+  expect(holdsToday("2026-11-09", "week", today)).toBe(true);
+  expect(holdsToday("2026-11-08", "week", today)).toBe(false);
+  expect(isoDate(mondayOf(new Date(2026, 10, 15)))).toBe("2026-11-09");
+});
+
+test("the date control names the period", () => {
+  const today = new Date(2026, 10, 11);
+  expect(periodTitle("2026-11-11", "day", today)).toBe("Today");
+  expect(periodTitle("2026-10-10", "day", today)).toBe("Sat 10 Oct");
+  expect(periodTitle("2026-11-11", "week", today)).toBe("This week");
+  expect(periodTitle("2026-10-10", "week", today)).toBe("5–11 Oct");
+  expect(periodTitle("2026-10-01", "week", today)).toBe("28 Sep – 4 Oct");
+  expect(periodTitle("2026-10-10", "month", today)).toBe("Oct 2026");
+});

@@ -78,3 +78,46 @@ export function entries(n: number): string {
 export function doneText(d: { label: string; spans: number; ms: number }, range?: string): string {
   return range ? `Labelled ${range} · ${d.label}` : `${d.label} · ${entries(d.spans)}, ${dur(d.ms)}`;
 }
+
+export type Unit = "day" | "week" | "month";
+
+/** mondayOf is the Monday of d's week, at local midnight. */
+export function mondayOf(d: Date): Date {
+  const m = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  m.setDate(m.getDate() - ((m.getDay() + 6) % 7));
+  return m;
+}
+
+/** stepDate moves the YYYY-MM-DD date by n units; a month step lands on the
+ *  1st. Nothing goes past today. */
+export function stepDate(date: string, unit: Unit, n: number, today = new Date()): string {
+  const d = parseDate(date);
+  let out = unit === "day" ? addDays(d, n) : unit === "week" ? addDays(d, 7 * n) : new Date(d.getFullYear(), d.getMonth() + n, 1);
+  const t = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  if (out > t) out = t;
+  return isoDate(out);
+}
+
+/** holdsToday is whether the unit around date contains today: then there
+ *  is no next one to step to. */
+export function holdsToday(date: string, unit: Unit, today = new Date()): boolean {
+  const d = parseDate(date);
+  if (unit === "day") return isoDate(d) === isoDate(today);
+  if (unit === "week") return isoDate(mondayOf(d)) === isoDate(mondayOf(today));
+  return d.getFullYear() === today.getFullYear() && d.getMonth() === today.getMonth();
+}
+
+/** periodTitle names the unit around date: "Today", "Sat 10 Oct",
+ *  "This week", "5–11 Oct", "Oct 2026". */
+export function periodTitle(date: string, unit: Unit, today = new Date()): string {
+  const d = parseDate(date);
+  if (unit === "day") return holdsToday(date, unit, today) ? "Today" : dayTitle(d);
+  if (unit === "week") {
+    if (holdsToday(date, unit, today)) return "This week";
+    const m = mondayOf(d), s = addDays(m, 6);
+    return m.getMonth() === s.getMonth()
+      ? `${m.getDate()}–${s.getDate()} ${MONTHS[m.getMonth()]}`
+      : `${m.getDate()} ${MONTHS[m.getMonth()]} – ${s.getDate()} ${MONTHS[s.getMonth()]}`;
+  }
+  return monthTitle(d);
+}

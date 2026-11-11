@@ -2,8 +2,15 @@ import { useEffect, useState } from "react";
 import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { addDays, isoDate } from "@/lib/format";
 import { go, VIEWS } from "@/lib/route";
+import { setTheme, type Theme } from "@/lib/theme";
+import { openShortcuts } from "@/components/Shortcuts";
 
 const NAMES: Record<string, string> = { today: "Today", week: "Week", trends: "Trends", top: "Top", inbox: "Inbox", library: "Library" };
+
+/** openPalette opens ⌘K from a button. */
+export function openPalette() {
+  window.dispatchEvent(new Event("tock:palette"));
+}
 
 /** Palette: ⌘K to jump to a view or a date, or switch the theme. */
 export default function Palette() {
@@ -16,17 +23,13 @@ export default function Palette() {
         setOpen((o) => !o);
       }
     };
+    const show = () => setOpen(true);
     window.addEventListener("keydown", on);
-    return () => window.removeEventListener("keydown", on);
+    window.addEventListener("tock:palette", show);
+    return () => (window.removeEventListener("keydown", on), window.removeEventListener("tock:palette", show));
   }, []);
   const run = (f: () => void) => () => (f(), setOpen(false), setQ(""));
   const typed = /^\d{4}-\d{2}-\d{2}$/.test(q.trim()) ? q.trim() : null;
-  const theme = () => {
-    const el = document.documentElement;
-    const dark = el.dataset.theme ? el.dataset.theme === "dark" : !matchMedia("(prefers-color-scheme: light)").matches;
-    el.dataset.theme = dark ? "light" : "dark";
-    try { localStorage.setItem("tock-theme", el.dataset.theme); } catch { /* blocked */ }
-  };
   return (
     <CommandDialog open={open} onOpenChange={setOpen}>
       <CommandInput placeholder="Go to a view, a date (YYYY-MM-DD), or run a command" value={q} onValueChange={setQ} />
@@ -44,10 +47,14 @@ export default function Palette() {
         </CommandGroup>
         <CommandGroup heading="Days">
           <CommandItem value="Go to today" onSelect={run(() => go({ date: isoDate(new Date()) }))}>Go to today</CommandItem>
-          <CommandItem value="Go to yesterday" onSelect={run(() => go({ date: isoDate(addDays(new Date(), -1)) }))}>Go to yesterday</CommandItem>
+          <CommandItem value="Go to yesterday" onSelect={run(() => go({ view: "today", date: isoDate(addDays(new Date(), -1)) }))}>Go to yesterday</CommandItem>
         </CommandGroup>
         <CommandGroup heading="Settings">
-          <CommandItem value="Switch theme light dark" onSelect={run(theme)}>Switch light / dark</CommandItem>
+          <CommandItem value="Settings features notifications privacy" onSelect={run(() => go({ view: "settings" }))}>Open settings</CommandItem>
+          {(["dark", "light", "system"] as Theme[]).map((t) => (
+            <CommandItem key={t} value={`Theme ${t}`} onSelect={run(() => setTheme(t))}>Theme: {t === "system" ? "follow the system" : t}</CommandItem>
+          ))}
+          <CommandItem value="Keyboard shortcuts keys help" onSelect={run(openShortcuts)}>Keys and gestures</CommandItem>
         </CommandGroup>
       </CommandList>
     </CommandDialog>

@@ -1,7 +1,5 @@
-import { useState } from "react";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { ChartContainer, ChartTooltip } from "@/components/ui/chart";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Change, Empty, Panel } from "@/components/Panel";
 import { CalendarHeat } from "@/components/charts/CalendarHeat";
@@ -10,19 +8,13 @@ import { ScoreLine } from "@/components/charts/ScoreLine";
 import { TimeTable } from "@/components/Tables";
 import { useApi, type Hours, type Month } from "@/lib/api";
 import { delta, dur, monthTitle, parseDate } from "@/lib/format";
+import { go } from "@/lib/route";
 import { useGroups } from "@/lib/groups";
 import { cn } from "@/lib/utils";
 
-function lastMonths(n: number, from: Date): { value: string; label: string }[] {
-  return Array.from({ length: n }, (_, i) => {
-    const d = new Date(from.getFullYear(), from.getMonth() - i, 1);
-    return { value: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`, label: monthTitle(d) };
-  });
-}
-
 export default function Trends({ date }: { date: string }) {
-  const months = lastMonths(12, new Date());
-  const [month, setMonth] = useState(date.slice(0, 7));
+  // The month is the route's: the date control in the top bar steps it.
+  const month = date.slice(0, 7);
   const { data: m, error, loading } = useApi<Month>(`/api/month?month=${month}`);
   const hours = useApi<Hours>("/api/hours");
 
@@ -33,13 +25,7 @@ export default function Trends({ date }: { date: string }) {
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between gap-4">
-        <h1 className="text-xl font-semibold tracking-tight">Trends</h1>
-        <Select value={month} onValueChange={setMonth}>
-          <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            {months.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        <h1 className="text-xl font-semibold tracking-tight">{monthTitle(parseDate(month + "-01"))}</h1>
       </div>
       {error ? <Empty>Couldn't load this month: {error}</Empty> : loading && !m ? <Skeleton className="h-96" /> : m && <MonthBody m={m} />}
       <Panel label="Your best hours" aside="mean focus minutes per hour, across weekdays">
@@ -75,8 +61,8 @@ function MonthBody({ m }: { m: Month }) {
         <Card hasPrev={hasPrev} k="Switches / hour" v={c.switchesPerHour.toFixed(1)} d={c.switchesPerHour - p.switchesPerHour} t={(c.switchesPerHour - p.switchesPerHour >= 0 ? "+" : "−") + Math.abs(c.switchesPerHour - p.switchesPerHour).toFixed(1)} lowerIsGood />
       </div>
       <div className="grid items-start gap-5 lg:grid-cols-[1fr_1.3fr]">
-        <Panel label="Deep time by day" aside={`${c.workdays} workdays`}>
-          <CalendarHeat first={m.first} days={m.days} />
+        <Panel label="Deep time by day" aside={`${c.workdays} workdays · click a day to open it`}>
+          <CalendarHeat first={m.first} days={m.days} onDay={(date) => go({ view: "today", date })} />
         </Panel>
         <div className="space-y-5">
           <Panel label="Deep time">
@@ -84,7 +70,7 @@ function MonthBody({ m }: { m: Month }) {
           </Panel>
           {focus && (
             <Panel label="Focus score">
-              <ScoreLine points={m.days.map((d) => ({ label: label(d.date), score: d.score < 0 ? null : d.score }))} height={160} />
+              <ScoreLine points={m.days.map((d) => ({ label: label(d.date), score: d.score < 0 ? null : d.score }))} height={160} onPoint={(i) => m.days[i] && go({ view: "today", date: m.days[i].date })} />
             </Panel>
           )}
         </div>
