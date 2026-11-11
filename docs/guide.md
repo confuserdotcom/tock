@@ -1154,7 +1154,9 @@ days, hours and totals, and writes a PDF marked DRAFT to a temporary file
 (or `-o FILE`). Nothing is stored. `--from` and `--to` pick other days,
 `--client` names someone other than the project's client.
 
-`tock invoice issue --project ATLAS` (same flags) issues it:
+`tock invoice issue --project ATLAS` (same flags) issues it, once
+`[invoice] name` is set (the preview says when it isn't: an issued invoice
+never changes, so one without your name would only be voided):
 
 - It gets the next number of the year, `2026-0001`, `2026-0002`, … across
   all projects, counting void ones; the year is the local date's when you
@@ -1169,8 +1171,10 @@ days, hours and totals, and writes a PDF marked DRAFT to a temporary file
 
 An issued invoice never changes. Editing rules, retraining the model,
 relabelling time, a new rate or a new address change nothing in it:
-`tock invoice show 2026-0004` prints what was issued, and `--pdf` writes
-the PDF as it was issued (`-o FILE`, else to stdout). The database refuses
+`tock invoice show 2026-0004` prints what was issued: days, hours, rate,
+totals and the PDF's hash. `--json` prints the stored record byte for
+byte, then its status; `--pdf` writes the PDF as it was issued (`-o FILE`,
+else to stdout). The database refuses
 any other change to it, from tock or anything else using SQL. It does not
 stop someone editing the file, restoring an older copy or a disk fault;
 `tock invoice verify` notices those (exit 4) by comparing each invoice

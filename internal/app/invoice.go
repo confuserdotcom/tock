@@ -142,6 +142,10 @@ func (a *App) DraftInvoice(s InvoiceSpec) (InvoiceDraft, error) {
 // Issued invoices stay readable.
 var ErrBillingOff = errors.New("billing is off (turn it on: tock choice billing on)")
 
+// ErrNoIssuer means [invoice] name is empty. An issued invoice never
+// changes, so one without who issued it would only be voided.
+var ErrNoIssuer = errors.New("your name is empty: set [invoice] name in config.toml, or in the dashboard's Settings, before issuing (an issued invoice never changes)")
+
 // writes the files again.
 func (a *App) IssueInvoice(s InvoiceSpec) (store.Invoice, error) {
 	if !a.cfg.Billing.Enabled {
@@ -150,6 +154,9 @@ func (a *App) IssueInvoice(s InvoiceSpec) (store.Invoice, error) {
 	d, err := a.DraftInvoice(s)
 	if err != nil {
 		return store.Invoice{}, err
+	}
+	if strings.TrimSpace(d.Record.IssuerName) == "" {
+		return store.Invoice{}, ErrNoIssuer
 	}
 	if len(d.Overlaps) > 0 && !s.AllowOverlap {
 		return store.Invoice{}, fmt.Errorf("invoice %s already bills %s over some of these days; give --allow-overlap to bill them again",

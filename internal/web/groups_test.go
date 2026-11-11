@@ -62,6 +62,7 @@ func TestGroupsAPI(t *testing.T) {
 // invoice stays as issued.
 func TestBilledMarkers(t *testing.T) {
 	f := newFixture(t)
+	f.withIssuer(t)
 	if code, _, b := f.do("POST", "/api/library/project", testToken, map[string]any{"op": "set", "name": "tock", "rate": 60}); code != 200 {
 		t.Fatalf("set rate: %d %s", code, b)
 	}
@@ -105,6 +106,7 @@ func TestBilledMarkers(t *testing.T) {
 // Learning a rule that relabels billed time says so too, as tagging does.
 func TestLearnBilledNote(t *testing.T) {
 	f := newFixture(t)
+	f.withIssuer(t)
 	if code, _, b := f.do("POST", "/api/library/project", testToken, map[string]any{"op": "set", "name": "tock", "rate": 60}); code != 200 {
 		t.Fatalf("set rate: %d %s", code, b)
 	}

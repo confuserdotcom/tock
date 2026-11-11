@@ -118,6 +118,12 @@ What changed for you in each release. Dates are UTC.
   copy was put back under it and that process went on using the old file.
 
 ### Fixed
+- `tock invoice issue` refuses while `[invoice] name` is empty, and the
+  preview says so: an issued invoice never changes, so one without your
+  name could only be voided.
+- `tock invoice show` prints a readable summary; `--json` gives the stored
+  record. `tock invoice check` shows minutes and seconds when a change is
+  too small for hundredths of an hour, instead of two equal numbers.
 - `tock project add` and `set` take `--rate`, `--client` and `--billable`,
   so billing no longer needs rules.toml edited by hand.
 - `tock <command> --help` prints that command's lines and works before

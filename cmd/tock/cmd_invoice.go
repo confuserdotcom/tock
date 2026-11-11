@@ -21,7 +21,7 @@ const invoiceUsage = `invoice: one of
   tock invoice issue --project P [...] [--number N] [--supersedes N [--void-old --reason R]] [--allow-overlap] [--yes]
   tock invoice void NUMBER --reason R
   tock invoice list [--year Y]
-  tock invoice show NUMBER [--pdf [-o FILE]]
+  tock invoice show NUMBER [--json | --pdf [-o FILE]]
   tock invoice check NUMBER      exit 3 when today's labels bill other time
   tock invoice verify [NUMBER]   exit 4 when a hash or file differs
   tock invoice recover           import invoice files the database lacks`
@@ -144,6 +144,9 @@ func printDraft(env Env, d app.InvoiceDraft) {
 	if r.ClientName != "" {
 		fmt.Fprintf(env.Stdout, "to %s\n", r.ClientName)
 	}
+	if strings.TrimSpace(r.IssuerName) == "" {
+		fmt.Fprintln(env.Stdout, "your name is empty, so this can't be issued yet: [invoice] name in config.toml, or the dashboard's Settings")
+	}
 	if d.ModelOnlyS > 0 {
 		fmt.Fprintf(env.Stdout, "%d min of it is on %s only because the model guessed so; check it in the day view before issuing\n",
 			(d.ModelOnlyS+30)/60, r.Project)
@@ -154,6 +157,35 @@ func printDraft(env Env, d app.InvoiceDraft) {
 }
 
 func hoursText(s int64) string { return strconv.FormatFloat(float64(s)/3600, 'f', 2, 64) }
+
+// hoursPair formats two durations for a comparison: hours to a hundredth,
+// or h:mm:ss when those would print the same for different durations.
+func hoursPair(a, b int64) (string, string) {
+	ha, hb := hoursText(a), hoursText(b)
+	if ha == hb && a != b {
+		return clockText(a), clockText(b)
+	}
+	return ha, hb
+}
+
+// clockText is s seconds as h:mm:ss.
+func clockText(s int64) string {
+	return fmt.Sprintf("%d:%02d:%02d", s/3600, s%3600/60, s%60)
+}
+
+// withUnit adds " h" to an hours figure from hoursPair.
+func withUnit(s string) string {
+	if strings.Contains(s, ":") {
+		return s
+	}
+	return s + " h"
+}
+
+// issuedNowText is "issued A / now B" for check.
+func issuedNowText(issued, now int64) string {
+	a, b := hoursPair(issued, now)
+	return "issued " + withUnit(a) + " / now " + withUnit(b)
+}
 
 func money(v int64, r store.Invoice) string {
 	s := report.FormatMinor(v, r.MinorUnits)
@@ -317,6 +349,7 @@ func invoiceList(env Env, a *app.App, args []string) error {
 func invoiceShow(env Env, a *app.App, args []string) error {
 	fs := newFlags("invoice show")
 	pdf := fs.Bool("pdf", false, "write the stored PDF instead of the summary")
+	asJSON := fs.Bool("json", false, "print the invoice record exactly as stored, then its status")
 	out := fs.String("o", "", "with --pdf: the file (default: stdout)")
 	// NUMBER may come first: --pdf takes no value, so moveFlagsFirst
 	// would not pair it right.
@@ -330,7 +363,7 @@ func invoiceShow(env Env, a *app.App, args []string) error {
 	if number == "" && fs.NArg() == 1 {
 		number = fs.Arg(0)
 	} else if fs.NArg() > 0 || number == "" {
-		return usagef("invoice show NUMBER [--pdf [-o FILE]]")
+		return usagef("invoice show NUMBER [--json | --pdf [-o FILE]]")
 	}
 	inv, err := a.InvoiceByNumber(number)
 	if err != nil {
@@ -347,6 +380,10 @@ func invoiceShow(env Env, a *app.App, args []string) error {
 	if *out != "" {
 		return usagef("invoice show: -o goes with --pdf")
 	}
+	if !*asJSON {
+		printInvoice(env, inv)
+		return nil
+	}
 	if _, err := env.Stdout.Write(inv.CanonicalJSON); err != nil {
 		return err
 	}
@@ -359,6 +396,43 @@ func invoiceShow(env Env, a *app.App, args []string) error {
 	return nil
 }
 
+// printInvoice is the readable summary of an issued invoice; --json gives
+// the stored record.
+func printInvoice(env Env, inv store.Invoice) {
+	w := env.Stdout
+	issued := time.UnixMilli(inv.IssuedMS).In(env.Now().Location()).Format("2006-01-02")
+	fmt.Fprintf(w, "%s  %s %s", inv.Number, inv.Status, issued)
+	if inv.Status == store.InvoiceVoid {
+		fmt.Fprintf(w, ", void %s: %s", time.UnixMilli(inv.VoidMS).In(env.Now().Location()).Format("2006-01-02"), inv.VoidReason)
+	}
+	if inv.Supersedes != "" {
+		fmt.Fprintf(w, ", replaces %s", inv.Supersedes)
+	}
+	fmt.Fprintln(w)
+	from, to := inv.PeriodFromMS, inv.PeriodToMS-1
+	loc, err := time.LoadLocation(inv.TZ)
+	if err != nil {
+		loc = env.Now().Location() // a zone with no IANA name: the days were this machine's
+	}
+	fmt.Fprintf(w, "%s, %s to %s\n", inv.Project, time.UnixMilli(from).In(loc).Format("2006-01-02"),
+		time.UnixMilli(to).In(loc).Format("2006-01-02"))
+	fmt.Fprintf(w, "from %s", inv.IssuerName)
+	if inv.ClientName != "" {
+		fmt.Fprintf(w, " to %s", inv.ClientName)
+	}
+	fmt.Fprintln(w)
+	for _, l := range inv.Lines {
+		fmt.Fprintf(w, "  %s  %d:%02d  %s\n", l.Day, l.SecondsBilled/3600, l.SecondsBilled%3600/60, money(l.AmountMinor, inv))
+	}
+	fmt.Fprintf(w, "%s h at rate %s/h", hoursText(inv.SecondsBilled), money(inv.RateMinor, inv))
+	if inv.TaxBP > 0 {
+		fmt.Fprintf(w, ", subtotal %s, %s %s%% %s", money(inv.SubtotalMinor, inv), strings.TrimSpace(inv.TaxLabel),
+			report.FormatPercent(inv.TaxBP), money(inv.TaxMinor, inv))
+	}
+	fmt.Fprintf(w, ", total %s\n", money(inv.TotalMinor, inv))
+	fmt.Fprintf(w, "pdf sha256 %s (tock invoice show %s --pdf -o FILE)\n", inv.PDFSHA256, inv.Number)
+}
+
 func invoiceCheck(env Env, a *app.App, args []string) error {
 	if len(args) != 1 {
 		return usagef("invoice check NUMBER")
@@ -367,13 +441,13 @@ func invoiceCheck(env Env, a *app.App, args []string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(env.Stdout, "%s: issued %s h / now %s h\n", c.Invoice.Number, hoursText(c.IssuedS), hoursText(c.NowS))
+	fmt.Fprintf(env.Stdout, "%s: %s\n", c.Invoice.Number, issuedNowText(c.IssuedS, c.NowS))
 	if !c.Drift() {
 		fmt.Fprintln(env.Stdout, "today's labels bill the same time")
 		return nil
 	}
 	for _, d := range c.Days {
-		fmt.Fprintf(env.Stdout, "  %s  issued %s h / now %s h\n", d.Day, hoursText(d.IssuedS), hoursText(d.NowS))
+		fmt.Fprintf(env.Stdout, "  %s  %s\n", d.Day, issuedNowText(d.IssuedS, d.NowS))
 	}
 	fmt.Fprintln(env.Stdout, "the invoice stays as issued; void it and issue a new one with --supersedes to bill the change")
 	return exitStatus{code: 3}

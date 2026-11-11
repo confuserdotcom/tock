@@ -111,6 +111,7 @@ func TestInvoiceAPI(t *testing.T) {
 // T13: the dashboard issues too, with the same checks as tock invoice issue.
 func TestInvoiceIssueAPI(t *testing.T) {
 	f := newFixture(t)
+	f.withIssuer(t)
 	if code, _, b := f.do("POST", "/api/library/project", testToken, map[string]any{"op": "set", "name": "tock", "rate": 60}); code != 200 {
 		t.Fatalf("set rate: %d %s", code, b)
 	}
@@ -135,5 +136,22 @@ func TestInvoiceIssueAPI(t *testing.T) {
 	}
 	if code, _, _ := f.do("GET", "/api/invoice/issue", testToken, nil); code == 200 {
 		t.Fatal("GET issued")
+	}
+}
+
+// Without [invoice] name the dashboard's issue is refused with the fix, and
+// nothing is issued.
+func TestInvoiceIssueNeedsIssuer(t *testing.T) {
+	f := newFixture(t)
+	if code, _, b := f.do("POST", "/api/library/project", testToken, map[string]any{"op": "set", "name": "tock", "rate": 60}); code != 200 {
+		t.Fatalf("set rate: %d %s", code, b)
+	}
+	day := time.UnixMilli(f.library().NowMS).In(apptest.Zone).Format(dateLayout)
+	code, _, b := f.do("POST", "/api/invoice/issue", testToken, map[string]any{"project": "tock", "from": day, "to": day})
+	if code != 400 || !strings.Contains(string(b), "[invoice] name") {
+		t.Fatalf("issue without a name: %d %s", code, b)
+	}
+	if list, err := f.a.Invoices(0); err != nil || len(list) != 0 {
+		t.Fatalf("issued anyway: %v %v", list, err)
 	}
 }

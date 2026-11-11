@@ -26,6 +26,15 @@ type fixture struct {
 	a   *app.App
 }
 
+// withIssuer sets [invoice] name, which issuing an invoice needs.
+func (f *fixture) withIssuer(t *testing.T) {
+	t.Helper()
+	f.e.WriteConfig(t, "[invoice]\nname = \"Ada Lovelace\"\n")
+	if _, err := f.a.Reload(); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func newFixture(t *testing.T) *fixture {
 	t.Helper()
 	return newFixtureWith(t, apptest.DaySpans()...)

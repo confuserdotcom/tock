@@ -61,9 +61,17 @@ func TestInvoiceLifecycle(t *testing.T) {
 	if err != nil || !strings.Contains(string(stored), "(2026-0001) Tj") || strings.Contains(string(stored), "DRAFT") {
 		t.Fatalf("stored pdf: %v", err)
 	}
-	code, out = te.run(t, "", "invoice", "show", "2026-0001")
+	code, out = te.run(t, "", "invoice", "show", "2026-0001", "--json")
 	if code != 0 || !strings.Contains(out, `"number":"2026-0001"`) || !strings.Contains(out, `"total_minor":10000`) || !strings.HasSuffix(out, "{\"status\":\"issued\"}\n") {
-		t.Fatalf("show: %d %q", code, out)
+		t.Fatalf("show --json: %d %q", code, out)
+	}
+	shown := out
+	code, out = te.run(t, "", "invoice", "show", "2026-0001")
+	for _, want := range []string{"2026-0001  issued ", "tock, 2026-10-10 to 2026-10-10", "from Ada Lovelace",
+		"2026-10-10  1:40", "total 100.00 EUR", "rate 60.00 EUR/h"} {
+		if code != 0 || !strings.Contains(out, want) {
+			t.Fatalf("show lacks %q: %d\n%s", want, code, out)
+		}
 	}
 	if code, out := te.run(t, "", "invoice", "show", "2026-0001", "--pdf"); code != 0 || out != string(stored) {
 		t.Fatalf("show --pdf: %d", code)
@@ -79,7 +87,7 @@ func TestInvoiceLifecycle(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(te.ConfigDir, "rules.toml"), []byte(rules), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if code, again := te.run(t, "", "invoice", "show", "2026-0001"); code != 0 || again != out2(t, te, out) {
+	if code, again := te.run(t, "", "invoice", "show", "2026-0001", "--json"); code != 0 || again != shown {
 		t.Fatalf("show changed after relabel: %q", again)
 	}
 	code, out = te.run(t, "", "invoice", "check", "2026-0001")
@@ -137,13 +145,6 @@ func TestInvoiceLifecycle(t *testing.T) {
 	if code, out := te.run(t, "", "invoice", "recover"); code != 0 || !strings.Contains(out, "nothing to recover") {
 		t.Fatalf("recover: %d %q", code, out)
 	}
-}
-
-// out2 is the show output again, for comparing.
-func out2(t *testing.T, te *tenv, _ string) string {
-	t.Helper()
-	_, out := te.run(t, "", "invoice", "show", "2026-0001")
-	return out
 }
 
 func (te *tenv) mustShowPDF(t *testing.T) [32]byte {
@@ -252,5 +253,43 @@ func TestInvoiceRelabelNote(t *testing.T) {
 	}
 	if code, out := te.run(t, "", "edit", "label", "13:00-13:10", "Code"); code != 0 || strings.Contains(out, "invoice") {
 		t.Fatalf("edit unbilled: %d %q", code, out)
+	}
+}
+
+// An issued invoice never changes, so one without the issuer's name would
+// have to be voided: issue refuses it, and the preview says so.
+func TestInvoiceIssueNeedsIssuerName(t *testing.T) {
+	te := invoiceEnv(t)
+	if err := os.WriteFile(filepath.Join(te.ConfigDir, "config.toml"), []byte("[invoice]\ncurrency = \"EUR\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	code, out := te.run(t, "", append([]string{"invoice"}, day...)...)
+	if code != 0 || !strings.Contains(out, "your name is empty") {
+		t.Fatalf("preview: %d %q %s", code, out, te.errb)
+	}
+	code, _ = te.run(t, "", append([]string{"invoice", "issue"}, day...)...)
+	if code != 1 || !strings.Contains(te.errb.String(), "[invoice] name") {
+		t.Fatalf("issue without a name: %d %s", code, te.errb)
+	}
+	if _, out := te.run(t, "", "invoice", "list"); out != "no invoices issued yet\n" {
+		t.Fatalf("issued anyway: %q", out)
+	}
+}
+
+// check must not print equal hours for a drift it reports: below a
+// hundredth of an hour it shows minutes and seconds.
+func TestInvoiceCheckShowsSmallDrift(t *testing.T) {
+	for _, c := range []struct {
+		a, b   int64
+		wa, wb string
+	}{
+		{6000, 9000, "1.67", "2.50"},
+		{6, 9, "0:00:06", "0:00:09"},
+		{6000, 6010, "1:40:00", "1:40:10"},
+		{6000, 6000, "1.67", "1.67"},
+	} {
+		if a, b := hoursPair(c.a, c.b); a != c.wa || b != c.wb {
+			t.Errorf("hoursPair(%d, %d) = %q, %q; want %q, %q", c.a, c.b, a, b, c.wa, c.wb)
+		}
 	}
 }
