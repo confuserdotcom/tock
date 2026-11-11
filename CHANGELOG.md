@@ -40,6 +40,9 @@ What changed for you in each release. Dates are UTC.
   and as a notice.
 
 ### Changed
+- trackd asks the browser for the tab's address only when the window or
+  its title changes, and otherwise every 10 seconds instead of every 2.
+  Less CPU with a browser in front.
 - **The dashboard answers clicks.** Hours, work blocks and lane names zoom
   the timeline; kinds, categories and apps pick out their bars; a day in
   the week's bars, the score line or the month calendar opens it; Top rows

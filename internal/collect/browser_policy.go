@@ -79,6 +79,7 @@ type scriptRunner func(kind browserKind, warm bool) (out string, errnum int, ok 
 
 type verdict struct {
 	title string
+	win   uint64
 	url   *string
 	at    int64
 	ok    bool
@@ -200,10 +201,27 @@ func automationStatus(code int) string {
 
 // rememberVerdict stores a confirmed non-incognito result for the raw window
 // title. Only real confirmations refresh the timestamp.
-func (p *browserPolicy) rememberVerdict(kind browserKind, title string, url *string, nowMS int64) {
+func (p *browserPolicy) rememberVerdict(kind browserKind, title string, win uint64, url *string, nowMS int64) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	p.state(kind).verdict = verdict{title: title, url: url, at: nowMS, ok: true}
+	p.state(kind).verdict = verdict{title: title, win: win, url: url, at: nowMS, ok: true}
+}
+
+// sameWindowVerdict returns the cached URL when the sample is the window the
+// verdict was confirmed in (same window identity and byte-identical title)
+// and the confirmation is under verdictTTLMS old. An unknown window (win 0)
+// or an activation never matches, so a switch always asks the browser.
+func (p *browserPolicy) sameWindowVerdict(kind browserKind, s *span.Sample, win uint64, nowMS int64) (*string, bool) {
+	if win == 0 || s.Activation || s.Title == nil {
+		return nil, false
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	v := p.state(kind).verdict
+	if !v.ok || v.win != win || *s.Title != v.title || nowMS-v.at >= verdictTTLMS || nowMS < v.at {
+		return nil, false
+	}
+	return v.url, true
 }
 
 func (p *browserPolicy) clearVerdict(kind browserKind) {
@@ -228,6 +246,15 @@ func (p *browserPolicy) reuseVerdict(kind browserKind, title *string, nowMS int6
 // leaves the collector. A window whose privacy is not established never gets
 // a URL, and a Chromium window never keeps its title (over-redact).
 func applyBrowser(s *span.Sample, run scriptRunner, p *browserPolicy, nowMS int64) {
+	applyBrowserWin(s, 0, run, p, nowMS)
+}
+
+// applyBrowserWin is applyBrowser with the focused window's identity (0 when
+// unknown). While the same window keeps the same title, the browser is asked
+// for its URL at most once per verdictTTLMS instead of on every poll: each
+// ask is an Apple Event, the largest CPU cost of trackd with a browser in
+// front.
+func applyBrowserWin(s *span.Sample, win uint64, run scriptRunner, p *browserPolicy, nowMS int64) {
 	kind := browserForBundle(s.BundleID)
 	switch kind {
 	case browserNone:
@@ -264,6 +291,11 @@ func applyBrowser(s *span.Sample, run scriptRunner, p *browserPolicy, nowMS int6
 		return
 	}
 
+	if url, ok := p.sameWindowVerdict(kind, s, win, nowMS); ok {
+		s.URL = url
+		return
+	}
+
 	errnum := 0
 	if ok, warm := p.plan(kind, nowMS); ok {
 		out, n, ok := run(kind, warm)
@@ -279,7 +311,7 @@ func applyBrowser(s *span.Sample, run scriptRunner, p *browserPolicy, nowMS int6
 				s.URL = &key
 			}
 			if s.Title != nil {
-				p.rememberVerdict(kind, *s.Title, s.URL, nowMS)
+				p.rememberVerdict(kind, *s.Title, win, s.URL, nowMS)
 			}
 			return
 		}

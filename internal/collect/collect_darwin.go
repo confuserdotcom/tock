@@ -130,11 +130,13 @@ func goActivation(bundle, app *C.char, ts C.longlong) {
 	smp.BundleID = nBundle
 	smp.App = nApp
 	smp.Activation = true
+	win := uint64(p.win)
 	if polledBundle != nBundle {
 		// That title belongs to another app (Pitfall 8).
 		smp.Title = nil
+		win = 0
 	}
-	s.applyBrowserDarwin(smp)
+	s.applyBrowserDarwin(smp, win)
 	s.trySend(span.Input{Sample: smp})
 }
 
@@ -149,7 +151,7 @@ func goPollTick() {
 	s.feedAX(&p)
 	smp := sampleFromPoll(&p)
 	smp.TS = time.Now().Round(0).UnixMilli()
-	s.applyBrowserDarwin(smp)
+	s.applyBrowserDarwin(smp, uint64(p.win))
 	s.trySend(span.Input{Sample: smp})
 }
 

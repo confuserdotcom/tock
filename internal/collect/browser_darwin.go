@@ -56,8 +56,9 @@ var bundleForKind = map[browserKind]string{
 }
 
 // applyBrowserDarwin starts the one-time Automation check for a scriptable
-// browser, then applies the browser policy with the real script runner.
-func (s *darwinSource) applyBrowserDarwin(smp *span.Sample) {
+// browser, then applies the browser policy with the real script runner. win
+// is the focused window's identity from the poll (0 when unknown).
+func (s *darwinSource) applyBrowserDarwin(smp *span.Sample, win uint64) {
 	kind := browserForBundle(smp.BundleID)
 	if bundle, ok := bundleForKind[kind]; ok && browsers.needsAutomationCheck(kind) {
 		cs := C.CString(bundle)
@@ -68,7 +69,7 @@ func (s *darwinSource) applyBrowserDarwin(smp *span.Sample) {
 		C.tock_automation_check(cs, ask)
 		C.free(unsafe.Pointer(cs))
 	}
-	applyBrowser(smp, runScript, browsers, smp.TS)
+	applyBrowserWin(smp, win, runScript, browsers, smp.TS)
 }
 
 //export goAutomationResult

@@ -170,6 +170,9 @@ static void tock_focused_title(pid_t pid, tock_poll_t *out) {
         CFRelease(appEl);
         return;
     }
+    // Equal AX elements hash equally, so this tells one window from another
+    // with the same title without asking the app anything more.
+    out->win = (unsigned long)CFHash(win);
     CFTypeRef title = NULL;
     err = AXUIElementCopyAttributeValue((AXUIElementRef)win, kAXTitleAttribute, &title);
     if (err == kAXErrorSuccess && title != NULL && CFGetTypeID(title) == CFStringGetTypeID()) {

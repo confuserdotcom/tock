@@ -409,3 +409,66 @@ func TestVerdictClearedByLock(t *testing.T) {
 		t.Fatalf("after lock: title=%s url=%s; want nil, nil", deref(s.Title), deref(s.URL))
 	}
 }
+
+func TestSameWindowSkipsScriptUntilRefresh(t *testing.T) {
+	p := newBrowserPolicy()
+	f := &fakeRunner{results: []fakeResult{okURL("https://e.com/a"), okURL("https://e.com/b")}}
+	s := sample(chromeID, strp("Doc"))
+	applyBrowserWin(s, 7, f.run, p, t0)
+	for _, dt := range []int64{2000, 4000, 9999} {
+		s = sample(chromeID, strp("Doc"))
+		applyBrowserWin(s, 7, f.run, p, t0+dt)
+		if f.calls != 1 || deref(s.URL) != "e.com/a" || deref(s.Title) != "Doc" {
+			t.Fatalf("+%d: calls=%d url=%s title=%s", dt, f.calls, deref(s.URL), deref(s.Title))
+		}
+	}
+	s = sample(chromeID, strp("Doc"))
+	applyBrowserWin(s, 7, f.run, p, t0+10001)
+	if f.calls != 2 || deref(s.URL) != "e.com/b" {
+		t.Fatalf("after refresh: calls=%d url=%s", f.calls, deref(s.URL))
+	}
+}
+
+func TestOtherWindowSameTitleRunsScript(t *testing.T) {
+	p := newBrowserPolicy()
+	f := &fakeRunner{results: []fakeResult{okURL("https://e.com/"), okURL("private")}}
+	applyBrowserWin(sample(chromeID, strp("New Tab")), 7, f.run, p, t0)
+	s := sample(chromeID, strp("New Tab"))
+	applyBrowserWin(s, 8, f.run, p, t0+2000)
+	if f.calls != 2 || s.URL != nil || !s.Private {
+		t.Fatalf("calls=%d url=%s private=%v", f.calls, deref(s.URL), s.Private)
+	}
+}
+
+func TestUnknownWindowAlwaysRunsScript(t *testing.T) {
+	p := newBrowserPolicy()
+	f := &fakeRunner{results: []fakeResult{okURL("https://e.com/"), okURL("https://e.com/")}}
+	applyBrowserWin(sample(chromeID, strp("Doc")), 0, f.run, p, t0)
+	applyBrowserWin(sample(chromeID, strp("Doc")), 0, f.run, p, t0+2000)
+	if f.calls != 2 {
+		t.Fatalf("calls=%d, want 2", f.calls)
+	}
+}
+
+func TestActivationRunsScript(t *testing.T) {
+	p := newBrowserPolicy()
+	f := &fakeRunner{results: []fakeResult{okURL("https://e.com/"), okURL("https://e.com/")}}
+	applyBrowserWin(sample(chromeID, strp("Doc")), 7, f.run, p, t0)
+	s := sample(chromeID, strp("Doc"))
+	s.Activation = true
+	applyBrowserWin(s, 7, f.run, p, t0+2000)
+	if f.calls != 2 {
+		t.Fatalf("calls=%d, want 2", f.calls)
+	}
+}
+
+func TestTitleChangeRunsScript(t *testing.T) {
+	p := newBrowserPolicy()
+	f := &fakeRunner{results: []fakeResult{okURL("https://e.com/a"), okURL("https://e.com/b")}}
+	applyBrowserWin(sample(chromeID, strp("A")), 7, f.run, p, t0)
+	s := sample(chromeID, strp("B"))
+	applyBrowserWin(s, 7, f.run, p, t0+2000)
+	if f.calls != 2 || deref(s.URL) != "e.com/b" {
+		t.Fatalf("calls=%d url=%s", f.calls, deref(s.URL))
+	}
+}

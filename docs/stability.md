@@ -129,9 +129,11 @@ own month of data (28,000 spans):
 | Building a week, 180 days of history | 4.8 ms (`BenchmarkWeek`) | |
 | Turning a workday of samples into spans | 0.8 ms for 14,400 samples (`BenchmarkMergerWorkday`) | |
 
-With a browser in front, trackd asks it for the tab's address every 2
+With a browser in front, trackd asked it for the tab's address every 2
 seconds (an Apple Event), which is most of the difference between the two
-CPU lines. Reading a day takes the same time after a year as after a week: range
+CPU lines. It now asks when the window or its title changes, and otherwise
+at most every 10 seconds; the 1.3 % line predates that and is due a
+re-measure. Reading a day takes the same time after a year as after a week: range
 reads are bounded on both sides by an index (`TestSpansRangeIsBounded`).
 `make bench` runs the benchmarks. They are not a CI gate yet.
 

@@ -11,6 +11,7 @@ typedef struct {
     double idle_s;
     int locked;
     int video; // the front app or a helper of it keeps the display awake
+    unsigned long win; // identity of the focused window (CFHash), 0 when unknown
 } tock_poll_t;
 
 void tock_ax_init(int prompt);
