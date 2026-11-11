@@ -87,7 +87,7 @@ func settingsTitles(s Snapshot) string {
 		if f.On {
 			c = "✓ "
 		}
-		out += "\n  " + c + f.Name + " [feature:" + f.ID + "]"
+		out += "\n  " + c + f.featureTitle() + " [feature:" + f.ID + "]"
 	}
 	if len(s.Features) > 0 {
 		out += "\n  --"

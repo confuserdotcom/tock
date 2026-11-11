@@ -1,30 +1,34 @@
 tock · choices   space turn on/off · enter save · q quit
 
-Tracking
-  ● Local model labels           labels activity on this machine
-  ○ Claude                       opt-in; sends app, site and title snippets to Anthropic
-› ● Screen text         changed  reads the front window; needs Screen Recording
-  ○ Calendar meetings            events from macOS Calendar explain idle time
+General
+  ● Local model labels             labels activity on this machine
+  ● Notifications                  every notice tock sends
+  ● Notch                          sessions, recaps and labelling in the notch
 
-Focus
-  ● Notifications                every notice tock sends
-  ● Suggestions                  when to start focus or take a break
-  ○ Break screen                 covers the screens when a break runs over
-  ○ Wake screen                  covers the screens when a session goes off task
-  ● Start hotkey                 ⌥⌘F opens a prompt to start focus from any app
-  ○ Block distractions           closes distracting tabs and apps in a session
-  ○ Urge surfing                 the distraction notice asks what you feel
-  ● Notch                        sessions, recaps and labelling in the notch
+  ● Focus                          sessions, the focus score, break and distraction notic…
+    ● Suggestions                  when to start focus or take a break
+    ○ Break screen                 covers the screens when a break runs over
+    ○ Wake screen                  covers the screens when a session goes off task
+    ● Start hotkey                 ⌥⌘F opens a prompt to start focus from any app
+    ○ Block distractions           closes distracting tabs and apps in a session
+    ○ Urge surfing                 the distraction notice asks what you feel
 
-Day
-  ● Start of day                 a notice when your day starts
-  ● Evening recap                the day in one notice
-  ● Overworking                  a notice when work runs past [hours] end
-  ● Plan reminders               up next and starting now, for timed plan items
+  ● Day routine                    notices that frame the work day
+    ● Start of day                 a notice when your day starts
+    ● Evening recap                the day in one notice
+    ● Overworking                  a notice when work runs past [hours] end
+    ● Plan reminders               up next and starting now, for timed plan items
 
-Other
-  ○ Slack status                 status and do-not-disturb during sessions
+  ● Billing                        rates, invoices and priced exports
 
-  ↗ Open dashboard               in your browser, on this machine only
+AI
+  ○ Claude                         opt-in; sends app, site and title snippets to Anthropic
+
+Integrations
+  ○ Calendar meetings              events from macOS Calendar explain idle time
+› ● Screen text           changed  reads the front window; needs Screen Recording
+  ○ Slack status                   status and do-not-disturb during sessions
+
+  ↗ Open dashboard                 in your browser, on this machine only
 
 1 not saved · enter to save

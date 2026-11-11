@@ -60,7 +60,15 @@ func cmdChoice(env Env, args []string) error {
 	}
 	if !env.Interactive {
 		for _, f := range config.Features {
-			fmt.Fprintf(env.Stdout, "%-4s %-13s %s\n", onOffWord(f.On(cfg)), f.ID, f.Name)
+			id := f.ID
+			if f.Needs != "" && config.FeatureByID(f.Needs).Group == f.Group {
+				id = "  " + id // under its group's toggle
+			}
+			state, wait := onOffWord(f.Set(cfg)), ""
+			if f.Waits(cfg) {
+				wait = "  (waits for " + config.FeatureByID(f.Needs).Name + ")"
+			}
+			fmt.Fprintf(env.Stdout, "%-4s %-15s %s%s\n", state, id, f.Name, wait)
 		}
 		return nil
 	}

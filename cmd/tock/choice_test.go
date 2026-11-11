@@ -39,7 +39,8 @@ func TestChoiceList(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit %d: %s", code, te.errb)
 	}
-	for _, want := range []string{"on   ocr           Screen text", "off  break_screen  Break screen", "off  claude        Claude"} {
+	for _, want := range []string{"on   ocr             Screen text", "off    break_screen  Break screen", "off  claude          Claude",
+		"on   focus           Focus"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("list lacks %q:\n%s", want, out)
 		}
@@ -68,6 +69,26 @@ func TestChoiceSet(t *testing.T) {
 	code, out = te.run(t, "", "choice", "notify", "off")
 	if code != 0 || !strings.Contains(readFile(t, p), "notify = false  # all of them") {
 		t.Fatalf("exit %d out %q:\n%s", code, out, readFile(t, p))
+	}
+}
+
+// G4, AC2: a group is one key; its members keep theirs and wait.
+func TestChoiceGroup(t *testing.T) {
+	te := newTestEnv(t, "")
+	src := "# mine\n[focus]\nwake_screen = true\n"
+	p := te.writeConfig(t, src)
+	if code, out := te.run(t, "", "choice", "focus", "off"); code != 0 || out != "Focus: off\n" {
+		t.Fatalf("exit %d out %q err %s", code, out, te.errb)
+	}
+	if got := readFile(t, p); got != src+"enabled = false\n" {
+		t.Fatalf("config.toml = %q", got)
+	}
+	_, out := te.run(t, "", "choice")
+	if !strings.Contains(out, "on     wake_screen   Wake screen  (waits for Focus)") || !strings.Contains(out, "off  focus           Focus\n") {
+		t.Fatalf("list:\n%s", out)
+	}
+	if code, _ := te.run(t, "", "choice", "focus", "on"); code != 0 || readFile(t, p) != src {
+		t.Fatalf("on again: exit %d, %q", code, readFile(t, p))
 	}
 }
 

@@ -153,7 +153,7 @@ func toggleFeature(a *app.App, fid string) (string, error) {
 		if f.ID != fid {
 			continue
 		}
-		on := !f.On(a.Config())
+		on := !f.Set(a.Config())
 		if err := config.SaveFeatures(a.ConfigPath(), map[string]bool{fid: on}); err != nil {
 			return "", fmt.Errorf("bar: %s: %w", fid, err)
 		}

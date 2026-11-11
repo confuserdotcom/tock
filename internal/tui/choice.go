@@ -50,7 +50,7 @@ type choiceOpened struct {
 func NewChoice(cfg config.Config, always bool, deps ChoiceDeps) Choice {
 	m := Choice{deps: deps, always: always, done: map[string]bool{}, width: 80}
 	for _, f := range config.Features {
-		m.saved = append(m.saved, f.On(cfg))
+		m.saved = append(m.saved, f.Set(cfg)) // the file's value: a member keeps it while its group is off
 	}
 	m.on = append([]bool(nil), m.saved...)
 	return m
@@ -176,7 +176,7 @@ func (m Choice) View() tea.View { return tea.NewView(m.draw()) }
 func (m Choice) draw() string {
 	nameW := len("Open dashboard")
 	for _, f := range config.Features {
-		nameW = max(nameW, len(f.Name))
+		nameW = max(nameW, len(f.Name)+len(choiceIndent(f)))
 	}
 	var b strings.Builder
 	line := func(s string) { b.WriteString(ansi.Truncate(s, m.width, "…") + "\n") }
@@ -186,17 +186,27 @@ func (m Choice) draw() string {
 		if f.Group != group {
 			group = f.Group
 			line("")
-			line(sDim.Render(group))
+			if !f.IsGroup {
+				line(sDim.Render(group))
+			}
 		}
 		dot := sFaint.Render("○")
 		if m.on[i] {
 			dot = sGood.Render("●")
 		}
 		tag := "         "
-		if m.on[i] != m.saved[i] {
+		switch {
+		case m.on[i] != m.saved[i]:
 			tag = sAccent.Render("changed") + "  "
+		case m.on[i] && m.waits(f):
+			tag = sFaint.Render("waits") + "    "
 		}
-		line(m.cursor(i) + dot + " " + pad(f.Name, nameW) + "  " + tag + sDim.Render(f.Note))
+		indent := choiceIndent(f)
+		name := pad(f.Name, nameW-len(indent))
+		if f.IsGroup {
+			name = sHead.Render(name)
+		}
+		line(m.cursor(i) + indent + dot + " " + name + "  " + tag + sDim.Render(f.Note))
 	}
 	line("")
 	line(m.cursor(len(config.Features)) + sBrand.Render("↗") + " " + pad("Open dashboard", nameW) + "           " +
@@ -214,6 +224,27 @@ func (m Choice) draw() string {
 	}
 	b.WriteString(ansi.Truncate(sDim.Render(status), m.width, "…"))
 	return b.String()
+}
+
+// choiceIndent sets a group's members under its toggle.
+func choiceIndent(f config.Feature) string {
+	if f.Needs != "" && config.FeatureByID(f.Needs).Group == f.Group {
+		return "  "
+	}
+	return ""
+}
+
+// waits is whether f's group is shown off.
+func (m Choice) waits(f config.Feature) bool {
+	if f.Needs == "" {
+		return false
+	}
+	for i, g := range config.Features {
+		if g.ID == f.Needs {
+			return !m.on[i]
+		}
+	}
+	return false
 }
 
 func (m Choice) cursor(i int) string {

@@ -142,7 +142,8 @@ const StripCells = 24
 // FeatureState is one Settings toggle as the config has it now.
 type FeatureState struct {
 	ID, Group, Name string
-	On              bool
+	On              bool   // config.toml turns it on
+	Waits           string // the group it waits for while that group is off; "" = none
 }
 
 // LastSession is the finished session the menu offers to rate and refile.
@@ -190,7 +191,11 @@ func Load(a *app.App, now time.Time, access string) (Snapshot, error) {
 	}
 	cfg := a.Config()
 	for _, f := range config.Features {
-		s.Features = append(s.Features, FeatureState{ID: f.ID, Group: f.Group, Name: f.Name, On: f.On(cfg)})
+		fs := FeatureState{ID: f.ID, Group: f.Group, Name: f.Name, On: f.Set(cfg)}
+		if f.Waits(cfg) {
+			fs.Waits = config.FeatureByID(f.Needs).Name
+		}
+		s.Features = append(s.Features, fs)
 	}
 	s.Privacy, s.PrivacyErr = loadPrivacy(a, cfg.Privacy)
 	s.Last, s.LastErr = loadLast(a, now)
@@ -443,6 +448,14 @@ func (s Snapshot) privacy() Item {
 	return Item{Title: "Privacy", Sub: sub}
 }
 
+// featureTitle is the toggle's menu title.
+func (f FeatureState) featureTitle() string {
+	if f.Waits != "" {
+		return f.Name + " (waits for " + f.Waits + ")"
+	}
+	return f.Name
+}
+
 // settings is the Settings submenu: the feature toggles by group, the
 // System Settings panes and Quit.
 func (s Snapshot) settings() Item {
@@ -456,7 +469,7 @@ func (s Snapshot) settings() Item {
 			group = f.Group
 			sub = append(sub, label("%s", f.Group))
 		}
-		sub = append(sub, Item{Title: f.Name, ID: IDFeature + f.ID, Checked: f.On})
+		sub = append(sub, Item{Title: f.featureTitle(), ID: IDFeature + f.ID, Checked: f.On})
 	}
 	if len(sub) > 0 {
 		sub = append(sub, sep)
