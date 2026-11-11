@@ -68,7 +68,7 @@ func TestInvoiceLifecycle(t *testing.T) {
 	shown := out
 	code, out = te.run(t, "", "invoice", "show", "2026-0001")
 	for _, want := range []string{"2026-0001  issued ", "tock, 2026-10-10 to 2026-10-10", "from Ada Lovelace",
-		"2026-10-10  1:40", "total 100.00 EUR", "rate 60.00 EUR/h"} {
+		"2026-10-10  1.67 h", "total 100.00 EUR", "rate 60.00 EUR/h"} {
 		if code != 0 || !strings.Contains(out, want) {
 			t.Fatalf("show lacks %q: %d\n%s", want, code, out)
 		}
@@ -319,5 +319,31 @@ func TestInvoiceDraftPath(t *testing.T) {
 	}
 	if b, _ := os.ReadFile(victim); string(b) != "keep" {
 		t.Fatal("preview wrote through a symlink")
+	}
+}
+
+// The missing name is said before any question about model-labelled time:
+// confirming that first would only lead to the refusal.
+func TestInvoiceIssueNameBeforePrompt(t *testing.T) {
+	te := invoiceEnv(t)
+	te.writeConfig(t, "[invoice]\ncurrency = \"EUR\"\n")
+	te.Interactive = true
+	code, out := te.run(t, "y\n", append([]string{"invoice", "issue"}, day...)...)
+	if code != 1 || strings.Contains(out, "Issue it anyway?") || !strings.Contains(te.errb.String(), "[invoice] name") {
+		t.Fatalf("%d %q %s", code, out, te.errb)
+	}
+}
+
+func TestInvoiceShowFlags(t *testing.T) {
+	te := invoiceEnv(t)
+	if code, _ := te.run(t, "", append([]string{"invoice", "issue"}, day...)...); code != 0 {
+		t.Fatal(te.errb.String())
+	}
+	if code, _ := te.run(t, "", "invoice", "show", "2026-0001", "--json", "--pdf"); code != 2 {
+		t.Fatalf("--json --pdf: exit %d", code)
+	}
+	// Day lines use the hours the totals use, so they add up.
+	if _, out := te.run(t, "", "invoice", "show", "2026-0001"); !strings.Contains(out, "2026-10-10  1.67 h  100.00 EUR") {
+		t.Fatalf("show:\n%s", out)
 	}
 }

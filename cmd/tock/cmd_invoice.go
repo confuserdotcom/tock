@@ -258,6 +258,9 @@ func invoiceIssue(env Env, a *app.App, args []string) error {
 	if err != nil {
 		return err
 	}
+	if strings.TrimSpace(d.Record.IssuerName) == "" {
+		return app.ErrNoIssuer // before any question: confirming would only lead here
+	}
 	printDraft(env, d)
 	if d.ModelOnlyS > 0 && !*yes {
 		if !env.Interactive {
@@ -370,6 +373,9 @@ func invoiceShow(env Env, a *app.App, args []string) error {
 	if err != nil {
 		return err
 	}
+	if *pdf && *asJSON {
+		return usagef("invoice show: --json or --pdf, not both")
+	}
 	if *pdf {
 		// The stored bytes, never a new rendering.
 		if *out == "" {
@@ -404,7 +410,7 @@ func printInvoice(env Env, inv store.Invoice) {
 	issued := time.UnixMilli(inv.IssuedMS).In(env.Now().Location()).Format("2006-01-02")
 	fmt.Fprintf(w, "%s  %s %s", inv.Number, inv.Status, issued)
 	if inv.Status == store.InvoiceVoid {
-		fmt.Fprintf(w, ", void %s: %s", time.UnixMilli(inv.VoidMS).In(env.Now().Location()).Format("2006-01-02"), inv.VoidReason)
+		fmt.Fprintf(w, ", void %s: %s", time.UnixMilli(inv.VoidMS).In(env.Now().Location()).Format("2006-01-02"), report.Safe(inv.VoidReason))
 	}
 	if inv.Supersedes != "" {
 		fmt.Fprintf(w, ", replaces %s", inv.Supersedes)
@@ -415,24 +421,24 @@ func printInvoice(env Env, inv store.Invoice) {
 	if err != nil {
 		loc = env.Now().Location() // a zone with no IANA name: the days were this machine's
 	}
-	fmt.Fprintf(w, "%s, %s to %s\n", inv.Project, time.UnixMilli(from).In(loc).Format("2006-01-02"),
+	fmt.Fprintf(w, "%s, %s to %s\n", report.Safe(inv.Project), time.UnixMilli(from).In(loc).Format("2006-01-02"),
 		time.UnixMilli(to).In(loc).Format("2006-01-02"))
 	var parties []string
 	if inv.IssuerName != "" {
-		parties = append(parties, "from "+inv.IssuerName)
+		parties = append(parties, "from "+report.Safe(inv.IssuerName))
 	}
 	if inv.ClientName != "" {
-		parties = append(parties, "to "+inv.ClientName)
+		parties = append(parties, "to "+report.Safe(inv.ClientName))
 	}
 	if len(parties) > 0 {
 		fmt.Fprintln(w, strings.Join(parties, " "))
 	}
 	for _, l := range inv.Lines {
-		fmt.Fprintf(w, "  %s  %d:%02d  %s\n", l.Day, l.SecondsBilled/3600, l.SecondsBilled%3600/60, money(l.AmountMinor, inv))
+		fmt.Fprintf(w, "  %s  %s h  %s\n", l.Day, hoursText(l.SecondsBilled), money(l.AmountMinor, inv))
 	}
 	fmt.Fprintf(w, "%s h at rate %s/h", hoursText(inv.SecondsBilled), money(inv.RateMinor, inv))
 	if inv.TaxBP > 0 {
-		fmt.Fprintf(w, ", subtotal %s, %s %s%% %s", money(inv.SubtotalMinor, inv), strings.TrimSpace(inv.TaxLabel),
+		fmt.Fprintf(w, ", subtotal %s, %s %s%% %s", money(inv.SubtotalMinor, inv), report.Safe(strings.TrimSpace(inv.TaxLabel)),
 			report.FormatPercent(inv.TaxBP), money(inv.TaxMinor, inv))
 	}
 	fmt.Fprintf(w, ", total %s\n", money(inv.TotalMinor, inv))

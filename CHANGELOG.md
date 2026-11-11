@@ -64,7 +64,8 @@ What changed for you in each release. Dates are UTC.
   database and in `~/.local/share/tock/invoices/`. Later rule edits,
   relabels or a new rate change nothing in it; `tock invoice check` shows
   how today's labels differ. Corrections are a void with a reason and a
-  replacement with `--supersedes`. Amounts are exact (integer cents), days
+  replacement with `--supersedes`. `tock invoice show` prints an issued
+  invoice; `--json` gives the stored record byte for byte. Amounts are exact (integer cents), days
   can be rounded (`[invoice] round`), and an invoice can carry your and the
   client's tax numbers and one tax rate. Projects can set `billable =
   false` and `client = "…"`. The old `YYYYMM-project` numbers are retired,
@@ -125,9 +126,8 @@ What changed for you in each release. Dates are UTC.
 - `tock invoice issue` refuses while `[invoice] name` is empty, and the
   preview says so: an issued invoice never changes, so one without your
   name could only be voided.
-- `tock invoice show` prints a readable summary; `--json` gives the stored
-  record. `tock invoice check` shows minutes and seconds when a change is
-  too small for hundredths of an hour, instead of two equal numbers.
+- `tock invoice check` shows minutes and seconds when a change is too
+  small for hundredths of an hour, instead of two equal numbers.
 - `tock project add` and `set` take `--rate`, `--client` and `--billable`,
   so billing no longer needs rules.toml edited by hand.
 - `tock <command> --help` prints that command's lines and works before

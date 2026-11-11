@@ -168,7 +168,6 @@ func cmdProject(env Env, args []string) error {
 	return nil
 }
 
-// moduleNote says what makes a project a module, if it is one.
 // billingFlags puts --rate, --client and --billable into p. "none" drops
 // a rate (as -1, which EditProject removes) or a client.
 func billingFlags(p *app.ProjectSpec, rate, client, billable string) error {
@@ -203,6 +202,8 @@ func billingFlags(p *app.ProjectSpec, rate, client, billable string) error {
 	return nil
 }
 
+// moduleNote describes a project after its name: the category that makes
+// it a module, other names, archived, and with Billing on its rate and client.
 func moduleNote(a *app.App, name string) string {
 	rs := a.Rules()
 	for _, p := range rs.Projects {
