@@ -1,0 +1,25 @@
+# Template "my own projects": code, writing and research of your own.
+
+[[category]]
+name = "Code"
+kind = "deep"
+
+[[category]]
+name = "Writing"
+kind = "deep"
+
+[[category]]
+name = "Research"
+kind = "shallow"
+
+[[rule]]
+bundle = ["com.microsoft.VSCode", "com.todesktop.230313mzl4w4u92", "dev.zed.Zed", "com.apple.dt.Xcode", "com.sublimetext.4", "com.jetbrains.intellij", "com.jetbrains.goland", "com.jetbrains.pycharm"]
+category = "Code"
+
+[[rule]]
+bundle = ["pro.writer.mac", "com.ulyssesapp.mac", "com.literatureandlatte.scrivener3", "com.microsoft.Word"]
+category = "Writing"
+
+[[rule]]
+bundle = ["org.zotero.zotero", "com.devon-technologies.think3"]
+category = "Research"

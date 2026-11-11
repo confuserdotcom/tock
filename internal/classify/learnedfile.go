@@ -42,7 +42,14 @@ func renderRule(r Rule, comment string) string {
 		}
 		return r
 	}, comment)
-	fmt.Fprintf(&b, "# %s\n[[rule]]\n", comment)
+	fmt.Fprintf(&b, "# %s\n", comment)
+	return b.String() + ruleTable(r)
+}
+
+// ruleTable renders r as a [[rule]] table and a blank line.
+func ruleTable(r Rule) string {
+	var b strings.Builder
+	b.WriteString("[[rule]]\n")
 	if len(r.Bundle) > 0 {
 		q := make([]string, len(r.Bundle))
 		for i, x := range r.Bundle {

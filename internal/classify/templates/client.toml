@@ -1,0 +1,29 @@
+# Template "client work": the categories and rules billable work needs.
+
+[[category]]
+name = "Code"
+kind = "deep"
+
+[[category]]
+name = "Meeting"
+kind = "shallow"
+
+[[category]]
+name = "Admin & Planning"
+kind = "shallow"
+
+[[rule]]
+bundle = ["com.microsoft.VSCode", "com.todesktop.230313mzl4w4u92", "dev.zed.Zed", "com.apple.dt.Xcode", "com.sublimetext.4", "com.jetbrains.intellij", "com.jetbrains.goland", "com.jetbrains.pycharm"]
+category = "Code"
+
+[[rule]]
+bundle = ["us.zoom.xos", "com.microsoft.teams2", "com.cisco.webexmeetingsapp"]
+category = "Meeting"
+
+[[rule]]
+url = '^(meet\.google\.com|teams\.microsoft\.com|([a-z0-9-]+\.)?zoom\.us/(j|wc))(/|$)'
+category = "Meeting"
+
+[[rule]]
+url = '^(([a-z0-9-]+\.)?(harvestapp\.com|freshbooks\.com|xero\.com)|dashboard\.stripe\.com|qbo\.intuit\.com)(/|$)'
+category = "Admin & Planning"
