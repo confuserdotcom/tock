@@ -972,8 +972,9 @@ page to your browser and runs until you press ctrl-c.
 - **Week:** **Export** saves the week report, the week's entries as CSV or
   JSON, or its hours by project. **Invoice…** there previews an invoice
   for a project with a rate over the month before, the week's month or the
-  week, with the hours and total, and saves a PDF marked DRAFT. Issue it
-  with `tock invoice issue`. Then hours per day by kind, a donut of the
+  week, with the hours and total, and saves a PDF marked DRAFT. **Issue**
+  there does what `tock invoice issue` does, with a box to tick for time
+  only the model labelled and one for days another invoice bills. Then hours per day by kind, a donut of the
   week's kinds, the score per day against its mean, a weekday × hour heat
   map of when you focus, a donut of projects, goal rings (days held),
   distractions, and categories and apps.
@@ -1152,6 +1153,11 @@ tock invoice issue --project ATLAS --supersedes 2026-0004 --void-old --reason "w
 
 Both stay on record, linked both ways in `tock invoice list [--year Y]`;
 a number is never used twice.
+
+Time on an issued invoice is underlined on the dashboard's timeline, and
+the week says how much of it is billed. Relabelling it, with `tock tag`,
+`tock edit`, the TUI or the dashboard, works as usual and says
+`On invoice 2026-0004; the invoice stays as issued.`
 
 `tock invoice check 2026-0004` bills the invoice's days again with
 today's labels, the invoice's rounding and its rate, and prints

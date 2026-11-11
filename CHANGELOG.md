@@ -25,7 +25,9 @@ What changed for you in each release. Dates are UTC.
   client's tax numbers and one tax rate. Projects can set `billable =
   false` and `client = "…"`. The old `YYYYMM-project` numbers are retired,
   and PDFs made before this release are not imported. The dashboard's
-  **Invoice…** now saves a preview only.
+  **Invoice…** saves a DRAFT preview or issues, with the same checks as
+  the CLI. Billed time is underlined on the timeline, and relabelling it
+  says the invoice stays as issued.
 - **Linux updates through the sync folder are off until you turn them
   on, and never trust a key by themselves.** Before, a Linux machine
   trusted the first key it found in the sync folder, so anyone who could
