@@ -104,6 +104,7 @@ export type Cat = { name: string; kind: string; ms: number; projects: NameMS[] }
 export type Row = {
   ids: number[]; start: number; end: number; key: string; app: string; text: string;
   category: string; kind: string; project: string; source: string; idle: boolean; open: boolean;
+  invoice?: string; // the issued invoice that bills it
 };
 export type Goal = {
   name: string; text: string; atMost: boolean; week: boolean; ms: number; doneMS: number;
@@ -118,6 +119,7 @@ export type Block = {
   activeMS: number; deepMS: number; distractMS: number; top: NameMS[]; summary: string;
 };
 export type Day = {
+  billedMS?: number;
   date: string; today: boolean; trackedMS: number; idleMS: number; byKind: ByKind;
   score: Score; stats: Stats; categories: Cat[]; hourFirst: number; hourLast: number;
   hours: Record<string, number[]>; timeline: Row[]; goals: Goal[]; blocks: Block[];
@@ -129,7 +131,7 @@ export type Status = {
   session: { goal: string; startMS: number; plannedMS: number } | null;
   focus?: boolean; billing?: boolean;
 };
-export type WeekDay = { date: string; trackedMS: number; byKind: ByKind; future: boolean; score: number; deepMS: number };
+export type WeekDay = { billedMS?: number; date: string; trackedMS: number; byKind: ByKind; future: boolean; score: number; deepMS: number };
 export type Week = {
   monday: string; days: WeekDay[]; trackedMS: number; byKind: ByKind; categories: Cat[];
   projects: NameMS[]; apps: NameMS[]; distractions: NameMS[]; goals: Goal[]; plan: string; outages: Outage[];
@@ -156,7 +158,7 @@ export type Propose = {
   spans: number; ms: number; label: string;
   candidates: { rule: string; matches: number; matchMS: number; thisKey: number; new: number; newMS: number; fixed: number; replaces: number }[];
 };
-export type Done = { spans: number; ms: number; label: string };
+export type Done = { spans: number; ms: number; label: string; note?: string };
 export type LibCategory = { name: string; kind: string; afkMS: number; interrupt: boolean; projects: number; last30MS: number; lastSeenMS: number };
 export type LibProject = { name: string; category: string; aliases: string[]; rate?: number | null; archived: boolean; last30MS: number; lastSeenMS: number };
 export type LibGoal = { category: string; project: string; name?: string; text?: string; atMost: boolean; week: boolean; ms: number };
@@ -172,4 +174,8 @@ export type Rule = {
 export type Rules = { rules: Rule[]; days: number };
 export type RuleExample = { text: string; ms: number; from: string; to: string };
 export type RulePreview = { matchedMS: number; changedMS: number; examples: RuleExample[] };
-export type InvoicePreview = { project: string; number: string; seconds: number; total: number; currency: string; days: number };
+export type InvoicePreview = {
+  project: string; number: string; seconds: number; total: number; currency: string; days: number;
+  modelOnlyS: number; overlaps: string[];
+};
+export type InvoiceIssued = { number: string; total: number; currency: string };

@@ -30,6 +30,7 @@ export default function Week({ date, tick }: { date: string; tick: number }) {
   const days = w.days.map((d) => ({ label: shortDay(parseDate(d.date)), byKind: d.byKind, faint: d.future }));
   const scores = w.days.map((d) => ({ label: shortDay(parseDate(d.date)), score: d.future || d.trackedMS < 3_600_000 ? null : d.score }));
   const projects = w.projects.slice(0, 6);
+  const billed = w.days.reduce((n, d) => n + (d.billedMS ?? 0), 0);
   const colors = ramp(projects.length);
   const kinds = byKindRows(w.byKind).map((k) => ({ name: kindLabel(k.kind), ms: k.ms, color: kindColor(k.kind) }));
   // The time trackd did not record, per day; not part of the bars.
@@ -72,7 +73,7 @@ export default function Week({ date, tick }: { date: string; tick: number }) {
         </Panel>
       </div>
       <div className="grid gap-5 lg:grid-cols-3">
-        <Panel label="Projects">
+        <Panel label="Projects" aside={billed > 0 ? `${dur(billed)} on issued invoices` : undefined}>
           {projects.length ? <Donut data={projects.map((p, i) => ({ name: p.name || "No project", ms: p.ms, color: colors[i] }))} center={String(w.projects.length)} sub="projects" /> : <Empty>No projects this week.</Empty>}
         </Panel>
         <Panel label="Goals">
@@ -127,7 +128,7 @@ function Export({ monday }: { monday: string }) {
         {invoice && (
           <button onClick={() => setInv(true)} className="flex w-full flex-col items-start rounded-md px-2.5 py-2 text-left hover:bg-accent">
             <span className="text-sm">Invoice…</span>
-            <span className="text-xs text-muted-foreground">A DRAFT preview for one project; tock invoice issue records it</span>
+            <span className="text-xs text-muted-foreground">Preview one project's invoice, then issue it</span>
           </button>
         )}
       </PopoverContent>

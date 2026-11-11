@@ -16,8 +16,9 @@ export type Target = { title: string; sub?: string; key?: string; ids?: number[]
 type Mode = "label" | "add" | "cut";
 
 /** undoToast reports a change with an Undo button that reverses it. */
-export function undoToast(msg: string, after: () => void) {
+export function undoToast(msg: string, after: () => void, note?: string) {
   toast(msg, {
+    description: note,
     action: {
       label: "Undo",
       onClick: async () => {
@@ -66,17 +67,17 @@ export function LabelSheet({ target, onClose, onDone }: { target: Target | null;
   const moved = !!r && (from !== r.from || to !== r.to);
   const what = r && from !== null && to !== null && to > from ? `${clockOf(r.date, from)}–${clockOf(r.date, to)} (${dur(to - from)})` : "";
 
-  async function finish(msg: string) {
+  async function finish(msg: string, note?: string) {
     onClose();
     onDone();
-    undoToast(msg, onDone);
+    undoToast(msg, onDone, note);
   }
 
   async function edit(kind: Mode, label: string) {
     if (bad || from === null || to === null) return toast.error(bad);
-    await post<{ id: number }>("/api/edit", { kind, from, to, label });
+    const res = await post<{ id: number; note?: string }>("/api/edit", { kind, from, to, label });
     const verb = kind === "add" ? "Added" : kind === "cut" ? "Deleted" : "Labelled";
-    await finish(kind === "cut" ? `${verb} ${what}` : `${verb} ${what} · ${label}`);
+    await finish(kind === "cut" ? `${verb} ${what}` : `${verb} ${what} · ${label}`, res.note);
   }
 
   async function apply(label: string, learn: boolean) {
@@ -92,7 +93,7 @@ export function LabelSheet({ target, onClose, onDone }: { target: Target | null;
       } else {
         res = await post<Done>("/api/tag", target.key ? { key: target.key, label } : { ids: target.ids, label });
       }
-      await finish(doneText(res, target.key ? undefined : what || undefined));
+      await finish(doneText(res, target.key ? undefined : what || undefined), res.note);
     } catch (e) {
       toast.error((e as Error).message);
     }

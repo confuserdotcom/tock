@@ -69,12 +69,15 @@ export default function Today({ date, tick }: { date: string; tick: number }) {
             <Timeline rows={d.timeline} outages={d.outages} date={d.date} first={d.hourFirst} last={d.hourLast} today={d.today}
               onPick={(r) => setTarget({
                 title: r.idle ? "Away" : r.app,
-                sub: r.idle ? "Label it to count it as worked." : `${r.text ? r.text + " · " : ""}${hhmm(r.start)}–${hhmm(r.end)}`,
+                sub: r.idle ? "Label it to count it as worked." : `${r.text ? r.text + " · " : ""}${hhmm(r.start)}–${hhmm(r.end)}${r.invoice ? ` · on invoice ${r.invoice}` : ""}`,
                 ids: r.idle ? undefined : r.ids,
                 range: { date: d.date, from: Math.max(r.start, day0), to: Math.min(r.end, now, day0 + 86_400_000) },
               })}
               onRange={(from, to) => setTarget({ title: "Edit the timeline", range: { date: d.date, from, to } })} />
-            <p className="mt-3 text-xs text-faint">Click a bar to label or delete it, or drag across the lanes to pick a range.</p>
+            <p className="mt-3 text-xs text-faint">
+              Click a bar to label or delete it, or drag across the lanes to pick a range.
+              {d.billedMS ? ` Underlined: ${dur(d.billedMS)} on issued invoices, which stay as issued.` : ""}
+            </p>
           </>
         ) : (
           <Empty>No activity on this day.</Empty>

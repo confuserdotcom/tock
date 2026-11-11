@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { get, type InvoicePreview, type Library } from "@/lib/api";
+import { get, post, type InvoiceIssued, type InvoicePreview, type Library } from "@/lib/api";
 import { download } from "@/lib/download";
 import { dur } from "@/lib/format";
 import { go } from "@/lib/route";
@@ -10,8 +10,9 @@ import { periods } from "@/lib/rules";
 
 const field = "h-8 w-full rounded-md border bg-background px-2.5 text-sm placeholder:text-faint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
-/** InvoiceDialog makes `tock invoice`'s PDF for one project with a rate,
- *  over a month or the week shown, with its totals before saving. */
+/** InvoiceDialog previews an invoice for one project with a rate, over a
+ *  month or the week shown: its totals, a PDF marked DRAFT, and Issue, which
+ *  stores it under the next number for good (tock invoice issue). */
 export function InvoiceDialog({ open, monday, onClose }: { open: boolean; monday: string; onClose: () => void }) {
   const [lib, setLib] = useState<Library | null>(null);
   const [project, setProject] = useState("");
@@ -20,6 +21,9 @@ export function InvoiceDialog({ open, monday, onClose }: { open: boolean; monday
   const [number, setNumber] = useState("");
   const [prev, setPrev] = useState<InvoicePreview | null>(null);
   const [err, setErr] = useState("");
+  const [okModel, setOkModel] = useState(false);
+  const [okOverlap, setOkOverlap] = useState(false);
+  const [busy, setBusy] = useState(false);
   const ps = periods(monday);
 
   useEffect(() => {
@@ -44,7 +48,7 @@ export function InvoiceDialog({ open, monday, onClose }: { open: boolean; monday
     let live = true;
     const t = setTimeout(() => {
       get<InvoicePreview>(`/api/invoice?${q()}&preview=1`)
-        .then((p) => live && (setPrev(p), setErr("")))
+        .then((p) => live && (setPrev(p), setErr(""), setOkModel(false), setOkOverlap(false)))
         .catch((e: Error) => live && (setPrev(null), setErr(e.message)));
     }, 250);
     return () => {
@@ -65,14 +69,34 @@ export function InvoiceDialog({ open, monday, onClose }: { open: boolean; monday
     }
   }
 
+  async function issue() {
+    const p = ps[period];
+    setBusy(true);
+    try {
+      const r = await post<InvoiceIssued>("/api/invoice/issue", {
+        project, from: p.from, to: p.to, client: client.trim(), number: number.trim(),
+        allowOverlap: okOverlap, confirmModel: okModel,
+      });
+      toast(`Issued ${r.number} · ${money(r.total, r.currency)}`, {
+        description: `Stored with its PDF; it stays as issued. tock invoice show ${r.number} --pdf saves a copy.`,
+      });
+      onClose();
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const rated = lib?.projects.filter((p) => p.rate != null && !p.archived) ?? [];
+  const canIssue = !!prev && !busy && (prev.modelOnlyS === 0 || okModel) && (prev.overlaps.length === 0 || okOverlap);
   const money = (v: number, c: string) => `${v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}${c ? ` ${c}` : ""}`;
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Invoice</DialogTitle>
-          <DialogDescription>A PDF of one project's time at its hourly rate, day by day.</DialogDescription>
+          <DialogDescription>One project's time at its hourly rate, day by day. Save a DRAFT to check it; Issue gives it the next number and keeps it as it is.</DialogDescription>
         </DialogHeader>
         {lib && !rated.length ? (
           <p className="text-sm text-muted-foreground">
@@ -108,9 +132,22 @@ export function InvoiceDialog({ open, monday, onClose }: { open: boolean; monday
                 <><b className="font-medium">{dur(prev.seconds * 1000)}</b> · <b className="font-medium">{money(prev.total, prev.currency)}</b> · <span className="text-muted-foreground">{prev.days} {prev.days === 1 ? "day" : "days"}</span></>
               )}
             </p>
+            {prev && prev.modelOnlyS > 0 && (
+              <label className="flex items-start gap-2 text-sm">
+                <input type="checkbox" className="mt-1" checked={okModel} onChange={(e) => setOkModel(e.target.checked)} />
+                <span>{dur(prev.modelOnlyS * 1000)} of it only the local model labelled. I've looked at it.</span>
+              </label>
+            )}
+            {prev && prev.overlaps.length > 0 && (
+              <label className="flex items-start gap-2 text-sm">
+                <input type="checkbox" className="mt-1" checked={okOverlap} onChange={(e) => setOkOverlap(e.target.checked)} />
+                <span>{prev.overlaps.join(", ")} already bills some of these days. Bill them again.</span>
+              </label>
+            )}
             <DialogFooter>
               <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
-              <Button type="submit" disabled={!prev}>Save PDF</Button>
+              <Button type="submit" variant="outline" disabled={!prev}>Save DRAFT</Button>
+              <Button type="button" disabled={!canIssue} onClick={issue}>Issue</Button>
             </DialogFooter>
           </form>
         )}

@@ -113,8 +113,10 @@ export function Timeline({ rows, outages, date, first, last, today, onPick, onRa
                     onMouseEnter={() => setHover({ r, left: left + w / 2, lane: i })}
                     onFocus={() => setHover({ r, left: left + w / 2, lane: i })}
                     onClick={() => onPick?.(r)}
-                    aria-label={`${r.app} ${hhmm(r.start)} to ${hhmm(r.end)}`}
-                  />
+                    aria-label={`${r.app} ${hhmm(r.start)} to ${hhmm(r.end)}${r.invoice ? `, on invoice ${r.invoice}` : ""}`}
+                  >
+                    {r.invoice && <i className="pointer-events-none absolute inset-x-0 -bottom-[3px] h-px bg-foreground/70" />}
+                  </button>
                 );
               })}
               {today && now > from && now < to && <div className="absolute -inset-y-1 w-px bg-foreground" style={{ left: `${x(now)}%` }} />}
