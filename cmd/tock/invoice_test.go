@@ -347,3 +347,23 @@ func TestInvoiceShowFlags(t *testing.T) {
 		t.Fatalf("show:\n%s", out)
 	}
 }
+
+// A drafts folder made with a loose mode is closed again on the next write.
+func TestWriteOwnTightensDir(t *testing.T) {
+	te := newTestEnv(t, "")
+	d := filepath.Join(te.StateDir, "drafts")
+	if err := os.MkdirAll(d, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	os.Chmod(d, 0o755)
+	p, err := writeOwn(te.Env, "drafts", "x.pdf", []byte("x"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fi, _ := os.Stat(d); fi.Mode().Perm() != 0o700 {
+		t.Fatalf("dir mode %v", fi.Mode().Perm())
+	}
+	if fi, _ := os.Stat(p); fi.Mode().Perm() != 0o600 {
+		t.Fatalf("file mode %v", fi.Mode().Perm())
+	}
+}

@@ -407,20 +407,21 @@ func invoiceShow(env Env, a *app.App, args []string) error {
 // the stored record.
 func printInvoice(env Env, inv store.Invoice) {
 	w := env.Stdout
-	issued := time.UnixMilli(inv.IssuedMS).In(env.Now().Location()).Format("2006-01-02")
+	// Dates in the zone the invoice was issued in, as its PDF prints them.
+	loc, err := time.LoadLocation(inv.TZ)
+	if err != nil {
+		loc = env.Now().Location() // a zone with no IANA name: the days were this machine's
+	}
+	issued := time.UnixMilli(inv.IssuedMS).In(loc).Format("2006-01-02")
 	fmt.Fprintf(w, "%s  %s %s", inv.Number, inv.Status, issued)
 	if inv.Status == store.InvoiceVoid {
-		fmt.Fprintf(w, ", void %s: %s", time.UnixMilli(inv.VoidMS).In(env.Now().Location()).Format("2006-01-02"), report.Safe(inv.VoidReason))
+		fmt.Fprintf(w, ", void %s: %s", time.UnixMilli(inv.VoidMS).In(loc).Format("2006-01-02"), report.Safe(inv.VoidReason))
 	}
 	if inv.Supersedes != "" {
 		fmt.Fprintf(w, ", replaces %s", inv.Supersedes)
 	}
 	fmt.Fprintln(w)
 	from, to := inv.PeriodFromMS, inv.PeriodToMS-1
-	loc, err := time.LoadLocation(inv.TZ)
-	if err != nil {
-		loc = env.Now().Location() // a zone with no IANA name: the days were this machine's
-	}
 	fmt.Fprintf(w, "%s, %s to %s\n", report.Safe(inv.Project), time.UnixMilli(from).In(loc).Format("2006-01-02"),
 		time.UnixMilli(to).In(loc).Format("2006-01-02"))
 	var parties []string
