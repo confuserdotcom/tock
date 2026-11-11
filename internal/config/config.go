@@ -43,6 +43,10 @@ type Config struct {
 	OCR       OCR
 	Notch     Notch
 	Backup    Backup
+	Billing   Billing
+	// File is the config as config.toml sets it, before the groups turn
+	// their members off; see Raw.
+	File *Config
 }
 
 // Model is the [model] section: the local classifier that labels what the
@@ -291,8 +295,9 @@ func DefaultLLM() LLM {
 
 // Default is the configuration used when there is no file.
 func Default() Config {
-	return Config{Score: stats.DefaultWeights, Focus: DefaultFocus(), LLM: DefaultLLM(), Shell: DefaultShell(), Away: DefaultAway(), AFK: DefaultAFK(), Slack: DefaultSlack(), Routine: DefaultRoutine(), Inbox: DefaultInbox(),
-		Recommend: DefaultRecommend(), Plan: DefaultPlan(), Model: Model{Enabled: true}, OCR: DefaultOCR(), Notch: DefaultNotch(), Backup: DefaultBackup(), Invoice: DefaultInvoice()}
+	return finish(Config{Score: stats.DefaultWeights, Focus: DefaultFocus(), LLM: DefaultLLM(), Shell: DefaultShell(), Away: DefaultAway(), AFK: DefaultAFK(), Slack: DefaultSlack(), Routine: DefaultRoutine(), Inbox: DefaultInbox(),
+		Recommend: DefaultRecommend(), Plan: DefaultPlan(), Model: Model{Enabled: true}, OCR: DefaultOCR(), Notch: DefaultNotch(), Backup: DefaultBackup(), Invoice: DefaultInvoice(),
+		Billing: Billing{Enabled: true}})
 }
 
 type scoreTOML struct {
@@ -416,6 +421,7 @@ type fileTOML struct {
 	OCR       ocrTOML       `toml:"ocr"`
 	Notch     notchTOML     `toml:"notch"`
 	Backup    backupTOML    `toml:"backup"`
+	Billing   billingTOML   `toml:"billing"`
 }
 
 // Load reads path. A missing file is Default() and no error. Any other
@@ -610,7 +616,16 @@ func Parse(name string, b []byte) (Config, error) {
 	if f.Sync.Update != nil {
 		c.Sync.Update = *f.Sync.Update
 	}
-	return c, nil
+	if f.Focus.Enabled != nil {
+		c.Focus.Enabled = *f.Focus.Enabled
+	}
+	if f.Routine.Enabled != nil {
+		c.Routine.Enabled = *f.Routine.Enabled
+	}
+	if f.Billing.Enabled != nil {
+		c.Billing.Enabled = *f.Billing.Enabled
+	}
+	return finish(c), nil
 }
 
 // decodeInvoice reads the [invoice] section.

@@ -245,3 +245,71 @@ func replaceValue(l, val string) string {
 	}
 	return l[:eq+1] + rest[:lead] + val + body[n:]
 }
+
+// UnsetKey returns src without key in [table], editing lines the way SetBool
+// does. A table left with no lines at all goes too, with the blank line
+// SetBool puts before a table it adds. It fails when the result does not
+// parse or still sets the key (a dotted key or an inline table).
+func UnsetKey(src []byte, table, key string) ([]byte, error) {
+	text := string(src)
+	if text != "" && !strings.HasSuffix(text, "\n") {
+		text += "\n"
+	}
+	lines := strings.SplitAfter(text, "\n")
+	if n := len(lines); n > 0 && lines[n-1] == "" {
+		lines = lines[:n-1]
+	}
+	start, end := -1, len(lines)
+	for i, l := range lines {
+		name, ok := header(l)
+		if !ok {
+			continue
+		}
+		if start >= 0 {
+			end = i
+			break
+		}
+		if name == table {
+			start = i
+		}
+	}
+	out := lines
+	if start >= 0 {
+		at, upto := -1, -1
+		for i := start + 1; i < end; i++ {
+			k, v, ok := strings.Cut(strings.TrimSpace(lines[i]), "=")
+			if !ok || strings.TrimSpace(k) != key {
+				continue
+			}
+			at, upto = i, i
+			for d := depth(v); d > 0 && upto+1 < end; {
+				upto++
+				d += depth(lines[upto])
+			}
+			break
+		}
+		if at >= 0 {
+			out = append(append([]string{}, lines[:at]...), lines[upto+1:]...)
+			end -= upto + 1 - at
+			if end == start+1 { // nothing left under the header
+				from := start
+				if from > 0 && strings.TrimSpace(out[from-1]) == "" {
+					from--
+				}
+				out = append(out[:from:from], out[start+1:]...)
+			}
+		}
+	}
+	b := []byte(strings.Join(out, ""))
+	if len(out) == len(lines) {
+		b = src
+	}
+	var m map[string]any
+	if _, err := toml.Decode(string(b), &m); err != nil {
+		return nil, fmt.Errorf("config: unset [%s] %s: change it by hand: %w", table, key, err)
+	}
+	if Sets(b, table, key) {
+		return nil, fmt.Errorf("config: unset [%s] %s: the file sets it in a way tock cannot edit; change it by hand", table, key)
+	}
+	return b, nil
+}

@@ -11,7 +11,7 @@ import (
 // SaveFeatures writes changes (feature id to value) into the config.toml at
 // path, keeping everything else in it. The result must load, or nothing is
 // written. The old file is kept as config.toml.bak. Ids not in Features are
-// ignored.
+// ignored. A group turned on loses its key instead, as on is its default.
 func SaveFeatures(path string, changes map[string]bool) error {
 	return saveEdit(path, "save features", func(b []byte, _ Config) ([]byte, error) {
 		var err error
@@ -20,7 +20,14 @@ func SaveFeatures(path string, changes map[string]bool) error {
 			if !ok {
 				continue
 			}
-			if b, err = SetBool(b, f.Table, f.Key, v); err != nil {
+			if f.IsGroup && v {
+				// Groups are on by default: on drops the key, so off then
+				// on gives back the file as it was.
+				b, err = UnsetKey(b, f.Table, f.Key)
+			} else {
+				b, err = SetBool(b, f.Table, f.Key, v)
+			}
+			if err != nil {
 				return nil, err
 			}
 		}

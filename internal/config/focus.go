@@ -15,6 +15,9 @@ const MaxSnoozeMin = 240
 // Focus is the [focus] section: session presets, break and distraction
 // timing, the daily recap and meeting detection.
 type Focus struct {
+	// Enabled is the Focus group: off, no sessions, guard, break or
+	// distraction notices, and every Focus member is off.
+	Enabled          bool
 	Presets          []int // session lengths in minutes; Presets[0] is the default
 	BreakAfterMS     int64
 	BreakRepeatMS    int64
@@ -73,11 +76,12 @@ func DefaultFocus() Focus {
 		NoticeBudget: 8, NoticeGapMS: 20 * 60_000,
 		BreakScreenGraceMS: 5 * 60_000,
 		WakeWarnMS:         5 * 60_000, WakeAfterMS: 10 * 60_000, WakeIdleMS: 15 * 60_000,
-		Hotkey: true,
+		Hotkey: true, Enabled: true,
 	}
 }
 
 type focusTOML struct {
+	Enabled        *bool     `toml:"enabled"`
 	Presets        *[]int    `toml:"presets"`
 	BreakAfter     *int      `toml:"break_after"`
 	BreakRepeat    *int      `toml:"break_repeat"`

@@ -5,6 +5,8 @@ import "fmt"
 // Routine is the [routine] section: which daily routine notices trackd
 // sends.
 type Routine struct {
+	// Enabled is the Day routine group: off, every routine notice is off.
+	Enabled bool
 	// Start turns the start-of-day notice on.
 	Start bool
 	// Midday turns the midday check-in on; MiddayAt is its time, minutes
@@ -25,14 +27,15 @@ type Routine struct {
 
 // DefaultRoutine is the [routine] section used when the file does not set it.
 func DefaultRoutine() Routine {
-	return Routine{Start: true, Midday: true, MiddayAt: 13 * 60, End: true, Overwork: true,
+	return Routine{Enabled: true, Start: true, Midday: true, MiddayAt: 13 * 60, End: true, Overwork: true,
 		OverGraceMS: 30 * 60_000, OverRepeatMS: 60 * 60_000}
 }
 
 type routineTOML struct {
-	Start  *bool   `toml:"start"`
-	Midday *string `toml:"midday"`
-	End    *bool   `toml:"end"`
+	Enabled *bool   `toml:"enabled"`
+	Start   *bool   `toml:"start"`
+	Midday  *string `toml:"midday"`
+	End     *bool   `toml:"end"`
 	// Overwork turns the overworking notice on or off.
 	Overwork *bool `toml:"overwork"`
 }

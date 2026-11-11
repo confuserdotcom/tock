@@ -135,7 +135,7 @@ func TestLoadErrors(t *testing.T) {
 
 func TestFocusDefaults(t *testing.T) {
 	f := Default().Focus
-	want := Focus{
+	want := Focus{Enabled: true,
 		Presets:      []int{25, 50, 90},
 		BreakAfterMS: 50 * 60_000, BreakRepeatMS: 10 * 60_000,
 		DistractGraceMS: 60_000, DistractRepeatMS: 120_000, SnoozeMS: 10 * 60_000,
@@ -171,7 +171,7 @@ meeting_hosts = []
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := Focus{
+	want := Focus{Enabled: true,
 		Presets: []int{30, 45}, BreakAfterMS: 40 * 60_000, BreakRepeatMS: 5 * 60_000,
 		DistractGraceMS: 30_000, DistractRepeatMS: 90_000, SnoozeMS: 10 * 60_000, AutoMinMS: 20 * 60_000,
 		RecapAt: 8*60 + 30, Notify: false, MeetingApps: []string{"a.b"}, MeetingHosts: []string{}, BlockGraceMS: 10_000,

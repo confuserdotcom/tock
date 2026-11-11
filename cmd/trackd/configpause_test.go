@@ -103,7 +103,7 @@ const goodConfig = "[privacy]\nhide_apps = [\"diary\"]\nhide_sites = [\"bank.com
 // file, and keys this trackd does not know (written by a newer tock).
 var pausedConfigs = map[string]string{
 	"malformed":   "[privacy]\nhide_apps = [\"diary\"\n",
-	"newer keys":  goodConfig + "\n[billing]\nenabled = true\n",
+	"newer keys":  goodConfig + "\n[someday]\nenabled = true\n",
 	"unknown key": goodConfig + "keep_everything = true\n",
 }
 
