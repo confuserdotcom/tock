@@ -93,3 +93,16 @@ func BenchmarkWeek(b *testing.B) {
 		}
 	}
 }
+
+// BenchmarkGuardTick is trackd's focus tick, every 5 s all day: it must
+// stay cheap however long the history is.
+func BenchmarkGuardTick(b *testing.B) {
+	a, _ := benchOpen(b, 180)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if _, _, err := a.GuardTick(false); err != nil {
+			b.Fatal(err)
+		}
+	}
+}

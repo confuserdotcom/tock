@@ -58,6 +58,12 @@ TOCK_DEMO_PORT=7788 go test -tags demo -run TestDemo -timeout 0 ./internal/web
   with that release's code to `internal/store/testdata/upgrade/`; commit it,
   and `TestUpgradeFixtures` checks every later version still opens it.
 
+## Releases
+
+A release candidate ships only when every gate in
+[docs/stability.md](docs/stability.md#before-a-release) holds; `make bench`
+gives the cost figures it asks for.
+
 ## Things that won't be merged
 
 - Network code in `trackd` or `tockbar`. A test fails the build if trackd

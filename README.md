@@ -27,10 +27,11 @@ row per category, and the day's totals by category and project.
 
 ## Bill from the record
 
-Give a project a rate in rules.toml or in the Library, and an optional
-client:
+Give a project a rate, and an optional client, with `tock project` or in
+the Library:
 
 ```sh
+tock project set acme --rate 80 --client "Acme Ltd"
 tock invoice --project acme --from 2026-11-01 --to 2026-11-30       # a preview marked DRAFT
 tock invoice issue --project acme --from 2026-11-01 --to 2026-11-30 # 2026-0007, stored
 ```
@@ -133,7 +134,8 @@ invoices show anywhere.
 
 - `trackd`, a small daemon, records the app and window in front and the
   browser URL, and notices when you are away. It has no network code. It
-  uses about 1 to 1.5 % CPU when idle and about 36 MB of memory.
+  uses about 0.5 % CPU averaged over a day (about 1.3 % while a browser
+  is in front) and about 36 MB of memory.
 - `rules.toml` maps apps, titles and sites to categories and projects. A
   rule applies to past days as well as new ones.
 - Time no rule covers goes to an inbox. Labelling an entry there also writes
@@ -159,7 +161,7 @@ Claude suggestions and summaries. See [the guide](docs/guide.md).
 ## Privacy
 
 - Activity is stored in `~/.local/share/tock/tock.db` (mode 0600) and never
-  leaves the machine unless you export it.
+  leaves the machine unless you export it or set up a sync folder.
 - A test fails the build if `trackd` ever links an HTTP or TLS client.
 - Private browsing windows, and apps and sites you hide, are recorded
   without title or URL.
@@ -268,6 +270,7 @@ the tokens, the type scale, the components and the motion rules.
 - [Product](docs/product.md): what tock is for, who it is for first, and what it won't do.
 - [Privacy](docs/privacy.md): what is recorded and what can leave your machine.
 - [Architecture](docs/architecture.md): how the pieces fit, with diagrams, and what they cost.
+- [Stability](docs/stability.md): what tock promises about your data, upgrades and cost, and what a release must pass.
 - [CHANGELOG](CHANGELOG.md): what changed in each release.
 - [DESIGN.md](DESIGN.md): the design system for the dashboard, TUI and menu.
 

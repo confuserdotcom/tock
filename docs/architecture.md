@@ -134,9 +134,11 @@ Measured on an Apple Silicon Mac, November 2026:
 | | |
 | --- | --- |
 | trackd memory | 36 MB footprint (budget 40 MB) |
-| trackd CPU, idle | under 1 % |
-| Building a day for the dashboard | about 200 ms, including four past weeks for the usual-day comparison |
+| trackd CPU | 0.5 % averaged over days; about 1.3 % while a browser is in front |
+| Building a day | about 2 ms after six months of history, the same as after a week |
 | Database | about 9 MB after the first month |
+
+[Stability](stability.md#cost) has how each figure was measured.
 
 Measure trackd's memory with `footprint $(pgrep trackd)`, not `ps`.
 SQLite's memory is allocated outside the Go heap, and `ps` misses part of it.

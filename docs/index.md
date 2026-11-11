@@ -81,5 +81,6 @@ The whole list is in [Privacy in detail](guide#privacy-in-detail).
 
 - [Guide](guide): every command, file and setting.
 - [Architecture](architecture): how the pieces fit, and what they cost.
+- [Stability](stability): what tock promises about your data and upgrades.
 - [Design](design): colours, type and the rules every screen follows.
 - [Changelog](https://github.com/confuserdotcom/tock/blob/main/CHANGELOG.md).
