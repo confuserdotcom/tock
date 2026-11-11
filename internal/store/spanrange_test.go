@@ -1,9 +1,11 @@
 package store
 
 import (
+	"database/sql"
 	"math"
 	"strings"
 	"testing"
+	"time"
 
 	"tock/internal/span"
 )
@@ -63,11 +65,7 @@ func TestSpansFindsLongAndOpenSpans(t *testing.T) {
 func TestSpansRangeIsBounded(t *testing.T) {
 	s := openAt(t, dbPath(t))
 	defer s.Close()
-	lo, err := s.spanLow(1000)
-	if err != nil {
-		t.Fatal(err)
-	}
-	rows, err := s.db.Query(`EXPLAIN QUERY PLAN `+spansQuery, int64(5000), lo, int64(1000))
+	rows, err := s.db.Query(`EXPLAIN QUERY PLAN `+spansQuery, int64(5000), int64(1000))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -90,11 +88,7 @@ func TestSpansRangeIsBounded(t *testing.T) {
 func TestRemoteViewsRangeIsBounded(t *testing.T) {
 	s := openAt(t, dbPath(t))
 	defer s.Close()
-	lo, err := s.remoteLow(1000)
-	if err != nil {
-		t.Fatal(err)
-	}
-	rows, err := s.db.Query(`EXPLAIN QUERY PLAN `+remoteViewsQuery, int64(5000), lo, int64(1000))
+	rows, err := s.db.Query(`EXPLAIN QUERY PLAN `+remoteViewsQuery, int64(5000), int64(1000))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -110,5 +104,34 @@ func TestRemoteViewsRangeIsBounded(t *testing.T) {
 	}
 	if joined := strings.Join(plan, "\n"); !strings.Contains(joined, "start_ms>? AND start_ms<?") {
 		t.Fatalf("remote view scan is not bounded on both sides:\n%s", joined)
+	}
+}
+
+// Range reads must not take the write lock (the store's transactions are
+// BEGIN IMMEDIATE): with trackd mid-write they run alongside it in WAL
+// instead of waiting up to busy_timeout.
+func TestRangeReadsDontTakeWriteLock(t *testing.T) {
+	path := dbPath(t)
+	s := openAt(t, path)
+	defer s.Close()
+	w, err := sql.Open("sqlite", "file:"+path+"?_txlock=immediate")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer w.Close()
+	tx, err := w.Begin() // holds the write lock
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback()
+	start := time.Now()
+	if _, err := s.Spans(0, 1000); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.RemoteViews(0, 1000); err != nil {
+		t.Fatal(err)
+	}
+	if d := time.Since(start); d > time.Second {
+		t.Fatalf("range reads waited %v for the write lock", d)
 	}
 }

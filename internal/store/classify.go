@@ -23,58 +23,24 @@ type Kept struct {
 	Category, Project string
 }
 
-// spansQuery reads the spans overlapping [from, to). Its arguments are to,
-// the lower bound on start from spanLow, and from. Without the lower bound
-// the span_start index bounds the scan only from above, and every read walks
-// all history before the range.
+// spansQuery reads the spans overlapping [?2, ?1). The scalar subquery
+// bounds start from below by ?2 minus the longest closed span (span_len makes
+// that one index lookup) or the oldest open span's start, whichever is
+// earlier. Without it the span_start index bounds the scan only from above,
+// and every read walks all history before the range. One statement reads one
+// snapshot, so it needs no transaction (and the store's transactions are
+// BEGIN IMMEDIATE: a read in one would take the write lock).
 const spansQuery = `SELECT id, start, "end", bundle_id, app, title, url, private,
 		kept.span_id IS NOT NULL, coalesce(kept.category, ''), coalesce(kept.project, '')
 		FROM span LEFT JOIN kept ON kept.span_id = span.id
-		WHERE start < ? AND start >= ? AND ("end" IS NULL OR "end" > ?) ORDER BY start, id`
-
-// spanLow is the earliest start a span overlapping [from, …) can have: from
-// minus the longest closed span (span_len makes that one index lookup), or
-// the start of the oldest open span if that is earlier.
-func (s *Store) spanLow(from int64) (int64, error) { return spanLowTx(s.db, from) }
-
-// back is from minus d, saturating at math.MinInt64 (AllSpans reads from
-// there) and ignoring a negative d.
-func back(from, d int64) int64 {
-	if d <= 0 {
-		return from
-	}
-	if from < math.MinInt64+d {
-		return math.MinInt64
-	}
-	return from - d
-}
-
-func spanLowTx(q querier, from int64) (int64, error) {
-	var longest int64
-	var open sql.NullInt64
-	if err := q.QueryRow(`SELECT coalesce((SELECT max("end" - start) FROM span), 0),
-		(SELECT min(start) FROM span WHERE "end" IS NULL)`).Scan(&longest, &open); err != nil {
-		return 0, fmt.Errorf("store: span bound: %w", err)
-	}
-	lo := back(from, longest)
-	if open.Valid && open.Int64 < lo {
-		lo = open.Int64
-	}
-	return lo, nil
-}
+		WHERE start < ?1 AND start >= (SELECT min(
+			?2 - max(coalesce((SELECT max("end" - start) FROM span), 0), 0),
+			coalesce((SELECT min(start) FROM span WHERE "end" IS NULL), ?2)))
+		AND ("end" IS NULL OR "end" > ?2) ORDER BY start, id`
 
 // Spans returns the spans overlapping [from, to), ordered by start.
 func (s *Store) Spans(from, to int64) ([]SpanRow, error) {
-	tx, err := s.db.Begin()
-	if err != nil {
-		return nil, fmt.Errorf("store: spans: %w", err)
-	}
-	defer tx.Rollback() //nolint:errcheck // read only
-	lo, err := spanLowTx(tx, from)
-	if err != nil {
-		return nil, err
-	}
-	rows, err := tx.Query(spansQuery, to, lo, from)
+	rows, err := s.db.Query(spansQuery, to, from)
 	if err != nil {
 		return nil, fmt.Errorf("store: spans: %w", err)
 	}
