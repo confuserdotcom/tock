@@ -118,6 +118,10 @@ What changed for you in each release. Dates are UTC.
   copy was put back under it and that process went on using the old file.
 
 ### Fixed
+- **Security:** the invoice preview and `tock report --open` wrote to the
+  shared temp folder under a name anyone could guess, so on a Linux machine
+  with other users a planted link could make them overwrite one of your
+  files. They now write to `~/.local/state/tock/drafts` and `reports`.
 - `tock invoice issue` refuses while `[invoice] name` is empty, and the
   preview says so: an issued invoice never changes, so one without your
   name could only be voided.

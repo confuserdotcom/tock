@@ -45,15 +45,18 @@ func cmdReport(env Env, args []string) error {
 		return err
 	}
 	path := *out
-	if path == "" && *open {
-		path = filepath.Join(os.TempDir(), "tock-week-"+w.Monday.Format("2006-01-02")+".html")
-	}
-	if path == "" {
+	switch {
+	case path == "" && *open:
+		if path, err = writeOwn(env, "reports", "tock-week-"+w.Monday.Format("2006-01-02")+".html", b.Bytes()); err != nil {
+			return err
+		}
+	case path == "":
 		_, err := env.Stdout.Write(b.Bytes())
 		return err
-	}
-	if err := os.WriteFile(path, b.Bytes(), 0o600); err != nil {
-		return err
+	default:
+		if err := os.WriteFile(path, b.Bytes(), 0o600); err != nil {
+			return err
+		}
 	}
 	fmt.Fprintln(env.Stdout, "wrote "+path)
 	if *open {

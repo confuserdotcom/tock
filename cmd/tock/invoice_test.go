@@ -293,3 +293,31 @@ func TestInvoiceCheckShowsSmallDrift(t *testing.T) {
 		}
 	}
 }
+
+// Without -o the draft goes to tock's own state dir, never a shared temp
+// dir under a guessable name (another user's symlink there would make the
+// preview overwrite a file of yours).
+func TestInvoiceDraftPath(t *testing.T) {
+	te := invoiceEnv(t)
+	code, out := te.run(t, "", append([]string{"invoice"}, day...)...)
+	want := filepath.Join(te.StateDir, "drafts", "tock-draft-tock.pdf")
+	if code != 0 || !strings.Contains(out, "draft: "+want) {
+		t.Fatalf("%d %q %s", code, out, te.errb)
+	}
+	if fi, err := os.Lstat(want); err != nil || !fi.Mode().IsRegular() || fi.Mode().Perm() != 0o600 {
+		t.Fatalf("draft file: %v %v", fi, err)
+	}
+	// A symlink in its place is replaced, not followed.
+	victim := filepath.Join(t.TempDir(), "victim")
+	os.WriteFile(victim, []byte("keep"), 0o600)
+	os.Remove(want)
+	if err := os.Symlink(victim, want); err != nil {
+		t.Fatal(err)
+	}
+	if code, _ := te.run(t, "", append([]string{"invoice"}, day...)...); code != 0 {
+		t.Fatalf("second preview: %s", te.errb)
+	}
+	if b, _ := os.ReadFile(victim); string(b) != "keep" {
+		t.Fatal("preview wrote through a symlink")
+	}
+}

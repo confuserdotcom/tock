@@ -218,9 +218,10 @@ func invoicePreview(env Env, a *app.App, args []string) error {
 	}
 	path := *f.out
 	if path == "" {
-		path = filepath.Join(os.TempDir(), "tock-draft-"+report.Slug(d.Record.Project)+".pdf")
-	}
-	if err := os.WriteFile(path, b, 0o600); err != nil {
+		if path, err = writeOwn(env, "drafts", "tock-draft-"+report.Slug(d.Record.Project)+".pdf", b); err != nil {
+			return err
+		}
+	} else if err := os.WriteFile(path, b, 0o600); err != nil {
 		return err
 	}
 	printDraft(env, d)
