@@ -63,3 +63,20 @@ func TestHelpOnlyBeforeDoubleDash(t *testing.T) {
 		t.Fatal("wantsHelp")
 	}
 }
+
+// An unknown command gets one line and a near match, not the whole usage.
+func TestUnknownCommandSuggests(t *testing.T) {
+	te := newTestEnv(t, "")
+	for _, c := range []struct{ cmd, want string }{
+		{"exprt", `did you mean "export"?`},
+		{"invoices", `did you mean "invoice"?`},
+		{"week", "the week is in the terminal UI (tock) and the dashboard (tock web)"},
+		{"frobnicate", "tock help lists every command"},
+	} {
+		code, _ := te.run(t, "", c.cmd)
+		e := te.errb.String()
+		if code != 2 || !strings.Contains(e, `unknown command "`+c.cmd+`"`) || !strings.Contains(e, c.want) || strings.Contains(e, "Every day:") {
+			t.Errorf("%s: %d\n%s", c.cmd, code, e)
+		}
+	}
+}

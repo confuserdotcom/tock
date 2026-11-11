@@ -311,7 +311,7 @@ func run(args []string, env Env) int {
 	default:
 		cmd, ok := commands[args[0]]
 		if !ok {
-			fmt.Fprintf(env.Stderr, "tock: unknown command %q\n%s", args[0], usage)
+			fmt.Fprintf(env.Stderr, "tock: unknown command %q\n%s", args[0], unknownHelp(args[0]))
 			return 2
 		}
 		if wantsHelp(args[1:]) {

@@ -416,11 +416,16 @@ func printInvoice(env Env, inv store.Invoice) {
 	}
 	fmt.Fprintf(w, "%s, %s to %s\n", inv.Project, time.UnixMilli(from).In(loc).Format("2006-01-02"),
 		time.UnixMilli(to).In(loc).Format("2006-01-02"))
-	fmt.Fprintf(w, "from %s", inv.IssuerName)
-	if inv.ClientName != "" {
-		fmt.Fprintf(w, " to %s", inv.ClientName)
+	var parties []string
+	if inv.IssuerName != "" {
+		parties = append(parties, "from "+inv.IssuerName)
 	}
-	fmt.Fprintln(w)
+	if inv.ClientName != "" {
+		parties = append(parties, "to "+inv.ClientName)
+	}
+	if len(parties) > 0 {
+		fmt.Fprintln(w, strings.Join(parties, " "))
+	}
 	for _, l := range inv.Lines {
 		fmt.Fprintf(w, "  %s  %d:%02d  %s\n", l.Day, l.SecondsBilled/3600, l.SecondsBilled%3600/60, money(l.AmountMinor, inv))
 	}

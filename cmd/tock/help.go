@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"slices"
 	"strings"
 )
@@ -71,4 +72,56 @@ func helpFor(name string, err error) string {
 		return usage
 	}
 	return commandHelp(name)
+}
+
+// views are names people try for what the TUI and dashboard show.
+var views = map[string]string{
+	"week":      "the week is in the terminal UI (tock) and the dashboard (tock web)",
+	"month":     "the month is in the dashboard (tock web)",
+	"day":       "the day is tock today, or the terminal UI (tock)",
+	"dashboard": "the dashboard is tock web",
+	"stats":     "tock top, tock trends and tock rules stats show where the time went",
+}
+
+// unknownHelp is what follows "unknown command": a near command, or where
+// the view lives, or the pointer to the full list.
+func unknownHelp(name string) string {
+	if v, ok := views[name]; ok {
+		return v + "; tock help lists every command\n"
+	}
+	best, bestD := "", 3
+	for c := range commands {
+		d := editDistance(name, c)
+		if strings.HasPrefix(c, name) || strings.HasPrefix(name, c) {
+			d = min(d, 1)
+		}
+		if d < bestD || (d == bestD && c < best) {
+			best, bestD = c, d
+		}
+	}
+	if best != "" && len(name) > 2 {
+		return fmt.Sprintf("did you mean %q? tock help lists every command\n", best)
+	}
+	return "tock help lists every command\n"
+}
+
+// editDistance is the Levenshtein distance between a and b.
+func editDistance(a, b string) int {
+	prev := make([]int, len(b)+1)
+	for j := range prev {
+		prev[j] = j
+	}
+	for i := 1; i <= len(a); i++ {
+		cur := make([]int, len(b)+1)
+		cur[0] = i
+		for j := 1; j <= len(b); j++ {
+			cost := 1
+			if a[i-1] == b[j-1] {
+				cost = 0
+			}
+			cur[j] = min(prev[j]+1, cur[j-1]+1, prev[j-1]+cost)
+		}
+		prev = cur
+	}
+	return prev[len(b)]
 }
