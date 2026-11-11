@@ -7,6 +7,7 @@ import { Empty, Panel } from "@/components/Panel";
 import { LabelSheet, undoToast, type Target } from "@/components/LabelSheet";
 import { get, post, useApi, type Done, type Inbox as InboxT, type Item, type Labels, type Propose } from "@/lib/api";
 import { clock, doneText, dur, entries } from "@/lib/format";
+import { guessText } from "@/lib/inbox";
 import { kindColor } from "@/lib/kinds";
 import { cn } from "@/lib/utils";
 import { openShortcuts } from "@/components/Shortcuts";
@@ -95,11 +96,12 @@ export default function Inbox({ onChange }: { onChange: () => void }) {
                   <div className="truncate text-xs text-muted-foreground">
                     {it.app} · {entries(it.spans)}{it.example && !it.private ? ` · ${it.example}` : ""}
                   </div>
+                  {guessText(it.suggestion) && <div className="truncate text-xs text-faint">{guessText(it.suggestion)}</div>}
                 </div>
                 <span className="num">{clock(it.ms)}</span>
                 <div className="flex items-center gap-2">
                   {it.suggestion ? (
-                    <Badge variant="outline" className="gap-1.5 font-normal" title={it.suggestion.reason}>
+                    <Badge variant="outline" className="gap-1.5 font-normal">
                       <i className="h-2 w-2 rounded-sm" style={{ background: kindColor(kindOf(it.suggestion.label)) }} />
                       {it.suggestion.label}?
                     </Badge>

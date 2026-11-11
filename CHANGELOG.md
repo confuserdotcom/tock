@@ -5,6 +5,11 @@ What changed for you in each release. Dates are UTC.
 ## Unreleased
 
 ### Added
+- **Why this label.** Clicking an entry on the dashboard timeline says
+  what labelled it: the rule (file, number and what it matches), your
+  tag, or the local model with its share and the title words behind it.
+  The Inbox shows why it guesses a label under each item instead of in
+  a tooltip.
 - **Templates.** `tock setup --template client|own` adds the categories
   and rules for client work or your own projects that you don't have
   yet. It shows the plan first, never touches what is yours, labels from

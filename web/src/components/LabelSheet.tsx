@@ -4,7 +4,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Button } from "@/components/ui/button";
-import { get, post, type Done, type Labels, type Propose } from "@/lib/api";
+import { get, post, type Done, type Labels, type Propose, type WhyLine } from "@/lib/api";
 import { doneText, dur } from "@/lib/format";
 import { kindColor } from "@/lib/kinds";
 import { atClock, clockOf, rangeError } from "@/lib/range";
@@ -49,6 +49,17 @@ export function LabelSheet({ target, onClose, onDone }: { target: Target | null;
   const [mode, setMode] = useState<Mode>("label");
   const [fromText, setFromText] = useState("");
   const [toText, setToText] = useState("");
+  const [why, setWhy] = useState<WhyLine[]>([]);
+  useEffect(() => {
+    setWhy([]);
+    const id = target?.ids?.[target.ids.length - 1];
+    if (id === undefined || !target?.range) return;
+    let live = true;
+    get<{ lines: WhyLine[] }>(`/api/why?id=${id}&from=${target.range.from}&to=${target.range.to}`)
+      .then((w) => live && setWhy(w.lines))
+      .catch(() => {}); // the sheet works without it
+    return () => { live = false; };
+  }, [target]);
   useEffect(() => {
     if (target && !labels) get<Labels>("/api/labels").then(setLabels).catch((e) => toast.error(e.message));
     if (!target) return;
@@ -116,6 +127,16 @@ export function LabelSheet({ target, onClose, onDone }: { target: Target | null;
           <SheetTitle className="truncate">{target?.title}</SheetTitle>
           {target?.sub && <SheetDescription className="truncate">{target.sub}</SheetDescription>}
         </SheetHeader>
+        {why.length > 0 && (
+          <dl className="space-y-1 text-xs" aria-label="Why this label">
+            {why.map((w) => (
+              <div key={w.field} className="flex gap-2">
+                <dt className="shrink-0 text-faint">{w.label}</dt>
+                <dd className="min-w-0 break-words text-muted-foreground">{w.text}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
         {r && (
           <div className="space-y-3">
             <div className="flex items-end gap-2">

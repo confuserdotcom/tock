@@ -78,6 +78,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/inbox", s.api(s.inbox))
 	mux.HandleFunc("GET /api/labels", s.api(s.labels))
 	mux.HandleFunc("GET /api/propose", s.api(s.propose))
+	mux.HandleFunc("GET /api/why", s.api(s.why))
 	mux.HandleFunc("GET /api/report", s.api(s.report))
 	mux.HandleFunc("GET /api/export", s.api(s.export))
 	mux.HandleFunc("POST /api/tag", s.api(s.tag))
