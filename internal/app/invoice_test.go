@@ -213,11 +213,20 @@ func TestInvoiceRefusals(t *testing.T) {
 			t.Fatal("non-billable project priced in export")
 		}
 	}
-	// FR19: a rate finer than minor_units is refused at issue.
+	// FR19: a rate finer than minor_units is refused when set (the CLI and
+	// the Library), and at issue when rules.toml was edited by hand.
 	yes, fine := true, 95.555
-	if err := a.EditProject(ProjectSpec{Name: "Acme", Billable: &yes, Rate: &fine}); err != nil {
+	if err := a.EditProject(ProjectSpec{Name: "Acme", Billable: &yes, Rate: &fine}); err == nil || !strings.Contains(err.Error(), "decimals") {
+		t.Fatalf("set fine rate: %v", err)
+	}
+	if err := a.EditProject(ProjectSpec{Name: "Acme", Billable: &yes}); err != nil {
 		t.Fatal(err)
 	}
+	b, err := os.ReadFile(e.Rules)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.WriteRules(t, strings.Replace(string(b), "rate = 95.5\n", "rate = 95.555\n", 1))
 	a = reopen(t, a, e)
 	if _, err := a.DraftInvoice(InvoiceSpec{Project: "Acme", From: day, To: day}); err == nil || !strings.Contains(err.Error(), "decimals") {
 		t.Fatalf("fine rate: %v", err)

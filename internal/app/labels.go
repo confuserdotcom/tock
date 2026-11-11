@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"tock/internal/report"
 	"tock/internal/rulesfile"
 
 	"tock/internal/classify"
@@ -242,6 +243,11 @@ func (a *App) checkProject(p ProjectSpec) (ProjectSpec, error) {
 	}
 	if p.Rate != nil && (math.IsNaN(*p.Rate) || *p.Rate > classify.MaxRate) {
 		return p, fmt.Errorf("rate %s, want 0 to %d", rateValue(*p.Rate), classify.MaxRate)
+	}
+	if p.Rate != nil && *p.Rate >= 0 {
+		if _, err := report.RateMinor(*p.Rate, a.cfg.Invoice.MinorUnits); err != nil {
+			return p, fmt.Errorf("rate %s has more decimals than [invoice] minor_units = %d", rateValue(*p.Rate), a.cfg.Invoice.MinorUnits)
+		}
 	}
 	if p.Client != nil {
 		c := strings.TrimSpace(*p.Client)

@@ -74,7 +74,9 @@ func cmdProject(env Env, args []string) error {
 		if err := billingFlags(&p, *rate, *client, *billable); err != nil {
 			return err
 		}
-		if (p.Rate != nil || p.Client != nil || p.Billable != nil) && !a.Config().Billing.Enabled {
+		// With Billing off, billing data can be removed but not set.
+		sets := (p.Rate != nil && *p.Rate >= 0) || (p.Client != nil && *p.Client != "") || (p.Billable != nil && !*p.Billable)
+		if sets && !a.Config().Billing.Enabled {
 			return app.ErrBillingOff
 		}
 		if sub == "add" {

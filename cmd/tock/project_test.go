@@ -81,6 +81,8 @@ func TestProjectRateFlags(t *testing.T) {
 		{[]string{"project", "set", "orb", "--rate", "eighty"}, 2, ""},
 		{[]string{"project", "set", "orb", "--rate", "-3"}, 2, ""},
 		{[]string{"project", "set", "orb", "--billable", "maybe"}, 2, ""},
+		// More decimals than [invoice] minor_units (2) would only fail at invoice time.
+		{[]string{"project", "set", "orb", "--rate", "12.345"}, 1, ""},
 	}
 	for _, s := range steps {
 		code, out := te.run(t, "", s.args...)
@@ -102,5 +104,12 @@ func TestProjectRateFlags(t *testing.T) {
 	}
 	if code, out := te.run(t, "", "project", "set", "orb", "--alias", "orb2"); code != 0 || strings.Contains(out, "rate") {
 		t.Fatalf("billing off hides the rate: %d %q %s", code, out, te.errb)
+	}
+	// Removing billing data stays possible with Billing off.
+	if code, out := te.run(t, "", "project", "set", "orb", "--rate", "none", "--client", "none", "--billable", "true"); code != 0 {
+		t.Fatalf("billing off, clearing: %d %q %s", code, out, te.errb)
+	}
+	if rules, _ := os.ReadFile(te.rulesPath()); strings.Contains(string(rules), "rate = 60") {
+		t.Fatalf("rate kept:\n%s", rules)
 	}
 }
