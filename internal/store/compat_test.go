@@ -79,8 +79,9 @@ const breaksMarker = "-- breaks-older-writers"
 // to the database, or "" when it is additive or says so and raises compat.
 func migrationLint(src string) string {
 	var hits []string
-	for _, stmt := range strings.Split(src, ";") {
-		code := stripComments(stmt)
+	// Comments go first: a ; inside one would otherwise split it and
+	// leave its words to be read as code.
+	for _, code := range strings.Split(stripComments(src), ";") {
 		for i, re := range breakingSQL {
 			if !re.MatchString(code) {
 				continue
@@ -137,6 +138,7 @@ func TestMigrationLint(t *testing.T) {
 		`DROP TABLE span;`:                                              true,
 		`ALTER TABLE span RENAME COLUMN a TO b;`:                        true,
 		`-- we never DROP anything here` + "\n" + `CREATE TABLE y (a);`: false,
+		"-- one; then DROP TRIGGER x\nCREATE TABLE z (a);":            false,
 		breaksMarker + "\nDROP TABLE span;\nUPDATE schema_meta SET value = '2' WHERE key = 'compat';": false,
 		breaksMarker + "\nDROP TABLE span;": true, // marker without the raise
 	}
