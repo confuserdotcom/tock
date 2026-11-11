@@ -47,6 +47,13 @@ func TestUpgradeFixtures(t *testing.T) {
 			if n != 30 || open != 1 || total != 29*500_000 {
 				t.Fatalf("spans = %d (open %d, total %d ms), want 30 (1, %d)", n, open, total, 29*500_000)
 			}
+			// Every fixture gains the invoice tables with their triggers.
+			for _, trg := range []string{"invoices_frozen", "invoices_no_delete", "invoice_lines_frozen",
+				"invoice_lines_no_delete", "invoice_items_frozen", "invoice_items_no_delete"} {
+				if !objectExists(t, s.db, "trigger", trg) {
+					t.Errorf("trigger %s missing", trg)
+				}
+			}
 			s.Close()
 			s2, err := Open(path) // second open is a no-op
 			if err != nil {
