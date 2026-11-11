@@ -758,6 +758,41 @@ Each category has a kind:
 The starter rules have Reading (neutral, for books and long reads), Research
 (shallow: encyclopedias, papers, dictionaries) and Browsing.
 
+### Templates
+
+A fresh `tock setup` asks what the computer is for and applies a template:
+**client work** (Code, Meeting, Admin & Planning, editor, call and invoicing
+apps) or **my own projects** (Code, Writing, Research, editor, writing and
+reference apps). Apply one later the same way:
+
+```
+tock setup --template client          shows the plan, asks, applies
+tock setup --template client,own --yes
+tock setup --template own --past      also label past days (the plan says how much)
+```
+
+A template only appends what you lack, after your own text, behind a
+`# from template "client work", 2026-11-20` comment. Your categories keep
+their kind, your rules stay first and win, and applying again changes
+nothing. Its rules carry `since = <now>`, so the days before keep their
+labels; `--past` leaves `since` out after showing what it would relabel.
+`tock undo` takes an apply back. Templates never write config.toml: if the
+template's group (Billing, Focus) is off, the plan says how to turn it on.
+
+### Rules from a date
+
+Any rule can start on a date with `since`. It then labels only time from
+that moment on, and the time before keeps whatever labelled it:
+
+```toml
+[[rule]]
+url = 'github\.com/acme'
+project = "Acme"
+since = 2026-11-20T14:05:00     # local time; 2026-11-20 means midnight
+```
+
+`tock rules stats` and the dashboard's Library show the date.
+
 ## The model
 
 Rules see the app and the site; the title often says more. A small

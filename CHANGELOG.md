@@ -5,6 +5,13 @@ What changed for you in each release. Dates are UTC.
 ## Unreleased
 
 ### Added
+- **Templates.** `tock setup --template client|own` adds the categories
+  and rules for client work or your own projects that you don't have
+  yet. It shows the plan first, never touches what is yours, labels from
+  now on unless `--past`, and `tock undo` takes it back. A fresh
+  `tock setup` asks which to start with.
+- **Rules from a date.** `since = 2026-11-20T14:05:00` on a rule makes it
+  label only time from then on, so a new rule need not relabel the past.
 - **Dashboard settings.** The gear in the top bar (or `,`) turns the
   groups and features on and off as `tock choice` does, sets your work
   hours, session lengths and invoice details (with clients, which a

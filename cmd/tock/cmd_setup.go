@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"tock/internal/classify"
 )
 
 // Seams for tests: commands tock setup runs, the OS, the home folder and
@@ -60,11 +62,23 @@ func cmdSetup(env Env, args []string) error {
 	from := fs.String("from", "", "folder with the files to install (default: ../libexec/tock next to tock)")
 	noDoctor := fs.Bool("no-doctor", false, "skip tock doctor at the end")
 	cli := fs.Bool("cli", false, "also copy this tock to ~/.local/bin (the .dmg does)")
+	tpl := fs.String("template", "", "only apply rule templates: "+strings.Join(classify.TemplateNames(), ",")+" (see tock help setup)")
+	past := fs.Bool("past", false, "with --template: label past activity too (default: from now on)")
+	yes := fs.Bool("yes", false, "with --template: apply without asking")
+	noPrompt := fs.Bool("no-prompt", false, "on a fresh install, skip the template question (applies own)")
 	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
 	if fs.NArg() > 0 {
 		return usagef("setup: unexpected argument %q", fs.Arg(0))
+	}
+	if *tpl != "" {
+		if _, err := os.Stat(env.rulesPath()); errors.Is(err, os.ErrNotExist) {
+			if err := cmdInit(env, nil); err != nil {
+				return err
+			}
+		}
+		return setupTemplates(env, strings.Split(*tpl, ","), *past, *yes)
 	}
 	dir := *from
 	if dir == "" {
@@ -103,6 +117,9 @@ func cmdSetup(env Env, args []string) error {
 	}
 	if _, err := os.Stat(env.rulesPath()); errors.Is(err, os.ErrNotExist) {
 		if err := cmdInit(env, nil); err != nil {
+			return err
+		}
+		if err := setupTemplates(env, chooseTemplates(env, !*noPrompt), false, true); err != nil {
 			return err
 		}
 	}
