@@ -299,7 +299,7 @@ update-here:
 # update: update-here for the committed main, never the working tree: it
 # builds from a clean worktree. Does nothing when main is already installed.
 update:
-	@umask 077; mkdir -p "$(TOCK_STATE)" && chmod 700 "$(TOCK_STATE)"; \
+	@(umask 077; mkdir -p "$(TOCK_STATE)") && chmod 700 "$(TOCK_STATE)"; \
 	v=$$(git describe --always main) || exit 1; \
 	if [ "$$v" = "$$(cat "$(TOCK_STATE)/last-update" 2>/dev/null)" ]; then \
 		echo "update: $$v already installed"; exit 0; \
