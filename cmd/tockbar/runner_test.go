@@ -696,3 +696,27 @@ func TestRunnerHotkeyAndLinks(t *testing.T) {
 		t.Fatalf("log:\n%s", logb)
 	}
 }
+
+// With the Focus group off the hotkey is let go, and a press that still
+// arrives asks for nothing; on again, it comes back.
+func TestRunnerHotkeyFocusOff(t *testing.T) {
+	e := seededEnv(t)
+	r, u, _ := testRunner(t, e)
+	r.tick()
+	e.WriteConfig(t, "[focus]\nenabled = false\n")
+	r.dirty = true
+	r.tick()
+	if len(u.hotkeys) != 2 || u.hotkeys[1] {
+		t.Fatalf("hotkeys = %v, want on then off", u.hotkeys)
+	}
+	r.handle(event{kind: evMenu, id: bar.IDHotkey})
+	if len(u.prompts) != 0 {
+		t.Fatalf("prompt with focus off: %q", u.prompts)
+	}
+	e.WriteConfig(t, "")
+	r.dirty = true
+	r.tick()
+	if len(u.hotkeys) != 3 || !u.hotkeys[2] {
+		t.Fatalf("hotkeys = %v, want back on", u.hotkeys)
+	}
+}

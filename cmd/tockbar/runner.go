@@ -545,6 +545,10 @@ func (r *runner) handle(ev event) {
 				r.log.Warn("start prompt: tock is not ready")
 				return
 			}
+			if r.snap.NoFocus {
+				r.log.Info("start prompt: the Focus group is off")
+				return
+			}
 			r.ui.Prompt(promptSpec(r.snap.Prompt(r.now().UnixMilli())))
 			return
 		}
