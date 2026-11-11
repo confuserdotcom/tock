@@ -319,7 +319,7 @@ func run(args []string, env Env) int {
 		}
 		fmt.Fprint(env.Stdout, commandHelp(args[1]))
 		return 0
-	case len(args) == 0 || args[0] == "help" || args[0] == "-h" || args[0] == "--help":
+	case len(args) == 0 || args[0] == "help" || isHelpFlag(args[0]):
 		fmt.Fprint(env.Stdout, usage)
 		return 0
 	default:
@@ -339,7 +339,7 @@ func run(args []string, env Env) int {
 	switch {
 	case err == nil:
 		return 0
-	case errors.Is(err, errHelp) && len(args) > 0:
+	case errors.Is(err, errHelp):
 		fmt.Fprint(env.Stdout, commandHelp(args[0]))
 		return 0
 	case errors.As(err, &es):

@@ -11,10 +11,14 @@ import (
 // "help" later on is an argument (a category, a note).
 func wantsHelp(name string, args []string) bool {
 	if freeText[name] {
-		if len(args) == 0 || (name == "ask" && len(args) != 1) {
+		n := len(args)
+		switch {
+		case n == 0 || n > 2 || (name == "ask" && n != 1):
 			return false
+		case n == 1:
+			return args[0] == "help" || isHelpFlag(args[0])
 		}
-		return args[0] == "help" || isHelpFlag(args[0])
+		return args[0] != "--" && isHelpFlag(args[1])
 	}
 	if len(args) > 0 && args[0] == "help" {
 		return true
@@ -75,9 +79,11 @@ func subHelp(name string) string {
 	return b.String()
 }
 
-// freeText commands take words of yours (a question, a note): only their
-// first argument can ask for help, and for ask only a lone one (tock ask
-// help me with -h).
+// freeText commands take words of yours (a question, a note). For ask only
+// a lone help word or flag asks for help (tock ask help me with -h); for
+// session and edit only one that comes first or right after the
+// subcommand, and last (tock session note --help, tock session list -h),
+// so a note that says -h stays a note (tock session note 4 -h).
 var freeText = map[string]bool{"ask": true, "session": true, "edit": true}
 
 // usageLines are the lines of usage about command name: each line that

@@ -112,8 +112,13 @@ func TestHelpInNotes(t *testing.T) {
 			t.Errorf("%v taken as help", args)
 		}
 	}
-	if !wantsHelp("session", []string{"--help"}) || !wantsHelp("edit", []string{"help"}) {
-		t.Error("session/edit help")
+	for _, args := range [][]string{
+		{"session", "--help"}, {"edit", "help"}, {"session", "note", "--help"}, {"session", "list", "-h"},
+		{"session", "refile", "-h"}, {"edit", "remove", "-h"}, {"session", "start", "--help"},
+	} {
+		if !wantsHelp(args[0], args[1:]) {
+			t.Errorf("%v not taken as help", args)
+		}
 	}
 }
 
@@ -136,5 +141,19 @@ func TestHelpAfterSubcommand(t *testing.T) {
 	code, out := te.run(t, "", "session", "start", "--help")
 	if code != 0 || !strings.Contains(out, "tock session") || strings.Contains(te.errb.String(), "help requested") {
 		t.Fatalf("%d %q %s", code, out, te.errb)
+	}
+}
+
+// Asking a session subcommand for help never changes a session.
+func TestSessionHelpChangesNothing(t *testing.T) {
+	te := newTestEnv(t, testRules)
+	te.seed(t, daySpans()...)
+	for _, sub := range []string{"note", "refile", "list", "stop", "snooze", "weights"} {
+		if code, out := te.run(t, "", "session", sub, "--help"); code != 0 || !strings.HasPrefix(out, "usage:") {
+			t.Errorf("session %s --help: %d %q %s", sub, code, out, te.errb)
+		}
+	}
+	if code, _ := te.run(t, "", "-help"); code != 0 {
+		t.Errorf("tock -help: %d", code)
 	}
 }
