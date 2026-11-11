@@ -577,3 +577,61 @@ func encodeCanonical(v any) ([]byte, error) {
 }
 
 func canonicalJSON(inv Invoice) ([]byte, error) { return encodeCanonical(docOf(inv)) }
+
+// BilledItem is an item of an issued (not void) invoice.
+type BilledItem struct {
+	Number         string
+	Origin         string
+	OriginID       int64
+	StartMS, EndMS int64
+}
+
+// BilledItems lists the items of issued invoices that overlap [fromMS, toMS),
+// in start order.
+func (s *Store) BilledItems(fromMS, toMS int64) ([]BilledItem, error) {
+	rows, err := s.db.Query(`SELECT i.number, it.origin, it.origin_id, it.start_ms, it.end_ms
+		FROM invoice_items it JOIN invoices i ON i.id = it.invoice_id
+		WHERE i.status = ? AND it.start_ms < ? AND it.end_ms > ?
+		ORDER BY it.start_ms, i.number`, InvoiceIssued, toMS, fromMS)
+	if err != nil {
+		return nil, fmt.Errorf("store: billed items: %w", err)
+	}
+	defer rows.Close()
+	var out []BilledItem
+	for rows.Next() {
+		var b BilledItem
+		if err := rows.Scan(&b.Number, &b.Origin, &b.OriginID, &b.StartMS, &b.EndMS); err != nil {
+			return nil, fmt.Errorf("store: billed items: %w", err)
+		}
+		out = append(out, b)
+	}
+	return out, rows.Err()
+}
+
+// BilledOn lists, in order and once each, the issued invoices holding an
+// item of origin with one of ids.
+func (s *Store) BilledOn(origin string, ids []int64) ([]string, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	q := `SELECT DISTINCT i.number FROM invoice_items it JOIN invoices i ON i.id = it.invoice_id
+		WHERE i.status = ? AND it.origin = ? AND it.origin_id IN (?` + strings.Repeat(",?", len(ids)-1) + `) ORDER BY i.number`
+	args := []any{InvoiceIssued, origin}
+	for _, id := range ids {
+		args = append(args, id)
+	}
+	rows, err := s.db.Query(q, args...)
+	if err != nil {
+		return nil, fmt.Errorf("store: billed on: %w", err)
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var n string
+		if err := rows.Scan(&n); err != nil {
+			return nil, fmt.Errorf("store: billed on: %w", err)
+		}
+		out = append(out, n)
+	}
+	return out, rows.Err()
+}

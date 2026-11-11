@@ -238,7 +238,15 @@ func (m Model) finishPick(p *picker) tea.Cmd {
 	}
 	ids, what := p.ids, p.what
 	return m.act(func(a *app.App) (string, error) {
-		return "tagged " + what + " → " + label, a.Tag(ids, want)
+		on, err := a.BilledOn(ids)
+		if err != nil {
+			return "", err
+		}
+		msg := "tagged " + what + " → " + label
+		if n := app.BilledNote(on); n != "" {
+			msg += " · " + n
+		}
+		return msg, a.Tag(ids, want)
 	})
 }
 

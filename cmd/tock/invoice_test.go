@@ -239,3 +239,18 @@ func TestInvoiceBillingOff(t *testing.T) {
 		t.Fatalf("check with billing off: %d %s", code, te.errb)
 	}
 }
+
+// FR8: relabelling billed time says the invoice stays as issued.
+func TestInvoiceRelabelNote(t *testing.T) {
+	te := invoiceEnv(t)
+	if code, _ := te.run(t, "", append([]string{"invoice", "issue"}, day...)...); code != 0 {
+		t.Fatalf("issue: %d %s", code, te.errb)
+	}
+	code, out := te.run(t, "", "edit", "label", "09:00-09:30", "Code")
+	if code != 0 || !strings.Contains(out, "On invoice 2026-0001; the invoice stays as issued.") {
+		t.Fatalf("edit billed: %d %q %s", code, out, te.errb)
+	}
+	if code, out := te.run(t, "", "edit", "label", "13:00-13:10", "Code"); code != 0 || strings.Contains(out, "invoice") {
+		t.Fatalf("edit unbilled: %d %q", code, out)
+	}
+}

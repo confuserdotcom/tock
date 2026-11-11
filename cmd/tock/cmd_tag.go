@@ -137,9 +137,16 @@ func parseWant(rs *classify.Ruleset, arg string) (classify.Want, error) {
 }
 
 func tagSpans(env Env, a *app.App, ids []int64, want classify.Want, what string) error {
+	on, err := a.BilledOn(ids)
+	if err != nil {
+		return err
+	}
 	if err := a.Tag(ids, want); err != nil {
 		return err
 	}
 	fmt.Fprintf(env.Stdout, "tagged %s → %s\n", what, report.LabelText(want.Category, want.Project))
+	if n := app.BilledNote(on); n != "" {
+		fmt.Fprintln(env.Stdout, n)
+	}
 	return nil
 }

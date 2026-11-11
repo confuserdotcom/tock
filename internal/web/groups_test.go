@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"tock/internal/app"
 	"tock/internal/apptest"
 )
 
@@ -53,5 +54,49 @@ func TestGroupsAPI(t *testing.T) {
 	_, _, b = f.do("GET", "/api/library", testToken, nil)
 	if !strings.Contains(string(b), `"rate":60`) {
 		t.Fatalf("rate changed while billing was off: %s", b)
+	}
+}
+
+// FR8: the day and the week mark billed time; relabelling it says the
+// invoice stays as issued.
+func TestBilledMarkers(t *testing.T) {
+	f := newFixture(t)
+	if code, _, b := f.do("POST", "/api/library/project", testToken, map[string]any{"op": "set", "name": "tock", "rate": 60}); code != 200 {
+		t.Fatalf("set rate: %d %s", code, b)
+	}
+	now := time.UnixMilli(f.library().NowMS).In(apptest.Zone)
+	day := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	inv, err := f.a.IssueInvoice(app.InvoiceSpec{Project: "tock", From: day, To: day})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var d dayJSON
+	f.get("/api/day", &d)
+	var billed []int64
+	for _, r := range d.Timeline {
+		switch {
+		case r.Project == "tock" && r.Invoice != inv.Number:
+			t.Fatalf("tock row not marked: %+v", r)
+		case r.Project != "tock" && r.Invoice != "":
+			t.Fatalf("row wrongly marked: %+v", r)
+		case r.Invoice != "":
+			billed = append(billed, r.IDs...)
+		}
+	}
+	if len(billed) == 0 || d.BilledMS != 6000_000 {
+		t.Fatalf("billed ids %v, billedMS %d", billed, d.BilledMS)
+	}
+	var w weekJSON
+	f.get("/api/week", &w)
+	var wms int64
+	for _, x := range w.Days {
+		wms += x.BilledMS
+	}
+	if wms != d.BilledMS {
+		t.Fatalf("week billed %d, day %d", wms, d.BilledMS)
+	}
+	code, _, b := f.do("POST", "/api/tag", testToken, map[string]any{"ids": billed[:1], "label": "Code"})
+	if code != 200 || !strings.Contains(string(b), "On invoice "+inv.Number+"; the invoice stays as issued.") {
+		t.Fatalf("tag billed: %d %s", code, b)
 	}
 }

@@ -80,9 +80,18 @@ func cmdEdit(env Env, args []string) error {
 		}
 		note = strings.Join(rest[2:], " ")
 	}
+	billed, err := a.Billed(from.UnixMilli(), to.UnixMilli())
+	if err != nil {
+		return err
+	}
 	if _, err := a.AddEdit(kind, from.UnixMilli(), to.UnixMilli(), want, note); err != nil {
 		return err
 	}
+	defer func() {
+		if n := app.BilledNote(billed.Numbers(from.UnixMilli(), to.UnixMilli())); n != "" {
+			fmt.Fprintln(env.Stdout, n)
+		}
+	}()
 	r := fmt.Sprintf("%s–%s (%s)", from.Format("15:04"), to.Format("15:04"), report.Dur(to.Sub(from).Milliseconds()))
 	switch kind {
 	case classify.EditCut:

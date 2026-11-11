@@ -64,6 +64,7 @@ type rowJSON struct {
 	Source   string  `json:"source"`
 	Idle     bool    `json:"idle"`
 	Open     bool    `json:"open"`
+	Invoice  string  `json:"invoice,omitempty"` // the issued invoice that bills it
 }
 
 type goalJSON struct {
@@ -90,6 +91,7 @@ type workJSON struct {
 }
 
 type dayJSON struct {
+	BilledMS   int64                `json:"billedMS,omitempty"` // time on issued invoices
 	Date       string               `json:"date"`
 	Today      bool                 `json:"today"`
 	TrackedMS  int64                `json:"trackedMS"`
@@ -182,6 +184,7 @@ type blockJSON struct {
 }
 
 type weekDayJSON struct {
+	BilledMS  int64            `json:"billedMS,omitempty"`
 	Date      string           `json:"date"`
 	TrackedMS int64            `json:"trackedMS"`
 	ByKind    map[string]int64 `json:"byKind"`
@@ -314,10 +317,22 @@ func (s *Server) day(r *http.Request) (any, error) {
 		Blocks: make([]blockJSON, len(d.Blocks)), Summary: report.Safe(d.Summary),
 		Outages: outagesJSON(d.Outages),
 	}
+	from, to := date.UnixMilli(), date.AddDate(0, 0, 1).UnixMilli()
+	billed, err := s.a.Billed(from, to)
+	if err != nil {
+		return nil, err
+	}
+	out.BilledMS = billed.MS(from, to)
 	for i, row := range d.Timeline {
 		out.Timeline[i] = rowJSON{IDs: row.IDs, Start: row.Start, End: row.End, Key: report.Safe(row.Key),
 			App: report.Safe(row.App), Text: row.Text, Category: row.Label.Category, Kind: row.Label.Kind,
 			Project: row.Label.Project, Source: string(row.Label.CategorySource), Idle: row.Idle, Open: row.Open}
+		for _, id := range row.IDs {
+			if n := billed.Number(id); n != "" {
+				out.Timeline[i].Invoice = n
+				break
+			}
+		}
 	}
 	for _, g := range d.Goals {
 		out.Goals = append(out.Goals, goalJSON{Name: g.Goal.Name(), Text: g.Goal.Text(), AtMost: g.Goal.AtMost,
@@ -388,9 +403,14 @@ func (s *Server) week(r *http.Request) (any, error) {
 	out := weekJSON{Monday: w.Monday.Format(dateLayout), TrackedMS: w.TrackedMS, ByKind: w.ByKind,
 		Categories: cats(w.Categories), Projects: names(w.Projects), Apps: names(w.Apps),
 		Distractions: names(w.Distractions), Plan: w.Plan, Goals: []goalJSON{}, Outages: outagesJSON(w.Outages)}
+	billed, err := s.a.Billed(w.Monday.UnixMilli(), w.Monday.AddDate(0, 0, 7).UnixMilli())
+	if err != nil {
+		return nil, err
+	}
 	for _, d := range w.Days {
 		out.Days = append(out.Days, weekDayJSON{Date: d.Date.Format(dateLayout), TrackedMS: d.TrackedMS,
-			ByKind: d.ByKind, Future: d.Future, Score: d.Score.Value, DeepMS: d.Stats.DeepMS})
+			ByKind: d.ByKind, Future: d.Future, Score: d.Score.Value, DeepMS: d.Stats.DeepMS,
+			BilledMS: billed.MS(d.Date.UnixMilli(), d.Date.AddDate(0, 0, 1).UnixMilli())})
 	}
 	for _, g := range w.Goals {
 		out.Goals = append(out.Goals, goalJSON{Name: g.Goal.Name(), Text: g.Goal.Text(), AtMost: g.Goal.AtMost,
@@ -588,6 +608,7 @@ type doneJSON struct {
 	Spans int    `json:"spans"`
 	MS    int64  `json:"ms"`
 	Label string `json:"label"`
+	Note  string `json:"note,omitempty"` // the time was on an issued invoice
 }
 
 // tag labels the spans of a key, or the spans given by id, without
@@ -616,10 +637,14 @@ func (s *Server) tag(r *http.Request) (any, error) {
 			return nil, err
 		}
 	}
+	on, err := s.a.BilledOn(ids)
+	if err != nil {
+		return nil, err
+	}
 	if err := s.a.Tag(ids, w); err != nil {
 		return nil, err
 	}
-	return doneJSON{len(ids), ms, report.LabelText(w.Category, w.Project)}, nil
+	return doneJSON{len(ids), ms, report.LabelText(w.Category, w.Project), app.BilledNote(on)}, nil
 }
 
 // learn saves the candidate rule the page showed, after checking it is
@@ -648,7 +673,7 @@ func (s *Server) learn(r *http.Request) (any, error) {
 	if err := s.a.Learn(body.Key, cs[i], w); err != nil {
 		return nil, err
 	}
-	return doneJSON{cs[i].Matches, cs[i].MatchMS, report.LabelText(w.Category, w.Project)}, nil
+	return doneJSON{cs[i].Matches, cs[i].MatchMS, report.LabelText(w.Category, w.Project), ""}, nil
 }
 
 func (s *Server) ignore(r *http.Request) (any, error) {
@@ -688,11 +713,18 @@ func (s *Server) edit(r *http.Request) (any, error) {
 			return nil, err
 		}
 	}
+	billed, err := s.a.Billed(body.From, body.To)
+	if err != nil {
+		return nil, err
+	}
 	id, err := s.a.AddEdit(body.Kind, body.From, body.To, w, body.Note)
 	if err != nil {
 		return nil, badRequest(err.Error())
 	}
-	return map[string]int64{"id": id}, nil
+	return struct {
+		ID   int64  `json:"id"`
+		Note string `json:"note,omitempty"`
+	}{id, app.BilledNote(billed.Numbers(body.From, body.To))}, nil
 }
 
 // undo reverses the newest change.

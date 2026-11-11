@@ -248,3 +248,36 @@ func TestInvoiceRecover(t *testing.T) {
 		t.Fatalf("recover with all present: %v %v", got, err)
 	}
 }
+
+// FR8: billed time is known per view; a relabel names the invoice.
+func TestInvoiceBilledMarkers(t *testing.T) {
+	_, a, day := billEnv(t)
+	inv, err := a.IssueInvoice(InvoiceSpec{Project: "Acme", From: day, To: day})
+	if err != nil {
+		t.Fatal(err)
+	}
+	from, to := day.UnixMilli(), day.AddDate(0, 0, 1).UnixMilli()
+	b, err := a.Billed(from, to)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if b.Number(1) != inv.Number || b.Number(2) != "" || b.MS(from, to) != 100*60_000 {
+		t.Fatalf("billed: %q %q %d", b.Number(1), b.Number(2), b.MS(from, to))
+	}
+	if got, err := a.BilledOn([]int64{2, 1}); err != nil || !reflect.DeepEqual(got, []string{inv.Number}) {
+		t.Fatalf("billed on %v %v", got, err)
+	}
+	if n := BilledNote([]string{inv.Number}); n != "On invoice 2026-0001; the invoice stays as issued." {
+		t.Fatal(n)
+	}
+	if n := BilledNote([]string{"a", "b", "c"}); n != "On invoices a, b and c; the invoices stay as issued." {
+		t.Fatal(n)
+	}
+	// Voided: no longer billed.
+	if _, err := a.VoidInvoice(inv.Number, "wrong"); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := a.BilledOn([]int64{1}); len(got) != 0 {
+		t.Fatalf("void still billed: %v", got)
+	}
+}
