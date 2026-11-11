@@ -10,6 +10,7 @@ import (
 
 	"tock/internal/app"
 	"tock/internal/classify"
+	"tock/internal/config"
 	"tock/internal/report"
 )
 
@@ -45,6 +46,18 @@ func cmdRules(env Env, args []string) error {
 	rs, err := classify.Load(env.rulesPath(), env.learnedPath())
 	if err != nil {
 		return err
+	}
+	// A rate finer than the invoice currency's minor units cannot be
+	// billed exactly (ADR 0001).
+	if cfg, err := config.Load(env.paths().Config); err == nil {
+		for _, p := range rs.Projects {
+			if p.Rate == nil {
+				continue
+			}
+			if _, err := report.RateMinor(*p.Rate, cfg.Invoice.MinorUnits); err != nil {
+				return fmt.Errorf("rules.toml: project %q: rate %v has more decimals than [invoice] minor_units = %d", p.Name, *p.Rate, cfg.Invoice.MinorUnits)
+			}
+		}
 	}
 	fmt.Fprintf(env.Stdout, "rules.toml: %d categories, %d projects, %d rules\nlearned.toml: %d rules\n",
 		len(rs.Categories), len(rs.Projects), len(rs.Rules), len(rs.Learned))

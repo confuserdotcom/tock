@@ -130,6 +130,9 @@ func cmdDoctor(env Env, args []string) error {
 	if err == nil && cfgErr == nil {
 		doctorBackup(env, cfg.Backup.Keep, h, ok, bad)
 	}
+	if err == nil {
+		doctorInvoices(env, ok, bad)
+	}
 	if *deep && err == nil {
 		doctorDeep(env, ok, bad)
 	}
