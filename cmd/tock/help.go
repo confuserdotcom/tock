@@ -11,7 +11,10 @@ import (
 // "help" later on is an argument (a category, a note).
 func wantsHelp(name string, args []string) bool {
 	if freeText[name] {
-		return len(args) == 1 && (args[0] == "help" || args[0] == "-h" || args[0] == "-help" || args[0] == "--help")
+		if len(args) == 0 || (name == "ask" && len(args) != 1) {
+			return false
+		}
+		return args[0] == "help" || isHelpFlag(args[0])
 	}
 	if len(args) > 0 && args[0] == "help" {
 		return true
@@ -20,7 +23,7 @@ func wantsHelp(name string, args []string) bool {
 		if a == "--" {
 			return false
 		}
-		if a == "-h" || a == "-help" || a == "--help" {
+		if isHelpFlag(a) {
 			return true
 		}
 	}
@@ -72,9 +75,10 @@ func subHelp(name string) string {
 	return b.String()
 }
 
-// freeText commands take words of yours as arguments: only a lone help
-// word or flag asks for help (tock ask help me with -h).
-var freeText = map[string]bool{"ask": true}
+// freeText commands take words of yours (a question, a note): only their
+// first argument can ask for help, and for ask only a lone one (tock ask
+// help me with -h).
+var freeText = map[string]bool{"ask": true, "session": true, "edit": true}
 
 // usageLines are the lines of usage about command name: each line that
 // starts with "  tock <name>" and the indented lines that continue it.
@@ -175,3 +179,5 @@ func editDistance(a, b string) int {
 	}
 	return prev[len(b)]
 }
+
+func isHelpFlag(a string) bool { return a == "-h" || a == "-help" || a == "--help" }

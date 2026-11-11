@@ -99,3 +99,42 @@ func TestUnknownCommandSuggests(t *testing.T) {
 		}
 	}
 }
+
+// Notes are your words: a -h in them is text, and help is only the first
+// word (tock session help, tock edit help).
+func TestHelpInNotes(t *testing.T) {
+	for _, args := range [][]string{
+		{"session", "note", "4", "-h"},
+		{"session", "rate", "last", "4", "--help"},
+		{"edit", "add", "10:00-11:00", "Work/x", "note", "-h"},
+	} {
+		if wantsHelp(args[0], args[1:]) {
+			t.Errorf("%v taken as help", args)
+		}
+	}
+	if !wantsHelp("session", []string{"--help"}) || !wantsHelp("edit", []string{"help"}) {
+		t.Error("session/edit help")
+	}
+}
+
+// tock help <command> is the same as tock <command> --help.
+func TestHelpCommand(t *testing.T) {
+	te := newTestEnv(t, "")
+	code, out := te.run(t, "", "help", "invoice")
+	if code != 0 || !strings.Contains(out, "tock invoice verify") || strings.Contains(out, "Every day:") {
+		t.Fatalf("%d\n%s", code, out)
+	}
+	if code, out := te.run(t, "", "help", "frob"); code != 2 || !strings.Contains(te.errb.String(), "unknown command") || out != "" {
+		t.Fatalf("help frob: %d %q %s", code, out, te.errb)
+	}
+}
+
+// A help flag after a subcommand reaches its flag set: still help, exit 0.
+func TestHelpAfterSubcommand(t *testing.T) {
+	te := newTestEnv(t, testRules)
+	te.seed(t, daySpans()...)
+	code, out := te.run(t, "", "session", "start", "--help")
+	if code != 0 || !strings.Contains(out, "tock session") || strings.Contains(te.errb.String(), "help requested") {
+		t.Fatalf("%d %q %s", code, out, te.errb)
+	}
+}

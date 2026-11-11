@@ -243,10 +243,17 @@ func newFlags(name string) *flag.FlagSet {
 
 func parseFlags(fs *flag.FlagSet, args []string) error {
 	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return errHelp
+		}
 		return usagef("%s: %v", fs.Name(), err)
 	}
 	return nil
 }
+
+// errHelp is -h or --help reaching a command's flags (tock session start
+// --help): run prints the command's help and exits 0.
+var errHelp = errors.New("help requested")
 
 var commands = map[string]func(Env, []string) error{
 	"init":       cmdInit,
@@ -305,6 +312,13 @@ func run(args []string, env Env) int {
 	case len(args) == 1 && (args[0] == "version" || args[0] == "--version"):
 		fmt.Fprintf(env.Stdout, "tock %s\n", version)
 		return 0
+	case len(args) == 2 && args[0] == "help":
+		if _, ok := commands[args[1]]; !ok {
+			fmt.Fprintf(env.Stderr, "tock: unknown command %q\n%s", args[1], unknownHelp(args[1]))
+			return 2
+		}
+		fmt.Fprint(env.Stdout, commandHelp(args[1]))
+		return 0
 	case len(args) == 0 || args[0] == "help" || args[0] == "-h" || args[0] == "--help":
 		fmt.Fprint(env.Stdout, usage)
 		return 0
@@ -324,6 +338,9 @@ func run(args []string, env Env) int {
 	var es exitStatus
 	switch {
 	case err == nil:
+		return 0
+	case errors.Is(err, errHelp) && len(args) > 0:
+		fmt.Fprint(env.Stdout, commandHelp(args[0]))
 		return 0
 	case errors.As(err, &es):
 		if es.msg != "" {

@@ -88,6 +88,8 @@ func sessionStart(env Env, args []string) error {
 			goal = args[i]
 		case strings.HasPrefix(a, "--goal="):
 			goal = strings.TrimPrefix(a, "--goal=")
+		case isHelpFlag(a):
+			return errHelp
 		case strings.HasPrefix(a, "-"):
 			return usagef("session start: unknown flag %q (--paper: idle time is paper work; --goal \"text\": what it is for)", a)
 		default:
