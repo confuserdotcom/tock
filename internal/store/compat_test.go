@@ -135,12 +135,12 @@ func TestMigrationLint(t *testing.T) {
 		`CREATE TABLE x (a INTEGER NOT NULL);`:                      false,
 		`ALTER TABLE span ADD COLUMN x INTEGER NOT NULL DEFAULT 0;`: false,
 		`ALTER TABLE span ADD COLUMN x INTEGER NOT NULL;`:           true,
-		`DROP TABLE span;`:                                              true,
-		`ALTER TABLE span RENAME COLUMN a TO b;`:                        true,
-		`-- we never DROP anything here` + "\n" + `CREATE TABLE y (a);`: false,
-		"-- one; then DROP TRIGGER x\nCREATE TABLE z (a);":            false,
+		`DROP TABLE span;`:                                                                            true,
+		`ALTER TABLE span RENAME COLUMN a TO b;`:                                                      true,
+		`-- we never DROP anything here` + "\n" + `CREATE TABLE y (a);`:                               false,
+		"-- one; then DROP TRIGGER x\nCREATE TABLE z (a);":                                            false,
 		breaksMarker + "\nDROP TABLE span;\nUPDATE schema_meta SET value = '2' WHERE key = 'compat';": false,
-		breaksMarker + "\nDROP TABLE span;": true, // marker without the raise
+		breaksMarker + "\nDROP TABLE span;":                                                           true, // marker without the raise
 	}
 	for src, want := range cases {
 		if got := migrationLint(src) != ""; got != want {
