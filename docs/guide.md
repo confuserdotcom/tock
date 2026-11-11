@@ -197,7 +197,7 @@ tock bug-report [-o FILE] [--include-rules]
                                        a file to attach to an issue, without titles or URLs
 tock update [trust <fingerprint>]      Linux: the key trusted for the Mac's builds; trust one
 tock version                           the version of this build
-tock choice [<feature> on|off]         turn features on and off (screen text, wake screen, Slack…),
+tock choice [<feature> on|off]         turn groups and features on and off (focus, billing, screen text…),
                                        open the dashboard; piped: each feature and whether it is on
 tock backup [--out FILE]               archive tock.db and the rule, config and shell files
                                        (default ~/.local/share/tock/backups/)
@@ -239,10 +239,30 @@ Times are RFC 3339 with your local offset. `rate` and `amount` are empty
 
 ## Choices
 
-`tock choice` lists the features you can turn on and off: local model
-labels, Claude, screen text, calendar meetings, notifications, suggestions,
-the break screen, the wake screen, blocking, urge surfing, the daily notices, plan reminders
-and Slack. Space turns the feature under the cursor on or off, enter saves,
+`tock choice` lists the features you can turn on and off, by group. Three
+groups have a switch of their own, on by default:
+
+- **Focus**: sessions, the focus score, break and distraction notices, and
+  its members: suggestions, the break screen, the wake screen, the ⌥⌘F
+  hotkey, blocking and urge surfing. Slack status follows sessions, so it
+  waits for Focus too.
+- **Day routine**: the start-of-day, midday, recap and overworking notices,
+  and plan reminders.
+- **Billing**: rates, invoices and priced exports.
+
+Turning a group off turns its members off without touching their own
+settings: they show `on (waits for Focus)` and come back as they were when
+the group is on again. Nothing is deleted. With Focus off there is no focus
+tab in the TUI, no score or session in the dashboard, the menu bar or the
+notch, and trackd starts no session, guard or break notice; a session
+running when Focus goes off ends as if you stopped it. With Billing off the
+dashboard shows no rates or invoice preview, exports carry no rate, and
+`tock invoice issue` refuses; `tock invoice list`, `show` and `check` still
+work on what you issued. Tracking and labelling are the same whatever the
+groups say.
+
+The other features have no group: local model labels, notifications and
+the notch; Claude; calendar meetings, screen text and Slack. Space turns the feature under the cursor on or off, enter saves,
 q quits (changes not saved are said so). Each one is a setting in
 config.toml (`[ocr] enabled`, `[focus] break_screen`…); tock choice changes
 that line only and keeps your comments and every other line, and the old
@@ -262,7 +282,13 @@ Not on a terminal, `tock choice` prints each feature and whether it is on;
 ```
 $ tock choice break_screen on
 Break screen: on
+$ tock choice focus off
+Focus: off
 ```
+
+A group is one key (`[focus] enabled`, `[routine] enabled`, `[billing]
+enabled`). Turning it off writes `enabled = false`; turning it on again
+removes that line, so the file is as it was.
 
 ## Files
 
@@ -284,6 +310,7 @@ defaults:
 
 ```toml
 [focus]
+enabled = true           # the Focus group; false turns sessions and every focus feature off
 presets = [25, 50, 90]   # session lengths in minutes; the first is the default
 break_after = 50         # minutes of focus before a break reminder
 break_repeat = 10        # minutes between reminders
@@ -335,6 +362,7 @@ min_minutes = 2          # a key needs this much time in the window for its own 
 auto_accept = 85         # % a same-site or same-app guess needs to be applied without asking; 0 = off (60 to 100)
 
 [routine]                # notices that mark the day; see Routines
+enabled = true           # the Day routine group; false turns every routine notice off
 start = true             # start of day notice on the first activity of a work day
 midday = "13:00"         # midday check-in time, "off" to disable
 end = true               # false turns the recap notice off whatever [focus] recap says
@@ -368,6 +396,9 @@ hide_sites = []          # hosts recorded the same way; subdomains too
 
 [backup]
 keep = 7                 # daily copies of tock.db trackd keeps; 0 = none
+
+[billing]
+enabled = true           # the Billing group; false hides rates and stops tock invoice issue
 
 [invoice]                # for tock invoice; all optional
 name = "Your Name"

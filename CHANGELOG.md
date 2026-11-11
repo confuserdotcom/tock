@@ -5,6 +5,15 @@ What changed for you in each release. Dates are UTC.
 ## Unreleased
 
 ### Changed
+- **Focus, Day routine and Billing are groups you can turn off.** `tock
+  choice focus off` hides sessions, the focus score and every focus
+  notice in the TUI, the dashboard, the menu bar and the notch, and trackd
+  stops them; `tock choice billing off` hides rates and invoices and stops
+  `tock invoice issue`; `tock choice routine off` stops the day's notices.
+  Each is one line in config.toml, and the members keep their own settings
+  while their group is off. All three are on unless you turn them off, so
+  nothing changes for you on upgrade. `tock choice` now lists the switches
+  by group.
 - **Invoices are issued and kept, and never change after.** `tock invoice`
   now previews (a PDF marked DRAFT, nothing stored), and `tock invoice
   issue` issues: the next `YYYY-NNNN` number, stored with its PDF in the

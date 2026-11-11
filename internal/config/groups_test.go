@@ -152,3 +152,47 @@ func readFile(t *testing.T, path string) string {
 	}
 	return string(b)
 }
+
+// AC12: a config.toml from before the groups loads with the same effective
+// values: without a group key, nothing is turned off.
+func TestGroupsOldConfig(t *testing.T) {
+	old := `[focus]
+presets = [50, 25]
+notify = true
+break_screen = true
+wake_screen = true
+block = true
+block_hosts = ["youtube.com"]
+urge_surf = true
+
+[routine]
+start = true
+midday = "13:30"
+overwork = true
+
+[hours]
+start = "09:00"
+end = "18:00"
+
+[recommend]
+enabled = true
+
+[plan]
+notify = true
+auto_start = true
+
+[slack]
+enabled = true
+
+[invoice]
+name = "Ada"
+currency = "EUR"
+`
+	c, err := Parse(File, []byte(old))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(c.withoutFile(), c.Raw()) {
+		t.Fatalf("an old config changed under the groups:\n%+v\n%+v", c.withoutFile(), c.Raw())
+	}
+}
