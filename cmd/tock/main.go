@@ -65,7 +65,7 @@ Rules and names:
                 set <name> [--kind K] [--afk D] [--interrupt on|off] |
                 rename <name> <new> | rm <name>]
                                          list or change your categories (rules.toml)
-  tock project [add <name> [--category C] [--alias a,b] | set <name> ... |
+  tock project [add <name> [--category C] [--alias a,b] [--rate N] | set <name> ... |
                rename <name> <new> | rm <name> | scan <dir> --category C]
                                          projects; filed under a category they are modules
 

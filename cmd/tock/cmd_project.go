@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"sort"
+	"strconv"
 	"strings"
 
 	"tock/internal/app"
@@ -12,7 +14,9 @@ import (
 
 const projectUsage = `usage: tock project                                    categories with their projects (same as tock category)
        tock project add <name> [--category C] [--alias a,b]   with a category it is a module
+                [--rate N] [--client NAME] [--billable false]    an hourly rate bills its time
        tock project set <name> [--category C|none] [--alias a,b|none] [--archived true|false]
+                [--rate N|none] [--client NAME|none] [--billable true|false]
        tock project rename <name> <new name>
        tock project rm <name>                                only when nothing names it
        tock project scan <dir> --category C                  a module for each folder in dir
@@ -35,6 +39,9 @@ func cmdProject(env Env, args []string) error {
 		cat := fs.String("category", "", "file it under this category (none: unfile)")
 		alias := fs.String("alias", "", "other names, comma-separated (none: drop them)")
 		arch := fs.String("archived", "", "true or false")
+		rate := fs.String("rate", "", "hourly rate (none: drop it)")
+		client := fs.String("client", "", "who invoices go to (none: drop it)")
+		billable := fs.String("billable", "", "true or false: false keeps the rate but bills nothing")
 		if err := parseFlags(fs, moveFlagsFirst(rest)); err != nil {
 			return err
 		}
@@ -64,6 +71,12 @@ func cmdProject(env Env, args []string) error {
 		default:
 			return usagef("--archived: true or false")
 		}
+		if err := billingFlags(&p, *rate, *client, *billable); err != nil {
+			return err
+		}
+		if (p.Rate != nil || p.Client != nil || p.Billable != nil) && !a.Config().Billing.Enabled {
+			return app.ErrBillingOff
+		}
 		if sub == "add" {
 			if p.Archived != nil {
 				return usagef(projectUsage)
@@ -74,7 +87,7 @@ func cmdProject(env Env, args []string) error {
 			fmt.Fprintf(env.Stdout, "added project %s%s\n", report.Safe(strings.TrimSpace(p.Name)), moduleNote(a, p.Name))
 			return nil
 		}
-		if p.Category == nil && p.Aliases == nil && p.Archived == nil {
+		if p.Category == nil && p.Aliases == nil && p.Archived == nil && p.Rate == nil && p.Client == nil && p.Billable == nil {
 			return usagef(projectUsage)
 		}
 		name, err := a.Rules().ResolveName(classify.NameProject, p.Name)
@@ -156,6 +169,40 @@ func cmdProject(env Env, args []string) error {
 }
 
 // moduleNote says what makes a project a module, if it is one.
+// billingFlags puts --rate, --client and --billable into p. "none" drops
+// a rate (as -1, which EditProject removes) or a client.
+func billingFlags(p *app.ProjectSpec, rate, client, billable string) error {
+	switch rate {
+	case "":
+	case "none":
+		r := -1.0
+		p.Rate = &r
+	default:
+		r, err := strconv.ParseFloat(rate, 64)
+		if err != nil || r < 0 || math.IsNaN(r) || math.IsInf(r, 0) {
+			return usagef("--rate: a number of 0 or more, or none")
+		}
+		p.Rate = &r
+	}
+	switch client {
+	case "":
+	case "none":
+		c := ""
+		p.Client = &c
+	default:
+		p.Client = &client
+	}
+	switch billable {
+	case "":
+	case "true", "false":
+		b := billable == "true"
+		p.Billable = &b
+	default:
+		return usagef("--billable: true or false")
+	}
+	return nil
+}
+
 func moduleNote(a *app.App, name string) string {
 	rs := a.Rules()
 	for _, p := range rs.Projects {
@@ -171,6 +218,18 @@ func moduleNote(a *app.App, name string) string {
 		}
 		if p.Archived {
 			parts = append(parts, "archived")
+		}
+		if a.Config().Billing.Enabled {
+			if p.Rate != nil {
+				r := "rate " + strconv.FormatFloat(*p.Rate, 'f', -1, 64) + "/h"
+				if p.Billable != nil && !*p.Billable {
+					r += ", not billed"
+				}
+				parts = append(parts, r)
+			}
+			if p.Client != "" {
+				parts = append(parts, "client "+report.Safe(p.Client))
+			}
 		}
 		if len(parts) > 0 {
 			return " (" + strings.Join(parts, "; ") + ")"

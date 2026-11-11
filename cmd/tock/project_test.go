@@ -62,3 +62,45 @@ func TestProjectRefile(t *testing.T) {
 		t.Fatalf("refile: %d %q %s", code, out, te.errb)
 	}
 }
+
+// A freelancer sets a project's rate, client and billable flag from the
+// CLI, without editing rules.toml.
+func TestProjectRateFlags(t *testing.T) {
+	te := newTestEnv(t, testRules)
+	te.seed(t, daySpans()...)
+	steps := []struct {
+		args []string
+		code int
+		out  string
+	}{
+		{[]string{"project", "add", "Orbit", "--rate", "80", "--client", "Acme Ltd"}, 0, "added project Orbit (rate 80/h; client Acme Ltd)\n"},
+		{[]string{"project", "set", "orb", "--rate", "95.5"}, 0, "Orbit (rate 95.5/h; client Acme Ltd)\n"},
+		{[]string{"project", "set", "orb", "--billable", "false"}, 0, "Orbit (rate 95.5/h, not billed; client Acme Ltd)\n"},
+		{[]string{"project", "set", "orb", "--billable", "true", "--client", "none"}, 0, "Orbit (rate 95.5/h)\n"},
+		{[]string{"project", "set", "orb", "--rate", "none"}, 0, "Orbit\n"},
+		{[]string{"project", "set", "orb", "--rate", "eighty"}, 2, ""},
+		{[]string{"project", "set", "orb", "--rate", "-3"}, 2, ""},
+		{[]string{"project", "set", "orb", "--billable", "maybe"}, 2, ""},
+	}
+	for _, s := range steps {
+		code, out := te.run(t, "", s.args...)
+		if code != s.code || (s.code == 0 && out != s.out) {
+			t.Fatalf("%v: %d %q, want %d %q; stderr %s", s.args, code, out, s.code, s.out, te.errb)
+		}
+	}
+	te.run(t, "", "project", "set", "orb", "--rate", "60")
+	rules, _ := os.ReadFile(te.rulesPath())
+	if !strings.Contains(string(rules), "rate = 60") {
+		t.Fatalf("rules.toml lacks the rate:\n%s", rules)
+	}
+	// With Billing off, rates are hidden, so they are not set either.
+	if err := os.WriteFile(filepath.Join(te.ConfigDir, "config.toml"), []byte("[billing]\nenabled = false\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if code, _ := te.run(t, "", "project", "set", "orb", "--rate", "70"); code != 1 || !strings.Contains(te.errb.String(), "tock choice billing on") {
+		t.Fatalf("billing off: %d %s", code, te.errb)
+	}
+	if code, out := te.run(t, "", "project", "set", "orb", "--alias", "orb2"); code != 0 || strings.Contains(out, "rate") {
+		t.Fatalf("billing off hides the rate: %d %q %s", code, out, te.errb)
+	}
+}

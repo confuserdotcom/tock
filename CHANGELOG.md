@@ -118,6 +118,8 @@ What changed for you in each release. Dates are UTC.
   copy was put back under it and that process went on using the old file.
 
 ### Fixed
+- `tock project add` and `set` take `--rate`, `--client` and `--billable`,
+  so billing no longer needs rules.toml edited by hand.
 - `tock <command> --help` prints that command's lines and works before
   trackd has recorded anything; a mistyped flag shows the command's lines
   instead of all of the usage.

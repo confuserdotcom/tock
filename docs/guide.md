@@ -1122,11 +1122,12 @@ author times only and never fetches. `tock doctor` checks every repo.
 
 Give a project an hourly rate and `tock export` bills its time:
 
-```toml
-[[project]]
-name = "ATLAS"
-rate = 80
+```sh
+tock project set ATLAS --rate 80     # or: tock project add ATLAS --rate 80
 ```
+
+That writes `rate = 80` under the project in `rules.toml`; the dashboard's
+Library does the same. `--rate none` drops it.
 
 Each span row gets `rate` and `amount` (rate × hours, to the cent).
 `tock export --by project --from 2026-10-01 --to 2026-10-31` writes one row
@@ -1134,9 +1135,10 @@ per project instead: `project,duration_s,hours,rate,amount`, with the
 amount computed from the total time. Time without a project is left out.
 `tock export` has no currency: amounts are in the rate's unit.
 
-A project bills when it has a rate. `billable = false` keeps the rate but
-bills nothing (its time gets no amount in export, and invoices refuse it).
-`client = "Acme"` names who its invoices go to.
+A project bills when it has a rate. `--billable false` (`billable =
+false`) keeps the rate but bills nothing (its time gets no amount in
+export, and invoices refuse it). `--client Acme` (`client = "Acme"`) names
+who its invoices go to.
 
 ```toml
 [[project]]
