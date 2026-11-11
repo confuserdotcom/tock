@@ -239,11 +239,29 @@ func replaceValue(l, val string) string {
 	rest := l[eq+1:]
 	lead := len(rest) - len(strings.TrimLeft(rest, " \t"))
 	body := rest[lead:]
+	n := valueEnd(body)
+	return l[:eq+1] + rest[:lead] + val + body[n:]
+}
+
+// valueEnd is where the value at the start of body ends: after a quoted
+// string's closing quote, else at the first space, # or line end.
+func valueEnd(body string) int {
+	if q := body[:min(len(body), 1)]; q == `"` || q == "'" {
+		for i := 1; i < len(body); i++ {
+			switch {
+			case q == `"` && body[i] == '\\':
+				i++ // the escaped character
+			case body[i] == q[0]:
+				return i + 1
+			}
+		}
+		return len(strings.TrimRight(body, "\r\n"))
+	}
 	n := strings.IndexAny(body, " \t#\r\n")
 	if n < 0 {
 		n = len(body)
 	}
-	return l[:eq+1] + rest[:lead] + val + body[n:]
+	return n
 }
 
 // UnsetKey returns src without key in [table], editing lines the way SetBool
