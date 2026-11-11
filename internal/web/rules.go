@@ -153,6 +153,9 @@ func (s *Server) rulePreview(r *http.Request) (any, error) {
 // the totals as JSON, else the PDF marked DRAFT. It never issues: an
 // invoice is issued with tock invoice issue, which records it.
 func (s *Server) invoice(r *http.Request) (any, error) {
+	if !s.a.Config().Billing.Enabled {
+		return nil, badRequest(app.ErrBillingOff.Error())
+	}
 	q := r.URL.Query()
 	now := s.now()
 	var days [2]time.Time

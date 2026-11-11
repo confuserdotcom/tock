@@ -162,6 +162,10 @@ type statusJSON struct {
 	// Paused is why trackd records nothing (config.toml does not load).
 	Paused  string       `json:"paused,omitempty"`
 	Session *sessionJSON `json:"session"`
+	// Focus and Billing are the groups that are on: off hides their parts
+	// of the dashboard.
+	Focus   bool `json:"focus"`
+	Billing bool `json:"billing"`
 }
 
 type blockJSON struct {
@@ -351,7 +355,8 @@ func (s *Server) status(*http.Request) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	out := statusJSON{Recording: h.TrackdUp && !h.Paused(), LastSeenMS: h.LastSeenMS}
+	cfg := s.a.Config()
+	out := statusJSON{Recording: h.TrackdUp && !h.Paused(), LastSeenMS: h.LastSeenMS, Focus: cfg.Focus.Enabled, Billing: cfg.Billing.Enabled}
 	if h.Paused() {
 		out.Paused = h.CapturePaused
 	}

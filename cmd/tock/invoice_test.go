@@ -217,3 +217,25 @@ func TestDoctorInvoices(t *testing.T) {
 		t.Fatalf("doctor altered:\n%s", out)
 	}
 }
+
+// AC6: with Billing off nothing is issued; issued invoices stay readable.
+func TestInvoiceBillingOff(t *testing.T) {
+	te := invoiceEnv(t)
+	if code, _ := te.run(t, "", append([]string{"invoice", "issue"}, day...)...); code != 0 {
+		t.Fatalf("issue: %d %s", code, te.errb)
+	}
+	cfg := filepath.Join(te.ConfigDir, "config.toml")
+	if err := os.WriteFile(cfg, []byte(invoiceConfig+"\n[billing]\nenabled = false\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	te.errb.Reset()
+	if code, _ := te.run(t, "", append([]string{"invoice", "issue", "--allow-overlap"}, day...)...); code == 0 || !strings.Contains(te.errb.String(), "tock choice billing on") {
+		t.Fatalf("issue with billing off: %d %s", code, te.errb)
+	}
+	if code, out := te.run(t, "", "invoice", "list"); code != 0 || !strings.Contains(out, "2026-0001") {
+		t.Fatalf("list with billing off: %d %q", code, out)
+	}
+	if code, _ := te.run(t, "", "invoice", "check", "2026-0001"); code != 0 {
+		t.Fatalf("check with billing off: %d %s", code, te.errb)
+	}
+}

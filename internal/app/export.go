@@ -28,7 +28,7 @@ func (a *App) Export(from, to time.Time) ([]report.ExportRow, error) {
 			App: v.App, BundleID: v.BundleID, Title: str(v.Title), URL: str(v.URL), Private: v.Private,
 			Category: l.Category, Kind: l.Kind, Project: l.Project,
 			CategorySource: string(l.CategorySource), ProjectSource: string(l.ProjectSource)}
-		if l.Project != "" {
+		if l.Project != "" && a.cfg.Billing.Enabled {
 			rows[i].Rate = a.rs.BillableRate(l.Project)
 		}
 	}

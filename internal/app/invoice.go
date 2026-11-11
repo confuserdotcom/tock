@@ -138,8 +138,15 @@ func (a *App) DraftInvoice(s InvoiceSpec) (InvoiceDraft, error) {
 // IssueInvoice stores the invoice DraftInvoice computes, renders its PDF
 // once and writes its files. A file error after the invoice is stored is
 // returned with the invoice: it is issued, and the next invoice command
+// ErrBillingOff means the Billing group is off: no invoice is issued.
+// Issued invoices stay readable.
+var ErrBillingOff = errors.New("billing is off (turn it on: tock choice billing on)")
+
 // writes the files again.
 func (a *App) IssueInvoice(s InvoiceSpec) (store.Invoice, error) {
+	if !a.cfg.Billing.Enabled {
+		return store.Invoice{}, ErrBillingOff
+	}
 	d, err := a.DraftInvoice(s)
 	if err != nil {
 		return store.Invoice{}, err
