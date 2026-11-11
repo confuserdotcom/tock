@@ -41,6 +41,11 @@ database, its snapshots in `backups/`, and the logs. Snapshots and `tock
 backup` archives hold your titles and URLs too, so keep them out of git and
 shared folders.
 
+Issued invoices sit in the database and in `invoices/` in the data dir.
+They hold your and your client's names, addresses and tax numbers, and the
+time billed per day, but no window titles or URLs, so `tock prune` and
+`keep_titles` leave them alone. They are never synced.
+
 ## What leaves the machine
 
 trackd and the menu bar app have no network code at all; tests check that
