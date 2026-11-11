@@ -3,6 +3,7 @@ package bar
 import (
 	"fmt"
 	"math"
+	"slices"
 	"strconv"
 	"time"
 
@@ -83,7 +84,35 @@ func TodayPages(s Snapshot, d report.Day, w report.Week, u app.Usual, nowMS int6
 	if ss := s.Session; ss != nil {
 		out = append(out, s.sessionPage(nowMS))
 	}
-	return append(out, todayPage(d, u, s.loc()), weekPage(w, nowMS), goalsPage(d))
+	out = append(out, todayPage(d, u, s.loc()), weekPage(w, nowMS), goalsPage(d))
+	if s.NoFocus {
+		for i := range out {
+			out[i] = unscored(out[i])
+		}
+	}
+	return out
+}
+
+// unscored is p without the focus score, for when Focus is off.
+func unscored(p Page) Page {
+	var cells []Cell
+	for _, c := range p.Cells {
+		if c.K != "Score" && c.K != "Avg score" {
+			cells = append(cells, c)
+		}
+	}
+	p.Cells = cells
+	if p.ID == "week" {
+		p.Bars = slices.Clone(p.Bars)
+		for i := range p.Bars {
+			p.Bars[i].Sub = ""
+		}
+	}
+	if p.Mid != nil {
+		m := unscored(*p.Mid)
+		p.Mid = &m
+	}
+	return p
 }
 
 // sessionPage is the running session at nowMS, to the minute: the page

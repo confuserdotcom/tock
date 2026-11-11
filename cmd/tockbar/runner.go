@@ -626,7 +626,7 @@ func (r *runner) handle(ev event) {
 func featureOn(s bar.Snapshot, id string) bool {
 	for _, f := range s.Features {
 		if f.ID == id {
-			return f.On
+			return f.Live
 		}
 	}
 	return false

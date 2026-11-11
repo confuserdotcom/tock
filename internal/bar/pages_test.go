@@ -3,6 +3,7 @@ package bar
 import (
 	"encoding/json"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -162,5 +163,44 @@ func TestSessionPageMovesByTheMinute(t *testing.T) {
 	open := Snapshot{OK: true, Loc: islandLoc, Session: &focus.Session{StartMS: start}, Live: focus.Live{Level: -1}}
 	if r := TodayPages(open, d, w, u, start+90*60_000)[0].Rings[0]; r.Value != "1h30 so far" || r.Frac != 1 {
 		t.Fatalf("open-ended session ring = %+v", r)
+	}
+}
+
+// G5: with Focus off the notch pages carry no focus score.
+func TestTodayPagesFocusOff(t *testing.T) {
+	d, w, u := pagesDay()
+	s := Snapshot{OK: true, Loc: islandLoc, NoFocus: true}
+	ps := TodayPages(s, d, w, u, d.Date.Add(15*time.Hour).UnixMilli())
+	var walk func(p Page)
+	walk = func(p Page) {
+		for _, c := range p.Cells {
+			if c.K == "Score" || c.K == "Avg score" {
+				t.Fatalf("page %s has %+v", p.ID, c)
+			}
+		}
+		for _, b := range p.Bars {
+			if p.ID == "week" && b.Sub != "" {
+				t.Fatalf("week bar %+v", b)
+			}
+		}
+		for _, q := range []*Page{p.Mid, p.Big} {
+			if q != nil {
+				walk(*q)
+			}
+		}
+	}
+	for _, p := range ps {
+		walk(p)
+	}
+	if ps[0].Cells[0].K != "Deep focus" {
+		t.Fatalf("today cells %+v", ps[0].Cells)
+	}
+	// The same pages with Focus on keep the score: unscored copies.
+	if p := TodayPages(Snapshot{OK: true, Loc: islandLoc}, d, w, u, d.Date.Add(15*time.Hour).UnixMilli()); p[1].Bars[0].Sub == "" && p[1].Bars[1].Sub == "" {
+		t.Fatal("focus on lost the week scores")
+	}
+	items := titles(Snapshot{OK: true, NoFocus: true, Active: true, TrackedMS: 3600_000}.Items(0))
+	if strings.Contains(items, "score") || strings.Contains(items, "Start ") {
+		t.Fatalf("menu with focus off:\n%s", items)
 	}
 }

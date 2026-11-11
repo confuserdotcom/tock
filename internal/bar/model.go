@@ -105,6 +105,7 @@ type Snapshot struct {
 	SnoozeUntil  time.Time      // distraction notices are snoozed until then; zero = not snoozed
 	SnoozeMin    int            // the minutes the snooze item offers
 	Presets      []int
+	NoFocus      bool           // the Focus group is off: no sessions and no focus score
 	Access       string         // notification access the app last saw
 	Last         *LastSession   // the newest finished session if it ended within 24 hours, else nil
 	LastErr      error          // why Last could not be read, for the caller to log; the rest of the snapshot is still good
@@ -143,6 +144,7 @@ const StripCells = 24
 type FeatureState struct {
 	ID, Group, Name string
 	On              bool   // config.toml turns it on
+	Live            bool   // it is on now: On, and its group is on
 	Waits           string // the group it waits for while that group is off; "" = none
 }
 
@@ -160,7 +162,10 @@ func NotReady(why error) Snapshot { return Snapshot{Why: why} }
 // Load reads today's snapshot. access is the app's notification access.
 func Load(a *app.App, now time.Time, access string) (Snapshot, error) {
 	a.Reload() // tockbar is long-running: pick up config and rules edits
-	s := Snapshot{OK: true, Access: access, Presets: a.Config().Focus.Presets}
+	s := Snapshot{OK: true, Access: access, Presets: a.Config().Focus.Presets, NoFocus: !a.Config().Focus.Enabled}
+	if s.NoFocus {
+		s.Presets = nil // no start items
+	}
 	h, err := a.Health()
 	if err != nil {
 		return s, err
@@ -191,7 +196,7 @@ func Load(a *app.App, now time.Time, access string) (Snapshot, error) {
 	}
 	cfg := a.Config()
 	for _, f := range config.Features {
-		fs := FeatureState{ID: f.ID, Group: f.Group, Name: f.Name, On: f.Set(cfg)}
+		fs := FeatureState{ID: f.ID, Group: f.Group, Name: f.Name, On: f.Set(cfg), Live: f.On(cfg)}
 		if f.Waits(cfg) {
 			fs.Waits = config.FeatureByID(f.Needs).Name
 		}
@@ -300,7 +305,7 @@ func (s Snapshot) Items(nowMS int64) []Item {
 // session and anything broken.
 func (s Snapshot) header(nowMS int64) []Item {
 	line := report.Dur(s.TrackedMS) + " today"
-	if s.Active {
+	if s.Active && !s.NoFocus {
 		line += fmt.Sprintf(" · %s focus · score %d", report.Dur(s.FocusMS), s.Score)
 	}
 	out := []Item{{Title: line}}
