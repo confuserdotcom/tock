@@ -5,6 +5,18 @@ What changed for you in each release. Dates are UTC.
 ## Unreleased
 
 ### Changed
+- **Invoices are issued and kept, and never change after.** `tock invoice`
+  now previews (a PDF marked DRAFT, nothing stored), and `tock invoice
+  issue` issues: the next `YYYY-NNNN` number, stored with its PDF in the
+  database and in `~/.local/share/tock/invoices/`. Later rule edits,
+  relabels or a new rate change nothing in it; `tock invoice check` shows
+  how today's labels differ. Corrections are a void with a reason and a
+  replacement with `--supersedes`. Amounts are exact (integer cents), days
+  can be rounded (`[invoice] round`), and an invoice can carry your and the
+  client's tax numbers and one tax rate. Projects can set `billable =
+  false` and `client = "…"`. The old `YYYYMM-project` numbers are retired,
+  and PDFs made before this release are not imported. The dashboard's
+  **Invoice…** now saves a preview only.
 - **Linux updates through the sync folder are off until you turn them
   on, and never trust a key by themselves.** Before, a Linux machine
   trusted the first key it found in the sync folder, so anyone who could

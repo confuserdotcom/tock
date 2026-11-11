@@ -220,8 +220,11 @@ tock summary [--date D] [--dry-run]    what you worked on: Claude writes it, els
 tock ask [--dry-run] "<question>"      ask about your time in plain words; answered on this machine
 tock recommend [accept | dismiss]      the pending suggestion: show it, take it, or not now
 tock ocr test [--now] | grant          read the front window's text once (in 3 s) | ask for Screen Recording
-tock invoice --project P [--from D] [--to D] [--client NAME] [--number N] [-o FILE]
-                                       a PDF invoice from the project's rate (default last month)
+tock invoice --project P [--from D] [--to D] [--client NAME] [-o FILE]
+                                       preview an invoice (DRAFT PDF, nothing stored; default last month)
+tock invoice issue --project P […]     issue it: numbered, stored, never changed (see Billing)
+tock invoice void | list | show | check | verify | recover
+                                       keep issued invoices (see Billing)
 tock sync [--days N]                   write this machine's last N days (default 2) to the
                                        [sync] folder now and read the other machines'
 tock slack [login | logout | status]   Slack status and do-not-disturb during focus sessions
@@ -369,8 +372,20 @@ keep = 7                 # daily copies of tock.db trackd keeps; 0 = none
 [invoice]                # for tock invoice; all optional
 name = "Your Name"
 address = ["1 Main Street", "City"]
+tax_id = ""              # your tax or VAT number
 currency = "EUR"         # printed after amounts; "" by default
 note = "Payment within 30 days."
+round = "1s"             # round each day's time, e.g. "6m" or "15m"; "1s" = none
+round_mode = "nearest"   # or "up"; nearest rounds a half step up
+minor_units = 2          # decimals of amounts, 0 to 3
+tax_label = ""           # e.g. "VAT"
+tax_rate = ""            # a percentage such as "20" or "5.5"; none = no tax line
+tax_note = ""            # e.g. "Reverse charge"
+
+[[invoice.client]]       # details for a project's client = "Acme"; repeat per client
+name = "Acme"
+address = ["2 Road", "Paris"]
+tax_id = "FR123"
 
 [slack]                  # see Focus guard
 enabled = false
@@ -924,10 +939,10 @@ page to your browser and runs until you press ctrl-c.
   goal rings, tables of categories and apps with totals, and the work
   blocks.
 - **Week:** **Export** saves the week report, the week's entries as CSV or
-  JSON, or its hours by project. **Invoice…** there makes the PDF
-  `tock invoice` writes, for a project with a rate over the month before,
-  the week's month or the week, with the hours and total shown before you
-  save. Then hours per day by kind, a donut of the
+  JSON, or its hours by project. **Invoice…** there previews an invoice
+  for a project with a rate over the month before, the week's month or the
+  week, with the hours and total, and saves a PDF marked DRAFT. Issue it
+  with `tock invoice issue`. Then hours per day by kind, a donut of the
   week's kinds, the score per day against its mean, a weekday × hour heat
   map of when you focus, a donut of projects, goal rings (days held),
   distractions, and categories and apps.
@@ -1055,12 +1070,79 @@ per project instead: `project,duration_s,hours,rate,amount`, with the
 amount computed from the total time. Time without a project is left out.
 `tock export` has no currency: amounts are in the rate's unit.
 
-`tock invoice --project ATLAS` writes `invoice-202609-atlas.pdf` for last
-month: one line per day with hours (two decimals), rate and amount, then the
-totals. `--from` and `--to` pick other days, `--client` adds who it is to,
-`--number` sets the number (default `YYYYMM-project`) and `-o` the file.
-Your name, address, currency and a closing note come from `[invoice]` in
-`config.toml`. The PDF is plain A4 in Helvetica; characters outside Western
+A project bills when it has a rate. `billable = false` keeps the rate but
+bills nothing (its time gets no amount in export, and invoices refuse it).
+`client = "Acme"` names who its invoices go to.
+
+```toml
+[[project]]
+name = "ATLAS"
+rate = 80
+client = "Acme"
+```
+
+### Invoices
+
+`tock invoice --project ATLAS` previews last month's invoice: it prints the
+days, hours and totals, and writes a PDF marked DRAFT to a temporary file
+(or `-o FILE`). Nothing is stored. `--from` and `--to` pick other days,
+`--client` names someone other than the project's client.
+
+`tock invoice issue --project ATLAS` (same flags) issues it:
+
+- It gets the next number of the year, `2026-0001`, `2026-0002`, … across
+  all projects, counting void ones; the year is the local date's when you
+  issue. `--number` sets your own, if it is not in that form.
+- It is stored in the database with its PDF, and written to
+  `~/.local/share/tock/invoices/` as `<number>.pdf` and `<number>.json`.
+  The command prints both paths.
+- If some of the billed time is on the project only because the model
+  guessed so, it says how many minutes and asks first (`--yes` skips).
+- If another issued invoice bills the project on some of the same days, it
+  refuses unless you give `--allow-overlap`.
+
+An issued invoice never changes. Editing rules, retraining the model,
+relabelling time, a new rate or a new address change nothing in it:
+`tock invoice show 2026-0004` prints what was issued, and `--pdf` writes
+the PDF as it was issued (`-o FILE`, else to stdout). The database refuses
+any other change to it, from tock or anything else using SQL. It does not
+stop someone editing the file, restoring an older copy or a disk fault;
+`tock invoice verify` notices those (exit 4) by comparing each invoice
+with the hashes stored when it was issued and with its files.
+
+To correct one, void it and issue a replacement:
+
+```sh
+tock invoice void 2026-0004 --reason "wrong client"
+tock invoice issue --project ATLAS --supersedes 2026-0004
+# or both at once:
+tock invoice issue --project ATLAS --supersedes 2026-0004 --void-old --reason "wrong client"
+```
+
+Both stay on record, linked both ways in `tock invoice list [--year Y]`;
+a number is never used twice.
+
+`tock invoice check 2026-0004` bills the invoice's days again with
+today's labels, the invoice's rounding and its rate, and prints
+`issued 40.00 h / now 41.50 h` with the days that differ (exit 3; 0 when
+nothing differs).
+
+Rounding is per day: with `round = "15m"`, 61 minutes bill 60 (nearest)
+or 75 (`round_mode = "up"`). Amounts are exact: a rate of 95.50 for 3 h
+20 min is 318.33, rounded half away from zero; a rate with more decimals
+than `minor_units` is refused by `tock rules check`. Tax is one rate per
+invoice, on the subtotal. Your name, address, tax number, currency and note
+come from `[invoice]`, the client's address and tax number from
+`[[invoice.client]]`; all of it is copied into the invoice when it is
+issued.
+
+If invoice files go missing, any `tock invoice` command and `tock doctor`
+write them again from the database. After restoring an older copy of the
+database, `tock invoice recover` imports the invoices whose files are
+there but not in the database.
+
+Numbers and fields are sensible defaults, not any country's invoicing
+rules. The PDF is plain A4 in Helvetica; characters outside Western
 European alphabets print as `?`.
 
 ## Week report

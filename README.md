@@ -47,8 +47,9 @@ the rest.
 
 The week shows hours per day, when in the day you focus, and where the
 time went by project. **Export** saves the week report, the entries as CSV
-or JSON, hours by project with your rates, or a PDF invoice for one
-project.
+or JSON, hours by project with your rates, or an invoice preview for one
+project. `tock invoice issue` issues it: numbered, stored, and never
+changed after.
 
 <img src="docs/readme/trends.webp" width="100%" alt="The trends view for October: tracked time, focus, average score and switches against September; a calendar shaded by deep time with a tooltip for one day; deep time and focus score per day against the mean.">
 
