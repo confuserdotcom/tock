@@ -150,8 +150,8 @@ func (s *Server) rulePreview(r *http.Request) (any, error) {
 
 // invoice is `tock invoice` (the preview): ?project=, ?from= and ?to=
 // (days, both included), ?client=, ?number=. With ?preview=1 it answers
-// the totals as JSON, else the PDF marked DRAFT. It never issues: an
-// invoice is issued with tock invoice issue, which records it.
+// the totals as JSON, else the PDF marked DRAFT. It never issues; see
+// invoiceIssue.
 func (s *Server) invoice(r *http.Request) (any, error) {
 	if !s.a.Config().Billing.Enabled {
 		return nil, badRequest(app.ErrBillingOff.Error())
@@ -175,18 +175,77 @@ func (s *Server) invoice(r *http.Request) (any, error) {
 	}
 	if q.Get("preview") == "1" {
 		total, _ := strconv.ParseFloat(report.FormatMinor(d.Record.TotalMinor, d.Record.MinorUnits), 64) // display only
+		overlaps := d.Overlaps
+		if overlaps == nil {
+			overlaps = []string{}
+		}
 		return struct {
-			Project  string  `json:"project"`
-			Number   string  `json:"number"`
-			Seconds  int64   `json:"seconds"`
-			Total    float64 `json:"total"`
-			Currency string  `json:"currency"`
-			Days     int     `json:"days"`
-		}{d.Record.Project, d.Record.Number, d.Record.SecondsBilled, total, d.Record.Currency, len(d.Record.Lines)}, nil
+			Project    string   `json:"project"`
+			Number     string   `json:"number"`
+			Seconds    int64    `json:"seconds"`
+			Total      float64  `json:"total"`
+			Currency   string   `json:"currency"`
+			Days       int      `json:"days"`
+			ModelOnlyS int64    `json:"modelOnlyS"` // billed time only the local model labelled
+			Overlaps   []string `json:"overlaps"`   // issued invoices over some of the same days
+		}{d.Record.Project, d.Record.Number, d.Record.SecondsBilled, total, d.Record.Currency, len(d.Record.Lines), d.ModelOnlyS, overlaps}, nil
 	}
 	b, err := app.DraftPDF(d)
 	if err != nil {
 		return nil, err
 	}
 	return file{"invoice-draft-" + report.Slug(d.Record.Project) + ".pdf", "application/pdf", b}, nil
+}
+
+// invoiceIssue is tock invoice issue: the next number, stored with its PDF
+// and written to the invoices folder. The body is the preview's query as
+// JSON. Time only the model labelled needs confirmModel, as the CLI asks
+// first; days another invoice bills need allowOverlap.
+func (s *Server) invoiceIssue(r *http.Request) (any, error) {
+	var body struct {
+		Project      string `json:"project"`
+		From         string `json:"from"`
+		To           string `json:"to"`
+		Client       string `json:"client"`
+		Number       string `json:"number"`
+		AllowOverlap bool   `json:"allowOverlap"`
+		ConfirmModel bool   `json:"confirmModel"`
+	}
+	if err := decode(r, &body); err != nil {
+		return nil, err
+	}
+	if !s.a.Config().Billing.Enabled {
+		return nil, badRequest(app.ErrBillingOff.Error())
+	}
+	now := s.now()
+	var days [2]time.Time
+	for i, v := range []string{body.From, body.To} {
+		d, err := time.ParseInLocation(dateLayout, v, now.Location())
+		if err != nil {
+			return nil, badRequest("from and to want YYYY-MM-DD")
+		}
+		days[i] = d
+	}
+	if exportTooLong(days[0], days[1]) {
+		return nil, badRequest("an invoice covers at most a year")
+	}
+	spec := app.InvoiceSpec{Project: body.Project, From: days[0], To: days[1], Client: body.Client, Number: body.Number,
+		AllowOverlap: body.AllowOverlap, Generator: "tock web"}
+	d, err := s.a.DraftInvoice(spec)
+	if err != nil {
+		return nil, badRequest(err.Error())
+	}
+	if d.ModelOnlyS > 0 && !body.ConfirmModel {
+		return nil, badRequest("some of this time only the local model labelled; look at it first, then confirm")
+	}
+	inv, err := s.a.IssueInvoice(spec)
+	if err != nil {
+		return nil, badRequest(err.Error())
+	}
+	total, _ := strconv.ParseFloat(report.FormatMinor(inv.TotalMinor, inv.MinorUnits), 64) // display only
+	return struct {
+		Number   string  `json:"number"`
+		Total    float64 `json:"total"`
+		Currency string  `json:"currency"`
+	}{inv.Number, total, inv.Currency}, nil
 }

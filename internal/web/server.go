@@ -94,6 +94,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/rules", s.api(s.ruleChange))
 	mux.HandleFunc("POST /api/rules/preview", s.api(s.rulePreview))
 	mux.HandleFunc("GET /api/invoice", s.api(s.invoice))
+	mux.HandleFunc("POST /api/invoice/issue", s.api(s.invoiceIssue))
 	return s.guard(mux)
 }
 

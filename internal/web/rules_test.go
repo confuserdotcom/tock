@@ -107,3 +107,33 @@ func TestInvoiceAPI(t *testing.T) {
 		}
 	}
 }
+
+// T13: the dashboard issues too, with the same checks as tock invoice issue.
+func TestInvoiceIssueAPI(t *testing.T) {
+	f := newFixture(t)
+	if code, _, b := f.do("POST", "/api/library/project", testToken, map[string]any{"op": "set", "name": "tock", "rate": 60}); code != 200 {
+		t.Fatalf("set rate: %d %s", code, b)
+	}
+	day := time.UnixMilli(f.library().NowMS).In(apptest.Zone).Format(dateLayout)
+	body := map[string]any{"project": "tock", "from": day, "to": day}
+	if code, _, b := f.do("GET", "/api/invoice?project=tock&preview=1&from="+day+"&to="+day, testToken, nil); code != 200 || !strings.Contains(string(b), `"modelOnlyS":0`) || !strings.Contains(string(b), `"overlaps":[]`) {
+		t.Fatalf("preview: %d %s", code, b)
+	}
+	code, _, b := f.do("POST", "/api/invoice/issue", testToken, body)
+	if code != 200 || !strings.Contains(string(b), `"number":"2026-0001"`) {
+		t.Fatalf("issue: %d %s", code, b)
+	}
+	if code, _, b := f.do("GET", "/api/invoice?project=tock&preview=1&from="+day+"&to="+day, testToken, nil); code != 200 || !strings.Contains(string(b), `"overlaps":["2026-0001"]`) {
+		t.Fatalf("preview after issue: %d %s", code, b)
+	}
+	if code, _, b := f.do("POST", "/api/invoice/issue", testToken, body); code != 400 || !strings.Contains(string(b), "already bills") {
+		t.Fatalf("overlap: %d %s", code, b)
+	}
+	body["allowOverlap"] = true
+	if code, _, b := f.do("POST", "/api/invoice/issue", testToken, body); code != 200 || !strings.Contains(string(b), `"number":"2026-0002"`) {
+		t.Fatalf("allow overlap: %d %s", code, b)
+	}
+	if code, _, _ := f.do("GET", "/api/invoice/issue", testToken, nil); code == 200 {
+		t.Fatal("GET issued")
+	}
+}
