@@ -8,6 +8,7 @@ import { useApi, type Inbox as InboxT, type Status } from "@/lib/api";
 import { addDays, dayTitle, isoDate, parseDate, dur } from "@/lib/format";
 import { go, useRoute, VIEWS, type View } from "@/lib/route";
 import { cn } from "@/lib/utils";
+import { GroupsContext, groupsOf } from "@/lib/groups";
 import Today from "@/views/Today";
 import Week from "@/views/Week";
 import Trends from "@/views/Trends";
@@ -60,6 +61,7 @@ export default function App() {
   });
 
   return (
+    <GroupsContext.Provider value={groupsOf(status.data)}>
     <TooltipProvider delayDuration={150}>
       <div className="flex min-h-full flex-col">
         <header className="flex h-11 shrink-0 items-center gap-7 border-b px-6 [-webkit-app-region:drag]">
@@ -112,12 +114,13 @@ export default function App() {
       <Palette />
       <Toaster position="bottom-right" />
     </TooltipProvider>
+    </GroupsContext.Provider>
   );
 }
 
 function StatusStrip({ s }: { s: Status | null }) {
   const now = Date.now();
-  const sess = s?.session;
+  const sess = s?.focus === false ? null : s?.session;
   const done = sess ? Math.min(1, (now - sess.startMS) / Math.max(1, sess.plannedMS - sess.startMS)) : 0;
   return (
     <div className="flex h-[34px] shrink-0 items-center gap-6 border-b px-6 text-xs text-muted-foreground">

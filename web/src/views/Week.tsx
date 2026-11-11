@@ -16,10 +16,12 @@ import { dur, hhmm, parseDate, shortDay, dayTitle, addDays, isoDate } from "@/li
 import { download } from "@/lib/download";
 import { byKindRows, kindColor, kindLabel } from "@/lib/kinds";
 import { onDay } from "@/lib/outage";
+import { useGroups, weekExports, type WeekExport } from "@/lib/groups";
 
 export default function Week({ date, tick }: { date: string; tick: number }) {
   const { data: w, error, loading } = useApi<WeekT>(`/api/week?date=${date}`, tick);
   const hours = useApi<Hours>("/api/hours");
+  const groups = useGroups();
   if (error) return <Empty>Couldn't load this week: {error}</Empty>;
   if (loading && !w) return <Skeleton className="h-96 w-full" />;
   if (!w) return null;
@@ -59,10 +61,12 @@ export default function Week({ date, tick }: { date: string; tick: number }) {
           {kinds.length ? <Donut data={kinds} center={dur(kinds.reduce((s, k) => s + k.ms, 0))} sub="this week" /> : <Empty>Nothing yet.</Empty>}
         </Panel>
       </div>
-      <div className="grid gap-5 lg:grid-cols-[1fr_1.4fr]">
-        <Panel label="Focus score">
-          <ScoreLine points={scores} />
-        </Panel>
+      <div className={groups.focus ? "grid gap-5 lg:grid-cols-[1fr_1.4fr]" : "grid gap-5"}>
+        {groups.focus && (
+          <Panel label="Focus score">
+            <ScoreLine points={scores} />
+          </Panel>
+        )}
         <Panel label="When you focus" aside={hours.data ? `mean focus minutes, last ${hours.data.activeDays} active days` : undefined}>
           {hours.data ? hours.data.thin ? <Empty>tock needs a few more days to see a pattern.</Empty> : <HeatGrid grid={hours.data.grid} /> : <Skeleton className="h-40" />}
         </Panel>
@@ -90,18 +94,12 @@ export default function Week({ date, tick }: { date: string; tick: number }) {
   );
 }
 
-const EXPORTS = [
-  { label: "Week report", sub: "One page with no scripts, to mail or keep", path: (m: string) => `/api/report?date=${m}`, ext: "html" },
-  { label: "Entries as CSV", sub: "Each entry with its app, title and URL", q: "format=csv", ext: "csv" },
-  { label: "Entries as JSON", sub: "The same, for scripts", q: "format=json", ext: "json" },
-  { label: "Hours by project", sub: "Hours, rate and amount, as CSV", q: "by=project", ext: "csv" },
-];
-
 /** Export saves the week as tock report and tock export write it. */
 function Export({ monday }: { monday: string }) {
   const [inv, setInv] = useState(false);
+  const { items, invoice } = weekExports(useGroups().billing);
   const sun = isoDate(addDays(parseDate(monday), 6));
-  async function save(e: (typeof EXPORTS)[number]) {
+  async function save(e: WeekExport) {
     const path = e.path ? e.path(monday) : `/api/export?from=${monday}&to=${sun}&${e.q}`;
     try {
       const r = await download(path, `tock-${monday}.${e.ext}`);
@@ -120,19 +118,21 @@ function Export({ monday }: { monday: string }) {
         <Button variant="outline" size="sm" className="h-7 px-2.5 text-xs">Export</Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-80 p-1">
-        {EXPORTS.map((e) => (
+        {items.map((e) => (
           <button key={e.label} onClick={() => save(e)} className="flex w-full flex-col items-start rounded-md px-2.5 py-2 text-left hover:bg-accent">
             <span className="text-sm">{e.label}</span>
             <span className="text-xs text-muted-foreground">{e.sub}</span>
           </button>
         ))}
-        <button onClick={() => setInv(true)} className="flex w-full flex-col items-start rounded-md px-2.5 py-2 text-left hover:bg-accent">
-          <span className="text-sm">Invoice…</span>
-          <span className="text-xs text-muted-foreground">A PDF for one project at its rate</span>
-        </button>
+        {invoice && (
+          <button onClick={() => setInv(true)} className="flex w-full flex-col items-start rounded-md px-2.5 py-2 text-left hover:bg-accent">
+            <span className="text-sm">Invoice…</span>
+            <span className="text-xs text-muted-foreground">A DRAFT preview for one project; tock invoice issue records it</span>
+          </button>
+        )}
       </PopoverContent>
     </Popover>
-    <InvoiceDialog open={inv} monday={monday} onClose={() => setInv(false)} />
+    {invoice && <InvoiceDialog open={inv} monday={monday} onClose={() => setInv(false)} />}
     </>
   );
 }

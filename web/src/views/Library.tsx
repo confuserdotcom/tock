@@ -148,7 +148,7 @@ function Projects({ lib, now, q, staleOnly, kindOf, onEdit, onArchive }: {
         <TableCell className={cn(cell, "w-40 truncate")}>
           {p.category ? <><i className="mr-2 inline-block h-2 w-2 rounded-sm align-[1px]" style={{ background: kindColor(kindOf(p.category)) }} />{p.category}</> : "—"}
         </TableCell>
-        <TableCell className={cn(cell, "num w-28 text-right")}>{rateText(p.rate, lib.currency)}</TableCell>
+        {lib.billing !== false && <TableCell className={cn(cell, "num w-28 text-right")}>{rateText(p.rate ?? null, lib.currency)}</TableCell>}
         <TableCell className={cn(cell, "num w-20 text-right")}>{clock(p.last30MS)}</TableCell>
         <Seen ms={p.lastSeenMS} now={now} />
         <TableCell className={cn(cell, "w-20 text-right")}>
@@ -162,7 +162,7 @@ function Projects({ lib, now, q, staleOnly, kindOf, onEdit, onArchive }: {
       <TableHeader>
         <TableRow className="hover:bg-transparent">
           <TableHead className={head}>Project</TableHead><TableHead className={head}>Category</TableHead>
-          <TableHead className={cn(head, "text-right")}>Rate</TableHead><TableHead className={cn(head, "text-right")}>30 days</TableHead>
+          {lib.billing !== false && <TableHead className={cn(head, "text-right")}>Rate</TableHead>}<TableHead className={cn(head, "text-right")}>30 days</TableHead>
           <TableHead className={cn(head, "text-right")}>Last seen</TableHead><TableHead className={head} />
         </TableRow>
       </TableHeader>

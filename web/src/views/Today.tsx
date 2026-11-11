@@ -12,10 +12,13 @@ import { useApi, type Day } from "@/lib/api";
 import { addDays, delta, dur, hhmm, parseDate } from "@/lib/format";
 import { byKindRows, kindColor, kindLabel } from "@/lib/kinds";
 import { onDay } from "@/lib/outage";
+import { useGroups } from "@/lib/groups";
+import { cn } from "@/lib/utils";
 
 export default function Today({ date, tick }: { date: string; tick: number }) {
   const { data: d, error, loading, reload } = useApi<Day>(`/api/day?date=${date}`, tick);
   const [target, setTarget] = useState<Target | null>(null);
+  const { focus } = useGroups();
 
   const apps = useMemo(() => {
     if (!d) return [];
@@ -79,7 +82,9 @@ export default function Today({ date, tick }: { date: string; tick: number }) {
       </Panel>
 
       <div className="grid gap-5 lg:grid-cols-[300px_1fr_1fr]">
-        <Panel label="Focus score">
+        <Panel label={focus ? "Focus score" : "The day"}>
+          {focus && (
+          <>
           <div className="num text-[56px] font-semibold leading-none tracking-[-0.03em]">{d.score.value}</div>
           <div className="mt-1.5 text-sm">
             {u ? (
@@ -91,7 +96,9 @@ export default function Today({ date, tick }: { date: string; tick: number }) {
               <span className="text-muted-foreground">No usual day to compare with yet</span>
             )}
           </div>
-          <dl className="mt-5 grid grid-cols-[1fr_auto_auto] gap-x-3.5 gap-y-2">
+          </>
+          )}
+          <dl className={cn("grid grid-cols-[1fr_auto_auto] gap-x-3.5 gap-y-2", focus && "mt-5")}>
             <Stat k="Focus time" v={dur(d.stats.focusMS)} c={u ? d.stats.focusMS - u.focusMS : null} />
             <Stat k="Longest block" v={dur(d.stats.longestMS)} c={u ? d.stats.longestMS - u.longestMS : null} />
             <Stat k="Distracting" v={dur(d.stats.distractMS)} c={u ? d.stats.distractMS - u.distractMS : null} lowerIsGood />

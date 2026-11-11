@@ -130,7 +130,9 @@ export function LibrarySheet({ edit, lib, onClose, onDone }: { edit: Edit | null
                 </select>
               </Row>
               <Row label="Other names (comma-separated)"><input className={field} value={s("aliases")} onChange={(e) => set("aliases", e.target.value)} /></Row>
-              <Row label={`Hourly rate${lib?.currency ? ` (${lib.currency})` : ""}, empty = none`}><input className={field} inputMode="decimal" value={s("rate")} onChange={(e) => set("rate", e.target.value)} /></Row>
+              {lib?.billing !== false && (
+                <Row label={`Hourly rate${lib?.currency ? ` (${lib.currency})` : ""}, empty = none`}><input className={field} inputMode="decimal" value={s("rate")} onChange={(e) => set("rate", e.target.value)} /></Row>
+              )}
               <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={b("archived")} onChange={(e) => set("archived", e.target.checked)} /> Archived</label>
             </>
           )}

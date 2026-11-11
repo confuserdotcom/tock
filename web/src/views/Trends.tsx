@@ -10,6 +10,8 @@ import { ScoreLine } from "@/components/charts/ScoreLine";
 import { TimeTable } from "@/components/Tables";
 import { useApi, type Hours, type Month } from "@/lib/api";
 import { delta, dur, monthTitle, parseDate } from "@/lib/format";
+import { useGroups } from "@/lib/groups";
+import { cn } from "@/lib/utils";
 
 function lastMonths(n: number, from: Date): { value: string; label: string }[] {
   return Array.from({ length: n }, (_, i) => {
@@ -60,15 +62,16 @@ export default function Trends({ date }: { date: string }) {
 }
 
 function MonthBody({ m }: { m: Month }) {
+  const { focus } = useGroups();
   const label = (s: string) => String(parseDate(s).getDate());
   const c = m.cur, p = m.prev;
   const hasPrev = p.trackedMS > 0;
   return (
     <>
-      <div className="grid gap-px overflow-hidden rounded-lg border bg-border sm:grid-cols-2 lg:grid-cols-4">
+      <div className={cn("grid gap-px overflow-hidden rounded-lg border bg-border sm:grid-cols-2", focus ? "lg:grid-cols-4" : "lg:grid-cols-3")}>
         <Card hasPrev={hasPrev} k="Tracked" v={dur(c.trackedMS)} d={c.trackedMS - p.trackedMS} t={delta(c.trackedMS - p.trackedMS)} />
         <Card hasPrev={hasPrev} k="Focus" v={dur(c.focusMS)} d={c.focusMS - p.focusMS} t={delta(c.focusMS - p.focusMS)} />
-        <Card hasPrev={hasPrev} k="Average score" v={c.workdays ? c.avgScore.toFixed(0) : "–"} d={c.avgScore - p.avgScore} t={(c.avgScore - p.avgScore >= 0 ? "+" : "−") + Math.abs(c.avgScore - p.avgScore).toFixed(0)} />
+        {focus && <Card hasPrev={hasPrev} k="Average score" v={c.workdays ? c.avgScore.toFixed(0) : "–"} d={c.avgScore - p.avgScore} t={(c.avgScore - p.avgScore >= 0 ? "+" : "−") + Math.abs(c.avgScore - p.avgScore).toFixed(0)} />}
         <Card hasPrev={hasPrev} k="Switches / hour" v={c.switchesPerHour.toFixed(1)} d={c.switchesPerHour - p.switchesPerHour} t={(c.switchesPerHour - p.switchesPerHour >= 0 ? "+" : "−") + Math.abs(c.switchesPerHour - p.switchesPerHour).toFixed(1)} lowerIsGood />
       </div>
       <div className="grid items-start gap-5 lg:grid-cols-[1fr_1.3fr]">
@@ -79,9 +82,11 @@ function MonthBody({ m }: { m: Month }) {
           <Panel label="Deep time">
             <DeepArea points={m.days.map((d) => ({ label: label(d.date), ms: d.deepMS }))} />
           </Panel>
-          <Panel label="Focus score">
-            <ScoreLine points={m.days.map((d) => ({ label: label(d.date), score: d.score < 0 ? null : d.score }))} height={160} />
-          </Panel>
+          {focus && (
+            <Panel label="Focus score">
+              <ScoreLine points={m.days.map((d) => ({ label: label(d.date), score: d.score < 0 ? null : d.score }))} height={160} />
+            </Panel>
+          )}
         </div>
       </div>
       <Panel label="Categories against last month">

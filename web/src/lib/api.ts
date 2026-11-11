@@ -127,6 +127,7 @@ export type Day = {
 export type Status = {
   recording: boolean; lastSeenMS: number; rulesError?: string; configError?: string; paused?: string;
   session: { goal: string; startMS: number; plannedMS: number } | null;
+  focus?: boolean; billing?: boolean;
 };
 export type WeekDay = { date: string; trackedMS: number; byKind: ByKind; future: boolean; score: number; deepMS: number };
 export type Week = {
@@ -157,10 +158,10 @@ export type Propose = {
 };
 export type Done = { spans: number; ms: number; label: string };
 export type LibCategory = { name: string; kind: string; afkMS: number; interrupt: boolean; projects: number; last30MS: number; lastSeenMS: number };
-export type LibProject = { name: string; category: string; aliases: string[]; rate: number | null; archived: boolean; last30MS: number; lastSeenMS: number };
+export type LibProject = { name: string; category: string; aliases: string[]; rate?: number | null; archived: boolean; last30MS: number; lastSeenMS: number };
 export type LibGoal = { category: string; project: string; name?: string; text?: string; atMost: boolean; week: boolean; ms: number };
 export type LibDup = { kind: "category" | "project"; a: string; b: string };
-export type Library = { categories: LibCategory[]; projects: LibProject[]; goals: LibGoal[]; lookalikes: LibDup[]; currency: string; nowMS: number };
+export type Library = { categories: LibCategory[]; projects: LibProject[]; goals: LibGoal[]; lookalikes: LibDup[]; currency: string; billing?: boolean; nowMS: number };
 export type LibChange = { what: string; undo: boolean };
 
 export type Rule = {
