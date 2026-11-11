@@ -1,12 +1,15 @@
 package service
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"testing"
+)
 
 func TestInstallMethod(t *testing.T) {
-	app := "/Applications/tock.app/Contents/MacOS/tockapp"
 	cases := []struct {
 		name, self string
-		apps       bool
+		copyOfApp  bool // self holds the .dmg app's tock
 		want       Method
 	}{
 		{"brew arm", "/opt/homebrew/Cellar/tock/6.0.0/bin/tock", false, Brew},
@@ -14,12 +17,12 @@ func TestInstallMethod(t *testing.T) {
 		{"linuxbrew", "/home/linuxbrew/.linuxbrew/Cellar/tock/6.0.0/bin/tock", false, Brew},
 		{"dmg", "/Users/me/.local/bin/tock", true, DMG},
 		{"dmg libexec", "/Applications/tock.app/Contents/Resources/libexec/tock", true, DMG},
-		{"source", "/Users/me/.local/bin/tock", false, Source},
+		{"source, .dmg app also there", "/Users/me/.local/bin/tock", false, Source},
 		{"go run", "/tmp/go-build123/exe/tock", false, Source},
 	}
 	for _, c := range cases {
-		exists := func(p string) bool { return c.apps && p == app }
-		if got := InstallMethod(c.self, exists); got != c.want {
+		fromDMG := func(string) bool { return c.copyOfApp }
+		if got := InstallMethod(c.self, fromDMG); got != c.want {
 			t.Errorf("%s: InstallMethod(%q) = %v, want %v", c.name, c.self, got, c.want)
 		}
 	}
@@ -41,5 +44,20 @@ func TestReinstallHint(t *testing.T) {
 		if got := c.m.Reinstall(c.linux); got != c.want {
 			t.Errorf("%v linux=%v: %q, want %q", c.m, c.linux, got, c.want)
 		}
+	}
+}
+
+func TestSameBytes(t *testing.T) {
+	d := t.TempDir()
+	w := func(n, s string) string {
+		p := filepath.Join(d, n)
+		if err := os.WriteFile(p, []byte(s), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+	a, b, c, e := w("a", "same"), w("b", "same"), w("c", "diff"), w("e", "longer")
+	if !sameBytes(a, b) || sameBytes(a, c) || sameBytes(a, e) || sameBytes(a, filepath.Join(d, "missing")) {
+		t.Fatal("sameBytes wrong")
 	}
 }

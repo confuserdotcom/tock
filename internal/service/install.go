@@ -1,6 +1,8 @@
 package service
 
 import (
+	"crypto/sha256"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -26,12 +28,13 @@ func (m Method) String() string {
 	return "source"
 }
 
-// dmgApp is the app the .dmg puts in Applications.
-const dmgApp = "/Applications/tock.app/Contents/MacOS/tockapp"
+// dmgTock is the tock inside the app the .dmg puts in Applications; its
+// setup copies it to ~/.local/bin.
+const dmgTock = "/Applications/tock.app/Contents/Resources/libexec/tock"
 
-// InstallMethod tells how the tock or trackd at self was installed. exists
-// reports whether a file exists (os.Stat in production).
-func InstallMethod(self string, exists func(string) bool) Method {
+// InstallMethod tells how the tock at self was installed. fromDMG reports
+// whether self is a copy of the .dmg app's tock (sameBytes in production).
+func InstallMethod(self string, fromDMG func(self string) bool) Method {
 	if r, err := filepath.EvalSymlinks(self); err == nil {
 		self = r
 	}
@@ -39,9 +42,10 @@ func InstallMethod(self string, exists func(string) bool) Method {
 	if strings.Contains(s, "/Cellar/") || strings.Contains(s, "/linuxbrew/") {
 		return Brew
 	}
-	// The .dmg's tock copies itself to ~/.local/bin, like make install, so
-	// the app in Applications is what tells them apart.
-	if strings.HasPrefix(s, "/Applications/tock.app/") || exists(dmgApp) {
+	// The .dmg's tock copies itself to ~/.local/bin, like make install.
+	// The app being in Applications is not enough (a source install may
+	// have tried the .dmg once): the copy must be the app's own tock.
+	if strings.HasPrefix(s, "/Applications/tock.app/") || fromDMG(self) {
 		return DMG
 	}
 	return Source
@@ -53,7 +57,38 @@ func Installed() Method {
 	if err != nil {
 		return Source
 	}
-	return InstallMethod(self, func(p string) bool { _, err := os.Stat(p); return err == nil })
+	return InstallMethod(self, func(s string) bool { return sameBytes(s, dmgTock) })
+}
+
+// sameBytes reports whether files a and b hold the same bytes. Different
+// sizes answer without reading either.
+func sameBytes(a, b string) bool {
+	fa, err := os.Stat(a)
+	if err != nil {
+		return false
+	}
+	fb, err := os.Stat(b)
+	if err != nil || fa.Size() != fb.Size() {
+		return false
+	}
+	ha, errA := fileSum(a)
+	hb, errB := fileSum(b)
+	return errA == nil && errB == nil && ha == hb
+}
+
+func fileSum(p string) ([32]byte, error) {
+	f, err := os.Open(p)
+	if err != nil {
+		return [32]byte{}, err
+	}
+	defer f.Close()
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return [32]byte{}, err
+	}
+	var s [32]byte
+	copy(s[:], h.Sum(nil))
+	return s, nil
 }
 
 // Reinstall is what to run to (re)install and start trackd.
