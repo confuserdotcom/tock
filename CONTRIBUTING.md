@@ -42,7 +42,8 @@ TOCK_DEMO_PORT=7788 go test -tags demo -run TestDemo -timeout 0 ./internal/web
   take the time as an argument (`nowMS`) instead of reading the clock.
 - TUI snapshots: `go test ./internal/tui -run Golden -update`, then read the
   diff before committing it.
-- Visual changes follow [DESIGN.md](DESIGN.md).
+- Colour only ever means a kind of time; keep new UI to the existing
+  palette and type.
 - A user-visible change gets a line under Unreleased in
   [CHANGELOG.md](CHANGELOG.md).
 - A schema change is a new numbered file in `internal/store/migrations`.
@@ -60,9 +61,9 @@ TOCK_DEMO_PORT=7788 go test -tags demo -run TestDemo -timeout 0 ./internal/web
 
 ## Releases
 
-A release candidate ships only when every gate in
-[docs/stability.md](docs/stability.md#before-a-release) holds; `make bench`
-gives the cost figures it asks for.
+Add a `## vX.Y.Z` section to CHANGELOG.md and push the tag; CI builds and
+publishes the release. Run `make bench` first and check the figures in
+[docs/architecture.md](docs/architecture.md) still hold.
 
 ## Things that won't be merged
 

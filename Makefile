@@ -98,7 +98,7 @@ bundle:
 		$(WITH_TIMEOUT) $(CODESIGN_TIMEOUT) codesign --force --sign - --identifier $(BUNDLE_ID) -r='designated => identifier "com.tock.trackd"' "$(BUNDLE)" || rc=$$?; \
 	fi; \
 	if [ "$$rc" = 142 ]; then \
-		echo "codesign timed out after $(CODESIGN_TIMEOUT) s: a keychain prompt for the $(SIGN_ID) key is probably waiting; see 'Key access' in docs/spikes/01-identity-lock-spike.md (set-key-partition-list or Always Allow)" >&2; \
+		echo "codesign timed out after $(CODESIGN_TIMEOUT) s: a keychain prompt for the $(SIGN_ID) key is probably waiting; allow it (Always Allow), or run security set-key-partition-list for the key" >&2; \
 		exit 1; \
 	fi; \
 	[ "$$rc" = 0 ] || exit $$rc

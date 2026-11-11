@@ -78,7 +78,7 @@ static NSColor *hexc(unsigned v, double a) {
 
 static NSColor *white(double a) { return [NSColor colorWithWhite:1 alpha:a]; }
 
-// The dark set of DESIGN.md's kind colours: the island is always black.
+// The dark set of the kind colours: the island is always black.
 static NSColor *kindColor(NSString *k) {
     static NSDictionary<NSString *, NSColor *> *m;
     static dispatch_once_t once;

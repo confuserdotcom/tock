@@ -99,7 +99,7 @@ Colours follow the kind of time, the same in the TUI, the dashboard and the
 menu bar: blue for deep work, slate for shallow, mauve for browsing, brick
 red for distraction, grey for the rest, and hatched grey for time nobody
 labelled yet. The palette has light and dark variants and follows your
-terminal's background (see `DESIGN.md`).
+terminal's background.
 
 The first time you run `tock` without rules, it offers to write the starter
 rules.

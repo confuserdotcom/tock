@@ -138,8 +138,6 @@ Measured on an Apple Silicon Mac, November 2026:
 | Building a day | about 2 ms after six months of history, the same as after a week |
 | Database | about 9 MB after the first month |
 
-[Stability](stability.md#cost) has how each figure was measured.
-
 Measure trackd's memory with `footprint $(pgrep trackd)`, not `ps`.
 SQLite's memory is allocated outside the Go heap, and `ps` misses part of it.
 

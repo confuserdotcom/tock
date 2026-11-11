@@ -1,4 +1,4 @@
-// Durations and numbers as DESIGN.md writes them: 2h24 in cards, 2:24 in
+// Durations and numbers as the dashboard writes them: 2h24 in cards, 2:24 in
 // tables, a true minus sign for decreases.
 
 const MIN = 60_000;

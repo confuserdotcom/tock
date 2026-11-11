@@ -34,7 +34,7 @@ func setTheme(dark bool) {
 	themeDark = dark
 	ld := lipgloss.LightDark(dark)
 	hex := func(light, darkHex string) color.Color { return ld(lipgloss.Color(light), lipgloss.Color(darkHex)) }
-	// DESIGN.md: the ledger. Greys, ink as the only accent, colour for kinds of time.
+	// Greys, ink as the only accent, colour for kinds of time.
 	colText = hex("#2b3038", "#d5d8dd")
 	colBright = hex("#1b1f24", "#eceef1")
 	colDim = hex("#5b636e", "#9aa1ab")

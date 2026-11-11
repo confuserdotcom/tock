@@ -127,7 +127,7 @@ void bar_set_title(const char *title) {
     });
 }
 
-// kindColor is DESIGN.md's colour of a kind, darker on a light menu and
+// kindColor is the colour of a kind, darker on a light menu and
 // lighter on a dark one; an unknown kind is tertiary grey.
 static NSColor *kindColor(NSString *k) {
     static NSDictionary<NSString *, NSColor *> *m;

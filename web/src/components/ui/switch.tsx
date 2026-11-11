@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 
-/** Switch is an on/off button (role switch): ink when on, as DESIGN.md
+/** Switch is an on/off button (role switch): ink when on, as the dashboard
  *  keeps colour for kinds of time. */
 export function Switch({ id, checked, onChange, disabled, label, className }: {
   id?: string; checked: boolean; onChange: (v: boolean) => void; disabled?: boolean; label: string; className?: string;
