@@ -5,6 +5,7 @@ import { Empty, Panel } from "@/components/Panel";
 import { useApi, type Top as TopT, type TopRow } from "@/lib/api";
 import { clock, dur, pct } from "@/lib/format";
 import { kindColor } from "@/lib/kinds";
+import { go } from "@/lib/route";
 
 const SECTIONS: [string, string][] = [["category", "Categories"], ["app", "Apps"], ["site", "Sites"], ["project", "Projects"]];
 
@@ -25,7 +26,7 @@ export default function Top({ tick }: { tick: number }) {
         <div className="grid gap-5 lg:grid-cols-2">
           {SECTIONS.map(([key, label]) => (
             <Panel key={key} label={label}>
-              {t.sections[key]?.length ? <BarList rows={t.sections[key]} total={t.totalMS} /> : <Empty>Nothing here.</Empty>}
+              {t.sections[key]?.length ? <BarList rows={t.sections[key]} total={t.totalMS} onRow={open(key)} /> : <Empty>Nothing here.</Empty>}
             </Panel>
           ))}
         </div>
@@ -34,13 +35,22 @@ export default function Top({ tick }: { tick: number }) {
   );
 }
 
+/** open is what a click on a row does: unlabelled time goes to the inbox,
+ *  a category or a project to its place in the Library. */
+function open(section: string): (r: TopRow) => (() => void) | null {
+  if (section === "category") return (r) => () => go(r.name === "(unlabelled)" ? { view: "inbox" } : { view: "library", sub: "categories" });
+  if (section === "project") return () => () => go({ view: "library", sub: "projects" });
+  return (r) => (r.mostly === "(unlabelled)" ? () => go({ view: "inbox" }) : null);
+}
+
 /** BarList: ranked names with a share bar under each. */
-function BarList({ rows, total }: { rows: TopRow[]; total: number }) {
+function BarList({ rows, total, onRow }: { rows: TopRow[]; total: number; onRow: (r: TopRow) => (() => void) | null }) {
   const max = Math.max(1, ...rows.map((r) => r.ms));
   return (
     <ul className="space-y-2">
       {rows.slice(0, 12).map((r) => (
-        <li key={r.name} className="relative">
+        <li key={r.name} className={onRow(r) ? "relative cursor-pointer rounded-[3px] hover:bg-secondary/60" : "relative"} onClick={onRow(r) ?? undefined}
+          title={r.name === "(unlabelled)" || r.mostly === "(unlabelled)" ? "Label it in the inbox" : onRow(r) ? "Open in the Library" : undefined}>
           <div className="absolute inset-y-0 left-0 rounded-[3px] opacity-25" style={{ width: `${(r.ms / max) * 100}%`, background: kindColor(r.kind || "neutral") }} />
           <div className="relative flex items-center gap-3 px-2 py-1">
             <span className="min-w-0 flex-1 truncate">

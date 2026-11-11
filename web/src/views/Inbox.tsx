@@ -9,6 +9,7 @@ import { get, post, useApi, type Done, type Inbox as InboxT, type Item, type Lab
 import { clock, doneText, dur, entries } from "@/lib/format";
 import { kindColor } from "@/lib/kinds";
 import { cn } from "@/lib/utils";
+import { openShortcuts } from "@/components/Shortcuts";
 
 /** Inbox: what tock could not file by itself. j/k move, Return accepts the
  *  guess (a does too) and learns a rule, l opens the label sheet, i ignores, u undoes. */
@@ -75,7 +76,7 @@ export default function Inbox({ onChange }: { onChange: () => void }) {
           {items.length ? `${items.length} things need you` : "Inbox is empty"}
           <span className="num ml-2 text-base font-normal text-muted-foreground">last {data.days} days · {dur(data.totalMS)}</span>
         </h1>
-        <span className="text-xs text-faint">j k move · return accept · l label · i ignore · u undo</span>
+        <button className="text-xs text-faint hover:text-foreground" onClick={openShortcuts} title="Keys and gestures">j k move · return accept · l label · i ignore · u undo · ?</button>
       </div>
       <Panel label="To label" aside={data.smallKeys ? `${data.smallKeys} small things (${dur(data.smallMS)}) left out` : undefined}>
         {items.length === 0 ? (
@@ -86,7 +87,8 @@ export default function Inbox({ onChange }: { onChange: () => void }) {
               <li
                 key={it.key}
                 onClick={() => setAt(i)}
-                className={cn("grid cursor-default grid-cols-[1fr_auto_auto] items-center gap-x-4 rounded-md px-3 py-2.5", i === at && "bg-secondary")}
+                onDoubleClick={() => setTarget({ title: it.key, sub: it.example, key: it.key })}
+                className={cn("grid cursor-pointer grid-cols-[1fr_auto_auto] items-center gap-x-4 rounded-md px-3 py-2.5 hover:bg-secondary/60", i === at && "bg-secondary hover:bg-secondary")}
               >
                 <div className="min-w-0">
                   <div className="truncate font-medium">{it.key}</div>
@@ -104,13 +106,16 @@ export default function Inbox({ onChange }: { onChange: () => void }) {
                   ) : (
                     <span className="text-xs text-faint">no guess</span>
                   )}
-                  <Button size="sm" variant={i === at ? "default" : "secondary"} className="h-7" onClick={() => accept(it)}>
-                    {it.suggestion ? "Accept" : "Label"}
+                  <Button size="sm" variant={i === at ? "default" : "secondary"} className="h-7" onClick={(e) => (e.stopPropagation(), accept(it))}
+                    title={it.suggestion ? `Label it ${it.suggestion.label} and learn a rule (Return)` : "Pick a label (l)"}>
+                    {it.suggestion ? "Accept" : "Label…"}
                   </Button>
-                  <Button size="sm" variant="ghost" className="h-7" onClick={() => setTarget({ title: it.key, sub: it.example, key: it.key })}>
-                    Other…
-                  </Button>
-                  <Button size="sm" variant="ghost" className="h-7 text-muted-foreground" onClick={() => ignore(it)}>
+                  {it.suggestion && (
+                    <Button size="sm" variant="ghost" className="h-7" onClick={(e) => (e.stopPropagation(), setTarget({ title: it.key, sub: it.example, key: it.key }))} title="Pick another label (l)">
+                      Other…
+                    </Button>
+                  )}
+                  <Button size="sm" variant="ghost" className="h-7 text-muted-foreground" onClick={(e) => (e.stopPropagation(), ignore(it))} title="Leave it unlabelled and stop asking (i)">
                     Ignore
                   </Button>
                 </div>
