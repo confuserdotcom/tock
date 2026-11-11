@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { go } from "@/lib/route";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { post, type LibCategory, type LibChange, type LibGoal, type LibProject, type Library } from "@/lib/api";
@@ -39,7 +40,7 @@ export function LibrarySheet({ edit, lib, onClose, onDone }: { edit: Edit | null
       setV({ name: c?.name ?? "", kind: c?.kind ?? "deep", afk: c?.afkMS ? String(c.afkMS / MIN) : "", interrupt: c?.interrupt ?? true });
     } else if (edit.kind === "project") {
       const p = edit.item;
-      setV({ name: p?.name ?? "", category: p?.category ?? "", aliases: p?.aliases.join(", ") ?? "", rate: p?.rate != null ? String(p.rate) : "", archived: p?.archived ?? false });
+      setV({ name: p?.name ?? "", category: p?.category ?? "", aliases: p?.aliases.join(", ") ?? "", rate: p?.rate != null ? String(p.rate) : "", client: p?.client ?? "", archived: p?.archived ?? false });
     } else {
       const g = edit.item;
       setV({ label: g ? g.project ? `${g.category}/${g.project}` : g.category : "", hours: g ? String(g.ms / 3_600_000) : "", week: g?.week ?? false, atMost: g?.atMost ?? false });
@@ -81,6 +82,7 @@ export function LibrarySheet({ edit, lib, onClose, onDone }: { edit: Edit | null
       return send("/api/library/project", {
         op: adding ? "add" : "set", name: s("name"), category: s("category"),
         aliases: s("aliases").split(",").map((a) => a.trim()).filter(Boolean), rate, archived: b("archived"),
+        ...(lib?.billing !== false && (s("client") || p?.client) ? { client: s("client") } : {}),
       });
     }
     const [category, project = ""] = s("label").split("/");
@@ -132,6 +134,17 @@ export function LibrarySheet({ edit, lib, onClose, onDone }: { edit: Edit | null
               <Row label="Other names (comma-separated)"><input className={field} value={s("aliases")} onChange={(e) => set("aliases", e.target.value)} /></Row>
               {lib?.billing !== false && (
                 <Row label={`Hourly rate${lib?.currency ? ` (${lib.currency})` : ""}, empty = none`}><input className={field} inputMode="decimal" value={s("rate")} onChange={(e) => set("rate", e.target.value)} /></Row>
+              )}
+              {lib?.billing !== false && (
+                <Row label="Invoices go to">
+                  <select className={field} value={s("client")} onChange={(e) => set("client", e.target.value)}>
+                    <option value="">The project's name</option>
+                    {[...new Set([...(lib?.clients ?? []), s("client")].filter(Boolean))].map((c) => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                  <button type="button" className="mt-1 text-[11px] text-faint underline-offset-2 hover:text-foreground hover:underline" onClick={() => go({ view: "settings" })}>
+                    Add or change clients in Settings
+                  </button>
+                </Row>
               )}
               <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={b("archived")} onChange={(e) => set("archived", e.target.checked)} /> Archived</label>
             </>

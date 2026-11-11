@@ -11,6 +11,12 @@ import { openShortcuts } from "@/components/Shortcuts";
 import { post, useApi, type Feature, type Settings as SettingsT } from "@/lib/api";
 import { getTheme, setTheme, type Theme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
+import { HoursPanel, InvoicePanel, PresetsPanel, useSave } from "@/views/SettingsForms";
+
+const SECTIONS: [string, string][] = [
+  ["features", "Features"], ["hours", "Work hours"], ["sessions", "Focus sessions"], ["invoices", "Invoices"],
+  ["privacy", "Never record"], ["page", "This page"], ["files", "Files"],
+];
 
 /** Settings: what tock choice turns on and off, grouped, the apps and sites
  *  tock never records, and how this page looks. Every switch writes
@@ -21,6 +27,7 @@ export default function Settings({ onChange }: { onChange: () => void }) {
   const [s, setS] = useState<SettingsT | null>(null);
   const [ask, setAsk] = useState<Feature | null>(null);
   useEffect(() => { if (data) setS(data); }, [data]);
+  const saveTo = useSave((x) => setS(x), onChange);
 
   async function save(f: Feature, on: boolean, quiet = false) {
     // Show it at once; the answer from the server is the truth.
@@ -57,15 +64,23 @@ export default function Settings({ onChange }: { onChange: () => void }) {
     <div className="mx-auto max-w-3xl space-y-5">
       <div className="flex items-baseline justify-between gap-4">
         <h1 className="text-xl font-semibold tracking-tight">Settings</h1>
-        <span className="text-xs text-muted-foreground">Saved as you go · the same as tock choice</span>
+        <span className="text-xs text-muted-foreground">Switches save at once; forms save with Save</span>
       </div>
+      <nav aria-label="Settings sections" className="-mt-2 flex flex-wrap gap-1">
+        {SECTIONS.map(([id, name]) => (
+          <a key={id} href={`#set-${id}`} onClick={(e) => (e.preventDefault(), document.getElementById(`set-${id}`)?.scrollIntoView({ block: "start" }))}
+            className="rounded-md border px-2 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            {name}
+          </a>
+        ))}
+      </nav>
       {s.configError && (
         <p className="rounded-lg border border-bad/40 px-4 py-3 text-sm text-bad">
           config.toml has an error, so nothing can be changed here until it is fixed: {s.configError}
         </p>
       )}
 
-      <Panel label="What tock does">
+      <Panel id="set-features" label="What tock does">
         <p className="-mt-1 mb-4 text-sm text-muted-foreground">
           Turn off a whole part of tock with its group: its settings below are kept and come back when you turn it on.
         </p>
@@ -91,16 +106,23 @@ export default function Settings({ onChange }: { onChange: () => void }) {
         </div>
       </Panel>
 
+      <HoursPanel hours={s.hours} save={saveTo} disabled={!!s.configError} />
+      <PresetsPanel presets={s.presets} max={s.maxSession} save={saveTo} disabled={!!s.configError} focusOff={byId("focus")?.on === false} />
+      {byId("billing")?.on !== false ? (
+        <InvoicePanel invoice={s.invoice} save={saveTo} disabled={!!s.configError} />
+      ) : (
+        <Panel id="set-invoices" label="Invoices"><p className="text-sm text-muted-foreground">Billing is off. Turn it on above to set your invoice details.</p></Panel>
+      )}
       <Privacy s={s} setS={setS} disabled={!!s.configError} />
       <Appearance />
 
-      <Panel label="Files">
+      <Panel id="set-files" label="Files">
         <div className="flex items-center gap-3">
           <code className="min-w-0 flex-1 truncate rounded-md bg-secondary px-2 py-1 text-xs">{s.configPath}</code>
           <Button variant="outline" size="sm" className="h-7 px-2.5 text-xs" onClick={() => copy(s.configPath)}><Copy className="h-3.5 w-3.5" />Copy path</Button>
         </div>
         <p className="mt-2 text-xs text-muted-foreground">
-          Everything else (hours, presets, notices, the invoice details) is set in this file; tock keeps your comments when it writes it.
+          Everything else (notice timings, the score's weights, blocking lists) is set in this file. tock keeps your comments when it writes it.
         </p>
       </Panel>
 
@@ -147,7 +169,7 @@ function Privacy({ s, setS, disabled }: { s: SettingsT; setS: (s: SettingsT) => 
     }
   }
   return (
-    <Panel label="Never record">
+    <Panel id="set-privacy" label="Never record">
       <p className="-mt-1 mb-4 text-sm text-muted-foreground">
         tock records these as private time only: no title, no URL, no screen text, never sent to Claude. Time already recorded stays as it was.
       </p>
@@ -197,7 +219,7 @@ function Appearance() {
   const [t, setT] = useState<Theme>(getTheme);
   const native = /tock-app/.test(navigator.userAgent);
   return (
-    <Panel label="This page">
+    <Panel id="set-page" label="This page">
       <div className="space-y-4">
         <div className="flex items-center gap-4">
           <div className="min-w-0 flex-1">

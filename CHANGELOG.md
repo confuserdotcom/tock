@@ -6,8 +6,10 @@ What changed for you in each release. Dates are UTC.
 
 ### Added
 - **Dashboard settings.** The gear in the top bar (or `,`) turns the
-  groups and features on and off as `tock choice` does, edits the apps and
-  sites tock never records, and picks the theme.
+  groups and features on and off as `tock choice` does, sets your work
+  hours, session lengths and invoice details (with clients, which a
+  project picks in the Library), edits the apps and sites tock never
+  records, and picks the theme. config.toml keeps its comments.
 - **Zoom.** The dashboard timeline zooms to a quarter of an hour (⌘-scroll,
   pinch, double click, shift-drag, or the − + buttons), with a strip of
   the whole day to drag. The tock window zooms with ⌘+, ⌘− and ⌘0 and

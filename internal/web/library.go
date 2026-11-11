@@ -25,6 +25,7 @@ type libProjectJSON struct {
 	Category   string   `json:"category"`
 	Aliases    []string `json:"aliases"`
 	Rate       *float64 `json:"rate,omitempty"` // left out while Billing is off
+	Client     string   `json:"client,omitempty"`
 	Archived   bool     `json:"archived"`
 	Last30MS   int64    `json:"last30MS"`
 	LastSeenMS int64    `json:"lastSeenMS"`
@@ -73,9 +74,13 @@ func (s *Server) library(r *http.Request) (any, error) {
 		Lookalikes []libDupJSON      `json:"lookalikes"`
 		Currency   string            `json:"currency"`
 		Billing    bool              `json:"billing"`
+		Clients    []string          `json:"clients"` // [[invoice.client]] names
 		NowMS      int64             `json:"nowMS"`
 	}{Categories: []libCategoryJSON{}, Projects: []libProjectJSON{}, Goals: []libGoalJSON{}, Lookalikes: []libDupJSON{},
-		Currency: s.a.Config().Invoice.Currency, Billing: s.a.Config().Billing.Enabled, NowMS: s.now().UnixMilli()}
+		Currency: s.a.Config().Invoice.Currency, Billing: s.a.Config().Billing.Enabled, Clients: []string{}, NowMS: s.now().UnixMilli()}
+	for _, c := range s.a.Config().Invoice.Clients {
+		out.Clients = append(out.Clients, c.Name)
+	}
 	for _, c := range lib.Categories {
 		out.Categories = append(out.Categories, libCategoryJSON{c.Name, c.Kind, c.AFKMS, !c.Quiet, c.Projects, c.Last30MS, c.LastSeenMS})
 	}
@@ -88,7 +93,7 @@ func (s *Server) library(r *http.Request) (any, error) {
 		if !out.Billing {
 			rate = nil
 		}
-		out.Projects = append(out.Projects, libProjectJSON{p.Name, p.Category, al, rate, p.Archived, p.Last30MS, p.LastSeenMS})
+		out.Projects = append(out.Projects, libProjectJSON{p.Name, p.Category, al, rate, p.Client, p.Archived, p.Last30MS, p.LastSeenMS})
 	}
 	for _, g := range lib.Goals {
 		out.Goals = append(out.Goals, libGoalJSON{g.Category, g.Project, g.Name(), g.Text(), g.AtMost, g.Week, g.MS})
@@ -163,15 +168,16 @@ func (s *Server) libProject(r *http.Request) (any, error) {
 		Category *string   `json:"category"`
 		Aliases  *[]string `json:"aliases"`
 		Rate     *float64  `json:"rate"`
+		Client   *string   `json:"client"`
 		Archived *bool     `json:"archived"`
 	}
 	if err := decode(r, &b); err != nil {
 		return nil, err
 	}
 	if !s.a.Config().Billing.Enabled {
-		b.Rate = nil // Billing is off: the rate is not shown, so it is not edited
+		b.Rate, b.Client = nil, nil // Billing is off: they are not shown, so not edited
 	}
-	spec := app.ProjectSpec{Name: b.Name, Category: b.Category, Aliases: b.Aliases, Rate: b.Rate, Archived: b.Archived}
+	spec := app.ProjectSpec{Name: b.Name, Category: b.Category, Aliases: b.Aliases, Rate: b.Rate, Client: b.Client, Archived: b.Archived}
 	switch b.Op {
 	case "add":
 		return s.undoable("added project "+b.Name, func() error {

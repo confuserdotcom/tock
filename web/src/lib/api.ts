@@ -160,10 +160,10 @@ export type Propose = {
 };
 export type Done = { spans: number; ms: number; label: string; note?: string };
 export type LibCategory = { name: string; kind: string; afkMS: number; interrupt: boolean; projects: number; last30MS: number; lastSeenMS: number };
-export type LibProject = { name: string; category: string; aliases: string[]; rate?: number | null; archived: boolean; last30MS: number; lastSeenMS: number };
+export type LibProject = { name: string; category: string; aliases: string[]; rate?: number | null; client?: string; archived: boolean; last30MS: number; lastSeenMS: number };
 export type LibGoal = { category: string; project: string; name?: string; text?: string; atMost: boolean; week: boolean; ms: number };
 export type LibDup = { kind: "category" | "project"; a: string; b: string };
-export type Library = { categories: LibCategory[]; projects: LibProject[]; goals: LibGoal[]; lookalikes: LibDup[]; currency: string; billing?: boolean; nowMS: number };
+export type Library = { categories: LibCategory[]; projects: LibProject[]; goals: LibGoal[]; lookalikes: LibDup[]; currency: string; billing?: boolean; clients?: string[]; nowMS: number };
 export type LibChange = { what: string; undo: boolean };
 
 export type Rule = {
@@ -183,4 +183,14 @@ export type Feature = {
   id: string; group: string; name: string; note: string; on: boolean; live: boolean;
   isGroup: boolean; needs?: string; waits: boolean;
 };
-export type Settings = { features: Feature[]; hideApps: string[]; hideSites: string[]; configPath: string; configError?: string };
+export type WorkHours = { set: boolean; start: string; end: string; days: string[] };
+export type InvoiceClient = { name: string; address: string[]; taxId: string };
+export type InvoiceDetails = {
+  name: string; address: string[]; currency: string; note: string; taxId: string;
+  round: string; roundMode: string; minorUnits: number; taxLabel: string; taxRate: string; taxNote: string;
+  clients: InvoiceClient[];
+};
+export type Settings = {
+  features: Feature[]; hideApps: string[]; hideSites: string[]; configPath: string; configError?: string;
+  hours: WorkHours; presets: number[]; maxSession: number; invoice: InvoiceDetails;
+};

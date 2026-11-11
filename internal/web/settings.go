@@ -3,6 +3,7 @@ package web
 import (
 	"fmt"
 	"net/http"
+	"regexp"
 	"strings"
 
 	"tock/internal/config"
@@ -136,6 +137,14 @@ func (s *Server) settingsHide(r *http.Request) (any, error) {
 	return s.settings(r)
 }
 
+// configReason is why a settings write was refused, without the
+// "config: save settings: config.toml:" chain in front.
+func configReason(err error) string {
+	return configPrefix.ReplaceAllString(err.Error(), "")
+}
+
+var configPrefix = regexp.MustCompile(`^(?:config: [a-z ]+: )*(?:config\.toml: )?`)
+
 var weekDays = []string{"mon", "tue", "wed", "thu", "fri", "sat", "sun"}
 
 func clockText(min int) string { return fmt.Sprintf("%02d:%02d", min/60, min%60) }
@@ -186,7 +195,7 @@ func invoiceOf(i config.Invoice) invoiceJSON {
 // that would not load is the user's input to fix, said as such.
 func (s *Server) saved(r *http.Request, save func(path string) error) (any, error) {
 	if err := save(s.a.ConfigPath()); err != nil {
-		return nil, badRequest(strings.TrimPrefix(strings.TrimPrefix(err.Error(), "config: save settings: "), "config: save invoice details: "))
+		return nil, badRequest(configReason(err))
 	}
 	if _, err := s.a.Reload(); err != nil {
 		return nil, err

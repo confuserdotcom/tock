@@ -97,6 +97,9 @@ func TestSettingsValues(t *testing.T) {
 	if code, b := post("/api/settings/hours", map[string]any{"set": true, "start": "18:00", "end": "09:00", "days": []string{"mon"}}); code != 400 || !strings.Contains(b, "not before end") {
 		t.Fatalf("bad hours: %d %s", code, b)
 	}
+	if code, b := post("/api/settings/invoice", map[string]any{"clients": []map[string]any{{"name": ""}}}); code != 400 || strings.Contains(b, "config") {
+		t.Fatalf("nameless client: %d %s", code, b)
+	}
 	if code, b := post("/api/settings/presets", map[string]any{"presets": []int{}}); code != 400 {
 		t.Fatalf("no presets: %d %s", code, b)
 	}
@@ -107,5 +110,14 @@ func TestSettingsValues(t *testing.T) {
 	f.get("/api/settings", &s)
 	if s.Hours.Set {
 		t.Fatalf("hours still set: %+v", s.Hours)
+	}
+
+	// A project picks one of the clients in the Library.
+	if code, b := post("/api/library/project", map[string]any{"op": "set", "name": "tock", "client": "Babbage & Co"}); code != 200 {
+		t.Fatalf("project client: %d %s", code, b)
+	}
+	_, _, lb := f.do("GET", "/api/library", testToken, nil)
+	if !strings.Contains(string(lb), `"client":"Babbage \u0026 Co"`) || !strings.Contains(string(lb), `"clients":["Babbage \u0026 Co"]`) {
+		t.Fatalf("library: %s", lb)
 	}
 }

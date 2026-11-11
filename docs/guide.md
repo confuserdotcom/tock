@@ -1025,8 +1025,14 @@ page to your browser and runs until you press ctrl-c.
 - **Settings** (the gear, or `,`): every switch of `tock choice`, by group,
   written to config.toml as you flip it, with **Undo**. A setting whose
   group is off says it waits for it. Turning Claude on asks first and says
-  what is sent. **Never record** edits `[privacy] hide_apps` and
-  `hide_sites`. The theme (system, dark or light) is kept in the window or
+  what is sent. **Work hours** sets `[hours]` (start, end and days;
+  off leaves `over_grace` and `over_repeat` as they are). **Focus
+  sessions** sets `[focus] presets`, the first being the default.
+  **Invoices** sets everything in `[invoice]` and the `[[invoice.client]]`
+  list (rewritten as one block at the end of the file, so comments inside
+  those tables go); a project picks its client in the Library. These forms
+  save with **Save** and refuse what config.toml would refuse, saying why.
+  **Never record** edits `[privacy] hide_apps` and `hide_sites`. The theme (system, dark or light) is kept in the window or
   browser.
 
 The top bar's date steps by the view's unit: a day on Today, a week on
