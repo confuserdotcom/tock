@@ -122,6 +122,13 @@ func runDaemon(o daemonOpts) int {
 	if truncErr != nil {
 		log.Warn("log rotation failed", "path", logPath, "err", truncErr)
 	}
+	for _, d := range []string{o.StateDir, o.DataDir} {
+		if changed, err := tightenDir(d); err != nil {
+			log.Warn("cannot close dir to other users", "dir", d, "err", err)
+		} else if changed {
+			log.Info("closed dir to other users (now 0700)", "dir", d)
+		}
+	}
 
 	release, err := acquireLock(filepath.Join(o.StateDir, "trackd.lock"))
 	if errors.Is(err, errLockHeld) {

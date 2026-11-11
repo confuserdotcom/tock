@@ -34,7 +34,7 @@ CODESIGN_TIMEOUT ?= 60
 # receives SIGALRM and exits 142 when it overruns.
 WITH_TIMEOUT = perl -e 'alarm shift; exec @ARGV or exit 127'
 
-.PHONY: dmg src formula dist-mac dist-linux web web-check icon release install-linux uninstall-linux deploy-linux build test test-quick vet clean bundle bundle-bar print-dr cert cert-trust dump dump-bg dump-stop install install-mac uninstall update update-here hooks publish-linux bootstrap-hint
+.PHONY: bench dmg src formula dist-mac dist-linux web web-check icon release install-linux uninstall-linux deploy-linux build test test-quick vet clean bundle bundle-bar print-dr cert cert-trust dump dump-bg dump-stop install install-mac uninstall update update-here hooks publish-linux bootstrap-hint
 
 build:
 	CGO_ENABLED=1 go build -ldflags "$(LDFLAGS)" -o bin/trackd ./cmd/trackd
@@ -49,6 +49,9 @@ test:
 	go build ./...
 	CGO_ENABLED=0 go test ./internal/span/... ./internal/store/... ./internal/classify/... ./internal/stats/... ./internal/focus/... ./internal/recommend/... ./internal/config/... ./internal/report/... ./internal/suggest/... ./internal/claude/... ./internal/app/... ./internal/tui/... ./internal/bar/... ./internal/service/... ./internal/update/... -count=1
 	go test ./... -count=1
+
+bench:
+	CGO_ENABLED=0 go test ./internal/span ./internal/app -run '^$$' -bench . -benchtime 100x
 
 vet:
 	go vet ./...
@@ -296,7 +299,7 @@ update-here:
 # update: update-here for the committed main, never the working tree: it
 # builds from a clean worktree. Does nothing when main is already installed.
 update:
-	@mkdir -p "$(TOCK_STATE)"; \
+	@umask 077; mkdir -p "$(TOCK_STATE)" && chmod 700 "$(TOCK_STATE)"; \
 	v=$$(git describe --always main) || exit 1; \
 	if [ "$$v" = "$$(cat "$(TOCK_STATE)/last-update" 2>/dev/null)" ]; then \
 		echo "update: $$v already installed"; exit 0; \

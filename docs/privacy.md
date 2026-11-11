@@ -36,8 +36,11 @@ window. Optional extras, each off until you turn it on:
 ## Files
 
 The data dir (`~/.local/share/tock`) and the state dir (`~/.local/state/tock`)
-are readable by you only (0700 folders, 0600 files). That covers the
-database, its snapshots in `backups/`, and the logs. Snapshots and `tock
+are readable by you only (0700 folders, 0600 files); trackd closes either
+folder to other users at start if it finds it open. That covers the
+database, its snapshots in `backups/`, the logs, and the invoice previews
+and week reports tock writes for you (`drafts/`, `reports/` in the state
+dir). Snapshots and `tock
 backup` archives hold your titles and URLs too, so keep them out of git and
 shared folders.
 
