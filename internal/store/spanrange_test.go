@@ -135,3 +135,30 @@ func TestRangeReadsDontTakeWriteLock(t *testing.T) {
 		t.Fatalf("range reads waited %v for the write lock", d)
 	}
 }
+
+// SpanMarks is read with every day too: its span side must be bounded.
+func TestSpanMarksFindsLongSpans(t *testing.T) {
+	s := openAt(t, dbPath(t))
+	defer s.Close()
+	const h = 3600_000
+	apply(t, s,
+		span.Op{Kind: span.OpOpen, Span: span.Span{ID: 1, Start: 0, BundleID: "a", App: "A", Title: strp("x")}},
+		span.Op{Kind: span.OpClose, ID: 1, TS: 10 * h},
+		span.Op{Kind: span.OpOpen, Span: span.Span{ID: 2, Start: 30 * h, BundleID: "b", App: "B"}},
+	)
+	if _, err := s.db.Exec(`INSERT INTO override(span_id, category, at) VALUES (1, 'Code', 1), (2, 'Mail', 1)`); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range []struct {
+		from, to int64
+		want     int
+	}{{9 * h, 9*h + 1, 1}, {100 * h, 101 * h, 2}, {11 * h, 12 * h, 0}} {
+		m, err := s.SpanMarks(c.from, c.to, 200*h)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if (c.want == 0 && len(m) != 0) || (c.want != 0 && (len(m) != 1 || m[0].SpanID != int64(c.want))) {
+			t.Errorf("SpanMarks(%d h) = %+v, want span %d", c.from/h, m, c.want)
+		}
+	}
+}

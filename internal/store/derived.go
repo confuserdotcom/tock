@@ -75,11 +75,11 @@ func (s *Store) SpanMarks(from, to, openMS int64) ([]SpanMark, error) {
 	rows, err := s.db.Query(`
 		SELECT o.span_id, s.start, coalesce(s."end", ?1), 0, coalesce(o.category, ''), coalesce(o.project, '')
 		FROM override o JOIN span s ON s.id = o.span_id
-		WHERE s.start < ?3 AND coalesce(s."end", ?1) > ?2
+		WHERE s.start < ?3 AND s.start >= `+spanLowSQL+` AND coalesce(s."end", ?1) > ?2
 		UNION ALL
 		SELECT k.span_id, s.start, coalesce(s."end", ?1), 1, k.category, k.project
 		FROM kept k JOIN span s ON s.id = k.span_id
-		WHERE s.start < ?3 AND coalesce(s."end", ?1) > ?2
+		WHERE s.start < ?3 AND s.start >= `+spanLowSQL+` AND coalesce(s."end", ?1) > ?2
 		ORDER BY 1, 4`, openMS, from, to)
 	if err != nil {
 		return nil, fmt.Errorf("store: span marks: %w", err)

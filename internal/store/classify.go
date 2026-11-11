@@ -23,6 +23,16 @@ type Kept struct {
 	Category, Project string
 }
 
+// spanLowSQL is the earliest start a span overlapping [?2, …) can have:
+// ?2 minus the longest closed span (span_len makes that one index lookup),
+// or the oldest open span's start if that is earlier. Range reads put
+// "start >= spanLowSQL" next to "start < to" so the span_start index bounds
+// the scan on both sides. (?2 - max can overflow to a REAL for AllSpans'
+// math.MinInt64; it then lies below every start, which is right.)
+const spanLowSQL = `(SELECT min(
+			?2 - max(coalesce((SELECT max("end" - start) FROM span), 0), 0),
+			coalesce((SELECT min(start) FROM span WHERE "end" IS NULL), ?2)))`
+
 // spansQuery reads the spans overlapping [?2, ?1). The scalar subquery
 // bounds start from below by ?2 minus the longest closed span (span_len makes
 // that one index lookup) or the oldest open span's start, whichever is
@@ -33,9 +43,7 @@ type Kept struct {
 const spansQuery = `SELECT id, start, "end", bundle_id, app, title, url, private,
 		kept.span_id IS NOT NULL, coalesce(kept.category, ''), coalesce(kept.project, '')
 		FROM span LEFT JOIN kept ON kept.span_id = span.id
-		WHERE start < ?1 AND start >= (SELECT min(
-			?2 - max(coalesce((SELECT max("end" - start) FROM span), 0), 0),
-			coalesce((SELECT min(start) FROM span WHERE "end" IS NULL), ?2)))
+		WHERE start < ?1 AND start >= ` + spanLowSQL + `
 		AND ("end" IS NULL OR "end" > ?2) ORDER BY start, id`
 
 // Spans returns the spans overlapping [from, to), ordered by start.
