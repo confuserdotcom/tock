@@ -179,11 +179,19 @@ func (a *App) IssueInvoice(s InvoiceSpec) (store.Invoice, error) {
 	return inv, err
 }
 
+// InvoiceLocation is the zone an invoice's days and dates are in: the one
+// it was issued in, or fallback when that has no IANA name (a fixed zone).
+// The PDF, check, show and list all use it, so they print the same dates.
+func InvoiceLocation(inv store.Invoice, fallback *time.Location) *time.Location {
+	if l, err := time.LoadLocation(inv.TZ); err == nil {
+		return l
+	}
+	return fallback
+}
+
 // invoiceDoc is what an invoice row shows on paper.
 func invoiceDoc(r store.Invoice, loc *time.Location) report.Invoice {
-	if l, err := time.LoadLocation(r.TZ); err == nil {
-		loc = l
-	}
+	loc = InvoiceLocation(r, loc)
 	lines := make([]report.BillLine, len(r.Lines))
 	for i, l := range r.Lines {
 		lines[i] = report.BillLine{Day: l.Day, SecondsRaw: l.SecondsRaw, SecondsBilled: l.SecondsBilled, AmountMinor: l.AmountMinor}
@@ -283,10 +291,7 @@ func (a *App) CheckInvoice(number string) (InvoiceCheck, error) {
 	if err != nil {
 		return InvoiceCheck{}, err
 	}
-	loc := a.now().Location()
-	if l, err := time.LoadLocation(inv.TZ); err == nil {
-		loc = l
-	}
+	loc := InvoiceLocation(inv, a.now().Location())
 	name := a.rs.CurrentName(classify.NameProject, inv.Project)
 	if name == "" {
 		name = inv.Project

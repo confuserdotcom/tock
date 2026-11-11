@@ -15,14 +15,18 @@ import (
 func writeOwn(env Env, dir, name string, data []byte) (string, error) {
 	d := filepath.Join(env.StateDir, dir)
 	if err := os.MkdirAll(d, 0o700); err != nil {
-		return "", fmt.Errorf("tock: %s: %w", dir, err)
+		return "", fmt.Errorf("%s: %w", d, err)
 	}
-	if err := os.Chmod(d, 0o700); err != nil { // made earlier with a looser mode
-		return "", fmt.Errorf("tock: %s: %w", dir, err)
+	// Made earlier with a looser mode: close it. A symlink you put there is
+	// yours to manage, and is left alone.
+	if fi, err := os.Lstat(d); err == nil && fi.IsDir() && fi.Mode().Perm()&0o077 != 0 {
+		if err := os.Chmod(d, 0o700); err != nil {
+			return "", fmt.Errorf("%s: %w", d, err)
+		}
 	}
 	f, err := os.CreateTemp(d, ".tmp-*") // 0600
 	if err != nil {
-		return "", fmt.Errorf("tock: write %s: %w", name, err)
+		return "", fmt.Errorf("write %s: %w", filepath.Join(d, name), err)
 	}
 	tmp := f.Name()
 	defer os.Remove(tmp) // gone already after a successful rename
@@ -34,11 +38,11 @@ func writeOwn(env Env, dir, name string, data []byte) (string, error) {
 		err = cerr
 	}
 	if err != nil {
-		return "", fmt.Errorf("tock: write %s: %w", name, err)
+		return "", fmt.Errorf("write %s: %w", filepath.Join(d, name), err)
 	}
 	path := filepath.Join(d, name)
 	if err := os.Rename(tmp, path); err != nil {
-		return "", fmt.Errorf("tock: write %s: %w", name, err)
+		return "", fmt.Errorf("write %s: %w", filepath.Join(d, name), err)
 	}
 	return path, nil
 }

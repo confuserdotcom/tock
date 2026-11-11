@@ -244,7 +244,7 @@ func (a *App) checkProject(p ProjectSpec) (ProjectSpec, error) {
 	if p.Rate != nil && (math.IsNaN(*p.Rate) || *p.Rate > classify.MaxRate) {
 		return p, fmt.Errorf("rate %s, want 0 to %d", rateValue(*p.Rate), classify.MaxRate)
 	}
-	if p.Rate != nil && *p.Rate >= 0 {
+	if p.Rate != nil && *p.Rate >= 0 && !a.sameRate(p.Name, *p.Rate) {
 		if _, err := report.RateMinor(*p.Rate, a.cfg.Invoice.MinorUnits); err != nil {
 			return p, fmt.Errorf("rate %s has more decimals than [invoice] minor_units = %d", rateValue(*p.Rate), a.cfg.Invoice.MinorUnits)
 		}
@@ -257,6 +257,18 @@ func (a *App) checkProject(p ProjectSpec) (ProjectSpec, error) {
 		p.Client = &c
 	}
 	return p, nil
+}
+
+// sameRate reports whether project name already has rate: the Library
+// sends the rate with every save, and a rate set before minor_units was
+// lowered must not block an edit of the aliases.
+func (a *App) sameRate(name string, rate float64) bool {
+	for _, p := range a.rs.Projects {
+		if strings.EqualFold(p.Name, strings.TrimSpace(name)) {
+			return p.Rate != nil && *p.Rate == rate
+		}
+	}
+	return false
 }
 
 // AddProject declares a new project; with a category it is a module.

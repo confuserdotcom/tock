@@ -33,13 +33,10 @@ const spanLowSQL = `(SELECT min(
 			?2 - max(coalesce((SELECT max("end" - start) FROM span), 0), 0),
 			coalesce((SELECT min(start) FROM span WHERE "end" IS NULL), ?2)))`
 
-// spansQuery reads the spans overlapping [?2, ?1). The scalar subquery
-// bounds start from below by ?2 minus the longest closed span (span_len makes
-// that one index lookup) or the oldest open span's start, whichever is
-// earlier. Without it the span_start index bounds the scan only from above,
-// and every read walks all history before the range. One statement reads one
-// snapshot, so it needs no transaction (and the store's transactions are
-// BEGIN IMMEDIATE: a read in one would take the write lock).
+// spansQuery reads the spans overlapping [?2, ?1), with start bounded from
+// below by spanLowSQL. One statement reads one snapshot, so it needs no
+// transaction (and the store's transactions are BEGIN IMMEDIATE: a read in
+// one would take the write lock).
 const spansQuery = `SELECT id, start, "end", bundle_id, app, title, url, private,
 		kept.span_id IS NOT NULL, coalesce(kept.category, ''), coalesce(kept.project, '')
 		FROM span LEFT JOIN kept ON kept.span_id = span.id

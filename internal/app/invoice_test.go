@@ -231,6 +231,13 @@ func TestInvoiceRefusals(t *testing.T) {
 	if _, err := a.DraftInvoice(InvoiceSpec{Project: "Acme", From: day, To: day}); err == nil || !strings.Contains(err.Error(), "decimals") {
 		t.Fatalf("fine rate: %v", err)
 	}
+	// The Library sends the stored rate with every save: an edit that keeps
+	// it goes through.
+	als := []string{"ac"}
+	if err := a.EditProject(ProjectSpec{Name: "Acme", Rate: &fine, Aliases: &als}); err != nil {
+		t.Fatalf("edit keeping the stored rate: %v", err)
+	}
+	a = reopen(t, a, e)
 	// The project's client is used unless one is given.
 	two := 95.5
 	if err := a.EditProject(ProjectSpec{Name: "Acme", Rate: &two}); err != nil {

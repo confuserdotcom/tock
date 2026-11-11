@@ -326,8 +326,10 @@ func invoiceList(env Env, a *app.App, args []string) error {
 		fmt.Fprintln(env.Stdout, "no invoices issued yet")
 		return nil
 	}
-	loc := env.Now().Location()
-	day := func(ms int64) string { return time.UnixMilli(ms).In(loc).Format("2006-01-02") }
+	// Each invoice's dates in its own zone, as its PDF and show print them.
+	day := func(i store.Invoice, ms int64) string {
+		return time.UnixMilli(ms).In(app.InvoiceLocation(i, env.Now().Location())).Format("2006-01-02")
+	}
 	replacedBy := map[string]string{}
 	for _, i := range list {
 		if i.Supersedes != "" {
@@ -335,10 +337,10 @@ func invoiceList(env Env, a *app.App, args []string) error {
 		}
 	}
 	for _, i := range list {
-		fmt.Fprintf(env.Stdout, "%s  %-6s  %s  %-14s  %-14s  %s to %s  %s\n", i.Number, i.Status, day(i.IssuedMS), i.Project, i.ClientName,
-			day(i.PeriodFromMS), day(i.PeriodToMS-1), money(i.TotalMinor, i))
+		fmt.Fprintf(env.Stdout, "%s  %-6s  %s  %-14s  %-14s  %s to %s  %s\n", i.Number, i.Status, day(i, i.IssuedMS),
+			report.Safe(i.Project), report.Safe(i.ClientName), day(i, i.PeriodFromMS), day(i, i.PeriodToMS-1), money(i.TotalMinor, i))
 		if i.Status == store.InvoiceVoid {
-			fmt.Fprintf(env.Stdout, "            void: %s\n", i.VoidReason)
+			fmt.Fprintf(env.Stdout, "            void: %s\n", report.Safe(i.VoidReason))
 		}
 		if i.Supersedes != "" {
 			fmt.Fprintf(env.Stdout, "            replaces %s\n", i.Supersedes)
@@ -408,10 +410,7 @@ func invoiceShow(env Env, a *app.App, args []string) error {
 func printInvoice(env Env, inv store.Invoice) {
 	w := env.Stdout
 	// Dates in the zone the invoice was issued in, as its PDF prints them.
-	loc, err := time.LoadLocation(inv.TZ)
-	if err != nil {
-		loc = env.Now().Location() // a zone with no IANA name: the days were this machine's
-	}
+	loc := app.InvoiceLocation(inv, env.Now().Location())
 	issued := time.UnixMilli(inv.IssuedMS).In(loc).Format("2006-01-02")
 	fmt.Fprintf(w, "%s  %s %s", inv.Number, inv.Status, issued)
 	if inv.Status == store.InvoiceVoid {
