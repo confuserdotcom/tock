@@ -7,8 +7,10 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/BurntSushi/toml"
 )
@@ -107,6 +109,9 @@ type Rule struct {
 	// Quiet is interrupt = false: the category this rule sets never triggers
 	// a distraction notice for views the rule labelled.
 	Quiet bool
+	// SinceMS is since = <date>: the rule matches only views that start at
+	// or after it, so a rule added today need not relabel the past. 0 = always.
+	SinceMS int64
 
 	app, title, url, dir *regexp.Regexp
 }
@@ -157,6 +162,9 @@ func (r *Rule) compile() error {
 // matches reports whether every match field the rule sets matches v. clean
 // is Clean(*v.Title), precomputed by the caller.
 func (r *Rule) matches(v *SpanView, clean string) bool {
+	if v.Start < r.SinceMS {
+		return false
+	}
 	if len(r.Bundle) > 0 {
 		ok := false
 		for _, b := range r.Bundle {
@@ -211,6 +219,7 @@ type Ruleset struct {
 	catByLower  map[string]Category
 	projByLower map[string]Project
 	quietRules  map[string]bool // Rule.Ref() of every rule marked interrupt = false
+	eras        []int64         // sorted distinct Rule.SinceMS (see era)
 
 	mu   sync.Mutex
 	memo map[memoKey]Label
@@ -230,6 +239,8 @@ type ruleTOML struct {
 	Project  string   `toml:"project"`
 	// Interrupt is interrupt = false (quiet) or true (the default).
 	Interrupt *bool `toml:"interrupt"`
+	// Since is a TOML date or datetime; one without an offset is local time.
+	Since any `toml:"since"`
 }
 
 type rulesTOML struct {
@@ -460,6 +471,7 @@ func Parse(rulesData, learnedData []byte) (*Ruleset, error) {
 	if rs.Goals, err = rs.buildGoals(rf.Goal); err != nil {
 		return nil, err
 	}
+	rs.buildEras()
 	return rs, nil
 }
 
@@ -496,12 +508,65 @@ func (rs *Ruleset) buildRules(file string, in []ruleTOML) ([]Rule, error) {
 		if err := r.compile(); err != nil {
 			return nil, fail("%v", err)
 		}
+		if t.Since != nil {
+			ms, err := sinceMS(t.Since)
+			if err != nil {
+				return nil, fail("%v", err)
+			}
+			r.SinceMS = ms
+		}
 		if r.Quiet {
 			rs.quietRules[r.Ref()] = true
 		}
 		out = append(out, r)
 	}
 	return out, nil
+}
+
+// sinceMS converts a decoded since value. TOML local dates and datetimes
+// (no offset) are read as wall-clock time in the local zone on that date,
+// so DST is honoured; a datetime with an offset is that instant.
+func sinceMS(v any) (int64, error) {
+	t, ok := v.(time.Time)
+	if !ok {
+		return 0, fmt.Errorf("since %v: want a date like 2026-11-20 or 2026-11-20T14:05:00", v)
+	}
+	if n := t.Location().String(); n == "datetime-local" || n == "date-local" {
+		t = time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), time.Local)
+	}
+	if t.Year() < 2000 || t.Year() > 9999 {
+		return 0, fmt.Errorf("since %s: year out of range", t.Format(time.DateOnly))
+	}
+	return t.UnixMilli(), nil
+}
+
+// buildEras collects the distinct since values of every rule, sorted. A
+// view's era is how many of them it starts at or after; the label memo keys
+// on it, so one title can label differently before and after a date. With
+// no dated rule every view is era 0.
+func (rs *Ruleset) buildEras() {
+	seen := map[int64]bool{}
+	for _, set := range [][]Rule{rs.Learned, rs.Rules} {
+		for _, r := range set {
+			if r.SinceMS != 0 && !seen[r.SinceMS] {
+				seen[r.SinceMS] = true
+				rs.eras = append(rs.eras, r.SinceMS)
+			}
+		}
+	}
+	slices.Sort(rs.eras)
+}
+
+// era is the number of since dates at or before start.
+func (rs *Ruleset) era(start int64) int {
+	if len(rs.eras) == 0 {
+		return 0
+	}
+	n, found := slices.BinarySearch(rs.eras, start)
+	if found {
+		n++
+	}
+	return n
 }
 
 // quiet reports whether a label with this category, set by the rule ref

@@ -5,13 +5,14 @@ import { addDays, isoDate, monthTitle, parseDate } from "./format";
 export type Part = { field: string; value: string };
 
 /** parts lists what a rule matches, in the order the sheet shows them. */
-export function parts(r: Pick<Rule, "bundle" | "app" | "title" | "url" | "dir">): Part[] {
+export function parts(r: Pick<Rule, "bundle" | "app" | "title" | "url" | "dir"> & { since?: string }): Part[] {
   const out: Part[] = [];
   if (r.bundle.length) out.push({ field: "Bundle", value: r.bundle.join(", ") });
   if (r.app) out.push({ field: "App", value: r.app });
   if (r.url) out.push({ field: "Site", value: r.url });
   if (r.title) out.push({ field: "Title", value: r.title });
   if (r.dir) out.push({ field: "Folder", value: r.dir });
+  if (r.since) out.push({ field: "From", value: r.since });
   return out;
 }
 

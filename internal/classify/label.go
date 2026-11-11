@@ -50,6 +50,7 @@ type memoKey struct {
 	dir                      string
 	hasTitle, hasURL, hasDir bool
 	private                  bool
+	era                      int // see Ruleset.era; 0 without dated rules
 }
 
 // Label classifies v. Idle spans get an empty label. o may be nil.
@@ -168,8 +169,8 @@ func (rs *Ruleset) keptLabel(v *SpanView) Label {
 
 func (rs *Ruleset) ruleLabel(v *SpanView) Label {
 	// The memo is keyed on the raw title: cleaning it costs more than the
-	// lookup, and the label depends on nothing else.
-	k := memoKey{bundle: v.BundleID, app: v.App, private: v.Private}
+	// lookup, and the label depends on nothing else but the era.
+	k := memoKey{bundle: v.BundleID, app: v.App, private: v.Private, era: rs.era(v.Start)}
 	if v.Title != nil {
 		k.title, k.hasTitle = *v.Title, true
 	}

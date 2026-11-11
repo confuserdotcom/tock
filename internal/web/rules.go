@@ -27,6 +27,7 @@ type ruleJSON struct {
 	MatchedMS   int64    `json:"matchedMS"`
 	DecidedMS   int64    `json:"decidedMS"`
 	Status      string   `json:"status"`
+	Since       string   `json:"since,omitempty"` // local "2026-11-20 14:05"; "" = always
 }
 
 // rulesList is every rule in check order (learned first) with what it
@@ -54,7 +55,7 @@ func (s *Server) rulesList(r *http.Request) (any, error) {
 			kind = rs.Kind(rs.ProjectCategory(x.Project))
 		}
 		out.Rules = append(out.Rules, ruleJSON{x.File, x.Index, x.Fingerprint(), x.File == classify.LearnedFile, b,
-			x.App, x.Title, x.URL, x.Dir, x.Category, x.Project, kind, st.MatchedMS, st.DecidedMS, st.Status()})
+			x.App, x.Title, x.URL, x.Dir, x.Category, x.Project, kind, st.MatchedMS, st.DecidedMS, st.Status(), sinceShown(x.SinceMS)})
 	}
 	return out, nil
 }
@@ -248,4 +249,12 @@ func (s *Server) invoiceIssue(r *http.Request) (any, error) {
 		Total    float64 `json:"total"`
 		Currency string  `json:"currency"`
 	}{inv.Number, total, inv.Currency}, nil
+}
+
+// sinceShown is a rule's since as the Library shows it, "" when it has none.
+func sinceShown(ms int64) string {
+	if ms == 0 {
+		return ""
+	}
+	return classify.SinceShort(ms)
 }

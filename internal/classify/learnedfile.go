@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 const learnedHeader = `# tock learned rules: written by ` + "`tock tag`" + `, checked before rules.toml.
@@ -57,7 +58,21 @@ func renderRule(r Rule, comment string) string {
 			fmt.Fprintf(&b, "%s = %s\n", f.k, tomlString(f.v))
 		}
 	}
+	if r.SinceMS != 0 {
+		fmt.Fprintf(&b, "since = %s\n", SinceText(r.SinceMS))
+	}
 	return b.String() + "\n"
+}
+
+// SinceShort is ms as people read it: "2026-11-20 14:05", local time.
+func SinceShort(ms int64) string {
+	return time.UnixMilli(ms).In(time.Local).Format("2006-01-02 15:04")
+}
+
+// SinceText is ms as a rule's since value: a TOML local datetime in the
+// local zone, to the second.
+func SinceText(ms int64) string {
+	return time.UnixMilli(ms).In(time.Local).Format("2006-01-02T15:04:05")
 }
 
 // AppendLearnedText is old, the learned file's content, with r added as

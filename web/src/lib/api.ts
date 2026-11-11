@@ -170,6 +170,7 @@ export type Rule = {
   file: string; index: number; fingerprint: string; learned: boolean; bundle: string[];
   app: string; title: string; url: string; dir: string; category: string; project: string; kind: string;
   matchedMS: number; decidedMS: number; status: "" | "unused" | "shadowed";
+  since?: string; // local "2026-11-20 14:05": the rule labels only time from then on
 };
 export type Rules = { rules: Rule[]; days: number };
 export type RuleExample = { text: string; ms: number; from: string; to: string };

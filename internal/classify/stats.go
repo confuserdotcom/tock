@@ -43,6 +43,7 @@ func (rs *Ruleset) Stats(views []SpanView, labels []Label) []RuleStat {
 			continue
 		}
 		k, clean := keyOf(v)
+		k.era = rs.era(v.Start)
 		g := groups[k]
 		if g == nil {
 			g = &group{v: v, clean: clean}

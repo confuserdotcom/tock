@@ -141,6 +141,9 @@ func cmdRulesStats(env Env, args []string) error {
 		}
 		line := fmt.Sprintf("%-4s %6s  %s  %s", ref, dur,
 			report.Pad(report.Safe(report.LabelText(s.Rule.Category, s.Rule.Project)), 20), report.Safe(s.Rule.Describe()))
+		if s.Rule.SinceMS != 0 {
+			line += "  from " + classify.SinceShort(s.Rule.SinceMS)
+		}
 		switch s.Status() {
 		case classify.StatusUnused:
 			line += "  unused"

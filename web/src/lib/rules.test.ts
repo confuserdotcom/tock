@@ -32,3 +32,10 @@ test("periods start with the month before", () => {
   expect(p[2]).toEqual({ label: "This week", from: "2026-11-02", to: "2026-11-08" });
   expect(periods("2026-01-05")[0]).toMatchObject({ from: "2025-12-01", to: "2025-12-31" });
 });
+
+test("parts shows a dated rule's start last", () => {
+  expect(parts({ ...base, title: "acme", since: "2026-11-20 14:05" })).toEqual([
+    { field: "Title", value: "acme" },
+    { field: "From", value: "2026-11-20 14:05" },
+  ]);
+});
