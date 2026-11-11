@@ -57,6 +57,7 @@ type Model struct {
 
 	width, height int
 	tab           int
+	noFocus       bool // the Focus group is off: no focus tab
 	health        app.Health
 	healthErr     error
 	inbox         inboxTab
@@ -116,6 +117,7 @@ type tickMsg struct{}
 
 // loadedMsg carries one refresh.
 type loadedMsg struct {
+	noFocus   bool // the Focus group is off
 	health    app.Health
 	healthErr error
 	items     []classify.Item
@@ -162,6 +164,7 @@ func (m *Model) load() tea.Cmd {
 		src.do(func(a *app.App) {
 			a.Reload() // a failure is kept in RulesErr and shown in the banner
 			msg.planCfg = a.Config().Plan
+			msg.noFocus = !a.Config().Focus.Enabled
 			msg.health, msg.healthErr = a.Health()
 			f, err := a.Focus(now)
 			if err != nil {
@@ -260,6 +263,10 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(m.reload(), m.schedule())
 	case loadedMsg:
 		m.loading = false
+		m.noFocus, m.today.noFocus = msg.noFocus, msg.noFocus
+		if m.noFocus && m.tab == tabFocus {
+			m.tab = tabToday
+		}
 		m.health, m.healthErr = msg.health, msg.healthErr
 		if msg.err != nil {
 			m.setFlash("load failed: "+msg.err.Error(), true)
@@ -412,9 +419,9 @@ func (m Model) key(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "1", "2", "3", "4", "5", "6", "7":
 		return m.switchTab(int(k[0] - '1'))
 	case "tab":
-		return m.switchTab((m.tab + 1) % numTabs)
+		return m.switchTab(m.nextTab(1))
 	case "shift+tab":
-		return m.switchTab((m.tab + numTabs - 1) % numTabs)
+		return m.switchTab(m.nextTab(numTabs - 1))
 	}
 	switch m.tab {
 	case tabToday:
@@ -433,7 +440,20 @@ func (m Model) key(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	return m.inboxKey(k)
 }
 
+// nextTab is the shown tab step tabs after the open one.
+func (m Model) nextTab(step int) int {
+	t := (m.tab + step) % numTabs
+	if t == tabFocus && m.noFocus {
+		t = (t + step) % numTabs
+	}
+	return t
+}
+
 func (m Model) switchTab(tab int) (tea.Model, tea.Cmd) {
+	if tab == tabFocus && m.noFocus {
+		m.setFlash("Focus is off · tock choice focus on", false)
+		return m, nil
+	}
 	if tab == m.tab {
 		return m, nil
 	}
@@ -586,6 +606,9 @@ func (m Model) tabNames() []string {
 	if n := m.inbox.count(); n > 0 {
 		names[tabInbox] = "inbox " + superscript(n)
 	}
+	if m.noFocus {
+		names[tabFocus] = "" // not shown
+	}
 	return names
 }
 
@@ -604,6 +627,9 @@ func (m Model) header() string {
 	names := m.tabNames()
 	parts := []string{sBrand.Bold(true).Render("tock")}
 	for i, n := range names {
+		if n == "" {
+			continue
+		}
 		id := "tab:" + fmt.Sprint(i)
 		switch {
 		case i == m.tab:

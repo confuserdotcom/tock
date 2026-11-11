@@ -76,6 +76,10 @@ func goTab(tab int) func(m Model) (tea.Model, tea.Cmd) {
 
 func startN(n int) func(m Model) (tea.Model, tea.Cmd) {
 	return func(m Model) (tea.Model, tea.Cmd) {
+		if m.noFocus {
+			m.setFlash("Focus is off · tock choice focus on", false)
+			return m, nil
+		}
 		if m.focus.data.Open != nil {
 			m.setFlash("a session is already running · x stops it", true)
 			return m, nil

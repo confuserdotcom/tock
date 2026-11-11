@@ -102,6 +102,16 @@ func (t *todayTab) hero(w int, now time.Time) []string {
 		num = fmt.Sprint(sc.Value)
 	}
 	left := " " + z("key:i", band.Bold(true).Render(num)+"  "+sDim.Render("score")+"  "+band.Render(word))
+	mw := min(24, max(w/5, 8))
+	right := sBright.Render(report.Dur(st.FocusMS)) + sDim.Render(" focus of "+report.Dur(sc.Target.MS)) +
+		"  " + meter(st.FocusMS, sc.Target.MS, mw, sBrand) + " "
+	if t.noFocus {
+		// No score and no focus target: the deep time (line 2 has the rest).
+		left, right = " "+sBright.Render(report.Dur(st.FocusMS))+sDim.Render(" deep work"), ""
+		if d.Off {
+			left += sFaint.Render("  · ") + sDim.Render("day off")
+		}
+	}
 	if d.Work.Set && !d.Off {
 		hours := "hours " + report.HoursText(d)
 		if d.OutsideMS >= 60_000 {
@@ -109,9 +119,6 @@ func (t *todayTab) hero(w int, now time.Time) []string {
 		}
 		left += sFaint.Render("  · ") + sDim.Render(hours)
 	}
-	mw := min(24, max(w/5, 8))
-	right := sBright.Render(report.Dur(st.FocusMS)) + sDim.Render(" focus of "+report.Dur(sc.Target.MS)) +
-		"  " + meter(st.FocusMS, sc.Target.MS, mw, sBrand) + " "
 	line1 := spread(left, right, w)
 
 	title := "Today"

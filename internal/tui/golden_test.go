@@ -25,6 +25,25 @@ func TestGoldenToday(t *testing.T) {
 	golden.RequireEqual(t, screen(m))
 }
 
+// AC7: Focus off: no focus tab, no score, no focus meter.
+func TestGoldenTodayFocusOff(t *testing.T) {
+	m, e := seeded(t)
+	e.WriteConfig(t, "[focus]\nenabled = false\n")
+	e.Heartbeat(t, e.Clock.UnixMilli())
+	m = step(t, m, tickMsg{})
+	golden.RequireEqual(t, screen(m))
+	m = step(t, m, key("4"))
+	if m.tab != tabToday {
+		t.Fatalf("4 opened tab %d with focus off", m.tab)
+	}
+	m = step(t, m, key("tab"))
+	m = step(t, m, key("tab"))
+	m = step(t, m, key("tab"))
+	if m.tab != tabRules {
+		t.Fatalf("tab x3 = %d, want rules (focus skipped)", m.tab)
+	}
+}
+
 // Time trackd did not record shows as its own line, with why; the
 // timeline and the totals are the recorded ones.
 func TestGoldenTodayOutage(t *testing.T) {

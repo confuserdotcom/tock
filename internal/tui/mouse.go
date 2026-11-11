@@ -253,6 +253,9 @@ func (m Model) clickRowSelect(i int) (Model, tea.Cmd, bool) {
 func (m Model) tabAt(x int) (int, bool) {
 	at := ansi.StringWidth("tock") + len(headerGap)
 	for i, n := range m.tabNames() {
+		if n == "" {
+			continue
+		}
 		w := ansi.StringWidth(n)
 		if i == m.tab {
 			w += 2 // the pill's padding

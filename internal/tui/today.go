@@ -15,6 +15,7 @@ import (
 
 // todayTab shows one day: stats, heatmap, category bars and the timeline.
 type todayTab struct {
+	noFocus   bool      // the Focus group is off: no score or focus meter
 	date      time.Time // midnight of the shown day; zero = follow today
 	day       report.Day
 	loaded    bool
