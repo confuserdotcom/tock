@@ -126,6 +126,7 @@ Extras (optional; some need a setting, Claude or Slack):
   tock slack [login | logout | status]   Slack status and do-not-disturb during focus sessions
 
 Names match on a unique prefix: "tock tag 2 stu/atl". "/Project" sets only the project.
+tock <command> --help shows one command.
 `
 
 // Env is everything a command touches outside the process, so tests can
@@ -313,6 +314,10 @@ func run(args []string, env Env) int {
 			fmt.Fprintf(env.Stderr, "tock: unknown command %q\n%s", args[0], usage)
 			return 2
 		}
+		if wantsHelp(args[1:]) {
+			fmt.Fprint(env.Stdout, commandHelp(args[0]))
+			return 0
+		}
 		err = cmd(env, args[1:])
 	}
 	var ue usageError
@@ -326,7 +331,11 @@ func run(args []string, env Env) int {
 		}
 		return es.code
 	case errors.As(err, &ue):
-		fmt.Fprintf(env.Stderr, "tock: %v\n%s", err, usage)
+		name := ""
+		if len(args) > 0 {
+			name = args[0]
+		}
+		fmt.Fprintf(env.Stderr, "tock: %v\n%s", err, helpFor(name, err))
 		return 2
 	}
 	fmt.Fprintf(env.Stderr, "tock: %v\n", err)
