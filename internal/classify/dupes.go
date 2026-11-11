@@ -128,7 +128,8 @@ type Merged struct {
 // [[kind]] table named from is dropped from rules.toml, and every
 // `kind = "from"` value in rules.toml and learned.toml becomes to. The
 // result must parse with one name fewer, or nothing changes. A project
-// with repos or a rate is refused, so neither is lost.
+// with repos, a rate, a client or a billable flag is refused, so none is
+// lost.
 func MergeNames(rulesData, learnedData []byte, kind, from, to string) (Merged, error) {
 	rs, err := Parse(rulesData, learnedData)
 	if err != nil {
@@ -149,8 +150,8 @@ func MergeNames(rulesData, learnedData []byte, kind, from, to string) (Merged, e
 		if !ok1 || !ok2 {
 			return Merged{}, fmt.Errorf("merge: %q and %q must both be declared projects", from, to)
 		}
-		if len(f.Repos) > 0 || f.Rate != nil {
-			return Merged{}, fmt.Errorf("merge: project %q has repos or a rate: move them to %q in rules.toml first", f.Name, t.Name)
+		if len(f.Repos) > 0 || f.Rate != nil || f.Client != "" || f.Billable != nil {
+			return Merged{}, fmt.Errorf("merge: project %q has repos, a rate, a client or billable: move them to %q in rules.toml first", f.Name, t.Name)
 		}
 		src, dst = f.Name, t.Name
 	default:

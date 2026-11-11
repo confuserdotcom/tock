@@ -79,12 +79,20 @@ type Project struct {
 	Match    bool
 	// Rate is the hourly rate billed in tock export; nil = none.
 	Rate *float64
+	// Billable is billable = …: nil means billable when Rate is set, false
+	// keeps the rate but bills nothing.
+	Billable *bool
+	// Client is who the project's invoices go to; "" = none.
+	Client string
 	// Repos are local git repositories as written (see ExpandHome).
 	Repos []string
 }
 
 // MaxRate is the largest hourly rate a project may set.
 const MaxRate = 100000
+
+// MaxClient is the longest client name a project may set.
+const MaxClient = 100
 
 // Rule is one compiled [[rule]] table. Category and Project hold the declared
 // (canonical) names.
@@ -239,6 +247,8 @@ type rulesTOML struct {
 		Match    *bool    `toml:"match"`
 		Archived bool     `toml:"archived"`
 		Rate     *float64 `toml:"rate"`
+		Billable *bool    `toml:"billable"`
+		Client   *string  `toml:"client"`
 		Repos    []string `toml:"repos"`
 	} `toml:"project"`
 	Rule    []ruleTOML `toml:"rule"`
@@ -425,6 +435,17 @@ func Parse(rulesData, learnedData []byte) (*Ruleset, error) {
 			}
 			proj.Rate = p.Rate
 		}
+		proj.Billable = p.Billable
+		if p.Client != nil {
+			c := strings.TrimSpace(*p.Client)
+			switch {
+			case c == "":
+				return nil, fmt.Errorf("%s: project %q: empty client", RulesFile, p.Name)
+			case len([]rune(c)) > MaxClient:
+				return nil, fmt.Errorf("%s: project %q: client is longer than %d characters", RulesFile, p.Name, MaxClient)
+			}
+			proj.Client = c
+		}
 		rs.projByLower[lower] = proj
 		rs.Projects = append(rs.Projects, proj)
 	}
@@ -542,4 +563,24 @@ func ExpandHome(p, home string) string {
 // Rate returns a declared project's hourly rate, nil when it has none.
 func (rs *Ruleset) Rate(project string) *float64 {
 	return rs.projByLower[nameKey(project)].Rate
+}
+
+// Billable reports whether a project's time is billed: it has a rate and
+// is not billable = false.
+func (rs *Ruleset) Billable(project string) bool {
+	p := rs.projByLower[nameKey(project)]
+	return p.Rate != nil && (p.Billable == nil || *p.Billable)
+}
+
+// BillableRate is Rate for a billable project, nil otherwise.
+func (rs *Ruleset) BillableRate(project string) *float64 {
+	if !rs.Billable(project) {
+		return nil
+	}
+	return rs.Rate(project)
+}
+
+// Client returns who a declared project's invoices go to, "" when none.
+func (rs *Ruleset) Client(project string) string {
+	return rs.projByLower[nameKey(project)].Client
 }

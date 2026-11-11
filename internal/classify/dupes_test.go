@@ -89,6 +89,12 @@ func TestMergeNames(t *testing.T) {
 	if _, err := MergeNames([]byte(dupRules), nil, NameProject, "ATLAS2", "atlas"); err == nil || !strings.Contains(err.Error(), "rate") {
 		t.Fatalf("project with a rate merged: %v", err)
 	}
+	for _, extra := range []string{"client = 'Acme'", "billable = false"} {
+		rules := strings.Replace(dupRules, "name = \"atlas\"\n", "name = \"atlas\"\n\n[[project]]\nname = \"Side\"\n"+extra+"\n", 1)
+		if _, err := MergeNames([]byte(rules), nil, NameProject, "Side", "atlas"); err == nil || !strings.Contains(err.Error(), "client") {
+			t.Errorf("project with %s merged: %v", extra, err)
+		}
+	}
 	if _, err := MergeNames([]byte(dupRules), nil, NameCategory, "Code", "Nope"); err == nil {
 		t.Fatal("merged into an undeclared category")
 	}

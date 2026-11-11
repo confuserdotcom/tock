@@ -72,6 +72,55 @@ func TestAFKWindow(t *testing.T) {
 	}
 }
 
+func TestProjectBillableAndClient(t *testing.T) {
+	rs, err := Parse([]byte(baseRules+`[[project]]
+name='Acme'
+rate=95.5
+client=' Acme Corp '
+[[project]]
+name='Internal'
+rate=50
+billable=false
+[[project]]
+name='Free'
+`), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range []struct {
+		project  string
+		billable bool
+		client   string
+	}{
+		{"acme", true, "Acme Corp"},
+		{"Internal", false, ""}, // a rate, but marked non-billable
+		{"Free", false, ""},     // no rate
+		{"tock", false, ""},
+		{"nope", false, ""},
+	} {
+		if got := rs.Billable(c.project); got != c.billable {
+			t.Errorf("Billable(%q) = %v", c.project, got)
+		}
+		if got := rs.Client(c.project); got != c.client {
+			t.Errorf("Client(%q) = %q", c.project, got)
+		}
+	}
+	// The rate stays readable on a non-billable project, so turning
+	// billable back on loses nothing.
+	if r := rs.Rate("Internal"); r == nil || *r != 50 {
+		t.Errorf("Internal rate %v", r)
+	}
+	if rs.BillableRate("Internal") != nil || rs.BillableRate("Free") != nil {
+		t.Error("BillableRate on a non-billable project")
+	}
+	if r := rs.BillableRate("Acme"); r == nil || *r != 95.5 {
+		t.Errorf("BillableRate(Acme) = %v", r)
+	}
+	if p := rs.Projects[2]; p.Billable == nil || *p.Billable || p.Client != "" {
+		t.Errorf("Internal project %+v", p)
+	}
+}
+
 func TestParseErrors(t *testing.T) {
 	cases := []struct {
 		name, rules, learned, want string
@@ -83,6 +132,8 @@ func TestParseErrors(t *testing.T) {
 		{"dup project", baseRules + "[[project]]\nname='TOCK'\n", "", `duplicate project "TOCK"`},
 		{"negative rate", baseRules + "[[project]]\nname='X'\nrate=-1\n", "", `project "X": rate -1, want 0 to 100000`},
 		{"huge rate", baseRules + "[[project]]\nname='X'\nrate=100001\n", "", `project "X": rate 100001`},
+		{"long client", baseRules + "[[project]]\nname='X'\nclient='" + strings.Repeat("c", 101) + "'\n", "", `project "X": client is longer than 100 characters`},
+		{"empty client", baseRules + "[[project]]\nname='X'\nclient=' '\n", "", `project "X": empty client`},
 		{"empty repo", baseRules + "[[project]]\nname='X'\nrepos=[' ']\n", "", `project "X": empty repo path`},
 		{"dup repo", baseRules + "[[project]]\nname='X'\nrepos=['~/a']\n[[project]]\nname='Y'\nrepos=['~/a/']\n", "",
 			`project "Y": repo "~/a" is already listed by project "X"`},
