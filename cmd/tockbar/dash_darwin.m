@@ -17,6 +17,10 @@
 @end
 
 static DashWindow *dash;
+
+// The zoom steps Safari uses; the level is kept between runs.
+static const double zoomSteps[] = {0.5, 0.67, 0.75, 0.8, 0.9, 1.0, 1.1, 1.25, 1.5, 1.75, 2.0};
+static NSString *const zoomKey = @"tock.dashboard.zoom";
 static NSMenu *appMenu, *barMenu; // the regular app's menu; whatever was there
 
 // jsString quotes s as a JavaScript string literal.
@@ -56,6 +60,14 @@ static NSMenu *buildMenu(void) {
     NSMenuItem *viewItem = [m addItemWithTitle:@"View" action:nil keyEquivalent:@""];
     NSMenu *view = [[NSMenu alloc] initWithTitle:@"View"];
     [view addItemWithTitle:@"Reload" action:@selector(reload:) keyEquivalent:@"r"];
+    [view addItem:[NSMenuItem separatorItem]];
+    [view addItemWithTitle:@"Actual Size" action:@selector(zoomReset:) keyEquivalent:@"0"];
+    [view addItemWithTitle:@"Zoom In" action:@selector(zoomIn:) keyEquivalent:@"+"];
+    // ⌘= zooms in too, as in Safari: + needs shift on most layouts. A
+    // hidden item keeps its key equivalent.
+    [view addItemWithTitle:@"Zoom In" action:@selector(zoomIn:) keyEquivalent:@"="].hidden = YES;
+    [view addItemWithTitle:@"Zoom Out" action:@selector(zoomOut:) keyEquivalent:@"-"];
+    [view addItem:[NSMenuItem separatorItem]];
     [view addItemWithTitle:@"Enter Full Screen" action:@selector(toggleFullScreen:) keyEquivalent:@"f"].keyEquivalentModifierMask =
         NSEventModifierFlagCommand | NSEventModifierFlagControl;
     viewItem.submenu = view;
@@ -94,6 +106,8 @@ static NSMenu *buildMenu(void) {
     self.web.navigationDelegate = self;
     self.web.UIDelegate = self;
     [self.web setValue:@NO forKey:@"drawsBackground"]; // no white flash before the page paints
+    double z = [NSUserDefaults.standardUserDefaults doubleForKey:zoomKey];
+    if (z >= 0.5 && z <= 2.0) self.web.pageZoom = z;
     self.win.contentView = self.web;
 }
 
@@ -124,6 +138,37 @@ static NSMenu *buildMenu(void) {
 
 - (void)reload:(id)sender {
     [self.web reload];
+}
+
+- (void)setZoom:(double)z {
+    self.web.pageZoom = z;
+    [NSUserDefaults.standardUserDefaults setDouble:z forKey:zoomKey];
+}
+
+- (void)zoomBy:(int)dir {
+    int n = sizeof zoomSteps / sizeof zoomSteps[0];
+    double z = self.web.pageZoom;
+    double next = z;
+    if (dir > 0) {
+        for (int i = n - 1; i >= 0; i--)
+            if (zoomSteps[i] > z + 0.001) next = zoomSteps[i];
+    } else {
+        for (int i = 0; i < n; i++)
+            if (zoomSteps[i] < z - 0.001) next = zoomSteps[i];
+    }
+    if (next != z) [self setZoom:next];
+}
+
+- (void)zoomIn:(id)sender {
+    [self zoomBy:1];
+}
+
+- (void)zoomOut:(id)sender {
+    [self zoomBy:-1];
+}
+
+- (void)zoomReset:(id)sender {
+    [self setZoom:1.0];
 }
 
 - (void)windowWillClose:(NSNotification *)n {
