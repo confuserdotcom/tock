@@ -71,7 +71,7 @@ func TestMigrateIdempotent(t *testing.T) {
 }
 
 // TestOpenTooNewSchema: a database written by a newer trackd is refused and
-// left untouched (D-23).
+// left untouched.
 func TestOpenTooNewSchema(t *testing.T) {
 	path := dbPath(t)
 	s := openAt(t, path)

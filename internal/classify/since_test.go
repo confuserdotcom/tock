@@ -82,7 +82,7 @@ since = 2026-11-20T14:05:00
 	}
 }
 
-// AC10: the same title gets one label before since and another after it, in
+// The same title gets one label before since and another after it, in
 // one labelling pass over one Ruleset (the memo must not carry the first
 // answer across the date).
 func TestSinceSameTitleTwoLabelsOnePass(t *testing.T) {

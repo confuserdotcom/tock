@@ -1,4 +1,4 @@
--- Schema compatibility (ADR 0002). compat is the oldest writer level the
+-- Schema compatibility. compat is the oldest writer level the
 -- database still works with. A binary opens a database with a newer
 -- schema_version as long as compat is not above its own level, so the
 -- additive migrations a newer tock applies never stop an older trackd.

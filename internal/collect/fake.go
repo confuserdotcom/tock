@@ -2,7 +2,7 @@ package collect
 
 import "tock/internal/span"
 
-// Fake is a Source that replays a fixed list of inputs (D-08). Every
+// Fake is a Source that replays a fixed list of inputs. Every
 // downstream test drives the pipeline with it.
 type Fake struct {
 	inputs []span.Input

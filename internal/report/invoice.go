@@ -19,8 +19,8 @@ type Party struct {
 	TaxID   string
 }
 
-// Invoice is what an invoice document shows. Amounts are minor units
-// (ADR 0001); nothing here is computed again from live data.
+// Invoice is what an invoice document shows. Amounts are minor units;
+// nothing here is computed again from live data.
 type Invoice struct {
 	Number, Project      string // Number "" on a draft
 	Issuer, Client       Party

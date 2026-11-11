@@ -7,7 +7,7 @@ import (
 	"strconv"
 )
 
-// daemon_state keys. Phase 3's banner reads ax_trusted, automation.* and
+// daemon_state keys. The TUI banner reads ax_trusted, automation.* and
 // version; heartbeat_ts drives crash recovery.
 const (
 	// KeyHeartbeat is the daemon_state key holding the last heartbeat timestamp.

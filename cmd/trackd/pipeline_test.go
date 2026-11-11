@@ -111,7 +111,7 @@ func TestPipelineIgnoresEmptyBundle(t *testing.T) {
 }
 
 // TestCrashRecoveryPipeline crashes the pipeline (no Flush) on a 2 s poll
-// schedule with adversarial lateness and checks Recover bounds the loss (D-16).
+// schedule with adversarial lateness and checks Recover bounds the loss.
 func TestCrashRecoveryPipeline(t *testing.T) {
 	const t0 = int64(1700000000000)
 	path := filepath.Join(t.TempDir(), "tock.db")

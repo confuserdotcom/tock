@@ -438,8 +438,8 @@ func (a *App) KeySpans(key string) ([]int64, int64, error) {
 	return ids, ms, nil
 }
 
-// markScreen attaches the keywords read on screen to this machine's views
-// (OCR-05). They stay local: no payload, sync or export reads them.
+// markScreen attaches the keywords read on screen to this machine's views.
+// They stay local: no payload, sync or export reads them.
 func (a *App) markScreen(vs []classify.SpanView) error {
 	ids := make([]int64, 0, len(vs))
 	for _, v := range vs {

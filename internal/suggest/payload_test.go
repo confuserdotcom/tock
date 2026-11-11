@@ -9,7 +9,7 @@ import (
 	"tock/internal/config"
 )
 
-// LLM-03 / success criterion 2: private and denylisted items are never
+// Private and denylisted items are never
 // serialised, and neither is any raw example title.
 func TestPayloadNeverCarriesDeniedItems(t *testing.T) {
 	c := config.DefaultLLM()

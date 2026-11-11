@@ -6,7 +6,7 @@ import (
 	"tock/internal/classify"
 )
 
-// Focus off (G5): no break reminder, no session step, no auto session and
+// Focus off: no break reminder, no session step, no auto session and
 // no guard; the start-of-day notice still goes out.
 func TestFocusOff(t *testing.T) {
 	deep := classify.KindDeep

@@ -43,7 +43,7 @@ void tock_ax_init(int prompt) {
     }
 }
 
-// Settle delay between an activation notification and the sample read (D-04):
+// Settle delay between an activation notification and the sample read:
 // the window of the newly active app has not focused yet at notification time.
 #define TOCK_ACTIVATION_SETTLE_MS 150
 
@@ -106,8 +106,8 @@ void tock_start_observers(void) {
     tock_observe_event(wc, NSWorkspaceSessionDidResignActiveNotification, 3);
     tock_observe_event(wc, NSWorkspaceSessionDidBecomeActiveNotification, 4);
 
-    // Block API for now; the plan 01-10 spike decides whether these need the
-    // selector API with NSNotificationSuspensionBehaviorDeliverImmediately.
+    // Block API for now; switch to the selector API if these turn out to
+    // need NSNotificationSuspensionBehaviorDeliverImmediately.
     NSDistributedNotificationCenter *dc = [NSDistributedNotificationCenter defaultCenter];
     tock_observe_event(dc, @"com.apple.screenIsLocked", 3);
     tock_observe_event(dc, @"com.apple.screenIsUnlocked", 4);

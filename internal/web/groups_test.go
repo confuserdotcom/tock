@@ -11,8 +11,8 @@ import (
 	"tock/internal/apptest"
 )
 
-// AC6: with Billing off the API sends no rates, the invoice preview is
-// refused and a rate sent with a project edit is not written. G5: status
+// With Billing off the API sends no rates, the invoice preview is
+// refused and a rate sent with a project edit is not written. Status
 // says which groups are on.
 func TestGroupsAPI(t *testing.T) {
 	f := newFixture(t)
@@ -58,7 +58,7 @@ func TestGroupsAPI(t *testing.T) {
 	}
 }
 
-// FR8: the day and the week mark billed time; relabelling it says the
+// The day and the week mark billed time; relabelling it says the
 // invoice stays as issued.
 func TestBilledMarkers(t *testing.T) {
 	f := newFixture(t)

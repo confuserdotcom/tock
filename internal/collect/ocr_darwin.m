@@ -1,4 +1,4 @@
-// On-device screen reading for "trackd ocr-worker" (OCR-01, OCR-03). It runs
+// On-device screen reading for "trackd ocr-worker". It runs
 // only in that short-lived child: one ScreenCaptureKit still of the front
 // window, Vision text recognition in memory, the text on stdout. Nothing is
 // written to disk and the image is released before the function returns.

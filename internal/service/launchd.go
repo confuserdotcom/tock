@@ -16,7 +16,7 @@ import (
 )
 
 // launchctlAlreadyLoaded is bootstrap's exit status when the label is still
-// loaded (RESEARCH Q6: rc 5 after a racing bootout).
+// loaded (rc 5 after a racing bootout).
 const launchctlAlreadyLoaded = 5
 
 // Agent is one LaunchAgent: the label, the program it runs and the file
@@ -27,7 +27,7 @@ type Agent struct {
 }
 
 // KeepAlive {SuccessfulExit=false}: launchd restarts the program after exit
-// 1 or a crash, never after exit 0 (D-17). ThrottleInterval bounds a restart storm.
+// 1 or a crash, never after exit 0. ThrottleInterval bounds a restart storm.
 var plistTmpl = template.Must(template.New("plist").Funcs(template.FuncMap{
 	"xml": func(s string) (string, error) {
 		var b bytes.Buffer

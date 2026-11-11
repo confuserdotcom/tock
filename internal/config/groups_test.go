@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-// AC1: a group off turns its members off in the effective config; the file
+// A group off turns its members off in the effective config; the file
 // values stay in File.
 func TestGroupsEffective(t *testing.T) {
 	c, err := Parse(File, []byte("[focus]\nenabled = false\nwake_screen = true\nblock = true\n\n[slack]\nenabled = true\n\n[plan]\nauto_start = true\n"))
@@ -42,7 +42,7 @@ func TestGroupsEffective(t *testing.T) {
 	}
 }
 
-// AC11 / G6 at the config level: all groups on is the old effective config.
+// All groups on is the old effective config.
 func TestGroupsDefaultOn(t *testing.T) {
 	d := Default()
 	if !d.Focus.Enabled || !d.Routine.Enabled || !d.Billing.Enabled {
@@ -57,7 +57,7 @@ func TestGroupsDefaultOn(t *testing.T) {
 	}
 }
 
-// G3: every member names a group feature that exists, and groups come
+// Every member names a group feature that exists, and groups come
 // before their members.
 func TestFeatureGroups(t *testing.T) {
 	seen := map[string]bool{}
@@ -89,7 +89,7 @@ func TestFeatureGroups(t *testing.T) {
 	}
 }
 
-// AC2: a group off then on gives back the same bytes.
+// A group off then on gives back the same bytes.
 func TestSaveGroupRoundTrip(t *testing.T) {
 	for _, src := range []string{
 		"",
@@ -153,7 +153,7 @@ func readFile(t *testing.T, path string) string {
 	return string(b)
 }
 
-// AC12: a config.toml from before the groups loads with the same effective
+// A config.toml from before the groups loads with the same effective
 // values: without a group key, nothing is turned off.
 func TestGroupsOldConfig(t *testing.T) {
 	old := `[focus]

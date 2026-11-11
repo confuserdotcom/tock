@@ -10,7 +10,7 @@ import (
 	"tock/internal/store"
 )
 
-// AC2 (trackd half): a write that fails stops the run as write_failed,
+// A write that fails stops the run as write_failed,
 // and the next start counts it with the error and when.
 func TestWriteFailureCountedAtNextStart(t *testing.T) {
 	dir := t.TempDir()

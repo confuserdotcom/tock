@@ -40,7 +40,7 @@ func TestStatusNeedsData(t *testing.T) {
 	}
 }
 
-// AC7: trackd stopped because a newer tock raised compat; status says so
+// trackd stopped because a newer tock raised compat; status says so
 // and prints the fix for this install on stderr, keeping stdout one line.
 func TestStatusTrackdTooOld(t *testing.T) {
 	te := newTestEnv(t, testRules)
@@ -58,7 +58,7 @@ func TestStatusTrackdTooOld(t *testing.T) {
 	}
 }
 
-// AC2 (tock half): a write failure in the last 24 h marks the status line,
+// A write failure in the last 24 h marks the status line,
 // and doctor names write_failed with a time.
 func TestStatusAndDoctorWriteFailed(t *testing.T) {
 	te := newTestEnv(t, testRules)

@@ -18,7 +18,7 @@ func TestInboxLists(t *testing.T) {
 	mustContain(t, m, "10m    1 span  Mail · inbox")
 }
 
-// Phase 3 criterion 2: accepting a learned rule from the inbox writes it and
+// Accepting a learned rule from the inbox writes it and
 // the badge drops.
 func TestInboxLearnWritesRuleAndBadgeDrops(t *testing.T) {
 	m, e := seeded(t)

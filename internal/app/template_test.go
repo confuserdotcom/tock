@@ -46,7 +46,7 @@ func fileSum(t *testing.T, path string) [32]byte {
 	return sha256.Sum256(b)
 }
 
-// AC3, AC4, AC5: yours kept on top, a second apply changes nothing, and
+// Yours kept on top, a second apply changes nothing, and
 // one tock undo puts the file back byte for byte.
 func TestApplyTemplateKeepsUndoesAndIsIdempotent(t *testing.T) {
 	e := apptest.New(t, apptest.Rules)
@@ -89,7 +89,7 @@ func TestApplyTemplateKeepsUndoesAndIsIdempotent(t *testing.T) {
 	}
 }
 
-// AC9: applied the default way, no label before the apply time changes;
+// Applied the default way, no label before the apply time changes;
 // time after it gets the template's labels.
 func TestApplyTemplateLeavesHistory(t *testing.T) {
 	e := apptest.New(t, apptest.Rules)
@@ -112,7 +112,7 @@ func TestApplyTemplateLeavesHistory(t *testing.T) {
 	}
 }
 
-// AC9 --past: the plan's newly labelled time is what the apply changes.
+// The plan's newly labelled time is what the apply changes.
 func TestApplyTemplatePastMatchesPlan(t *testing.T) {
 	e := apptest.New(t, apptest.Rules)
 	zedDays(t, e, 10)

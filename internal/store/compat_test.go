@@ -11,7 +11,7 @@ import (
 )
 
 // A newer tock that only added tables or columns leaves compat alone, so
-// an older binary still opens the database (ADR 0002).
+// an older binary still opens the database.
 func TestOpenNewerSchemaSameCompat(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "tock.db")
 	s := openAt(t, path)
@@ -113,7 +113,7 @@ func stripComments(s string) string {
 }
 
 // TestMigrationsAreAdditive: every migration keeps an older trackd able to
-// write, unless it says otherwise and raises compat (ADR 0002).
+// write, unless it says otherwise and raises compat.
 func TestMigrationsAreAdditive(t *testing.T) {
 	ents, err := fs.ReadDir(migrationFS, "migrations")
 	if err != nil {

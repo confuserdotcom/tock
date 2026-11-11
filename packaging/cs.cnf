@@ -1,4 +1,4 @@
-# OpenSSL req config for the local tock code-signing certificate (plan 01-08).
+# OpenSSL req config for the local tock code-signing certificate.
 # Self-signed, leaf only (CA:false), usable for code signing and nothing else.
 [req]
 prompt = no

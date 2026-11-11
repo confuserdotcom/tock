@@ -608,7 +608,7 @@ func (rs *Ruleset) SeedCategory() string {
 
 // Unclear reports whether l says little about what the window holds: no
 // category, or one from a rule that names only the app or site. Screen
-// reading looks at such windows (OCR-01).
+// reading looks at such windows.
 func (rs *Ruleset) Unclear(l Label) bool {
 	switch l.CategorySource {
 	case SourceNone, "":

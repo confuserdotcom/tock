@@ -1,5 +1,5 @@
-// Package store owns the SQLite database. The daemon is the single writer
-// (D-22). It imports no cgo package.
+// Package store owns the SQLite database. The daemon is the single writer.
+// It imports no cgo package.
 package store
 
 import (
@@ -184,7 +184,7 @@ func (s *Store) Apply(ops []span.Op) error {
 	return tx.Commit()
 }
 
-// Recover closes every span left open by an unclean stop (D-16, TRK-06). The
+// Recover closes every span left open by an unclean stop. The
 // end is the last heartbeat, but never earlier than the span's own start, and
 // the span's own start when no heartbeat was ever written. It returns how many
 // spans it closed; no span has a NULL end afterwards.

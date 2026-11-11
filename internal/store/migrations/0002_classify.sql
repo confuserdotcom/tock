@@ -1,4 +1,4 @@
--- Phase 2: manual labels and hidden inbox keys. Names are text because
+-- Manual labels and hidden inbox keys. Names are text because
 -- rules.toml is the source of truth for categories and projects. Written by
 -- the tock CLI; trackd stays the only writer of span.
 CREATE TABLE override (

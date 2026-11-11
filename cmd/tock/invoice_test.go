@@ -44,7 +44,7 @@ func TestInvoicePreview(t *testing.T) {
 			t.Errorf("pdf lacks %q", want)
 		}
 	}
-	// AC9: nothing stored.
+	// Nothing stored.
 	if code, out := te.run(t, "", "invoice", "list"); code != 0 || out != "no invoices issued yet\n" {
 		t.Fatalf("list after preview: %d %q", code, out)
 	}
@@ -80,7 +80,7 @@ func TestInvoiceLifecycle(t *testing.T) {
 		t.Fatalf("check: %d %q", code, out)
 	}
 
-	// AC1 and AC7: label span 2 (ATLAS, 34 min) as tock and change the
+	// Label span 2 (ATLAS, 34 min) as tock and change the
 	// rate; the invoice stays, check finds the day.
 	rules := strings.Replace(testRules, "name = \"tock\"\n", "name = \"tock\"\nrate = 90\n", 1) +
 		"\n[[rule]]\nbundle = [\"term\"]\ntitle = '^ATLAS'\nproject = \"tock\"\n"
@@ -122,7 +122,7 @@ func TestInvoiceLifecycle(t *testing.T) {
 		t.Fatalf("void: %d %q %s", code, out, te.errb)
 	}
 
-	// AC15: verify finds one changed byte; writing the stored PDF back fixes it.
+	// Verify finds one changed byte; writing the stored PDF back fixes it.
 	pdfPath := filepath.Join(dir, "2026-0001.pdf")
 	b, _ := os.ReadFile(pdfPath)
 	b[10] ^= 1
@@ -137,7 +137,7 @@ func TestInvoiceLifecycle(t *testing.T) {
 		t.Fatalf("verify fixed: %d %q", code, out)
 	}
 
-	// AC11 (second half): lost files come back on the next invoice command.
+	// Lost files come back on the next invoice command.
 	os.Remove(filepath.Join(dir, "2026-0002.json"))
 	if code, _ := te.run(t, "", "invoice", "list"); code != 0 || !strings.Contains(te.errb.String(), "rewrote 1 invoice file(s)") {
 		t.Fatalf("repair: %d %s", code, te.errb)
@@ -189,7 +189,7 @@ func TestInvoiceErrors(t *testing.T) {
 	}
 }
 
-// FR19: a rate finer than [invoice] minor_units fails tock rules check.
+// A rate finer than [invoice] minor_units fails tock rules check.
 func TestRulesCheckRateDecimals(t *testing.T) {
 	te := newTestEnv(t, strings.Replace(testRules, "name = \"tock\"\n", "name = \"tock\"\nrate = 95.555\n", 1))
 	if code, _ := te.run(t, "", "rules", "check"); code != 1 || !strings.Contains(te.errb.String(), `project "tock": rate 95.555 has more decimals than [invoice] minor_units = 2`) {
@@ -201,7 +201,7 @@ func TestRulesCheckRateDecimals(t *testing.T) {
 	}
 }
 
-// FR16: doctor puts missing invoice files back and reports altered ones.
+// tock doctor puts missing invoice files back and reports altered ones.
 func TestDoctorInvoices(t *testing.T) {
 	te := invoiceEnv(t)
 	if code, _ := te.run(t, "", append([]string{"invoice", "issue"}, day...)...); code != 0 {
@@ -219,7 +219,7 @@ func TestDoctorInvoices(t *testing.T) {
 	}
 }
 
-// AC6: with Billing off nothing is issued; issued invoices stay readable.
+// With Billing off nothing is issued; issued invoices stay readable.
 func TestInvoiceBillingOff(t *testing.T) {
 	te := invoiceEnv(t)
 	if code, _ := te.run(t, "", append([]string{"invoice", "issue"}, day...)...); code != 0 {
@@ -241,7 +241,7 @@ func TestInvoiceBillingOff(t *testing.T) {
 	}
 }
 
-// FR8: relabelling billed time says the invoice stays as issued.
+// Relabelling billed time says the invoice stays as issued.
 func TestInvoiceRelabelNote(t *testing.T) {
 	te := invoiceEnv(t)
 	if code, _ := te.run(t, "", append([]string{"invoice", "issue"}, day...)...); code != 0 {

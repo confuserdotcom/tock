@@ -9,7 +9,7 @@ import (
 	"tock/internal/apptest"
 )
 
-// G5, spec edge case: with Focus off no session starts, a running one ends
+// With Focus off no session starts, a running one ends
 // on the next tick as if stopped, and trackd's guard asks for nothing.
 func TestFocusOffSessions(t *testing.T) {
 	e := distracted(t)
@@ -39,7 +39,7 @@ func TestFocusOffSessions(t *testing.T) {
 	}
 }
 
-// AC11: groups change no span and no label.
+// Groups change no span and no label.
 func TestGroupsKeepLabels(t *testing.T) {
 	e := apptest.New(t, apptest.Rules)
 	e.Seed(t, apptest.DaySpans()...)

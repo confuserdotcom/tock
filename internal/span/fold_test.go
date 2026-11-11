@@ -3,7 +3,7 @@ package span
 import "testing"
 
 // ---------------------------------------------------------------------------
-// Fold (RESEARCH Q8 rule 7, TRK-05)
+// Fold
 // ---------------------------------------------------------------------------
 
 // settleStream is the title-settle tracer: A, then an app switch to B whose

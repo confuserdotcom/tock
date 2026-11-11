@@ -1,4 +1,4 @@
-// Browser URL capture through in-process NSAppleScript (D-06). Every script
+// Browser URL capture through in-process NSAppleScript. Every script
 // source below is a compile-time constant selected by an integer kind: no
 // data is ever interpolated into a script (T-1-asinject). Each script is
 // compiled once and cached.

@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-// TestTagLearnAppliesToHistory is phase 2 success criterion 4: tagging an
+// TestTagLearnAppliesToHistory: tagging an
 // inbox item proposes a rule with its hit count and, once accepted, labels
 // past spans.
 func TestTagLearnAppliesToHistory(t *testing.T) {

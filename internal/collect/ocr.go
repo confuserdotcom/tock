@@ -10,7 +10,7 @@ import (
 	"unicode/utf8"
 )
 
-// Skip reasons of a screen read (OCR-02). "ok" is a read that happened.
+// Skip reasons of a screen read. "ok" is a read that happened.
 const (
 	OCROK           = "ok"
 	OCROff          = "off"

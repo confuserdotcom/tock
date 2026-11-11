@@ -84,7 +84,7 @@ func LatestVersion() int {
 }
 
 // migrateFS applies the migrations in fsys/dir. The refuse-newer check only
-// reads, so a too-new database is never written to (D-23). before, when not
+// reads, so a too-new database is never written to. before, when not
 // nil, runs once before the first migration of an existing database (cur >
 // 0); an error from it stops the migration.
 func migrateFS(db *sql.DB, fsys fs.FS, dir string, before func(from, to int) error) error {
@@ -101,7 +101,7 @@ func migrateFS(db *sql.DB, fsys fs.FS, dir string, before func(from, to int) err
 		latest = ms[len(ms)-1].version
 	}
 	// A newer tock's additive migrations leave compat alone, and this
-	// binary goes on with the tables it knows (ADR 0002).
+	// binary goes on with the tables it knows.
 	c, err := readCompat(db)
 	if err != nil {
 		return fmt.Errorf("store: read compat: %w", err)

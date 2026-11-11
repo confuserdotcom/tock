@@ -395,7 +395,7 @@ func TestDoctorTrackdTooOld(t *testing.T) {
 	}
 }
 
-// AC6: doctor --json is JSON, every check has ok and fix, and the
+// tock doctor --json is JSON, every check has ok and fix, and the
 // versions and counters are there.
 func TestDoctorJSON(t *testing.T) {
 	te, _ := doctorEnv(t, testRules)

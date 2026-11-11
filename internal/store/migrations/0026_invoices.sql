@@ -1,4 +1,4 @@
--- Issued invoices (ADR 0001). An invoice is a snapshot: every field the
+-- Issued invoices. An invoice is a snapshot: every field the
 -- document shows is copied here at issue and never read again from the
 -- config or the rules. Labels stay live, and tock invoice check shows
 -- drift.

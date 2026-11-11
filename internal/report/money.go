@@ -11,8 +11,7 @@ import (
 
 // Issued invoice amounts are int64 minor units (cents for minor_units 2).
 // Nothing here uses float64 except RateMinor, which reads a rate from
-// rules.toml through its shortest decimal form, so the conversion is exact
-// (ADR 0001, "Money").
+// rules.toml through its shortest decimal form, so the conversion is exact.
 
 // MaxMinorUnits is the most decimals a currency amount may have.
 const MaxMinorUnits = 3

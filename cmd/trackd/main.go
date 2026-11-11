@@ -52,8 +52,7 @@ func stateDir() string {
 
 // newSource builds the collector: Hyprland on Linux, else macOS.
 // Permission prompts are allowed only when launchd (or open) started
-// trackd: a terminal-launched process would attribute them to the terminal
-// (RESEARCH Q1).
+// trackd: a terminal-launched process would attribute them to the terminal.
 func newSource() (collect.Source, error) {
 	if runtime.GOOS == "linux" {
 		return collect.NewHyprland(collect.HyprOptions{

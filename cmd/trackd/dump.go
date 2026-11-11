@@ -15,7 +15,7 @@ import (
 const dumpTSLayout = "2006-01-02T15:04:05.000-07:00"
 
 // runDump prints live inputs to w until interrupted. It opens no database and
-// takes no lock (single writer, D-22): there is no DB handle in dump mode.
+// takes no lock: there is no DB handle in dump mode.
 // A nil src means NewDarwin failed; the caller reports the error.
 func runDump(src collect.Source, w io.Writer, ppid int) int {
 	if src == nil {
@@ -46,8 +46,7 @@ func runDump(src collect.Source, w io.Writer, ppid int) int {
 }
 
 // writeDumpBanner prints the banner and, when not started by launchd or
-// open, a notice that macOS attributes the permissions to the terminal
-// (RESEARCH Pitfall 2).
+// open, a notice that macOS attributes the permissions to the terminal.
 func writeDumpBanner(w io.Writer, ppid int) {
 	fmt.Fprintf(w, "# trackd dump version=%s pid=%d ppid=%d\n", version, os.Getpid(), ppid)
 	if ppid != 1 {

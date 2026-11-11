@@ -166,7 +166,7 @@ func TestRecommendRules(t *testing.T) {
 }
 
 // TestRecommendLearning: replies to earlier suggestions mute an hour or make
-// it need the first rank (REC-04).
+// it need the first rank.
 func TestRecommendLearning(t *testing.T) {
 	const day = 24 * 60 * minute
 	rows := func(ageDays int64, replies ...string) []recommend.Rec {

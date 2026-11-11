@@ -13,7 +13,7 @@ import (
 	"tock/internal/store"
 )
 
-// Phase 3 criterion 4: each tab, the picker, the learn dialog, the score
+// Each tab, the picker, the learn dialog, the score
 // panel and the trackd-down banner match their snapshots at 100×30 without
 // colour.
 // Regenerate with: go test ./internal/tui -run Golden -update
@@ -25,7 +25,7 @@ func TestGoldenToday(t *testing.T) {
 	golden.RequireEqual(t, screen(m))
 }
 
-// AC7: Focus off: no focus tab, no score, no focus meter.
+// Focus off: no focus tab, no score, no focus meter.
 func TestGoldenTodayFocusOff(t *testing.T) {
 	m, e := seeded(t)
 	e.WriteConfig(t, "[focus]\nenabled = false\n")
@@ -59,14 +59,14 @@ func TestGoldenTodayOutage(t *testing.T) {
 	golden.RequireEqual(t, screen(m))
 }
 
-// Phase 3 criterion 3: with trackd stopped the history still shows, under
+// With trackd stopped the history still shows, under
 // the banner.
 func TestGoldenTodayTrackdDown(t *testing.T) {
 	m, _ := seeded(t)
 	golden.RequireEqual(t, screen(m))
 }
 
-// Phase 4 criterion 2: i on today explains the score.
+// Pressing i on today explains the score.
 func TestGoldenScore(t *testing.T) {
 	m, e := seeded(t)
 	e.Heartbeat(t, e.Clock.UnixMilli())
@@ -89,7 +89,7 @@ func TestGoldenInbox(t *testing.T) {
 	golden.RequireEqual(t, screen(m))
 }
 
-// Phase 6: the inbox with one suggestion.
+// The inbox with one suggestion.
 func TestGoldenInboxSuggested(t *testing.T) {
 	m, _ := withSuggestions(t, &fakeSuggester{answer: studyTock})
 	m = press(t, m, "3")
@@ -137,7 +137,7 @@ func TestProgramRuns(t *testing.T) {
 	}
 }
 
-// Phase 5 criterion 1: the running session's countdown, with history.
+// The running session's countdown, with history.
 func TestGoldenFocus(t *testing.T) {
 	m, e := seeded(t)
 	e.Heartbeat(t, e.Clock.UnixMilli())
@@ -165,7 +165,7 @@ func TestGoldenFocusStart(t *testing.T) {
 	golden.RequireEqual(t, screen(m))
 }
 
-// Phase 7: the rules tab.
+// The rules tab.
 func TestGoldenRules(t *testing.T) {
 	m, e := seeded(t)
 	e.Heartbeat(t, e.Clock.UnixMilli())
@@ -173,7 +173,7 @@ func TestGoldenRules(t *testing.T) {
 	golden.RequireEqual(t, screen(m))
 }
 
-// Phase 9: the rules tab with a rule marked interrupt = false.
+// The rules tab with a rule marked interrupt = false.
 func TestGoldenRulesQuiet(t *testing.T) {
 	e := apptest.New(t, quietRules(t))
 	e.Seed(t, apptest.DaySpans()...)
@@ -227,7 +227,7 @@ func TestGoldenFocusIdle(t *testing.T) {
 	golden.RequireEqual(t, screen(m))
 }
 
-// Phase 8: the last-session card on the focus tab, full height.
+// The last-session card on the focus tab, full height.
 func goldenCard(t *testing.T, seed func(e *apptest.Env), keys ...string) Model {
 	t.Helper()
 	m, e := seeded(t)
@@ -269,7 +269,7 @@ func TestGoldenFocusCardRunning(t *testing.T) {
 	golden.RequireEqual(t, screen(m))
 }
 
-// Phase 9: the last-session card with urges resisted and given in.
+// The last-session card with urges resisted and given in.
 func TestGoldenFocusCardUrges(t *testing.T) {
 	m := goldenCard(t, func(e *apptest.Env) {
 		id := seedManual(t, e, "09:10", "10:00", 0, counters)
@@ -288,7 +288,7 @@ func TestGoldenFocusCardUrges(t *testing.T) {
 	golden.RequireEqual(t, screen(m))
 }
 
-// Phase 9: the running card while distraction notices are snoozed.
+// The running card while distraction notices are snoozed.
 func TestGoldenFocusCardSnoozed(t *testing.T) {
 	m := goldenCard(t, func(e *apptest.Env) {
 		seedManual(t, e, "09:10", "10:00", 0, counters)
@@ -296,7 +296,7 @@ func TestGoldenFocusCardSnoozed(t *testing.T) {
 	golden.RequireEqual(t, screen(m))
 }
 
-// Phase 8: the rate dialog over the focus tab.
+// The rate dialog over the focus tab.
 func TestGoldenFocusRateDialog(t *testing.T) {
 	m, e := seeded(t)
 	e.Heartbeat(t, e.Clock.UnixMilli())
@@ -306,7 +306,7 @@ func TestGoldenFocusRateDialog(t *testing.T) {
 	golden.RequireEqual(t, screen(m))
 }
 
-// Phase 12: the focus tab with a pending suggestion.
+// The focus tab with a pending suggestion.
 func TestGoldenFocusSuggested(t *testing.T) {
 	m, e := seeded(t)
 	e.Heartbeat(t, e.Clock.UnixMilli())

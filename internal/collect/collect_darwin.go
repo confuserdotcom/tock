@@ -132,7 +132,7 @@ func goActivation(bundle, app *C.char, ts C.longlong) {
 	smp.Activation = true
 	win := uint64(p.win)
 	if polledBundle != nBundle {
-		// That title belongs to another app (Pitfall 8).
+		// That title belongs to another app.
 		smp.Title = nil
 		win = 0
 	}

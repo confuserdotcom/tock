@@ -1,4 +1,4 @@
--- Phase 12 REC-04: one row per recommendation notice trackd sends. kind is
+-- One row per recommendation notice trackd sends. kind is
 -- 'focus' or 'break'; weekday (0 = Sunday) and hour are local at sending.
 -- reply is '' until answered, then set once to 'accept' or 'dismiss' by tock
 -- or tockbar; no reply within 30 minutes means ignored.

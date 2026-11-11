@@ -6,8 +6,8 @@ import (
 	"strconv"
 )
 
-// CompatLevel is the schema compatibility level this binary writes with
-// (ADR 0002). It goes up only with a migration that breaks older writers.
+// CompatLevel is the schema compatibility level this binary writes with.
+// It goes up only with a migration that breaks older writers.
 const CompatLevel = 1
 
 // KeyTrackdStopped is why trackd stopped and stays down ("" or absent while

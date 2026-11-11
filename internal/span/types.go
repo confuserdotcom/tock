@@ -1,6 +1,6 @@
 // Package span holds the pure sample-to-span logic and the shared type
 // contract between collect, store and cmd/trackd. It performs no I/O, reads
-// no clock (D-15) and imports no cgo package, so it builds with CGO_ENABLED=0.
+// no clock and imports no cgo package, so it builds with CGO_ENABLED=0.
 //
 // All timestamps are int64 unix milliseconds UTC taken from the wall clock
 // (never the monotonic reading: Go's monotonic clock does not advance during
@@ -10,7 +10,7 @@ package span
 import "time"
 
 const (
-	// IdleBundleID is the reserved bundle id of idle spans. Phase 2 rules must
+	// IdleBundleID is the reserved bundle id of idle spans. Rules must
 	// treat this sentinel specially.
 	IdleBundleID = "tock.idle"
 	// IdleApp is the app name stored on idle spans.
@@ -171,21 +171,21 @@ type Op struct {
 
 // Config tunes the merger. Rule semantics (implemented across plans 01-01..03):
 //
-//   - idle backdating (D-11): idle at or above IdleThreshold ends the current
+//   - idle backdating: idle at or above IdleThreshold ends the current
 //     span at the last activity time and opens an idle span. While a video
 //     plays (Sample.Video) the threshold is VideoIdleMax.
-//   - hard boundaries (D-12, refined): sleep, wake, lock and unlock close the
+//   - hard boundaries: sleep, wake, lock and unlock close the
 //     open span at the last known-good time.
-//   - fold (D-13): non-idle spans shorter than FoldMin are folded into a
+//   - fold: non-idle spans shorter than FoldMin are folded into a
 //     neighbour.
-//   - clock jump (D-14): a gap larger than JumpMax in either direction closes
+//   - clock jump: a gap larger than JumpMax in either direction closes
 //     the open span at the last known-good time.
-//   - heartbeat (D-16): a heartbeat op is emitted once Heartbeat-HeartbeatLead
+//   - heartbeat: a heartbeat op is emitted once Heartbeat-HeartbeatLead
 //     has passed since the previous one, so crash loss stays within Heartbeat
 //     even when polls arrive up to 500 ms late. HeartbeatLead (2500 ms) is one
 //     2 s poll interval plus 500 ms poll lateness.
 //   - TitleKey nil means identity.
-//   - a private sample's title and URL are never stored (D-07).
+//   - a private sample's title and URL are never stored.
 type Config struct {
 	IdleThreshold time.Duration
 	VideoIdleMax  time.Duration // idle threshold while Sample.Video; 0 = IdleThreshold
@@ -197,7 +197,7 @@ type Config struct {
 	NextID        int64
 }
 
-// DefaultConfig returns the Phase 1 constants.
+// DefaultConfig returns the default constants.
 func DefaultConfig() Config {
 	return Config{
 		IdleThreshold: 5 * time.Minute,

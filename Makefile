@@ -4,7 +4,7 @@ VERSION ?= $(shell git describe --always --dirty 2>/dev/null || echo dev)
 BUILT_AT := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 LDFLAGS = -X main.version=$(VERSION) -X main.builtAt=$(BUILT_AT)
 
-# Packaging and TCC identity (plan 01-08). The bundle path and bundle id are
+# Packaging and TCC identity. The bundle path and bundle id are
 # what Accessibility and Automation grants key on; never change them.
 TOCK_DATA ?= $(HOME)/.local/share/tock
 TOCK_STATE ?= $(HOME)/.local/state/tock
@@ -25,7 +25,7 @@ LINUX_ARCH ?= amd64
 SYNC_DIR ?=
 UPDATE_KEY ?= $(TOCK_DATA)/update.key
 SIGN_ID ?= tock-local-codesign
-# auto | cert | adhoc. Pinned to cert (plan 01-09): a missing identity is a hard
+# auto | cert | adhoc. Pinned to cert: a missing identity is a hard
 # error, never a silent switch to ad-hoc that would orphan TCC grants.
 SIGN_MODE ?= cert
 CERT_PEM ?= $(TOCK_DATA)/codesign/tock-local-codesign.pem
@@ -172,7 +172,7 @@ cert-trust:
 		&& echo "cert-trust: tock-local-codesign is a valid code-signing identity" \
 		|| { echo "cert-trust: tock-local-codesign is still not a valid code-signing identity" >&2; exit 1; }
 
-# dump: run the bundle itself as the responsible process (RESEARCH Pitfall 2).
+# dump: run the bundle itself as the responsible process.
 dump:
 	@out="$${DUMP_OUT:-}"; \
 	if [ -z "$$out" ]; then \
@@ -193,8 +193,7 @@ dump-stop:
 	fi
 
 # install: bootout, rebuild and sign the bundle, install the tock CLI, then
-# bootstrap the agent (Pitfall 12: never replace the binary under a running
-# agent). Both binaries come from one build so they agree on the schema.
+# bootstrap the agent (never replace the binary under a running agent). Both binaries come from one build so they agree on the schema.
 # The menu bar app follows the same steps after trackd.
 # Then write starter rules if there are none, and run tock doctor: it waits
 # for trackd's first heartbeat and opens System Settings for missing grants

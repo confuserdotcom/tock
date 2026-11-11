@@ -14,7 +14,7 @@ import (
 	"tock/internal/report"
 )
 
-// Issued invoices (ADR 0001): rows in invoices, invoice_lines and
+// Issued invoices: rows in invoices, invoice_lines and
 // invoice_items that the 0026 triggers keep as issued. The only change is
 // a one-time void.
 

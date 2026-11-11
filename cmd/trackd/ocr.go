@@ -20,7 +20,7 @@ import (
 	"tock/internal/store"
 )
 
-// daemon_state keys of screen reading (OCR-06): tock asks, trackd answers.
+// daemon_state keys of screen reading: tock asks, trackd answers.
 const (
 	keyOCRRequest = store.KeyOCRRequest
 	keyOCRResult  = store.KeyOCRResult
@@ -94,7 +94,7 @@ type ocrJob struct {
 	deny   []*regexp.Regexp // deny title patterns, also applied to words
 }
 
-// ocrCoord decides when the front window is read (OCR-01..03): cheap checks
+// ocrCoord decides when the front window is read: cheap checks
 // on every sample, then at most one worker at a time. Reads run off the
 // collector's path; their keywords merge into the span's bag.
 type ocrCoord struct {

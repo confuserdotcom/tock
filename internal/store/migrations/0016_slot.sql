@@ -1,4 +1,4 @@
--- Phase 11 PLAN-04: one row per slot notice sent, so a slot notifies once
+-- One row per slot notice sent, so a slot notifies once
 -- across trackd restarts. event.join_url holds the meeting link trackd found
 -- in the calendar event, '' = none.
 CREATE TABLE slot_notice (

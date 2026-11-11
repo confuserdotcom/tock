@@ -93,7 +93,7 @@ func TestIssueInvoiceStoresSnapshot(t *testing.T) {
 	}
 }
 
-// AC2: no connection can change or delete an issued invoice.
+// No connection can change or delete an issued invoice.
 func TestInvoiceTriggers(t *testing.T) {
 	path := dbPath(t)
 	s := openAt(t, path)
@@ -161,11 +161,11 @@ func TestInvoiceVoidAndSupersede(t *testing.T) {
 	if old.Status != InvoiceVoid || old.VoidReason != "wrong rate" || old.VoidMS != d.IssuedMS {
 		t.Fatalf("old %+v", old)
 	}
-	// AC3: the old number can never be issued again.
+	// The old number can never be issued again.
 	if _, err := s.IssueInvoice(IssueSpec{Draft: withNumber(d, first.Number), Loc: paris, Render: fakePDF}); err == nil || !strings.Contains(err.Error(), first.Number) {
 		t.Fatalf("reused a number: %v", err)
 	}
-	// AC10: after a void the sequence goes on, it never fills the gap.
+	// After a void the sequence goes on, it never fills the gap.
 	if _, err := s.VoidInvoice(second.Number, "dup", d.IssuedMS+1); err != nil {
 		t.Fatal(err)
 	}
@@ -223,7 +223,7 @@ func TestInvoiceNumbers(t *testing.T) {
 	}
 }
 
-// AC10: two writers racing get distinct numbers, never an error or a
+// Two writers racing get distinct numbers, never an error or a
 // duplicate. Each goroutine has its own Store, so its own connection.
 func TestInvoiceNumberRace(t *testing.T) {
 	path := dbPath(t)
@@ -276,7 +276,7 @@ func TestInvoiceNumberRace(t *testing.T) {
 	}
 }
 
-// AC11: a failure before commit stores nothing and the number is free
+// A failure before commit stores nothing and the number is free
 // again; a render failure does the same.
 func TestInvoiceIssueFailureRollsBack(t *testing.T) {
 	s := openAt(t, dbPath(t))
@@ -313,7 +313,7 @@ func TestInvoiceIssueFailureRollsBack(t *testing.T) {
 	}
 }
 
-// AC8: billing records hold no title or URL.
+// Billing records hold no title or URL.
 func TestInvoiceItemsHaveNoTitles(t *testing.T) {
 	s := openAt(t, dbPath(t))
 	defer s.Close()
@@ -366,7 +366,7 @@ func TestInvoiceFilesRepairVerifyRecover(t *testing.T) {
 	if checks, err := s.VerifyInvoices(dir, ""); err != nil || !okAll(checks) || len(checks) != 2 {
 		t.Fatalf("verify %+v %v", checks, err)
 	}
-	// AC15: one changed byte on disk is found; repair never overwrites it.
+	// One changed byte on disk is found; repair never overwrites it.
 	pdfPath := filepath.Join(dir, "2026-0002.pdf")
 	pdf, _ := os.ReadFile(pdfPath)
 	pdf[0] ^= 1
@@ -392,7 +392,7 @@ func TestInvoiceFilesRepairVerifyRecover(t *testing.T) {
 	wantB, _ := s.InvoiceByNumber(b.Number)
 	s.Close()
 
-	// AC12: a database from before the invoices recovers identical rows
+	// A database from before the invoices recovers identical rows
 	// from the files.
 	fresh := openAt(t, dbPath(t))
 	defer fresh.Close()
@@ -441,7 +441,7 @@ func okAll(cs []InvoiceCheck) bool {
 	return len(cs) > 0
 }
 
-// AC12: a snapshot keeps the rows and the triggers.
+// A snapshot keeps the rows and the triggers.
 func TestInvoiceSnapshotKeepsTriggers(t *testing.T) {
 	s := openAt(t, dbPath(t))
 	defer s.Close()

@@ -97,7 +97,7 @@ func TestRunTouchesOncePerMinute(t *testing.T) {
 	}
 }
 
-// AC1: a trackd killed without a word, started again 5 min later. The
+// A trackd killed without a word, started again 5 min later. The
 // gap runs from the kill to the new start, within 10 s, and is a crash.
 func TestRunCrashThenRestart(t *testing.T) {
 	r := newPauseRig(t, goodConfig).withRun(1)
@@ -238,7 +238,7 @@ func TestRunClockBack(t *testing.T) {
 	}
 }
 
-// T23 regression: config.toml breaks mid-run and is fixed later. The
+// config.toml breaks mid-run and is fixed later. The
 // paused time is its own row and shows as "config"; nothing recorded in it.
 func TestRunConfigPauseIsOutage(t *testing.T) {
 	r := newPauseRig(t, goodConfig).withRun(1)
@@ -266,7 +266,7 @@ func TestRunConfigPauseIsOutage(t *testing.T) {
 	}
 }
 
-// T23 regression: trackd starts with a broken config.toml. Its first row
+// trackd starts with a broken config.toml. Its first row
 // is paused from the start.
 func TestRunStartsPaused(t *testing.T) {
 	for name, cfg := range pausedConfigs {

@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-// TestEditingRulesRelabelsHistory is phase 2 success criterion 1: editing
+// TestEditingRulesRelabelsHistory: editing
 // rules.toml changes the labels of already recorded spans on the next
 // command, with no restart and no rewrite of the database.
 func TestEditingRulesRelabelsHistory(t *testing.T) {

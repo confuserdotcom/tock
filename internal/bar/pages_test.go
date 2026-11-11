@@ -166,7 +166,7 @@ func TestSessionPageMovesByTheMinute(t *testing.T) {
 	}
 }
 
-// G5: with Focus off the notch pages carry no focus score.
+// With Focus off the notch pages carry no focus score.
 func TestTodayPagesFocusOff(t *testing.T) {
 	d, w, u := pagesDay()
 	s := Snapshot{OK: true, Loc: islandLoc, NoFocus: true}

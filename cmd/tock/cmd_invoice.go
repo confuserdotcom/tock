@@ -34,7 +34,7 @@ type exitStatus struct {
 
 func (e exitStatus) Error() string { return e.msg }
 
-// cmdInvoice previews, issues and keeps invoices (ADR 0001). Numbers and
+// cmdInvoice previews, issues and keeps invoices. Numbers and
 // fields are sensible defaults, not any jurisdiction's invoicing rules.
 func cmdInvoice(env Env, args []string) error {
 	sub := ""

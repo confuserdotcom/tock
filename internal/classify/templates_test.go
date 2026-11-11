@@ -31,7 +31,7 @@ func TestTemplatesByNameUnknown(t *testing.T) {
 	}
 }
 
-// AC3: the user's own Code (another kind) and their rules stay byte for byte
+// The user's own Code (another kind) and their rules stay byte for byte
 // at the top; only what is missing is appended, behind a dated comment.
 func TestPlanTemplateKeepsYoursAppendsMissing(t *testing.T) {
 	user := `[[category]]
@@ -92,7 +92,7 @@ category = "Code"
 	}
 }
 
-// AC4: a second plan over the result has nothing to do.
+// A second plan over the result has nothing to do.
 func TestPlanTemplateTwiceNothing(t *testing.T) {
 	rs := mustParse(t, string(Starter), "")
 	ts := mustTemplates(t, "client", "own")

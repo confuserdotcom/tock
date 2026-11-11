@@ -72,7 +72,7 @@ func TestChoiceSet(t *testing.T) {
 	}
 }
 
-// G4, AC2: a group is one key; its members keep theirs and wait.
+// A group is one key; its members keep theirs and wait.
 func TestChoiceGroup(t *testing.T) {
 	te := newTestEnv(t, "")
 	src := "# mine\n[focus]\nwake_screen = true\n"

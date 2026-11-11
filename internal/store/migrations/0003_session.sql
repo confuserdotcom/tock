@@ -1,4 +1,4 @@
--- Phase 5: focus sessions. tock inserts and stops manual sessions; trackd
+-- Focus sessions. tock inserts and stops manual sessions; trackd
 -- updates the running one's counters, closes it at planned_ms and inserts
 -- auto sessions (always closed). Every update of a running row is guarded by
 -- end_ms IS NULL, so tock and trackd never overwrite each other.

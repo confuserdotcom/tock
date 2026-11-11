@@ -69,7 +69,7 @@ func TestExportClips(t *testing.T) {
 	}
 }
 
-// Phase 7 criterion 3: a week exported as csv or json parses back to the
+// A week exported as csv or json parses back to the
 // same rows.
 func TestExportRoundTrip(t *testing.T) {
 	a, e := exportEnv(t)

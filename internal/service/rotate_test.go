@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-// AC4: an 11 MB log becomes log.1 (11 MB) and a fresh, empty log.
+// An 11 MB log becomes log.1 (11 MB) and a fresh, empty log.
 func TestRotateLog(t *testing.T) {
 	dir := t.TempDir()
 	big, small := filepath.Join(dir, "trackd.log"), filepath.Join(dir, "small.log")

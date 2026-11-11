@@ -55,7 +55,7 @@ func (a *App) PruneTitles(days int, dryRun bool) (PruneReport, error) {
 		if r.Remote, err = a.st.PruneRemote(before); err != nil {
 			return r, err
 		}
-		// Screen keywords go with the titles (OCR-04).
+		// Screen keywords go with the titles.
 		if _, err := a.st.PruneSpanWords(before); err != nil {
 			return r, err
 		}

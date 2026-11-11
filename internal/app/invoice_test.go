@@ -78,7 +78,7 @@ func TestInvoiceDraft(t *testing.T) {
 	if !d.Doc.Draft || d.Doc.TotalMinor != 20056 {
 		t.Fatalf("doc %+v", d.Doc)
 	}
-	// AC9: a preview writes nothing.
+	// A preview writes nothing.
 	if countInvoices(t, a) != 0 {
 		t.Fatal("draft stored an invoice")
 	}
@@ -87,7 +87,7 @@ func TestInvoiceDraft(t *testing.T) {
 	}
 }
 
-// AC1, AC7, AC13: an issued invoice does not move when labels, rates and
+// An issued invoice does not move when labels, rates and
 // config change; check shows the drift.
 func TestInvoiceIssueAndCheck(t *testing.T) {
 	e, a, day := billEnv(t)
@@ -181,7 +181,7 @@ func TestInvoiceOverlapAndSupersede(t *testing.T) {
 	}
 }
 
-// AC6 and the old checks: no rate, not billable, no time, bad dates.
+// Billing off and the old checks: no rate, not billable, no time, bad dates.
 func TestInvoiceRefusals(t *testing.T) {
 	e, a, day := billEnv(t)
 	for _, c := range []struct {
@@ -213,7 +213,7 @@ func TestInvoiceRefusals(t *testing.T) {
 			t.Fatal("non-billable project priced in export")
 		}
 	}
-	// FR19: a rate finer than minor_units is refused when set (the CLI and
+	// A rate finer than minor_units is refused when set (the CLI and
 	// the Library), and at issue when rules.toml was edited by hand.
 	yes, fine := true, 95.555
 	if err := a.EditProject(ProjectSpec{Name: "Acme", Billable: &yes, Rate: &fine}); err == nil || !strings.Contains(err.Error(), "decimals") {
@@ -273,7 +273,7 @@ func TestInvoiceRecover(t *testing.T) {
 	}
 }
 
-// FR8: billed time is known per view; a relabel names the invoice.
+// Billed time is known per view; a relabel names the invoice.
 func TestInvoiceBilledMarkers(t *testing.T) {
 	_, a, day := billEnv(t)
 	inv, err := a.IssueInvoice(InvoiceSpec{Project: "Acme", From: day, To: day})

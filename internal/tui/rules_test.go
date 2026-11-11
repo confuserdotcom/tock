@@ -21,7 +21,7 @@ func TestRulesTabLists(t *testing.T) {
 	mustNotContain(t, m, "learned.toml")
 }
 
-// Phase 7 criterion 2: a reorder in the rules tab persists to rules.toml.
+// A reorder in the rules tab persists to rules.toml.
 func TestRulesTabReorderPersists(t *testing.T) {
 	m, e := seeded(t)
 	m = press(t, m, "5", "j", "K")

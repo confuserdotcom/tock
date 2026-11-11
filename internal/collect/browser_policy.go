@@ -33,7 +33,7 @@ const (
 	// backoffAfter is the number of consecutive failures that starts a backoff.
 	backoffAfter = 3
 	// verdictTTLMS bounds how long a confirmed non-incognito verdict may be
-	// reused after a transient failure. It equals the D-16 crash-loss bound.
+	// reused after a transient failure. It equals the most a crash can lose.
 	verdictTTLMS = 10000
 )
 
@@ -55,7 +55,7 @@ func browserForBundle(bundleID string) browserKind {
 }
 
 // isSafariPrivateTitle reports whether a Safari AX window title marks a
-// private window (English UI only, RESEARCH Q6).
+// private window (English UI only).
 func isSafariPrivateTitle(t string) bool {
 	return strings.HasSuffix(t, ", Private Browsing")
 }
@@ -66,7 +66,7 @@ func isFirefoxPrivateTitle(t string) bool {
 	return strings.HasSuffix(strings.TrimSpace(t), "Private Browsing")
 }
 
-// applyPrivacy marks a sample private and drops its title and URL (D-07).
+// applyPrivacy marks a sample private and drops its title and URL.
 func applyPrivacy(s *span.Sample) {
 	s.Private = true
 	s.Title = nil
@@ -95,8 +95,8 @@ type browserState struct {
 	verdict    verdict
 }
 
-// browserPolicy holds the per-browser failure backoff (D-21), Automation
-// status (D-20) and the privacy-verdict cache. It is shared between the main
+// browserPolicy holds the per-browser failure backoff, Automation
+// status and the privacy-verdict cache. It is shared between the main
 // thread and the Automation-check callback, so it is locked.
 type browserPolicy struct {
 	mu sync.Mutex
@@ -270,7 +270,7 @@ func applyBrowserWin(s *span.Sample, win uint64, run scriptRunner, p *browserPol
 	defer func() { s.Automation = p.automation(kind) }()
 
 	if kind == browserSafari {
-		// Safari privacy is only knowable from the AX title (D-07): no usable
+		// Safari privacy is only knowable from the AX title: no usable
 		// title means privacy-unknown, so no script, no title and no URL.
 		if s.Title == nil || strings.TrimSpace(*s.Title) == "" {
 			s.Title = nil

@@ -8,7 +8,7 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// Idle (D-11)
+// Idle
 // ---------------------------------------------------------------------------
 
 func TestIdleBackdatesAndOpensIdleSpan(t *testing.T) {
@@ -197,7 +197,7 @@ func TestIdleSpanShape(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Hard boundaries: sleep, wake, lock, unlock (D-12)
+// Hard boundaries: sleep, wake, lock, unlock
 // ---------------------------------------------------------------------------
 
 func TestSleepClosesAtEventTS(t *testing.T) {
@@ -355,7 +355,7 @@ func TestUnlockThenFirstSampleIgnoresIdle(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Clock jumps (D-14)
+// Clock jumps
 // ---------------------------------------------------------------------------
 
 func TestJumpForwardExact120000NoJump(t *testing.T) {
@@ -420,7 +420,7 @@ func TestJumpResetsHeartbeatClock(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Heartbeat (D-16, TRK-06)
+// Heartbeat
 // ---------------------------------------------------------------------------
 
 func heartbeats(ops []Op) []int64 {
@@ -577,8 +577,7 @@ func TestFlushClosesAtLastTS(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Span identity: keys, activation, private, title hook, degrade (D-07, D-10,
-// D-19, TRK-01, TRK-02, TRK-07)
+// Span identity: keys, activation, private, title hook, degrade
 // ---------------------------------------------------------------------------
 
 // assertCloseBeforeOpen fails when a Close/Delete/Extend follows an Open within

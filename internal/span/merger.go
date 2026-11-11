@@ -46,7 +46,7 @@ type closedSpan struct {
 	afterBoundary bool // carried over so a Reopen restores the open span exactly
 }
 
-// Merger turns inputs into storage ops. It is pure: no clock, no I/O (D-15).
+// Merger turns inputs into storage ops. It is pure: no clock, no I/O.
 type Merger struct {
 	cfg    Config
 	nextID int64
@@ -247,7 +247,7 @@ func (m *Merger) switchTo(s *Sample, at int64) []Op {
 
 const (
 	// sleepHealMS: a sample this long after a Sleep event implies an
-	// undelivered Wake (RESEARCH Q8 rule 3).
+	// undelivered Wake.
 	sleepHealMS = 60_000
 	// lockSettleMS: a polled Locked=false only clears a lock this long after
 	// it was taken, so a stale poll right after a Lock event cannot undo it.
@@ -257,7 +257,7 @@ const (
 // hbMS is the heartbeat threshold in ms: Heartbeat - HeartbeatLead (7500 with
 // DefaultConfig), never negative. A heartbeat can only land on a sample, so
 // the lead (one poll interval plus poll lateness) keeps crash loss within
-// Heartbeat even when polls run late (D-16, TRK-06).
+// Heartbeat even when polls run late.
 func (m *Merger) hbMS() int64 {
 	ms := (m.cfg.Heartbeat - m.cfg.HeartbeatLead).Milliseconds()
 	if ms < 0 {
@@ -270,7 +270,7 @@ func (m *Merger) hbMS() int64 {
 // than JumpMax in either direction is a clock jump: the open span closes at
 // the last accepted TS (never at the new one). Smaller backward skew is
 // clamped up to the last accepted TS. Comparisons are strict: exactly JumpMax
-// is not a jump (D-14).
+// is not a jump.
 func (m *Merger) sanitize(ts int64) (int64, []Op) {
 	if !m.haveLast {
 		return ts, nil
@@ -398,7 +398,7 @@ func (m *Merger) feedSample(s *Sample) []Op {
 
 	switch {
 	case idleMS >= thr:
-		// Rule 5 (D-11): idle. The activity time is when the user last
+		// Rule 5: idle. The activity time is when the user last
 		// touched the machine, never earlier than what is already recorded.
 		act := ts - idleMS
 		floor := act

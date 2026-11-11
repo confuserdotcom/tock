@@ -48,7 +48,7 @@ func cmdRules(env Env, args []string) error {
 		return err
 	}
 	// A rate finer than the invoice currency's minor units cannot be
-	// billed exactly (ADR 0001).
+	// billed exactly.
 	if cfg, err := config.Load(env.paths().Config); err == nil {
 		for _, p := range rs.Projects {
 			if p.Rate == nil {

@@ -9,7 +9,7 @@ import (
 )
 
 // TestStarterCorpus checks the starter rules against synthetic samples of the
-// apps and sites they promise to cover (phase 2 success criterion 2).
+// apps and sites they promise to cover.
 func TestStarterCorpus(t *testing.T) {
 	rs, err := Parse(Starter, nil)
 	if err != nil {

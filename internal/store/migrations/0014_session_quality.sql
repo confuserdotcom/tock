@@ -1,4 +1,4 @@
--- Phase 8: session quality. switches is the context-switch count of the
+-- Session quality. switches is the context-switch count of the
 -- session window, written when the session ends. rating (1..5), note and
 -- rated_ms are the user's close-the-loop answer. Sessions that existed before
 -- this migration have no switch count: they are marked -1 so the quality

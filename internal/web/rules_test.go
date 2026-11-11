@@ -108,7 +108,7 @@ func TestInvoiceAPI(t *testing.T) {
 	}
 }
 
-// T13: the dashboard issues too, with the same checks as tock invoice issue.
+// The dashboard issues too, with the same checks as tock invoice issue.
 func TestInvoiceIssueAPI(t *testing.T) {
 	f := newFixture(t)
 	f.withIssuer(t)

@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-// This file fuzzes the merger's global invariants (D-27, TRK-05).
+// This file fuzzes the merger's global invariants.
 //
 // Three independent pieces check one random stream:
 //
@@ -18,8 +18,8 @@ import (
 //     deleted id, reuses an id, opens while another span is open, shrinks a
 //     span with Extend or reopens an open span is an error.
 //   - fzOracle re-derives the hard boundaries, away intervals, forward clock
-//     jumps and idle triggers from the input stream alone, using the rules of
-//     RESEARCH Q8 (clamp and jump, sleep, lock, self-heal, settle). It never
+//     jumps and idle triggers from the input stream alone, using the merger's
+//     rules (clamp and jump, sleep, lock, self-heal, settle). It never
 //     reads merger state. The only thing it reads from the merger side is the
 //     start of the currently open span, taken from the op stream, because the
 //     "stale Wake/Unlock" rule is defined relative to it.
@@ -29,11 +29,11 @@ import (
 // Rule constants, repeated here on purpose so the oracle does not depend on
 // the merger's own constants.
 const (
-	fzIdleThr   = 300_000 // D-11
-	fzJumpMax   = 120_000 // D-14
-	fzSleepHeal = 60_000  // RESEARCH Q8 rule 3
-	fzSettle    = 2_000   // lock settle
-	fzFoldMin   = 2_000   // D-13
+	fzIdleThr   = 300_000
+	fzJumpMax   = 120_000
+	fzSleepHeal = 60_000
+	fzSettle    = 2_000 // lock settle
+	fzFoldMin   = 2_000
 	fzBase      = int64(1_000_000)
 	fzStepBytes = 5
 )

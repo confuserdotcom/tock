@@ -12,7 +12,7 @@ import (
 
 const sentinel = "ZZSENTINELZZ"
 
-// AC5: no title, URL, name, address, sync folder or hidden site from the
+// No title, URL, name, address, sync folder or hidden site from the
 // user's data reaches the archive.
 func TestBugReportLeaksNothing(t *testing.T) {
 	te := newTestEnv(t, testRules)

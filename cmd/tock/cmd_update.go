@@ -12,7 +12,7 @@ import (
 )
 
 // cmdUpdate manages the key a Linux machine trusts for the builds the Mac
-// publishes to the sync folder (ADR 0003): tock update shows it, tock
+// publishes to the sync folder: tock update shows it, tock
 // update trust <fingerprint> pins the key in the sync folder if it has that
 // fingerprint. The fingerprint comes from the Mac's terminal (make
 // bootstrap-hint), never from the sync folder.

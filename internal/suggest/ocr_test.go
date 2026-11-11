@@ -11,7 +11,7 @@ import (
 )
 
 // TestNoScreenWordsInPayload: words read on screen never leave the machine,
-// in the inbox batch or the day summary (OCR-05).
+// in the inbox batch or the day summary.
 func TestNoScreenWordsInPayload(t *testing.T) {
 	day := time.Date(2026, 10, 10, 0, 0, 0, 0, time.UTC)
 	at := func(h int) int64 { return day.Add(time.Duration(h) * time.Hour).UnixMilli() }

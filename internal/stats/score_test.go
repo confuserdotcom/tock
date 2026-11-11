@@ -10,7 +10,7 @@ var target4h = Target{MS: 4 * 60 * mn}
 func near(a, b float64) bool { return math.Abs(a-b) < 1e-9 }
 
 func TestScoreWorkedExample(t *testing.T) {
-	// The spec's breakdown example: focus 2h10 of 4h, 1h20 in long blocks,
+	// A worked example: focus 2h10 of 4h, 1h20 in long blocks,
 	// 14 switches in 3 h active, 12 min distraction.
 	d := Day{ActiveMS: 3 * 60 * mn, FocusMS: 130 * mn, LongMS: 80 * mn, Switches: 14, DistractMS: 12 * mn}
 	s := ScoreDay(d, target4h, DefaultWeights)

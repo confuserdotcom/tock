@@ -22,7 +22,7 @@ import (
 	"tock/internal/update"
 )
 
-// Exit codes under launchd KeepAlive {SuccessfulExit=false} (D-17): 0 means
+// Exit codes under launchd KeepAlive {SuccessfulExit=false}: 0 means
 // "do not restart" (configuration problems a restart cannot fix), 1 means
 // "restart me".
 const (
@@ -356,10 +356,10 @@ func runWithStore(o daemonOpts, log *slog.Logger, st *store.Store) int {
 }
 
 // errSchemaNewer stops the pipeline when a newer tock raised the database's
-// compat level above this trackd's (ADR 0002).
+// compat level above this trackd's.
 var errSchemaNewer = errors.New("trackd: the database needs a newer trackd")
 
-// mergerConfig is the daemon's span configuration: the Phase 1 defaults with
+// mergerConfig is the daemon's span configuration: the defaults with
 // titles compared after classify.Clean, so a spinner or counter change in a
 // title does not split the span.
 //
@@ -558,7 +558,7 @@ func pipeline(in <-chan span.Input, m *span.Merger, st *store.Store, tick <-chan
 }
 
 // stateWatcher writes permission state to daemon_state and logs it, once per
-// change (D-19, D-20, TRK-07).
+// change.
 type stateWatcher struct {
 	st      *store.Store
 	log     *slog.Logger

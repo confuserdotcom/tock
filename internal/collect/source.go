@@ -8,7 +8,7 @@ import (
 	"tock/internal/span"
 )
 
-// DefaultPollInterval is the sample poll period (D-05).
+// DefaultPollInterval is the sample poll period.
 const DefaultPollInterval = 2 * time.Second
 
 // ChanBuffer is the capacity of the Inputs channel.

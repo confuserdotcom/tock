@@ -33,7 +33,7 @@ func withSuggestions(t *testing.T, f *fakeSuggester) (Model, *apptest.Env) {
 	return newModelWith(t, e, f), e
 }
 
-// Phase 6 criterion 1: suggestions arrive without a key press and show in
+// Suggestions arrive without a key press and show in
 // the inbox; the hourly claim stops a second call.
 func TestInboxShowsSuggestions(t *testing.T) {
 	f := &fakeSuggester{answer: studyTock}

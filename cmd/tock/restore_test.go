@@ -125,7 +125,7 @@ func TestRestoreLeavesServicesOfOtherDataDirs(t *testing.T) {
 	}
 }
 
-// TestRestoreRefusesWhileHeld (AC3): another process with the store open
+// TestRestoreRefusesWhileHeld: another process with the store open
 // makes restore refuse, name that pid, and leave tock.db as it was.
 func TestRestoreRefusesWhileHeld(t *testing.T) {
 	te := newTestEnv(t, "")

@@ -73,7 +73,7 @@ func RecsDue(in Input) bool {
 	return due
 }
 
-// stepRecommend suggests a focus session at a top focus hour (REC-02). It is
+// stepRecommend suggests a focus session at a top focus hour. It is
 // due, beyond RecommendDue, when all of these hold (12-CONTEXT "Focus
 // suggestion"):
 //   - the rows were read, fewer than [recommend] max_per_day focus suggestions

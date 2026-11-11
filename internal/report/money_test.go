@@ -64,7 +64,7 @@ func TestAmountMinor(t *testing.T) {
 	for _, c := range []struct {
 		seconds, rate, want int64
 	}{
-		{3*3600 + 20*60, 9550, 31833}, // AC5: 318.333… → 318.33
+		{3*3600 + 20*60, 9550, 31833}, // 318.333… → 318.33
 		{3600, 9550, 9550},
 		{1800, 1, 1}, // 0.5 rounds away from zero
 		{1799, 1, 0}, // 0.4997
@@ -82,7 +82,7 @@ func TestTaxMinor(t *testing.T) {
 	for _, c := range []struct {
 		subtotal, bp, want int64
 	}{
-		{31833, 2000, 6367}, // AC14: 6366.6 → 6367
+		{31833, 2000, 6367}, // 6366.6 → 6367
 		{31833, 0, 0},
 		{100, 2050, 21}, // 20.5 → 21
 		{100, 2049, 20}, // 20.49
@@ -93,7 +93,7 @@ func TestTaxMinor(t *testing.T) {
 		}
 	}
 	if sub, tax := int64(31833), TaxMinor(31833, 2000); sub+tax != 38200 {
-		t.Errorf("AC14 total %d, want 38200", sub+tax)
+		t.Errorf("total %d, want 38200", sub+tax)
 	}
 }
 
