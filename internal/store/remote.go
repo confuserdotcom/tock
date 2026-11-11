@@ -71,11 +71,35 @@ func (s *Store) ReplaceRemoteDay(machine, day string, f RemoteFile, vs []RemoteV
 	return nil
 }
 
+// remoteViewsQuery reads the remote views overlapping [from, to); its
+// arguments are to, the lower bound from remoteLow, and from (see spansQuery).
+const remoteViewsQuery = `SELECT id, machine, day, start_ms, end_ms, bundle, app, title, url, category, project
+		FROM remote_view WHERE start_ms < ? AND start_ms >= ? AND end_ms > ? ORDER BY start_ms, id`
+
+// remoteLow is from minus the longest remote view (remote_view_len index).
+func (s *Store) remoteLow(from int64) (int64, error) { return remoteLowTx(s.db, from) }
+
+func remoteLowTx(q querier, from int64) (int64, error) {
+	var longest int64
+	if err := q.QueryRow(`SELECT coalesce(max(end_ms - start_ms), 0) FROM remote_view`).Scan(&longest); err != nil {
+		return 0, fmt.Errorf("store: remote view bound: %w", err)
+	}
+	return back(from, longest), nil
+}
+
 // RemoteViews returns the remote views overlapping [from, to), in start
 // order.
 func (s *Store) RemoteViews(from, to int64) ([]RemoteView, error) {
-	rows, err := s.db.Query(`SELECT id, machine, day, start_ms, end_ms, bundle, app, title, url, category, project
-		FROM remote_view WHERE start_ms < ? AND end_ms > ? ORDER BY start_ms, id`, to, from)
+	tx, err := s.db.Begin()
+	if err != nil {
+		return nil, fmt.Errorf("store: remote views: %w", err)
+	}
+	defer tx.Rollback() //nolint:errcheck // read only
+	lo, err := remoteLowTx(tx, from)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := tx.Query(remoteViewsQuery, to, lo, from)
 	if err != nil {
 		return nil, fmt.Errorf("store: remote views: %w", err)
 	}
