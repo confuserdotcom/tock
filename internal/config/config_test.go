@@ -435,12 +435,99 @@ func TestInvoice(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := Invoice{Name: "Ada Lovelace", Address: []string{"1 Analytical Way", "London"}, Currency: "GBP", Note: "Due in 30 days."}
+	want := DefaultInvoice()
+	want.Name, want.Address, want.Currency, want.Note = "Ada Lovelace", []string{"1 Analytical Way", "London"}, "GBP", "Due in 30 days."
 	if !reflect.DeepEqual(c.Invoice, want) {
 		t.Fatalf("invoice %+v", c.Invoice)
 	}
 	if _, err := Load(write(t, "[invoice]\ncurrency = \"EUROS-AND-CENTS\"\n")); err == nil || !strings.Contains(err.Error(), "currency") {
 		t.Errorf("long currency: %v", err)
+	}
+}
+
+func TestInvoiceDefaults(t *testing.T) {
+	c, err := Load(write(t, ""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := c.Invoice; got.RoundStepS != 1 || got.RoundMode != "nearest" || got.MinorUnits != 2 || got.TaxBP != 0 {
+		t.Errorf("defaults %+v", got)
+	}
+}
+
+func TestInvoiceBilling(t *testing.T) {
+	body := `[invoice]
+name = "Ada"
+tax_id = " GB123 "
+round = "15m"
+round_mode = "up"
+minor_units = 0
+tax_label = "VAT"
+tax_rate = "20"
+tax_note = "Reverse charge"
+
+[[invoice.client]]
+name = " Acme "
+address = ["2 Road", "Paris"]
+tax_id = "FR999"
+
+[[invoice.client]]
+name = "Initech"
+`
+	c, err := Load(write(t, body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	inv := c.Invoice
+	if inv.TaxID != "GB123" || inv.RoundStepS != 900 || inv.RoundMode != "up" || inv.MinorUnits != 0 ||
+		inv.TaxLabel != "VAT" || inv.TaxBP != 2000 || inv.TaxNote != "Reverse charge" {
+		t.Errorf("billing %+v", inv)
+	}
+	wantClients := []InvoiceClient{
+		{Name: "Acme", Address: []string{"2 Road", "Paris"}, TaxID: "FR999"},
+		{Name: "Initech"},
+	}
+	if !reflect.DeepEqual(inv.Clients, wantClients) {
+		t.Errorf("clients %+v", inv.Clients)
+	}
+	if cl, ok := inv.Client("acme"); !ok || cl.TaxID != "FR999" {
+		t.Errorf("Client(acme) = %+v, %v", cl, ok)
+	}
+	if _, ok := inv.Client("Globex"); ok {
+		t.Error("unknown client found")
+	}
+
+	for _, rate := range []struct {
+		in string
+		bp int64
+	}{{"0", 0}, {"7.7", 770}, {"20.25", 2025}, {"100", 10000}, {" 5.5 ", 550}} {
+		c, err := Load(write(t, "[invoice]\ntax_rate = \""+rate.in+"\"\n"))
+		if err != nil || c.Invoice.TaxBP != rate.bp {
+			t.Errorf("tax_rate %q: %d, %v; want %d", rate.in, c.Invoice.TaxBP, err, rate.bp)
+		}
+	}
+
+	for _, bad := range []struct{ body, want string }{
+		{"round = \"15x\"", "round"},
+		{"round = \"0s\"", "round"},
+		{"round = \"1500ms\"", "round"},
+		{"round = \"25h\"", "round"},
+		{"round_mode = \"down\"", "round_mode"},
+		{"minor_units = 4", "minor_units"},
+		{"minor_units = -1", "minor_units"},
+		{"tax_rate = \"20%\"", "tax_rate"},
+		{"tax_rate = \"20.125\"", "tax_rate"},
+		{"tax_rate = \"101\"", "tax_rate"},
+		{"tax_rate = \"-5\"", "tax_rate"},
+		{"tax_rate = \"\"", "tax_rate"},
+		{"tax_id = \"" + strings.Repeat("x", 51) + "\"", "tax_id"},
+		{"[[invoice.client]]\naddress = [\"x\"]", "client"},
+		{"[[invoice.client]]\nname = \"A\"\n[[invoice.client]]\nname = \"a\"", "client"},
+		{"[[invoice.client]]\nname = \"A\"\nphone = \"1\"", "phone"},
+	} {
+		if _, err := Load(write(t, "[invoice]\n"+bad.body+"\n")); err == nil || !strings.Contains(err.Error(), bad.want) {
+			t.Errorf("%q: err %v, want %q", bad.body, err, bad.want)
+		}
 	}
 }
 
