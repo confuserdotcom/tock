@@ -314,7 +314,7 @@ func run(args []string, env Env) int {
 			fmt.Fprintf(env.Stderr, "tock: unknown command %q\n%s", args[0], unknownHelp(args[0]))
 			return 2
 		}
-		if wantsHelp(args[1:]) {
+		if wantsHelp(args[0], args[1:]) {
 			fmt.Fprint(env.Stdout, commandHelp(args[0]))
 			return 0
 		}

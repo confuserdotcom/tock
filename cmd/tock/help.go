@@ -6,10 +6,13 @@ import (
 	"strings"
 )
 
-// wantsHelp reports whether a command's arguments ask for its help: "help"
-// right after the command, or -h, -help or --help before a "--". "help"
-// later on is an argument (a category, a note).
-func wantsHelp(args []string) bool {
+// wantsHelp reports whether command name's arguments ask for its help:
+// "help" right after the command, or -h, -help or --help before a "--".
+// "help" later on is an argument (a category, a note).
+func wantsHelp(name string, args []string) bool {
+	if freeText[name] {
+		return len(args) == 1 && (args[0] == "help" || args[0] == "-h" || args[0] == "-help" || args[0] == "--help")
+	}
 	if len(args) > 0 && args[0] == "help" {
 		return true
 	}
@@ -24,10 +27,54 @@ func wantsHelp(args []string) bool {
 	return false
 }
 
-// subHelp is the fuller help of commands with subcommands of their own.
-var subHelp = map[string]string{
-	"invoice": strings.TrimPrefix(invoiceUsage, "invoice: one of\n") + "\n",
+// ownUsage is each command's own usage text, where it has one: fuller than
+// its lines in usage.
+var ownUsage = map[string]string{
+	"away":     awayUsage,
+	"category": categoryUsage,
+	"edit":     editUsage,
+	"goal":     goalUsage,
+	"invoice":  invoiceUsage,
+	"model":    modelUsage,
+	"project":  projectUsage,
+	"rules":    rulesUsage,
+	"top":      topUsage,
 }
+
+// subHelp is ownUsage[name] as help: "usage:" first, without the
+// "name: " prefix some of them carry. "" when name has none.
+func subHelp(name string) string {
+	u, ok := ownUsage[name]
+	if !ok {
+		return ""
+	}
+	lines := strings.Split(strings.TrimRight(u, "\n"), "\n")
+	// The first "tock" sets the indent the other lines were aligned to.
+	first := 0
+	for i, l := range lines {
+		if strings.Contains(l, "tock ") {
+			first = i
+			break
+		}
+	}
+	indent := strings.Index(lines[first], "tock ")
+	var b strings.Builder
+	b.WriteString("usage:\n")
+	for _, l := range lines[first:] {
+		if strings.Contains(l, "tock "+name) && strings.Index(l, "tock ") == indent {
+			l = l[indent:]
+		} else {
+			lead := len(l) - len(strings.TrimLeft(l, " "))
+			l = l[min(lead, indent):]
+		}
+		b.WriteString("  " + l + "\n")
+	}
+	return b.String()
+}
+
+// freeText commands take words of yours as arguments: only a lone help
+// word or flag asks for help (tock ask help me with -h).
+var freeText = map[string]bool{"ask": true}
 
 // usageLines are the lines of usage about command name: each line that
 // starts with "  tock <name>" and the indented lines that continue it.
@@ -52,21 +99,24 @@ func usageLines(name string) string {
 
 // commandHelp is what `tock <name> --help` prints.
 func commandHelp(name string) string {
-	lines := usageLines(name)
-	if extra, ok := subHelp[name]; ok {
-		lines = extra
+	lines := subHelp(name)
+	if lines == "" {
+		if l := usageLines(name); l != "" {
+			lines = "usage:\n" + l
+		}
 	}
 	if lines == "" {
 		return usage
 	}
-	return "usage:\n" + lines + "\ntock help lists every command; docs/guide.md explains each one.\n"
+	return lines + "\ntock help lists every command; docs/guide.md explains each one.\n"
 }
 
 // helpFor is the help shown after a usage error in command name: its own
-// lines, or all of usage when it has none.
+// help, unless the error already is that (tock project frob), or all of
+// usage when it has none.
 func helpFor(name string, err error) string {
-	if extra, ok := subHelp[name]; ok && strings.Contains(err.Error(), strings.TrimSpace(extra)) {
-		return "" // the error already is the command's help (tock invoice frob)
+	if u, ok := ownUsage[name]; ok && strings.Contains(err.Error(), strings.TrimSpace(u)) {
+		return ""
 	}
 	if slices.Contains([]string{"", "help"}, name) {
 		return usage

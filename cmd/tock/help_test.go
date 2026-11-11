@@ -59,8 +59,27 @@ func TestUsageErrorShowsCommandLines(t *testing.T) {
 // A word after the command that only looks like help is left alone: a
 // category named "help" can still be tagged, and a note can say --help.
 func TestHelpOnlyBeforeDoubleDash(t *testing.T) {
-	if !wantsHelp([]string{"issue", "--help"}) || wantsHelp([]string{"--", "--help"}) || wantsHelp([]string{"1", "help"}) {
+	if !wantsHelp("invoice", []string{"issue", "--help"}) || wantsHelp("edit", []string{"--", "--help"}) || wantsHelp("tag", []string{"1", "help"}) {
 		t.Fatal("wantsHelp")
+	}
+	// tock ask takes your words: only a lone help asks for help.
+	if wantsHelp("ask", []string{"help", "with", "invoices"}) || wantsHelp("ask", []string{"what", "does", "-h", "do"}) || !wantsHelp("ask", []string{"--help"}) {
+		t.Fatal("wantsHelp ask")
+	}
+}
+
+// A command with its own usage text shows all of it: project's set options
+// and refile are not in the one-line summary.
+func TestOwnUsageHelp(t *testing.T) {
+	te := newTestEnv(t, "")
+	for name := range ownUsage {
+		code, out := te.run(t, "", name, "--help")
+		if code != 0 || !strings.HasPrefix(out, "usage:\n  ") || strings.Contains(out, name+": usage") || strings.Contains(out, "Every day:") {
+			t.Errorf("%s --help: %d\n%s", name, code, out)
+		}
+	}
+	if _, out := te.run(t, "", "project", "--help"); !strings.Contains(out, "--billable") || !strings.Contains(out, "refile") {
+		t.Errorf("project help:\n%s", out)
 	}
 }
 
