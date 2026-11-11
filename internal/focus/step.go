@@ -19,7 +19,10 @@ func Step(in Input) []Event {
 	var writes, notes []Event
 	st := in.State
 	stateChanged := false
-	if s := openSession(in); s != nil {
+	if !in.Cfg.Enabled {
+		// Focus is off: no session steps, break or distraction notices and
+		// no auto sessions; the routine, away and plan notices go on.
+	} else if s := openSession(in); s != nil {
 		w, n, ended := stepSession(in, *s)
 		if !ended {
 			cur := *s
@@ -49,16 +52,18 @@ func Step(in Input) []Event {
 			stateChanged = true
 		}
 	}
-	if n, ok := stepBreakOver(in, &st); ok {
-		notes = append(notes, n)
+	if in.Cfg.Enabled {
+		if n, ok := stepBreakOver(in, &st); ok {
+			notes = append(notes, n)
+		}
+		if n, ok := stepBreakScreen(in, &st); ok {
+			notes = append(notes, n)
+		}
+		if st.BreakOverAt != in.State.BreakOverAt || st.BreakScreenAt != in.State.BreakScreenAt { // sent, or given up
+			stateChanged = true
+		}
+		writes = append(writes, autoSessions(in)...)
 	}
-	if n, ok := stepBreakScreen(in, &st); ok {
-		notes = append(notes, n)
-	}
-	if st.BreakOverAt != in.State.BreakOverAt || st.BreakScreenAt != in.State.BreakScreenAt { // sent, or given up
-		stateChanged = true
-	}
-	writes = append(writes, autoSessions(in)...)
 	if !nudgeOK(in, st) {
 	} else if n, ok := stepStart(in, &st); ok {
 		notes = append(notes, n)

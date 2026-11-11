@@ -45,6 +45,13 @@ func (a *App) GuardTick(call bool) ([]focus.Event, focus.Guard, error) {
 	if err != nil {
 		return nil, focus.Guard{}, err
 	}
+	if open != nil && !a.cfg.Focus.Enabled {
+		// Focus went off during a session: it ends as if stopped.
+		if _, err := a.StopSession(); err != nil && !errors.Is(err, store.ErrNoSession) {
+			return nil, focus.Guard{}, err
+		}
+		open = nil
+	}
 	from := day.UnixMilli()
 	if open != nil && open.StartMS < from {
 		from = open.StartMS
@@ -316,9 +323,17 @@ func (a *App) SnoozeBreak(d time.Duration) error {
 	return a.st.SetState(store.KeyFocusBreakSnooze, strconv.FormatInt(now+d.Milliseconds(), 10), now)
 }
 
+// ErrFocusOff means the Focus group is off: no session starts.
+var ErrFocusOff = errors.New("focus is off (turn it on: tock choice focus on)")
+
 // StartSession starts a manual session of minutes minutes now. It fails
-// with store.ErrSessionRunning when one is running.
+// with store.ErrSessionRunning when one is running, ErrFocusOff when the
+// Focus group is off.
 func (a *App) StartSession(minutes int) (focus.Session, error) {
+	a.Reload() // a long-lived caller (tock web, tockbar) sees the group as config.toml sets it now
+	if !a.cfg.Focus.Enabled {
+		return focus.Session{}, ErrFocusOff
+	}
 	if minutes < 1 || minutes > config.MaxSessionMin {
 		return focus.Session{}, fmt.Errorf("session length %d min, want 1 to %d", minutes, config.MaxSessionMin)
 	}

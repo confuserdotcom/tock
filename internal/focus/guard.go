@@ -41,8 +41,8 @@ var neverBlocked = []string{"com.apple.finder", "com.apple.loginwindow", "com.ap
 func GuardStep(in Input, gs GuardState) Guard {
 	g := Guard{State: gs}
 	s := openSession(in)
-	if s != nil && in.Now >= s.PlannedMS {
-		s = nil
+	if s != nil && in.Now >= s.PlannedMS || !in.Cfg.Enabled {
+		s = nil // Focus off: hooks stop and nothing is blocked
 	}
 	switch {
 	case s != nil && gs.HookSession != s.ID:
