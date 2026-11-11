@@ -1714,8 +1714,9 @@ day. `tock doctor --deep` checks the whole live database now.
 `tock backup` still writes one archive with the database, your rules and
 your config, for keeping somewhere else:
 `~/.local/share/tock/backups/tock-YYYYMMDD-HHMMSS.tar.gz` (owner-only),
-with `tock.db`, `rules.toml`, `learned.toml`, `config.toml` and
-`shell.log` when they exist. `--out FILE` writes elsewhere; an existing
+with `tock.db`, `rules.toml`, `learned.toml`, `config.toml`,
+`shell.log` and the files of your issued invoices (`invoices/`) when
+they exist. `--out FILE` writes elsewhere; an existing
 file is never overwritten.
 
 Copies on this machine don't help if the disk dies: Time Machine, or the
@@ -1748,7 +1749,10 @@ second one back:
 
 1. It checks the copy, and refuses one made by a newer tock.
 2. It says what you lose (activity recorded after the copy was made) and
-   asks; `--yes` skips the question.
+   asks; `--yes` skips the question. If the copy lacks invoices you issued
+   since, it names them and goes on only with `--yes`. Their files stay in
+   `~/.local/share/tock/invoices/`, and `tock invoice recover` puts them
+   back in the database.
 3. It stops trackd (and the menu bar on a Mac), keeps the current database
    as `tock.db.before-restore-<time>`, puts the copy in its place, and
    starts them again.

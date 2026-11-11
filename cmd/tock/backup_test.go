@@ -36,11 +36,15 @@ func untar(t *testing.T, path string) (string, []string) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if h.Mode != 0o600 || strings.Contains(h.Name, "/") {
+		// Flat entries, except the invoices directory.
+		if h.Mode != 0o600 || strings.Contains(strings.TrimPrefix(h.Name, "invoices/"), "/") {
 			t.Fatalf("entry %q mode %o", h.Name, h.Mode)
 		}
 		b, err := io.ReadAll(tr)
 		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.MkdirAll(filepath.Join(dir, filepath.Dir(h.Name)), 0o700); err != nil {
 			t.Fatal(err)
 		}
 		if err := os.WriteFile(filepath.Join(dir, h.Name), b, 0o600); err != nil {
@@ -124,5 +128,23 @@ func TestBackupNoDB(t *testing.T) {
 	}
 	if code, _ := te.run(t, "", "backup", "extra"); code != 2 {
 		t.Fatalf("extra arg exit %d, want 2", code)
+	}
+}
+
+func TestBackupIncludesInvoices(t *testing.T) {
+	te := newTestEnv(t, testRules)
+	inv := issueTestInvoice(t, te)
+	code, out := te.run(t, "", "backup")
+	if code != 0 {
+		t.Fatalf("exit %d: %s", code, te.errb)
+	}
+	path := strings.Fields(strings.TrimPrefix(out, "wrote "))[0]
+	dir, names := untar(t, path)
+	got := strings.Join(names, " ")
+	if !strings.Contains(got, "invoices/"+inv.Number+".json") || !strings.Contains(got, "invoices/"+inv.Number+".pdf") {
+		t.Fatalf("entries = %s", got)
+	}
+	if b, _ := os.ReadFile(filepath.Join(dir, "invoices", inv.Number+".pdf")); string(b) != "%PDF test" {
+		t.Fatalf("pdf %q", b)
 	}
 }

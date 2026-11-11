@@ -8,16 +8,18 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"tock/internal/config"
+	"tock/internal/store"
 )
 
 // backupFile is one archive entry and the file it is read from.
 type backupFile struct{ name, src string }
 
-// cmdBackup writes one tar.gz with a snapshot of tock.db and the rule,
-// config and shell log files. The default path is under the data directory,
+// cmdBackup writes one tar.gz with a snapshot of tock.db, the rule, config
+// and shell log files, and the invoice files under invoices/. The default path is under the data directory,
 // never the current one: the archive holds titles and URLs.
 func cmdBackup(env Env, args []string) error {
 	fs := newFlags("backup")
@@ -77,13 +79,25 @@ func writeBackup(w io.Writer, env Env, snapshot func(string) error, tmpParent st
 	if err := snapshot(snap); err != nil {
 		return 0, err
 	}
-	return writeArchive(w, []backupFile{
+	files := []backupFile{
 		{"tock.db", snap},
 		{"rules.toml", env.rulesPath()},
 		{"learned.toml", env.learnedPath()},
 		{config.File, filepath.Join(env.ConfigDir, config.File)},
 		{"shell.log", env.shellLogPath()},
-	}, env.Now())
+	}
+	// Issued invoices are in tock.db too; their files are the copies that
+	// were sent, and the way back after restoring an older snapshot.
+	invoices, err := os.ReadDir(store.InvoiceDir(env.dbPath()))
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return 0, err
+	}
+	for _, e := range invoices {
+		if e.Type().IsRegular() && !strings.HasPrefix(e.Name(), ".") {
+			files = append(files, backupFile{"invoices/" + e.Name(), filepath.Join(store.InvoiceDir(env.dbPath()), e.Name())})
+		}
+	}
+	return writeArchive(w, files, env.Now())
 }
 
 // writeArchive writes the files that exist as flat 0600 tar.gz entries and

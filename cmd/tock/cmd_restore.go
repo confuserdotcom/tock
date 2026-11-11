@@ -176,6 +176,17 @@ func cmdRestore(env Env, args []string) error {
 	}
 	when := time.UnixMilli(pick.atMS).In(env.Now().Location()).Format("Mon 2 Jan 15:04")
 	keep := env.dbPath() + ".before-restore-" + env.Now().Format("20060102-150405")
+	lost, err := invoicesLost(env.dbPath(), tmp)
+	if err != nil {
+		return err
+	}
+	if len(lost) > 0 {
+		fmt.Fprintf(env.Stdout, "The snapshot from %s lacks %d issued invoice(s): %s.\n", when, len(lost), strings.Join(lost, ", "))
+		fmt.Fprintf(env.Stdout, "Their files stay in %s, and tock invoice recover brings them back afterwards.\n", store.InvoiceDir(env.dbPath()))
+		if !*yes {
+			return usagef("restore: invoices would leave the database; confirm with --yes")
+		}
+	}
 	if !*yes {
 		fmt.Fprintf(env.Stdout, "This replaces tock.db with the snapshot from %s. Activity recorded after that is lost (the current database is kept as %s). Restore? [y/N] ", when, keep)
 		line, _ := bufio.NewReader(env.Stdin).ReadString('\n')
@@ -213,6 +224,33 @@ func cmdRestore(env Env, args []string) error {
 		fmt.Fprintf(env.Stdout, "rules.toml and config.toml are in %s; restore them by hand if you want them.\n", pick.path)
 	}
 	return startErr
+}
+
+// invoicesLost lists the invoice numbers in the database at db that the
+// snapshot at snap does not have.
+func invoicesLost(db, snap string) ([]string, error) {
+	if _, err := os.Stat(db); errors.Is(err, os.ErrNotExist) {
+		return nil, nil
+	}
+	cur, err := store.InvoiceNumbersIn(db)
+	if err != nil {
+		return nil, fmt.Errorf("restore: %w", err)
+	}
+	old, err := store.InvoiceNumbersIn(snap)
+	if err != nil {
+		return nil, fmt.Errorf("restore: %w", err)
+	}
+	have := map[string]bool{}
+	for _, n := range old {
+		have[n] = true
+	}
+	var lost []string
+	for _, n := range cur {
+		if !have[n] {
+			lost = append(lost, n)
+		}
+	}
+	return lost, nil
 }
 
 func pickRestorable(all []restorable, arg string) (restorable, error) {

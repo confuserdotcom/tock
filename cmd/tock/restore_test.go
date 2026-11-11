@@ -184,3 +184,63 @@ func fileHash(t *testing.T, p string) [32]byte {
 	}
 	return sha256.Sum256(b)
 }
+
+// issueTestInvoice stores one invoice in te's database and writes its
+// files, as tock invoice issue will.
+func issueTestInvoice(t *testing.T, te *tenv) store.Invoice {
+	t.Helper()
+	st, err := store.Open(te.dbPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	inv, err := st.IssueInvoice(store.IssueSpec{
+		Draft: store.Invoice{IssuedMS: te.now.UnixMilli(), Project: "tock", TZ: "UTC", MinorUnits: 2,
+			RateMinor: 6000, RoundStepS: 1, RoundMode: "nearest", SecondsBilled: 3600, SubtotalMinor: 6000, TotalMinor: 6000},
+		Loc:    time.UTC,
+		Render: func(store.Invoice) ([]byte, error) { return []byte("%PDF test"), nil },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.WriteInvoiceFiles(store.InvoiceDir(te.dbPath()), inv); err != nil {
+		t.Fatal(err)
+	}
+	return inv
+}
+
+// A snapshot older than an invoice would drop it from the database: the
+// restore names it and needs --yes even when someone could answer y.
+func TestRestoreWarnsAboutNewerInvoices(t *testing.T) {
+	te := newTestEnv(t, "")
+	calls := stubService(t)
+	seededSnapshot(t, te)
+	inv := issueTestInvoice(t, te)
+
+	te.Interactive = true
+	code, out := te.run(t, "y\n", "restore", "1")
+	if code == 0 || len(*calls) != 0 || !strings.Contains(out+te.errb.String(), inv.Number) || !strings.Contains(te.errb.String(), "--yes") {
+		t.Fatalf("code %d calls %v out %q err %q", code, *calls, out, te.errb)
+	}
+	code, out = te.run(t, "", "restore", "1", "--yes")
+	if code != 0 || !strings.Contains(out, inv.Number) {
+		t.Fatalf("code %d out %q err %q", code, out, te.errb)
+	}
+	// The files stay, so the invoice can be recovered.
+	if _, err := os.Stat(filepath.Join(store.InvoiceDir(te.dbPath()), inv.Number+".pdf")); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// With no invoice lost, restore asks as before.
+func TestRestoreKeepsInvoicesInSnapshot(t *testing.T) {
+	te := newTestEnv(t, "")
+	calls := stubService(t)
+	issueTestInvoice(t, te)
+	seededSnapshot(t, te)
+	te.Interactive = true
+	code, out := te.run(t, "y\n", "restore", "1")
+	if code != 0 || strings.Join(*calls, ",") != "stop,start" || strings.Contains(out, "invoice") {
+		t.Fatalf("code %d calls %v out %q err %q", code, *calls, out, te.errb)
+	}
+}
