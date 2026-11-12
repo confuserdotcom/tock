@@ -173,6 +173,12 @@ export type Rule = {
   since?: string; // local "2026-11-20 14:05": the rule labels only time from then on
 };
 export type Rules = { rules: Rule[]; days: number };
+export type AgentRow = { project: string; agentMS: number; youMS: number; prompts: number; sessions: number };
+export type Agents = { from: string; to: string; rows: AgentRow[]; agentMS: number; wallMS: number; youMS: number; peak: number };
+export type Budget = {
+  project: string; budgetMS: number; budget: string; since?: string; spentMS: number; perDayMS: number;
+  runsOutMS?: number; pct: number; over: boolean;
+};
 /** Why is what set each field of an entry's label (GET /api/why). */
 export type WhyLine = { field: "category" | "project"; label: string; source: string; text: string; ref?: string };
 export type RuleExample = { text: string; ms: number; from: string; to: string };

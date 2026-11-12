@@ -10,6 +10,7 @@ import { Timeline, type Highlight } from "@/components/charts/Timeline";
 import { TimeTable } from "@/components/Tables";
 import { LabelSheet, type Target } from "@/components/LabelSheet";
 import { Replay } from "@/components/Replay";
+import { AgentsAndBudgets } from "@/components/AgentsBudgets";
 import { Button } from "@/components/ui/button";
 import { useApi, type Day } from "@/lib/api";
 import { addDays, delta, dur, hhmm, parseDate } from "@/lib/format";
@@ -204,6 +205,7 @@ export default function Today({ date, tick }: { date: string; tick: number }) {
           </ul>
         </Panel>
       )}
+      <AgentsAndBudgets date={d.date} tick={tick} />
       <LabelSheet target={target} onClose={() => setTarget(null)} onDone={reload} />
     </div>
   );

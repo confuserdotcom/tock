@@ -13,7 +13,9 @@ What changed for you in each release. Dates are UTC.
   to an hour of the day a second. Drag to scrub.
 - **Project budgets.** `budget = "40h"` (and `budget_since`) on a
   project, or `tock project set X --budget 40h`. `tock budget` shows the
-  time spent, this week's pace and the day the rest runs out. With rules
+  time spent, this week's pace and the day the rest runs out. The
+  dashboard shows them on Today, and a notification says when a project
+  reaches 80% of its budget and when it runs out. With rules
   sync on, update every machine first: older versions refuse a
   `rules.toml` with a budget in it.
 - **Terminal time from agent sessions.** A terminal showing a Claude Code
@@ -24,7 +26,8 @@ What changed for you in each release. Dates are UTC.
   time behind each commit.
 - **Agent ledger.** `tock agents` reads Claude Code's session logs and
   shows, per project, how long agents worked, how much of it you spent in
-  their windows, and the prompts you typed. It reads times, directories
+  their windows, and the prompts you typed; the dashboard's Today page
+  shows the day's. It reads times, directories
   and session titles only, never what was said.
 
 ### Fixed

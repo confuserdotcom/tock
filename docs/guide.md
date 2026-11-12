@@ -1206,7 +1206,8 @@ agents worked 4h36 · you 1h51 in their windows · 2.5× leverage
   which Claude Code puts in the terminal title.
 - **prompts:** the prompts you typed.
 
-`--days N` and `--week` widen the range.
+`--days N` and `--week` widen the range. The dashboard's Today page has
+the same table for the day it shows.
 
 The sessions also label your terminal time. A terminal window whose title
 holds a session's title, in front while the session ran, works in the
@@ -1238,7 +1239,12 @@ tock      9h05 / 8h      113%  ████████████████�
 It writes `budget = "40h"` and `budget_since = "2026-11-01"` under the
 project in `rules.toml`. Without `budget_since` the budget counts all
 recorded time. The pace is the project's average a day over the last 7
-days. `--budget none` drops it.
+days; under a minute a day gives no run-out day. `--budget none` drops it.
+
+The dashboard's Today page shows each budget as a bar. When a project
+reaches 80% of its budget, and again when it runs out, the menu bar app
+(or a plain notification) says so, once for each; changing the budget or
+its start date lets it speak again.
 
 ## Billing
 
