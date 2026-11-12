@@ -65,6 +65,10 @@ func (a *App) trainingSet() ([]classify.Example, error) {
 		ends := rowEnds(rows, now)
 		save := map[string]store.Derived{}
 		cut := a.cut // labelling here is not a report: its cuts are not counted
+		// The model trains on labels without agent sessions, as trackd sees
+		// them, so every process shares its training parts and the model.
+		a.noAgents = true
+		defer func() { a.noAgents = false }()
 		for _, d := range missing {
 			from, to := d.UnixMilli(), d.AddDate(0, 0, 1).UnixMilli()
 			vs, err := a.decorate(a.base(rowsFor(rows, ends, from, to), ovs, from, to, now), ovs, from, to)

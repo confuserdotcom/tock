@@ -17,7 +17,7 @@ import (
 // pastFormat is the version of what the disk cache of past days holds and
 // how it is computed: bump it when pastDay, or the code that fills it,
 // changes in a way the build revision does not show.
-const pastFormat = 2
+const pastFormat = 3
 
 // diskDay is a past day as the derived table keeps it.
 type diskDay struct {
@@ -191,19 +191,33 @@ func buildID() string {
 	return rev
 }
 
+// pastName is the derived row of a past day. Days labelled with agent
+// sessions (tock) and without (trackd) are kept apart, so neither process
+// overwrites the other's.
+func (a *App) pastName(date string) string {
+	if a.agentLabels() {
+		return date + "+agents"
+	}
+	return date
+}
+
 // loadPast is the days on disk whose key is still keys[day].
 func (a *App) loadPast(keys map[string]string) map[string]pastDay {
 	out := map[string]pastDay{}
-	dates := make([]string, 0, len(keys))
+	names := make([]string, 0, len(keys))
 	for d := range keys {
-		dates = append(dates, d)
+		names = append(names, a.pastName(d))
 	}
-	rows, err := a.st.DerivedRows(dates)
+	rows, err := a.st.DerivedRows(names)
 	if err != nil {
 		return out
 	}
 	loc := a.now().Location()
-	for date, c := range rows {
+	for date := range keys {
+		c, ok := rows[a.pastName(date)]
+		if !ok {
+			continue
+		}
 		var d diskDay
 		day, err := time.ParseInLocation("2006-01-02", date, loc)
 		if err != nil || c.Key != keys[date] || json.Unmarshal(c.Data, &d) != nil ||
@@ -227,7 +241,7 @@ func (a *App) savePast(days map[string]pastDay, keys map[string]string) {
 		}
 		b, err := json.Marshal(diskDay{FromMS: day.UnixMilli(), ToMS: day.AddDate(0, 0, 1).UnixMilli(), Day: p})
 		if err == nil {
-			rows[date] = store.Derived{Key: keys[date], Data: b}
+			rows[a.pastName(date)] = store.Derived{Key: keys[date], Data: b}
 		}
 	}
 	if len(rows) > 0 {

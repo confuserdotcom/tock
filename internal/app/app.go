@@ -59,8 +59,12 @@ type App struct {
 	goos       string      // runtime.GOOS; tests set it
 	inputCheck func() bool // inputKnown on this machine; tests substitute it
 
-	agentIx *agentlog.Index // read lazily (see agentSessions)
-	agentAt time.Time       // when agentIx last looked for new lines
+	budgets  *budgetCache // see Budgets; nil after a rules reload
+	noAgents bool         // set while training: labels as trackd makes them
+	// budgetAt is when budgetNotices last looked.
+	budgetAt time.Time
+	agentIx  *agentlog.Index // read lazily (see agentSessions)
+	agentAt  time.Time       // when agentIx last looked for new lines
 
 	git      gitlog.Runner // nil = gitlog.Exec
 	gitCache map[gitKey]gitEntry
@@ -193,7 +197,7 @@ func (a *App) Reload() (changed bool, err error) {
 	}
 	rs.SetHome(a.home)
 	a.rs, a.rulesErr = rs, nil
-	a.past, a.gitCache = nil, nil
+	a.past, a.gitCache, a.budgets = nil, nil, nil
 	a.profile = profileCache{}
 	return true, nil
 }

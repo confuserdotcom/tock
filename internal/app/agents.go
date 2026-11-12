@@ -108,7 +108,7 @@ func (a *App) agentSessions(from, to int64) ([]agentlog.Session, error) {
 // the agent session they show (see agentlog.Attach). A log that cannot be
 // read leaves them as they are.
 func (a *App) attachAgents(vs []classify.SpanView) {
-	if !a.cfg.Shell.Agents || a.paths.AgentIndex == "" || len(vs) == 0 {
+	if !a.agentLabels() || len(vs) == 0 {
 		return
 	}
 	lo, hi := int64(math.MaxInt64), int64(math.MinInt64)
@@ -125,4 +125,10 @@ func (a *App) attachAgents(vs []classify.SpanView) {
 		return
 	}
 	agentlog.Attach(vs, ss, a.cfg.Shell.Terminals, a.home)
+}
+
+// agentLabels reports whether agent sessions label terminal time here: on
+// in config.toml and an index to keep (tock, not trackd or tockbar).
+func (a *App) agentLabels() bool {
+	return a.cfg.Shell.Agents && a.paths.AgentIndex != "" && !a.noAgents
 }

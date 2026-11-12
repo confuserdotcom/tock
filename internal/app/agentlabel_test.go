@@ -66,3 +66,25 @@ func TestAgentDirsLabelTerminalTime(t *testing.T) {
 		t.Fatalf("agents off: %v", got)
 	}
 }
+
+// trackd (no index path) and tock (with one) label past days differently,
+// so they keep them in different rows; the model they share.
+func TestPastDaysKeptApartModelShared(t *testing.T) {
+	e := apptest.New(t, apptest.Rules)
+	e.Seed(t, apptest.DaySpans()...)
+	open := func(index string) *App {
+		a, err := Open(Paths{DB: e.DB, Rules: e.Rules, Learned: e.Learned, Config: e.Config, Agents: t.TempDir(), AgentIndex: index}, e.NowFunc())
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { a.Close() })
+		return a
+	}
+	with, without := open(filepath.Join(t.TempDir(), "agents.index")), open("")
+	if with.pastName("2026-10-09") != "2026-10-09+agents" || without.pastName("2026-10-09") != "2026-10-09" {
+		t.Fatalf("names %q %q", with.pastName("2026-10-09"), without.pastName("2026-10-09"))
+	}
+	if with.modelKey() != without.modelKey() {
+		t.Fatal("the model key must not depend on agent labels")
+	}
+}
