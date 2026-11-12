@@ -65,13 +65,13 @@ jobs:
       - name: the committed build is current
         run: git diff --exit-code --stat internal/web/static
 
-  # The newest macOS on Apple Silicon, an older one, and the last Intel
+  # macOS 26 and 15 on Apple Silicon, and 15 on the last Intel
   # image: tock is only used day to day on the newest.
   macos:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, macos-14, macos-15-intel]
+        os: [macos-latest, macos-15, macos-15-intel]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
