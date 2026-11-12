@@ -47,14 +47,6 @@ func runScript(kind browserKind, warm bool) (string, int, bool) {
 // browsers is the process-wide policy: goAutomationResult has no receiver.
 var browsers = newBrowserPolicy()
 
-// bundleForKind is the bundle id whose Automation status is checked.
-var bundleForKind = map[browserKind]string{
-	browserChrome: "com.google.Chrome",
-	browserArc:    "company.thebrowser.Browser",
-	browserBrave:  "com.brave.Browser",
-	browserSafari: "com.apple.Safari",
-}
-
 // applyBrowserDarwin starts the one-time Automation check for a scriptable
 // browser, then applies the browser policy with the real script runner. win
 // is the focused window's identity from the poll (0 when unknown).

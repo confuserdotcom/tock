@@ -18,7 +18,57 @@ const (
 	browserBrave   browserKind = 3
 	browserSafari  browserKind = 4
 	browserFirefox browserKind = 5
+
+	// Chromium browsers scripted like Chrome, by bundle id. Their script
+	// treats any window mode other than "normal" as private, so a browser
+	// that names its private mode differently fails closed.
+	browserEdge         browserKind = 6
+	browserEdgeBeta     browserKind = 7
+	browserEdgeDev      browserKind = 8
+	browserEdgeCanary   browserKind = 9
+	browserVivaldi      browserKind = 10
+	browserChromium     browserKind = 11
+	browserChromeBeta   browserKind = 12
+	browserChromeDev    browserKind = 13
+	browserChromeCanary browserKind = 14
+	browserBraveBeta    browserKind = 15
+	browserBraveNightly browserKind = 16
+
+	// browserOpaque is a browser whose private windows tock cannot tell
+	// apart: it keeps the app and drops every title and URL.
+	browserOpaque browserKind = 30
 )
+
+// bundleForKind is the bundle id of each scriptable browser, whose
+// Automation status is checked. browser_darwin.m keeps the same ids.
+var bundleForKind = map[browserKind]string{
+	browserChrome:       "com.google.Chrome",
+	browserArc:          "company.thebrowser.Browser",
+	browserBrave:        "com.brave.Browser",
+	browserSafari:       "com.apple.Safari",
+	browserEdge:         "com.microsoft.edgemac",
+	browserEdgeBeta:     "com.microsoft.edgemac.Beta",
+	browserEdgeDev:      "com.microsoft.edgemac.Dev",
+	browserEdgeCanary:   "com.microsoft.edgemac.Canary",
+	browserVivaldi:      "com.vivaldi.Vivaldi",
+	browserChromium:     "org.chromium.Chromium",
+	browserChromeBeta:   "com.google.Chrome.beta",
+	browserChromeDev:    "com.google.Chrome.dev",
+	browserChromeCanary: "com.google.Chrome.canary",
+	browserBraveBeta:    "com.brave.Browser.beta",
+	browserBraveNightly: "com.brave.Browser.nightly",
+}
+
+var kindForBundle = func() map[string]browserKind {
+	m := make(map[string]browserKind, len(bundleForKind))
+	for k, id := range bundleForKind {
+		m[id] = k
+	}
+	return m
+}()
+
+// scriptable reports whether tock asks the browser for its front tab.
+func (k browserKind) scriptable() bool { _, ok := bundleForKind[k]; return ok }
 
 // AppleScript error numbers the policy distinguishes.
 const (
@@ -39,17 +89,21 @@ const (
 
 // browserForBundle maps a bundle id to its browser kind.
 func browserForBundle(bundleID string) browserKind {
+	if k, ok := kindForBundle[bundleID]; ok {
+		return k
+	}
 	switch bundleID {
-	case "com.google.Chrome":
-		return browserChrome
-	case "company.thebrowser.Browser":
-		return browserArc
-	case "com.brave.Browser":
-		return browserBrave
-	case "com.apple.Safari":
-		return browserSafari
-	case "org.mozilla.firefox":
+	case "org.mozilla.firefox", "org.mozilla.firefoxdeveloperedition", "org.mozilla.nightly",
+		"app.zen-browser.zen", "org.mozilla.librewolf", "io.gitlab.librewolf-community",
+		"net.waterfox.waterfox", "one.ablaze.floorp":
+		// Firefox and its forks: "Private Browsing" ends a private
+		// window's title, and none is ever scripted.
 		return browserFirefox
+	case "com.operasoftware.Opera", "com.operasoftware.OperaGX", "com.operasoftware.OperaNext",
+		"company.thebrowser.dia", "com.kagi.kagimacOS", "org.torproject.torbrowser",
+		"net.mullvad.mullvadbrowser", "com.apple.SafariTechnologyPreview",
+		"ai.perplexity.comet", "net.imput.helium", "com.sigmaos.sigmaos.macos":
+		return browserOpaque
 	}
 	return browserNone
 }
@@ -259,6 +313,10 @@ func applyBrowserWin(s *span.Sample, win uint64, run scriptRunner, p *browserPol
 	switch kind {
 	case browserNone:
 		return
+	case browserOpaque:
+		s.Title = nil
+		s.URL = nil
+		return
 	case browserFirefox:
 		// Title-only: no script is ever sent to Firefox.
 		s.URL = nil
@@ -333,6 +391,6 @@ func applyBrowserWin(s *span.Sample, win uint64, run scriptRunner, p *browserPol
 	}
 }
 
-// IsBrowser reports whether bundleID is a browser whose private windows
-// tock detects (Chrome, Arc, Brave, Safari, Firefox).
+// IsBrowser reports whether bundleID is a browser tock knows: one whose
+// private windows it detects, or one it records without titles.
 func IsBrowser(bundleID string) bool { return browserForBundle(bundleID) != browserNone }

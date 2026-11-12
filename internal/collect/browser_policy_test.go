@@ -61,7 +61,8 @@ func TestBrowserForBundle(t *testing.T) {
 		firefoxID:                  browserFirefox,
 		"com.apple.Terminal":       browserNone,
 		"":                         browserNone,
-		"com.google.Chrome.canary": browserNone,
+		"com.google.Chrome.canary": browserChromeCanary,
+		"com.google.Chrome.helper": browserNone,
 	}
 	for id, k := range want {
 		if got := browserForBundle(id); got != k {
@@ -470,5 +471,70 @@ func TestTitleChangeRunsScript(t *testing.T) {
 	applyBrowserWin(s, 7, f.run, p, t0+2000)
 	if f.calls != 2 || deref(s.URL) != "e.com/b" {
 		t.Fatalf("calls=%d url=%s", f.calls, deref(s.URL))
+	}
+}
+
+func TestMoreBrowsersByBundle(t *testing.T) {
+	scripted := []string{
+		"com.microsoft.edgemac", "com.microsoft.edgemac.Beta", "com.microsoft.edgemac.Dev", "com.microsoft.edgemac.Canary",
+		"com.vivaldi.Vivaldi", "org.chromium.Chromium",
+		"com.google.Chrome.beta", "com.google.Chrome.dev", "com.google.Chrome.canary",
+		"com.brave.Browser.beta", "com.brave.Browser.nightly",
+	}
+	for _, id := range scripted {
+		k := browserForBundle(id)
+		if !k.scriptable() {
+			t.Errorf("%s: kind %d, want a scriptable Chromium kind", id, k)
+		}
+	}
+	for _, id := range []string{
+		"org.mozilla.firefoxdeveloperedition", "org.mozilla.nightly", "app.zen-browser.zen",
+		"org.mozilla.librewolf", "io.gitlab.librewolf-community", "net.waterfox.waterfox", "one.ablaze.floorp",
+	} {
+		if k := browserForBundle(id); k != browserFirefox {
+			t.Errorf("%s: kind %d, want Firefox (title only)", id, k)
+		}
+	}
+	for _, id := range []string{
+		"com.operasoftware.Opera", "com.operasoftware.OperaGX", "company.thebrowser.dia",
+		"com.kagi.kagimacOS", "org.torproject.torbrowser", "net.mullvad.mullvadbrowser",
+		"com.apple.SafariTechnologyPreview",
+	} {
+		if k := browserForBundle(id); k != browserOpaque {
+			t.Errorf("%s: kind %d, want opaque", id, k)
+		}
+		if !IsBrowser(id) {
+			t.Errorf("IsBrowser(%s) = false", id)
+		}
+	}
+}
+
+// A browser whose private windows tock cannot tell apart keeps only the app:
+// no title, no URL, and no script is ever sent.
+func TestOpaqueBrowserDropsTitleAndURL(t *testing.T) {
+	f := &fakeRunner{results: []fakeResult{okURL("https://example.com/")}}
+	s := sample("com.operasoftware.Opera", strp("Secret thing - Opera"))
+	s.URL = strp("example.com/")
+	applyBrowser(s, f.run, newBrowserPolicy(), t0)
+	if s.Title != nil || s.URL != nil || f.calls != 0 {
+		t.Fatalf("title %q url %q calls %d", deref(s.Title), deref(s.URL), f.calls)
+	}
+	if s.Private {
+		t.Fatal("opaque is not a known private window")
+	}
+}
+
+func TestEdgeScriptedLikeChrome(t *testing.T) {
+	p := newBrowserPolicy()
+	f := &fakeRunner{results: []fakeResult{okURL("https://github.com/x"), okURL("private")}}
+	s := sample("com.microsoft.edgemac", strp("x"))
+	applyBrowser(s, f.run, p, t0)
+	if deref(s.URL) != "github.com/x" || deref(s.Title) != "x" {
+		t.Fatalf("normal: title %q url %q", deref(s.Title), deref(s.URL))
+	}
+	s = sample("com.microsoft.edgemac", strp("y"))
+	applyBrowser(s, f.run, p, t0+20000)
+	if !s.Private || s.Title != nil || s.URL != nil {
+		t.Fatalf("InPrivate: %+v", s)
 	}
 }

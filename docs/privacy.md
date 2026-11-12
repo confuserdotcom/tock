@@ -25,7 +25,13 @@ window. Optional extras, each off until you turn it on:
 ## What is never stored
 
 - **Private browser windows:** the URL is dropped, and on Chromium
-  browsers the title too.
+  browsers the title too. On macOS tock reads the URL from Chrome, Arc,
+  Brave, Edge, Vivaldi, Chromium and Safari (beta and nightly builds
+  included), and only titles from Firefox and its forks (Zen, LibreWolf,
+  Waterfox, Floorp). Browsers whose private windows it cannot recognise
+  (Opera, Dia, Orion, Tor Browser, Mullvad Browser, Safari Technology
+  Preview, Comet, Helium, SigmaOS) are recorded as the app only, never
+  with a title or URL.
 - **Hidden apps and sites** (`[privacy] hide_apps`, `hide_sites`): kept as
   time only, with no title or URL.
 - **While `config.toml` does not load**, trackd records nothing, so a typo

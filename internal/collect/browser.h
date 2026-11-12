@@ -6,6 +6,9 @@
 #define TOCK_SCRIPT_ARC 2
 #define TOCK_SCRIPT_BRAVE 3
 #define TOCK_SCRIPT_SAFARI 4
+// Chromium browsers scripted by bundle id (browserEdge.. in browser_policy.go).
+#define TOCK_SCRIPT_CHROMIUM_FIRST 6
+#define TOCK_SCRIPT_CHROMIUM_LAST 16
 // Close the front tab of the front window (focus guard).
 #define TOCK_SCRIPT_CLOSE_CHROME 21
 #define TOCK_SCRIPT_CLOSE_ARC 22

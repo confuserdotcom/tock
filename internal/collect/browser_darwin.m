@@ -44,6 +44,37 @@ static NSString *const kSafariScript =
      "end tell\n"
      "end timeout";
 
+// Chromium browsers other than Chrome, Arc and Brave, addressed by bundle
+// id. Any mode other than "normal" counts as private, so a browser that
+// names its private mode differently is never recorded with a URL.
+#define TOCK_CHROMIUM_SCRIPT(ID, SECS)                                    \
+    @"with timeout of " SECS " seconds\n"                                \
+     "tell application id \"" ID "\"\n"                                 \
+     "if (count of windows) is 0 then return \"\"\n"                   \
+     "if (mode of front window) is not \"normal\" then return \"private\"\n" \
+     "return URL of active tab of front window\n"                        \
+     "end tell\n"                                                        \
+     "end timeout"
+#define TOCK_CHROMIUM_PAIR(ID) {TOCK_CHROMIUM_SCRIPT(ID, "0.5"), TOCK_CHROMIUM_SCRIPT(ID, "3.0")}
+
+// Indexed by kind - TOCK_SCRIPT_CHROMIUM_FIRST; the ids match bundleForKind.
+static NSString *const kChromiumScripts[][2] = {
+    TOCK_CHROMIUM_PAIR("com.microsoft.edgemac"),
+    TOCK_CHROMIUM_PAIR("com.microsoft.edgemac.Beta"),
+    TOCK_CHROMIUM_PAIR("com.microsoft.edgemac.Dev"),
+    TOCK_CHROMIUM_PAIR("com.microsoft.edgemac.Canary"),
+    TOCK_CHROMIUM_PAIR("com.vivaldi.Vivaldi"),
+    TOCK_CHROMIUM_PAIR("org.chromium.Chromium"),
+    TOCK_CHROMIUM_PAIR("com.google.Chrome.beta"),
+    TOCK_CHROMIUM_PAIR("com.google.Chrome.dev"),
+    TOCK_CHROMIUM_PAIR("com.google.Chrome.canary"),
+    TOCK_CHROMIUM_PAIR("com.brave.Browser.beta"),
+    TOCK_CHROMIUM_PAIR("com.brave.Browser.nightly"),
+};
+_Static_assert(sizeof kChromiumScripts / sizeof kChromiumScripts[0] ==
+                   TOCK_SCRIPT_CHROMIUM_LAST - TOCK_SCRIPT_CHROMIUM_FIRST + 1,
+               "one script pair per Chromium kind");
+
 // Warm-up variants: the first Apple Event to a browser in a process can take
 // seconds while the target loads its scripting dictionary.
 static NSString *const kChromeWarmScript =
@@ -119,7 +150,7 @@ static NSString *const kSelftestURLScript =
 static NSString *const kSelftestErrorScript =
     @"error \"selftest\" number -1712";
 
-#define TOCK_SCRIPT_SLOTS 20
+#define TOCK_SCRIPT_SLOTS 64
 
 // slot maps (kind, warm) to a cache index, or -1 for an unknown kind.
 static int tock_script_slot(int kind, int warm) {
@@ -135,7 +166,9 @@ static int tock_script_slot(int kind, int warm) {
     case TOCK_SCRIPT_CLOSE_ARC: base = 7; break;
     case TOCK_SCRIPT_CLOSE_BRAVE: base = 8; break;
     case TOCK_SCRIPT_CLOSE_SAFARI: base = 9; break;
-    default: return -1;
+    default:
+        if (kind < TOCK_SCRIPT_CHROMIUM_FIRST || kind > TOCK_SCRIPT_CHROMIUM_LAST) return -1;
+        base = 10 + kind - TOCK_SCRIPT_CHROMIUM_FIRST;
     }
     return base * 2 + (warm ? 1 : 0);
 }
@@ -152,6 +185,9 @@ static NSString *tock_script_source(int kind, int warm) {
     case TOCK_SCRIPT_CLOSE_ARC: return kCloseArcScript;
     case TOCK_SCRIPT_CLOSE_BRAVE: return kCloseBraveScript;
     case TOCK_SCRIPT_CLOSE_SAFARI: return kCloseSafariScript;
+    }
+    if (kind >= TOCK_SCRIPT_CHROMIUM_FIRST && kind <= TOCK_SCRIPT_CHROMIUM_LAST) {
+        return kChromiumScripts[kind - TOCK_SCRIPT_CHROMIUM_FIRST][warm ? 1 : 0];
     }
     return nil;
 }
