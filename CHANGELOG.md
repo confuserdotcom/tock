@@ -8,6 +8,9 @@ What changed for you in each release. Dates are UTC.
 - **Time per commit.** `tock commits` lists the commits of your project
   repos, each with the project time since the one before, and the time
   since each project's last commit. `--days N`, `--week`, `--project P`.
+- **Replay.** The dashboard's **Replay** button plays a day back: the app
+  and title at each moment, running totals and the last few apps, at up
+  to an hour of the day a second. Drag to scrub.
 - **Project budgets.** `budget = "40h"` (and `budget_since`) on a
   project, or `tock project set X --budget 40h`. `tock budget` shows the
   time spent, this week's pace and the day the rest runs out.

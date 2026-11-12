@@ -9,6 +9,7 @@ import { HourBars } from "@/components/charts/HourBars";
 import { Timeline, type Highlight } from "@/components/charts/Timeline";
 import { TimeTable } from "@/components/Tables";
 import { LabelSheet, type Target } from "@/components/LabelSheet";
+import { Replay } from "@/components/Replay";
 import { Button } from "@/components/ui/button";
 import { useApi, type Day } from "@/lib/api";
 import { addDays, delta, dur, hhmm, parseDate } from "@/lib/format";
@@ -27,6 +28,7 @@ export default function Today({ date, tick }: { date: string; tick: number }) {
   const [win, setWin] = useState<{ date: string; w: Win } | null>(null);
   const [hl, setHl] = useState<{ date: string; h: Highlight } | null>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
+  const [replay, setReplay] = useState<string | null>(null); // the date being replayed
 
   const apps = useMemo(() => {
     if (!d) return [];
@@ -84,6 +86,9 @@ export default function Today({ date, tick }: { date: string; tick: number }) {
               </button>
             )}
             <span className="num">{dur(d.trackedMS)} tracked · {dur(d.idleMS)} away{notRec > 0 && ` · ${dur(notRec)} not recorded`}</span>
+            {d.timeline.length > 0 && (
+              <Button variant="outline" size="sm" className="h-6 px-2 text-xs" onClick={() => setReplay(replay === d.date ? null : d.date)}>Replay</Button>
+            )}
             <Button variant="outline" size="sm" className="h-6 px-2 text-xs" onClick={addTime}>Add time</Button>
           </span>
         }
@@ -109,6 +114,10 @@ export default function Today({ date, tick }: { date: string; tick: number }) {
         )}
       </Panel>
       </div>
+
+      {replay === d.date && (
+        <Replay key={d.date} rows={d.timeline} from={bounds.from} to={d.today ? Math.min(now, bounds.to) : bounds.to} onClose={() => setReplay(null)} />
+      )}
 
       <div className="grid gap-5 lg:grid-cols-[300px_1fr_1fr]">
         <Panel label={focus ? "Focus score" : "The day"} aside={focus ? <ScoreHelp d={d} /> : undefined}>

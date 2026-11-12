@@ -1013,7 +1013,12 @@ page to your browser and runs until you press ctrl-c.
   block to its stretch. A kind in the donut, or a category or app in the
   tables, picks out its bars on the timeline (click it again, or the
   **Showing** chip, to show everything). **How it's scored** next to the
-  score lists its four parts.
+  score lists its four parts. **Replay** plays the day back: a playhead
+  runs over the day while the app and title under it, the running totals
+  (worked, deep, distracting, away, switches, longest run) and the last
+  few apps change with it. Space plays and pauses, ← → step a quarter
+  hour, drag the strip to scrub; it plays from 1 minute to 1 hour of the
+  day a second.
   Then the focus score with its change against your usual same weekday
   (the middle of the last four), and four stats with their changes:
   focus time, longest block, distraction and switches per hour. Next to it,
