@@ -2,38 +2,38 @@
 
 What changed for you in each release. Dates are UTC.
 
-## Unreleased
+## v5.5.0 — 2026-11-12
 
 ### Added
+- **Agent ledger.** `tock agents` reads Claude Code's session logs and
+  shows, per project, how long agents worked, how much of it you spent in
+  their windows, and the prompts you typed. The dashboard's Today page
+  shows the day's. tock reads times, working directories and session
+  titles only, never what was said.
+- **Terminal time from agent sessions.** A terminal showing a Claude Code
+  session works in that session's directory, and a directory inside a
+  project's `repos` now labels the project (below your rules and tags).
+  Your coding time lands on the project without a shell hook.
+  `[shell] agents = false` turns it off.
 - **Time per commit.** `tock commits` lists the commits of your project
-  repos, each with the project time since the one before, and the time
-  since each project's last commit. `--days N`, `--week`, `--project P`.
-- **Replay.** The dashboard's **Replay** button plays a day back: the app
-  and title at each moment, running totals and the last few apps, at up
-  to an hour of the day a second. Drag to scrub.
+  repos, each with your time and the agents' time since the one before,
+  and the time since each project's last commit. `--days N`, `--week`,
+  `--project P`.
 - **Project budgets.** `budget = "40h"` (and `budget_since`) on a
   project, or `tock project set X --budget 40h`. `tock budget` shows the
   time spent, this week's pace and the day the rest runs out. The
   dashboard shows them on Today, and a notification says when a project
-  reaches 80% of its budget and when it runs out. With rules
-  sync on, update every machine first: older versions refuse a
-  `rules.toml` with a budget in it.
-- **Terminal time from agent sessions.** A terminal showing a Claude Code
-  session works in that session's directory, and a directory inside a
-  project's `repos` now labels the project (below rules and tags). Your
-  coding time lands on the project without a shell hook.
-  `[shell] agents = false` turns it off. `tock commits` adds the agents'
-  time behind each commit.
-- **Agent ledger.** `tock agents` reads Claude Code's session logs and
-  shows, per project, how long agents worked, how much of it you spent in
-  their windows, and the prompts you typed; the dashboard's Today page
-  shows the day's. It reads times, directories
-  and session titles only, never what was said.
+  reaches 80% of its budget and when it runs out. With rules sync on,
+  update every machine first: older versions refuse a `rules.toml` with
+  a budget in it.
+- **Replay.** The dashboard's **Replay** button plays a day back: the app
+  and title at each moment, running totals and the last few apps, at up
+  to an hour of the day a second. Drag to scrub.
 
 ### Fixed
-- `tock top` over a range that crosses New Year shows the years.
 - Commit counts were 0 when the repo's `user.email` has a `+` in it, as
   GitHub noreply addresses do.
+- `tock top` over a range that crosses New Year shows the years.
 
 ## v5.4.0 — 2026-11-12
 
