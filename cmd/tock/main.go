@@ -72,6 +72,8 @@ Rules and names:
 Looking back:
   tock top [--days N | --week | --month] [--by category|app|site|project] [--limit N]
                                          where the time went: top categories, apps and sites
+  tock commits [--days N | --week] [--project P]
+                                         each commit with the project time behind it
   tock trends [--month YYYY-MM] [--hours]  a month against the one before; --hours: focus by weekday and hour
   tock blocks [--date D]                 the day's work blocks: stretches of work on one thing
   tock review [--week YYYY-MM-DD] [--plan TEXT]
@@ -284,6 +286,7 @@ var commands = map[string]func(Env, []string) error{
 	"recommend":  cmdRecommend,
 	"ocr":        cmdOCR,
 	"top":        cmdTop,
+	"commits":    cmdCommits,
 	"model":      cmdModel,
 	"review":     cmdReview,
 	"report":     cmdReport,

@@ -177,6 +177,8 @@ tock project [add <name> [--category C] [--alias a,b] | set <name> ... |
 Looking back:
 tock top [--days N | --week | --month] [--by category|app|site|project] [--limit N]
                                        where the time went: top categories, apps and sites
+tock commits [--days N | --week] [--project P]
+                                       each commit with the project time behind it
 tock trends [--month YYYY-MM] [--hours]  a month against the one before; --hours: focus by weekday and hour
 tock blocks [--date D]                 the day's work blocks: stretches of work on one thing
 tock review [--week YYYY-MM-DD] [--plan TEXT]
@@ -1152,6 +1154,23 @@ week tab and `tock review` show the week's commits. tock runs
 `git log --all --no-merges` and counts only commits by the repo's
 `user.email`, including ones fetched from another machine. It reads
 author times only and never fetches. `tock doctor` checks every repo.
+
+`tock commits` puts each commit beside the project time behind it: the
+time labelled with its project since that project's previous commit,
+idle left out, looking back at most 8 hours. The last line is the time
+since each project's last commit.
+
+```
+$ tock commits
+09:30  tock  a1b2c3d    30m  Fix inbox count after undo
+10:05  tock  e4f5a6b    35m  Tidy score panel spacing
+2 commits · 1h05 of project time behind them
+since last commit  tock 35m
+```
+
+`--days N` and `--week` widen the range, `--project P` keeps one
+project. To show them, `tock commits` reads each commit's short hash and
+subject; it prints them and keeps them nowhere.
 
 ## Billing
 

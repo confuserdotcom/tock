@@ -36,7 +36,11 @@ func (g *gitFake) run(ctx context.Context, dir string, args ...string) ([]byte, 
 		return nil, errors.New("not a git repository")
 	}
 	var b strings.Builder
-	for _, s := range ts {
+	for i, s := range ts {
+		if strings.Contains(strings.Join(args, " "), "%h") {
+			fmt.Fprintf(&b, "%d\x1fh%d\x1fsubject %d\n", s, i, i)
+			continue
+		}
 		fmt.Fprintf(&b, "%d\n", s)
 	}
 	return []byte(b.String()), nil
@@ -98,5 +102,36 @@ func TestCommitsTodayAndWeek(t *testing.T) {
 	checks := a.CheckRepos()
 	if len(checks) != 3 || checks[0].Repo != "/r/tock" || checks[0].Err != nil || checks[2].Repo != "/r/two" || checks[2].Err == nil {
 		t.Fatalf("checks = %+v", checks)
+	}
+}
+
+func TestCommitLog(t *testing.T) {
+	e := apptest.New(t, strings.Replace(repoRules, "name = \"tock\"\n", "name = \"tock\"\nrepos = [\"/r/tock\"]\n", 1))
+	e.Seed(t, apptest.DaySpans()...)
+	sec := func(hhmm string, day int) int64 { return apptest.At(t, hhmm, day) / 1000 }
+	g := &gitFake{times: map[string][]int64{
+		"/r/tock": {sec("09:30", 0), sec("10:00", 0), sec("10:30", -1)},
+		"/r/one":  {sec("11:00", 0)},
+	}}
+	a := open(t, e)
+	a.SetGitRunner(g.run)
+	from := a.midnight(e.Clock)
+	r, err := a.CommitLog(from, from.AddDate(0, 0, 1))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(r.Rows) != 3 {
+		t.Fatalf("rows = %+v", r.Rows)
+	}
+	got := []string{}
+	for _, row := range r.Rows {
+		got = append(got, fmt.Sprintf("%s %s %s %dm", row.Project, row.Hash, row.Subject, row.WorkMS/60_000))
+	}
+	want := []string{"tock h0 subject 0 30m", "tock h1 subject 1 30m", "Repo h0 subject 0 0m"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("rows = %q", got)
+	}
+	if want := []report.NameMS{{Name: "tock", MS: 40 * 60_000}}; !reflect.DeepEqual(r.Open, want) {
+		t.Fatalf("open = %+v", r.Open)
 	}
 }

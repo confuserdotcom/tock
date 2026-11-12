@@ -24,7 +24,12 @@ func fakeGit(secs ...int64) func(ctx context.Context, dir string, args ...string
 			return []byte(".git\n"), nil
 		}
 		var b strings.Builder
-		for _, s := range secs {
+		subj := strings.Contains(strings.Join(args, " "), "%s")
+		for i, s := range secs {
+			if subj {
+				fmt.Fprintf(&b, "%d\x1fc%d\x1fChange %d\n", s, i, i)
+				continue
+			}
 			fmt.Fprintf(&b, "%d\n", s)
 		}
 		return []byte(b.String()), nil
@@ -75,5 +80,31 @@ func TestDoctorRepos(t *testing.T) {
 	te2.DirExists = func(string) bool { return true }
 	if code, out := te2.run(t, "", "doctor"); code != 0 || !strings.Contains(out, "ok  git: 1 repo\n") {
 		t.Fatalf("exit %d:\n%s", code, out)
+	}
+}
+
+func TestCommitsCmd(t *testing.T) {
+	te := newTestEnv(t, repoRules)
+	te.seed(t, daySpans()...)
+	te.Git = fakeGit(at(t, "09:30")/1000, at(t, "10:05")/1000)
+	code, out := te.run(t, "", "commits")
+	if code != 0 {
+		t.Fatalf("exit %d: %s", code, te.errb)
+	}
+	for _, want := range []string{
+		"09:30  tock  c0    30m  Change 0\n",
+		"10:05  tock  c1    35m  Change 1\n",
+		"since last commit  tock 35m\n",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("lacks %q:\n%s", want, out)
+		}
+	}
+	code, out = te.run(t, "", "commits", "--days", "2", "--project", "ATLAS")
+	if code != 0 || !strings.Contains(out, "no commits") {
+		t.Fatalf("filtered: exit %d:\n%s", code, out)
+	}
+	if code, _ := te.run(t, "", "commits", "--days", "0"); code != 2 {
+		t.Fatalf("bad days: %d", code)
 	}
 }

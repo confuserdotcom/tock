@@ -42,6 +42,7 @@ func wantsHelp(name string, args []string) bool {
 var ownUsage = map[string]string{
 	"away":     awayUsage,
 	"category": categoryUsage,
+	"commits":  commitsUsage,
 	"edit":     editUsage,
 	"goal":     goalUsage,
 	"invoice":  invoiceUsage,

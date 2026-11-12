@@ -119,10 +119,36 @@ func TestRealGit(t *testing.T) {
 	if want := []int64{1_700_000_100_000, 1_700_000_300_000}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("times = %v, want %v", got, want)
 	}
+	log, err := Log(context.Background(), Exec, dir, 1_700_000_000_000, 1_700_050_000_000)
+	if err != nil || len(log) != 2 || log[0].Subject != "x" || len(log[0].Hash) < 7 {
+		t.Fatalf("log = %+v, %v", log, err)
+	}
 	if err := Check(context.Background(), Exec, dir); err != nil {
 		t.Fatalf("Check(repo) = %v", err)
 	}
 	if err := Check(context.Background(), Exec, t.TempDir()); err == nil {
 		t.Fatal("Check(plain dir) = nil")
+	}
+}
+
+func TestLog(t *testing.T) {
+	f := &fake{email: "me@x.io", log: "1700000300\x1fabc1234\x1fFix the thing\n1700000100\x1fdef5678\x1fFirst\x1fwith sep\n1699999999\x1f0000000\x1fold\n"}
+	got, err := Log(context.Background(), f.run, "/r", 1_700_000_000_000, 1_700_000_400_000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []Commit{
+		{AtMS: 1_700_000_100_000, Hash: "def5678", Subject: "First\x1fwith sep"},
+		{AtMS: 1_700_000_300_000, Hash: "abc1234", Subject: "Fix the thing"},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %+v", got)
+	}
+	args := f.calls[1]
+	if args[5] != "--format=%at%x1f%h%x1f%s" || args[len(args)-1] != `--author=<me@x\.io>` {
+		t.Fatalf("args = %q", args)
+	}
+	if _, err := Log(context.Background(), (&fake{log: "nope\n"}).run, "/r", 0, 1); err == nil {
+		t.Fatal("bad line must fail")
 	}
 }

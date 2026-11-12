@@ -83,3 +83,37 @@ func (a *App) CheckRepos() []RepoCheck {
 	}
 	return out
 }
+
+// CommitCapMS bounds how far back a commit's window reaches when the
+// project's previous commit is older.
+const CommitCapMS = 8 * 3600_000
+
+// CommitLog lists the commits of every project repo in [from, to) with the
+// project time that went into each, and the time since each project's last
+// commit. It reads hashes and subjects for display only.
+func (a *App) CommitLog(from, to time.Time) (report.CommitReport, error) {
+	f, t := from.UnixMilli(), to.UnixMilli()
+	now := a.nowMS()
+	t = min(t, max(now, f))
+	vs, labels, err := a.labelled(f-CommitCapMS, t, now)
+	if err != nil {
+		return report.CommitReport{}, err
+	}
+	run := a.git
+	if run == nil {
+		run = gitlog.Exec
+	}
+	var cs []report.ProjectCommit
+	for _, p := range a.rs.Projects {
+		for _, r := range p.Repos {
+			log, err := gitlog.Log(context.Background(), run, classify.ExpandHome(r, a.home), f-CommitCapMS, t)
+			if err != nil {
+				continue // tock doctor reports it
+			}
+			for _, c := range log {
+				cs = append(cs, report.ProjectCommit{Project: p.Name, AtMS: c.AtMS, Hash: c.Hash, Subject: c.Subject})
+			}
+		}
+	}
+	return report.CommitTime(cs, vs, labels, f, t, CommitCapMS), nil
+}

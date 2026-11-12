@@ -1,5 +1,6 @@
-// Package gitlog reads commit times from local git repositories. It reads
-// author times only: never subjects, hashes or paths, and it never fetches.
+// Package gitlog reads commits from local git repositories. Commits reads
+// author times only; Log also reads the short hash and subject, for local
+// display only (never stored, never sent anywhere). It never fetches.
 package gitlog
 
 import (
@@ -45,24 +46,41 @@ func firstLine(s string) string {
 	return s
 }
 
+// Commit is one commit read by Log.
+type Commit struct {
+	AtMS          int64
+	Hash, Subject string
+}
+
+// Log is Commits with each commit's short hash and subject.
+func Log(ctx context.Context, run Runner, repo string, from, to int64) ([]Commit, error) {
+	out, err := logRaw(ctx, run, repo, from, to, "%at%x1f%h%x1f%s")
+	if err != nil {
+		return nil, err
+	}
+	var cs []Commit
+	for _, line := range strings.Split(string(out), "\n") {
+		if line == "" {
+			continue
+		}
+		f := strings.SplitN(line, "\x1f", 3)
+		s, err := strconv.ParseInt(f[0], 10, 64)
+		if err != nil || len(f) != 3 {
+			return nil, fmt.Errorf("git log: unexpected line %q", line)
+		}
+		if ms := s * 1000; ms >= from && ms < to {
+			cs = append(cs, Commit{AtMS: ms, Hash: f[1], Subject: f[2]})
+		}
+	}
+	sort.SliceStable(cs, func(i, j int) bool { return cs[i].AtMS < cs[j].AtMS })
+	return cs, nil
+}
+
 // Commits returns the author times (unix ms, ascending) of the non-merge
 // commits on any branch of repo in [from, to). When the repo sets
 // user.email, only that author's commits count.
 func Commits(ctx context.Context, run Runner, repo string, from, to int64) ([]int64, error) {
-	ctx, cancel := context.WithTimeout(ctx, Timeout)
-	defer cancel()
-	// -E: git reads --author as a basic regex by default, where the \+ that
-	// QuoteMeta makes of a plus address means "one or more".
-	args := []string{"log", "--all", "--no-merges", "-E", "--format=%at",
-		"--since=@" + strconv.FormatInt(from/1000, 10), "--until=@" + strconv.FormatInt((to-1)/1000, 10)}
-	if out, err := run(ctx, repo, "config", "user.email"); err == nil {
-		if email := strings.TrimSpace(string(out)); email != "" {
-			args = append(args, "--author=<"+regexp.QuoteMeta(email)+">")
-		}
-	} else if ctx.Err() != nil {
-		return nil, ctx.Err()
-	}
-	out, err := run(ctx, repo, args...)
+	out, err := logRaw(ctx, run, repo, from, to, "%at")
 	if err != nil {
 		return nil, err
 	}
@@ -78,6 +96,23 @@ func Commits(ctx context.Context, run Runner, repo string, from, to int64) ([]in
 	}
 	sort.Slice(times, func(i, j int) bool { return times[i] < times[j] })
 	return times, nil
+}
+
+func logRaw(ctx context.Context, run Runner, repo string, from, to int64, format string) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(ctx, Timeout)
+	defer cancel()
+	// -E: git reads --author as a basic regex by default, where the \+ that
+	// QuoteMeta makes of a plus address means "one or more".
+	args := []string{"log", "--all", "--no-merges", "-E", "--format=" + format,
+		"--since=@" + strconv.FormatInt(from/1000, 10), "--until=@" + strconv.FormatInt((to-1)/1000, 10)}
+	if out, err := run(ctx, repo, "config", "user.email"); err == nil {
+		if email := strings.TrimSpace(string(out)); email != "" {
+			args = append(args, "--author=<"+regexp.QuoteMeta(email)+">")
+		}
+	} else if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
+	return run(ctx, repo, args...)
 }
 
 // Check reports whether repo is a git repository git can read.
