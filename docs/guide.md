@@ -305,6 +305,7 @@ removes that line, so the file is as it was.
 | `~/.local/share/tock/tock.db` | the spans (SQLite) |
 | `~/.local/state/tock/trackd.log` | trackd's log |
 | `~/.local/state/tock/shell.log` | working directories from the shell hook, see [docs/shell-hook.md](https://github.com/confuserdotcom/tock/blob/main/docs/shell-hook.md) |
+| `~/.local/state/tock/agents.index` | times, directories and titles read from coding agents' session logs (see [Agents](#agents)); safe to delete |
 
 `TOCK_CONFIG_DIR`, `TOCK_DATA_DIR` and `TOCK_STATE_DIR` override the three
 directories.
@@ -438,6 +439,7 @@ deny_titles = []              # title regexes
 
 [shell]
 terminals = [...]             # bundle ids that get shell dirs; replaces the built-in list
+agents = true                 # coding agents' session logs give terminal dirs too (see Agents)
 
 [away]                        # which absences tock asks about
 min = 10                      # minutes; at least 5
@@ -1162,16 +1164,18 @@ week tab and `tock review` show the week's commits. tock runs
 `user.email`, including ones fetched from another machine. It reads
 author times only and never fetches. `tock doctor` checks every repo.
 
-`tock commits` puts each commit beside the project time behind it: the
-time labelled with its project since that project's previous commit,
-idle left out, looking back at most 8 hours. The last line is the time
-since each project's last commit.
+`tock commits` puts each commit beside the time behind it: yours, the
+time labelled with its project since that project's previous commit
+(idle left out, looking back at most 8 hours), and, when coding agents
+worked on the project then, theirs (see [Agents](#agents)). The last line
+is the time since each project's last commit.
 
 ```
 $ tock commits
-09:30  tock  a1b2c3d    30m  Fix inbox count after undo
-10:05  tock  e4f5a6b    35m  Tidy score panel spacing
-2 commits · 1h05 of project time behind them
+                         you  agent
+09:30  tock  a1b2c3d    30m    12m  Fix inbox count after undo
+10:05  tock  e4f5a6b    35m    48m  Tidy score panel spacing
+2 commits · 1h05 of your time behind them, 1h00 of agents'
 since last commit  tock 35m
 ```
 
@@ -1202,9 +1206,19 @@ agents worked 4h36 · you 1h51 in their windows · 2.5× leverage
   which Claude Code puts in the terminal title.
 - **prompts:** the prompts you typed.
 
-`--days N` and `--week` widen the range. tock reads each entry's type,
-time and directory and the session's title, never what was said, and
-keeps none of it.
+`--days N` and `--week` widen the range.
+
+The sessions also label your terminal time. A terminal window whose title
+holds a session's title, in front while the session ran, works in the
+session's directory, and a directory inside a project's `repos` gives the
+project (below your rules and tags, like a [shell hook](shell-hook.md)
+directory does). `agents = false` under `[shell]` in `config.toml` turns
+that off.
+
+tock reads each entry's type, time and directory and the session's title,
+never what was said. It keeps those in `agents.index` in its state folder
+so the next run reads only new lines; delete the file to read everything
+again.
 
 ## Budgets
 

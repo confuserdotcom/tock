@@ -39,11 +39,13 @@ window. Optional extras, each off until you turn it on:
 
 `[privacy] keep_titles = N` deletes titles and URL paths older than N days.
 
-`tock commits` and `tock agents` read other programs' files when you run
-them and store nothing from them. `tock commits` prints each commit's
-short hash and subject. `tock agents` reads Claude Code's session logs in
+`tock commits` reads your repos' history when you run it and stores
+nothing from it; it prints each commit's short hash and subject. tock
+(not trackd or the menu bar app) reads Claude Code's session logs in
 `~/.claude/projects` for each entry's type, time and working directory
-and each session's title, never the prompts, replies or tool output.
+and each session's title, never the prompts, replies or tool output. It
+keeps those times, directories and titles in `agents.index` in its state
+folder. `[shell] agents = false` stops it using them for labels.
 
 ## Files
 

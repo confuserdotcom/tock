@@ -16,6 +16,12 @@ What changed for you in each release. Dates are UTC.
   time spent, this week's pace and the day the rest runs out. With rules
   sync on, update every machine first: older versions refuse a
   `rules.toml` with a budget in it.
+- **Terminal time from agent sessions.** A terminal showing a Claude Code
+  session works in that session's directory, and a directory inside a
+  project's `repos` now labels the project (below rules and tags). Your
+  coding time lands on the project without a shell hook.
+  `[shell] agents = false` turns it off. `tock commits` adds the agents'
+  time behind each commit.
 - **Agent ledger.** `tock agents` reads Claude Code's session logs and
   shows, per project, how long agents worked, how much of it you spent in
   their windows, and the prompts you typed. It reads times, directories

@@ -253,12 +253,15 @@ func DefaultAFK() AFK { return AFK{VideoMS: 180 * 60_000, StaleMS: 20 * 60_000, 
 // the working directory the zsh hook records.
 type Shell struct {
 	Terminals []string // bundle ids
+	// Agents: coding agents' session logs give the working directory too
+	// (agents = false turns it off). Read on this machine only.
+	Agents bool
 }
 
 // DefaultShell is the [shell] section used when the file does not set it.
 // Every call returns a fresh slice.
 func DefaultShell() Shell {
-	return Shell{Terminals: []string{"com.github.wez.wezterm", "com.apple.Terminal", "com.googlecode.iterm2",
+	return Shell{Agents: true, Terminals: []string{"com.github.wez.wezterm", "com.apple.Terminal", "com.googlecode.iterm2",
 		"com.mitchellh.ghostty", "net.kovidgoyal.kitty", "org.alacritty", "dev.warp.Warp-Stable",
 		// Hyprland window classes on Linux.
 		"kitty", "org.wezfurlong.wezterm", "Alacritty", "foot"}}
@@ -325,6 +328,7 @@ type llmTOML struct {
 
 type shellTOML struct {
 	Terminals *[]string `toml:"terminals"`
+	Agents    *bool     `toml:"agents"`
 }
 
 type awayTOML struct {
@@ -573,6 +577,9 @@ func Parse(name string, b []byte) (Config, error) {
 	}
 	if f.Shell.Terminals != nil {
 		c.Shell.Terminals = append([]string{}, *f.Shell.Terminals...)
+	}
+	if f.Shell.Agents != nil {
+		c.Shell.Agents = *f.Shell.Agents
 	}
 	if f.Sync.Dir != nil && strings.TrimSpace(*f.Sync.Dir) != "" {
 		d := *f.Sync.Dir

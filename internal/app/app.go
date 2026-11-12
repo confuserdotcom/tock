@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"time"
 
+	"tock/internal/agentlog"
 	"tock/internal/classify"
 	"tock/internal/config"
 	"tock/internal/gitlog"
@@ -30,8 +31,10 @@ var ErrNoDB = errors.New("no data yet: is trackd running? (tock doctor says how 
 type Paths struct {
 	DB, Rules, Learned, Config, ShellLog string
 	// Agents is where coding agents keep their session logs; "" is
-	// Claude Code's own (agentlog.DefaultDir).
-	Agents string
+	// Claude Code's own (agentlog.DefaultDir). AgentIndex is where what
+	// was read from them is kept between runs. Labels use the logs only
+	// when it is set: trackd and tockbar leave it "" to stay in budget.
+	Agents, AgentIndex string
 }
 
 // App is an open session. It is not safe for concurrent use.
@@ -55,6 +58,9 @@ type App struct {
 	inputSince int64
 	goos       string      // runtime.GOOS; tests set it
 	inputCheck func() bool // inputKnown on this machine; tests substitute it
+
+	agentIx *agentlog.Index // read lazily (see agentSessions)
+	agentAt time.Time       // when agentIx last looked for new lines
 
 	git      gitlog.Runner // nil = gitlog.Exec
 	gitCache map[gitKey]gitEntry
@@ -123,6 +129,7 @@ func Open(p Paths, now func() time.Time) (*App, error) {
 	a := &App{paths: p, now: now, st: st, rs: rs, stamp: st0, cfg: config.Default(),
 		shell: shell.Log{Path: p.ShellLog}}
 	a.home, _ = os.UserHomeDir()
+	rs.SetHome(a.home)
 	a.goos = HostOS
 	a.inputCheck = func() bool { return inputKnown(a.goos, a.home) }
 	a.refreshInput()
@@ -184,6 +191,7 @@ func (a *App) Reload() (changed bool, err error) {
 		a.rulesErr = err
 		return changed, err
 	}
+	rs.SetHome(a.home)
 	a.rs, a.rulesErr = rs, nil
 	a.past, a.gitCache = nil, nil
 	a.profile = profileCache{}

@@ -1,7 +1,9 @@
 package app
 
 import (
+	"math"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -20,11 +22,7 @@ func (a *App) Agents(from, to time.Time) (report.Agents, error) {
 	f, t := from.UnixMilli(), to.UnixMilli()
 	now := a.nowMS()
 	t = min(t, max(now, f))
-	root := a.paths.Agents
-	if root == "" {
-		root = agentlog.DefaultDir(a.home)
-	}
-	ss, err := agentlog.Read(root, f, t)
+	ss, err := a.agentSessions(f, t)
 	if err != nil {
 		return report.Agents{}, err
 	}
@@ -72,4 +70,59 @@ func (a *App) projectOfDir(dir string) string {
 		return "(unknown)"
 	}
 	return dir
+}
+
+// agentRefresh is how often agentSessions looks for new log lines.
+const agentRefresh = 30 * time.Second
+
+// agentSessions is the agent sessions with activity in [from, to). It
+// reads only what was appended since it last looked, and keeps the index
+// in Paths.AgentIndex when set.
+func (a *App) agentSessions(from, to int64) ([]agentlog.Session, error) {
+	if a.agentIx == nil {
+		a.agentIx = &agentlog.Index{}
+		if a.paths.AgentIndex != "" {
+			a.agentIx = agentlog.Load(a.paths.AgentIndex)
+		}
+	}
+	if now := a.now(); a.agentAt.IsZero() || now.Sub(a.agentAt) >= agentRefresh {
+		root := a.paths.Agents
+		if root == "" {
+			root = agentlog.DefaultDir(a.home)
+		}
+		changed, err := a.agentIx.Update(root)
+		if err != nil {
+			return nil, err
+		}
+		a.agentAt = now
+		if changed && a.paths.AgentIndex != "" {
+			if err := a.agentIx.Save(a.paths.AgentIndex); err != nil {
+				return nil, err
+			}
+		}
+	}
+	return a.agentIx.Sessions(from, to), nil
+}
+
+// attachAgents gives terminal views without a working directory the one of
+// the agent session they show (see agentlog.Attach). A log that cannot be
+// read leaves them as they are.
+func (a *App) attachAgents(vs []classify.SpanView) {
+	if !a.cfg.Shell.Agents || a.paths.AgentIndex == "" || len(vs) == 0 {
+		return
+	}
+	lo, hi := int64(math.MaxInt64), int64(math.MinInt64)
+	for _, v := range vs {
+		if v.Dir == nil && slices.Contains(a.cfg.Shell.Terminals, v.BundleID) {
+			lo, hi = min(lo, v.Start), max(hi, v.End)
+		}
+	}
+	if lo > hi {
+		return
+	}
+	ss, err := a.agentSessions(lo-agentlog.AroundAfter, hi+agentlog.AroundBefore)
+	if err != nil {
+		return
+	}
+	agentlog.Attach(vs, ss, a.cfg.Shell.Terminals, a.home)
 }

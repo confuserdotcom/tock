@@ -163,6 +163,7 @@ func (a *App) afkWindow(ovs map[int64]classify.Override) func(classify.SpanView)
 func (a *App) base(rows []store.SpanRow, ovs map[int64]classify.Override, from, to, nowMS int64) []classify.SpanView {
 	vs := views(rows, math.MinInt64, math.MaxInt64, nowMS)
 	a.attachShell(vs)
+	a.attachAgents(vs)
 	afk := classify.AFK{Window: a.afkWindow(ovs)}
 	if a.inputSince > math.MinInt64 {
 		afk.StaleMS, afk.StaleUntil = a.cfg.AFK.StaleMS, a.inputSince
