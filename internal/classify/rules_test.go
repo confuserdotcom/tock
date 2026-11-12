@@ -246,3 +246,21 @@ archived = true
 		t.Error("archived projects are still declared (past labels stay valid)")
 	}
 }
+
+func TestProjectBudget(t *testing.T) {
+	rs, err := Parse([]byte(baseRules+"[[project]]\nname='ATLAS'\nbudget='120h'\nbudget_since='2026-11-01'\n[[project]]\nname='Side'\nbudget='1h30'\n"), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p := rs.Projects[1]; p.BudgetMS != 120*3600_000 || p.BudgetSince != "2026-11-01" {
+		t.Fatalf("ATLAS = %+v", p)
+	}
+	if p := rs.Projects[2]; p.BudgetMS != 90*60_000 || p.BudgetSince != "" {
+		t.Fatalf("Side = %+v", p)
+	}
+	for _, bad := range []string{"budget='lots'", "budget='0m'", "budget_since='2026-11-01'", "budget='2h'\nbudget_since='Nov 1'"} {
+		if _, err := Parse([]byte(baseRules+"[[project]]\nname='X'\n"+bad+"\n"), nil); err == nil {
+			t.Errorf("%q parsed", bad)
+		}
+	}
+}

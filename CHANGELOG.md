@@ -8,6 +8,9 @@ What changed for you in each release. Dates are UTC.
 - **Time per commit.** `tock commits` lists the commits of your project
   repos, each with the project time since the one before, and the time
   since each project's last commit. `--days N`, `--week`, `--project P`.
+- **Project budgets.** `budget = "40h"` (and `budget_since`) on a
+  project, or `tock project set X --budget 40h`. `tock budget` shows the
+  time spent, this week's pace and the day the rest runs out.
 - **Agent ledger.** `tock agents` reads Claude Code's session logs and
   shows, per project, how long agents worked, how much of it you spent in
   their windows, and the prompts you typed. It reads times, directories

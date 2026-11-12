@@ -17,6 +17,7 @@ const projectUsage = `usage: tock project                                    cat
                 [--rate N] [--client NAME] [--billable false]    an hourly rate bills its time
        tock project set <name> [--category C|none] [--alias a,b|none] [--archived true|false]
                 [--rate N|none] [--client NAME|none] [--billable true|false]
+                [--budget 40h|none] [--budget-since YYYY-MM-DD|none]   see tock budget
        tock project rename <name> <new name>
        tock project rm <name>                                only when nothing names it
        tock project scan <dir> --category C                  a module for each folder in dir
@@ -42,6 +43,8 @@ func cmdProject(env Env, args []string) error {
 		rate := fs.String("rate", "", "hourly rate (none: drop it)")
 		client := fs.String("client", "", "who invoices go to (none: drop it)")
 		billable := fs.String("billable", "", "true or false: false keeps the rate but bills nothing")
+		budget := fs.String("budget", "", "the time the project may take, like 40h (none: drop it)")
+		since := fs.String("budget-since", "", "the day the budget counts from, YYYY-MM-DD (none: all time)")
 		if err := parseFlags(fs, moveFlagsFirst(rest)); err != nil {
 			return err
 		}
@@ -74,6 +77,25 @@ func cmdProject(env Env, args []string) error {
 		if err := billingFlags(&p, *rate, *client, *billable); err != nil {
 			return err
 		}
+		switch *budget {
+		case "":
+		case "none":
+			p.Budget = new(int64)
+			*p.Budget = -1
+		default:
+			ms, err := classify.ParseDur(*budget)
+			if err != nil || ms <= 0 {
+				return usagef("--budget: a duration like 40h or 1h30, or none")
+			}
+			p.Budget = &ms
+		}
+		if *since != "" {
+			s := *since
+			if s == "none" {
+				s = ""
+			}
+			p.BudgetSince = &s
+		}
 		// With Billing off, billing data can be removed but not set.
 		sets := (p.Rate != nil && *p.Rate >= 0) || (p.Client != nil && *p.Client != "") || (p.Billable != nil && !*p.Billable)
 		if sets && !a.Config().Billing.Enabled {
@@ -89,7 +111,8 @@ func cmdProject(env Env, args []string) error {
 			fmt.Fprintf(env.Stdout, "added project %s%s\n", report.Safe(strings.TrimSpace(p.Name)), moduleNote(a, p.Name))
 			return nil
 		}
-		if p.Category == nil && p.Aliases == nil && p.Archived == nil && p.Rate == nil && p.Client == nil && p.Billable == nil {
+		if p.Category == nil && p.Aliases == nil && p.Archived == nil && p.Rate == nil && p.Client == nil && p.Billable == nil &&
+			p.Budget == nil && p.BudgetSince == nil {
 			return usagef(projectUsage)
 		}
 		name, err := a.Rules().ResolveName(classify.NameProject, p.Name)
@@ -221,6 +244,13 @@ func moduleNote(a *app.App, name string) string {
 		}
 		if p.Archived {
 			parts = append(parts, "archived")
+		}
+		if p.BudgetMS > 0 {
+			b := "budget " + classify.FormatDur(p.BudgetMS)
+			if p.BudgetSince != "" {
+				b += " from " + p.BudgetSince
+			}
+			parts = append(parts, b)
 		}
 		if a.Config().Billing.Enabled {
 			if p.Rate != nil {

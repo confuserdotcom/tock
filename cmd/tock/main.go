@@ -75,6 +75,7 @@ Looking back:
   tock commits [--days N | --week] [--project P]
                                          each commit with the project time behind it
   tock agents [--days N | --week]        what coding agents worked on, and your time in their windows
+  tock budget                            each project budget: spent, pace and when it runs out
   tock trends [--month YYYY-MM] [--hours]  a month against the one before; --hours: focus by weekday and hour
   tock blocks [--date D]                 the day's work blocks: stretches of work on one thing
   tock review [--week YYYY-MM-DD] [--plan TEXT]
@@ -292,6 +293,7 @@ var commands = map[string]func(Env, []string) error{
 	"top":        cmdTop,
 	"commits":    cmdCommits,
 	"agents":     cmdAgents,
+	"budget":     cmdBudget,
 	"model":      cmdModel,
 	"review":     cmdReview,
 	"report":     cmdReport,

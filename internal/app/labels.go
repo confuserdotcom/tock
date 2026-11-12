@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 	"tock/internal/report"
 	"tock/internal/rulesfile"
 
@@ -220,6 +221,10 @@ type ProjectSpec struct {
 	Rate     *float64
 	Billable *bool
 	Client   *string
+	// Budget is the time the project may take; -1 drops it. BudgetSince
+	// is the YYYY-MM-DD it counts from; "" drops it.
+	Budget      *int64
+	BudgetSince *string
 }
 
 func rateValue(r float64) string { return strconv.FormatFloat(r, 'f', -1, 64) }
@@ -257,6 +262,14 @@ func (a *App) checkProject(p ProjectSpec) (ProjectSpec, error) {
 		return p, fmt.Errorf("rate %s, want 0 to %d", rateValue(*p.Rate), classify.MaxRate)
 	}
 
+	if p.Budget != nil && *p.Budget == 0 {
+		return p, fmt.Errorf("budget 0: give a duration, or none")
+	}
+	if p.BudgetSince != nil && *p.BudgetSince != "" {
+		if _, err := time.Parse(time.DateOnly, *p.BudgetSince); err != nil {
+			return p, fmt.Errorf("budget since %q, want YYYY-MM-DD", *p.BudgetSince)
+		}
+	}
 	if p.Client != nil {
 		c := strings.TrimSpace(*p.Client)
 		if len([]rune(c)) > classify.MaxClient {
@@ -298,6 +311,12 @@ func (a *App) AddProject(p ProjectSpec) error {
 	}
 	if p.Client != nil && *p.Client != "" {
 		fields = append(fields, classify.Field{Key: "client", Value: classify.TOMLString(*p.Client)})
+	}
+	if p.Budget != nil && *p.Budget > 0 {
+		fields = append(fields, classify.Field{Key: "budget", Value: classify.TOMLString(classify.FormatDur(*p.Budget))})
+		if p.BudgetSince != nil && *p.BudgetSince != "" {
+			fields = append(fields, classify.Field{Key: "budget_since", Value: classify.TOMLString(*p.BudgetSince)})
+		}
 	}
 	return a.rewriteRules(func(rules, learned []byte) ([]byte, []byte, error) {
 		return []byte(classify.AddTable(string(rules), classify.NameProject, fields)), learned, nil
@@ -369,6 +388,22 @@ func (a *App) EditProject(p ProjectSpec) error {
 				v = classify.TOMLString(*p.Client)
 			}
 			set("client", v)
+		}
+		if p.Budget != nil {
+			v := ""
+			if *p.Budget > 0 {
+				v = classify.TOMLString(classify.FormatDur(*p.Budget))
+			} else {
+				set("budget_since", "") // a since without a budget does not load
+			}
+			set("budget", v)
+		}
+		if p.BudgetSince != nil {
+			v := ""
+			if *p.BudgetSince != "" {
+				v = classify.TOMLString(*p.BudgetSince)
+			}
+			set("budget_since", v)
 		}
 		return []byte(text), learned, err
 	})

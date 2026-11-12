@@ -8,7 +8,7 @@ Sections:
 - **Start here:** [Privacy in detail](#privacy-in-detail) · [TUI keys](#tui-keys)
 - **Using it:** [Commands](#commands) · [Choices](#choices) · [Files](#files) · [Plan](#plan) · [Focus guard](#focus-guard) · [Goals](#goals) · [Work hours](#work-hours) · [Routines](#routines) · [Time away](#time-away)
 - **Labels:** [Categories](#categories) · [The model](#the-model) · [Modules](#modules) · [AFK](#afk) · [Editing the timeline](#editing-the-timeline) · [Undo](#undo) · [Duplicate names](#duplicate-names)
-- **Looking back:** [Work blocks, summaries and questions](#work-blocks-summaries-and-questions) · [Trends and review](#trends-and-review) · [Web dashboard](#web-dashboard) · [Week report](#week-report) · [Billing](#billing) · [Commits](#commits) · [Agents](#agents) · [Calls](#calls)
+- **Looking back:** [Work blocks, summaries and questions](#work-blocks-summaries-and-questions) · [Trends and review](#trends-and-review) · [Web dashboard](#web-dashboard) · [Week report](#week-report) · [Budgets](#budgets) · [Billing](#billing) · [Commits](#commits) · [Agents](#agents) · [Calls](#calls)
 - **Your day around it:** [Calendar](#calendar) · [Planned sessions and meetings](#planned-sessions-and-meetings) · [Recommendations](#recommendations) · [Screen reading](#screen-reading) · [Menu bar and notifications](#menu-bar-and-notifications)
 - **Running it:** [Linux (Hyprland)](#linux-hyprland) · [Sync between machines](#sync-between-machines) · [Deleting old titles](#deleting-old-titles) · [Updates](#updates) · [Backup](#backup) · [When something went wrong](#when-something-went-wrong) · [Import](#import) · [Uninstall](#uninstall)
 
@@ -180,6 +180,7 @@ tock top [--days N | --week | --month] [--by category|app|site|project] [--limit
 tock commits [--days N | --week] [--project P]
                                        each commit with the project time behind it
 tock agents [--days N | --week]        what coding agents worked on, and your time in their windows
+tock budget                            each project budget: spent, pace and when it runs out
 tock trends [--month YYYY-MM] [--hours]  a month against the one before; --hours: focus by weekday and hour
 tock blocks [--date D]                 the day's work blocks: stretches of work on one thing
 tock review [--week YYYY-MM-DD] [--plan TEXT]
@@ -1199,6 +1200,26 @@ agents worked 4h36 · you 1h51 in their windows · 2.5× leverage
 `--days N` and `--week` widen the range. tock reads each entry's type,
 time and directory and the session's title, never what was said, and
 keeps none of it.
+
+## Budgets
+
+Give a project the time it may take, and `tock budget` shows how much is
+gone and when the rest runs out at this week's pace:
+
+```sh
+tock project set ATLAS --budget 40h --budget-since 2026-11-01
+```
+
+```
+$ tock budget
+ATLAS    31h20 / 40h      78%  ███████████████░░░░░  2h10/day · runs out Thu 19 Nov
+tock      9h05 / 8h      113%  ████████████████████  over by 1h05
+```
+
+It writes `budget = "40h"` and `budget_since = "2026-11-01"` under the
+project in `rules.toml`. Without `budget_since` the budget counts all
+recorded time. The pace is the project's average a day over the last 7
+days. `--budget none` drops it.
 
 ## Billing
 

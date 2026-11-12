@@ -88,6 +88,11 @@ type Project struct {
 	Client string
 	// Repos are local git repositories as written (see ExpandHome).
 	Repos []string
+	// BudgetMS is budget = "120h": the time the project may take, 0 =
+	// none. BudgetSince is budget_since, a YYYY-MM-DD the budget counts
+	// from; "" = all recorded time.
+	BudgetMS    int64
+	BudgetSince string
 }
 
 // MaxRate is the largest hourly rate a project may set.
@@ -261,6 +266,8 @@ type rulesTOML struct {
 		Billable *bool    `toml:"billable"`
 		Client   *string  `toml:"client"`
 		Repos    []string `toml:"repos"`
+		Budget   *string  `toml:"budget"`
+		Since    *string  `toml:"budget_since"`
 	} `toml:"project"`
 	Rule    []ruleTOML `toml:"rule"`
 	Renamed []struct {
@@ -447,6 +454,22 @@ func Parse(rulesData, learnedData []byte) (*Ruleset, error) {
 			proj.Rate = p.Rate
 		}
 		proj.Billable = p.Billable
+		if p.Budget != nil {
+			ms, err := ParseDur(*p.Budget)
+			if err != nil || ms <= 0 {
+				return nil, fmt.Errorf("%s: project %q: budget %q, want like 40h or 1h30", RulesFile, p.Name, *p.Budget)
+			}
+			proj.BudgetMS = ms
+		}
+		if p.Since != nil {
+			if p.Budget == nil {
+				return nil, fmt.Errorf("%s: project %q: budget_since without a budget", RulesFile, p.Name)
+			}
+			if _, err := time.Parse(time.DateOnly, *p.Since); err != nil {
+				return nil, fmt.Errorf("%s: project %q: budget_since %q, want YYYY-MM-DD", RulesFile, p.Name, *p.Since)
+			}
+			proj.BudgetSince = *p.Since
+		}
 		if p.Client != nil {
 			c := strings.TrimSpace(*p.Client)
 			switch {
