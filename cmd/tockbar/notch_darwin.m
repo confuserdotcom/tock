@@ -1566,7 +1566,7 @@ static void haptic(NSHapticFeedbackPattern p) {
 }
 
 - (CGFloat)panelWidth:(NSString *)state {
-    NSDictionary *w = @{@"done" : @580, @"recap" : @640, @"label" : @600, @"drift" : @540, @"meet" : @480};
+    NSDictionary *w = @{@"done" : @580, @"recap" : @640, @"label" : @600, @"drift" : @540, @"meet" : @480, @"budget" : @480};
     CGFloat v = [w[state] doubleValue];
     v = MAX(v ? v : 440, self.notchW + 220);
     return MIN(v, self.screenFrame.size.width - 24);

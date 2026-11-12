@@ -51,6 +51,10 @@ type NoticeData struct {
 	RecAt     int64           `json:"rec_at,omitempty"` // recommend: that row's send time (ms), 0 = any (queued by an older trackd)
 	Key       string          `json:"key,omitempty"`    // wake: the front view's key This is work files, "" = none
 	Idle      bool            `json:"idle,omitempty"`   // wake: idle in front, I'm on paper is offered
+	// budget: the budget, what is spent and the run-out day (0 = unknown).
+	BudgetMS  int64 `json:"budget_ms,omitempty"`
+	SpentMS   int64 `json:"spent_ms,omitempty"`
+	RunsOutMS int64 `json:"runs_out_ms,omitempty"`
 }
 
 // Enqueue queues the notification ev for the menu bar app.
@@ -79,6 +83,9 @@ func (a *App) Enqueue(ev focus.Event) error {
 		d.Session, d.SnoozeMin = ev.Sess.ID, int(a.cfg.Focus.SnoozeMS/60_000)
 		d.From, d.Key, d.Idle = ev.OffFrom, ev.Key, ev.Idle
 		d.Category, d.Project = ev.Target.Category, ev.Target.Project
+	}
+	if ev.Topic == focus.TopicBudget {
+		d.Project, d.BudgetMS, d.SpentMS, d.RunsOutMS = ev.Project, ev.BudgetMS, ev.SpentMS, ev.RunsOutMS
 	}
 	if ev.Topic == focus.TopicBreakScreen {
 		d.From, d.To = ev.Break.From, ev.Break.To

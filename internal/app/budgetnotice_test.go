@@ -33,6 +33,20 @@ func TestBudgetNotices(t *testing.T) {
 	if len(ns) != 1 || ns[0].Title != "tock: 83% of its 2h budget" || !strings.Contains(ns[0].Body, "1h40 spent") {
 		t.Fatalf("notices = %+v", ns)
 	}
+	if n := ns[0]; n.Project != "tock" || n.BudgetMS != 2*3600_000 || n.SpentMS != 100*60_000 {
+		t.Fatalf("notice numbers = %+v", n)
+	}
+	// The notch moment reads them back from the queued notice.
+	if err := a.Enqueue(ns[0]); err != nil {
+		t.Fatal(err)
+	}
+	ids, err := a.TakeNotices()
+	if err != nil || len(ids) == 0 {
+		t.Fatalf("pending = %v, %v", ids, err)
+	}
+	if _, d, err := a.Notice(ids[len(ids)-1].ID); err != nil || d.Project != "tock" || d.BudgetMS != 2*3600_000 || d.SpentMS != 100*60_000 {
+		t.Fatalf("queued data = %+v, %v", d, err)
+	}
 	// Not again: the next tick, an hour later, or from another process.
 	if ns := budgetNotes(t, a); len(ns) != 0 {
 		t.Fatalf("again within the hour: %+v", ns)

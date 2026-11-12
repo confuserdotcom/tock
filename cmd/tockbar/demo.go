@@ -87,6 +87,10 @@ func demoSteps() []demoStep {
 			return bar.RecapIsland(store.Notice{ID: 4, Topic: focus.TopicRecap}, d,
 				app.Usual{Days: 4, Score: 75, FocusMS: 168 * 60_000, LongestMS: 76 * 60_000, DistractMS: 23 * 60_000}, 85*60_000, time.Local)
 		}, 8 * time.Second},
+		{func(now time.Time) bar.Island {
+			return bar.BudgetIsland(store.Notice{ID: 5, Topic: focus.TopicBudget, Title: "tock: 85% of its 40h budget"},
+				app.NoticeData{Project: "tock", BudgetMS: 40 * 3600_000, SpentMS: 34 * 3600_000, RunsOutMS: ms(now) + 5*86_400_000}, time.Local)
+		}, 6 * time.Second},
 		// a session end nobody saw waits as a dot
 		{func(now time.Time) bar.Island { return bar.Missed(quiet(now), done(now)) }, 4 * time.Second},
 	}

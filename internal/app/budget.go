@@ -149,7 +149,8 @@ func (a *App) budgetNotices(now time.Time) []focus.Event {
 			continue
 		}
 		name, b := report.Safe(r.Project), classify.FormatDur(r.BudgetMS)
-		ev := focus.Event{Kind: focus.Notify, Topic: focus.TopicBudget}
+		ev := focus.Event{Kind: focus.Notify, Topic: focus.TopicBudget,
+			Project: r.Project, BudgetMS: r.BudgetMS, SpentMS: r.SpentMS, RunsOutMS: r.RunsOutMS}
 		if level == 100 {
 			ev.Title = fmt.Sprintf("%s is over its %s budget", name, b)
 			ev.Body = fmt.Sprintf("%s spent, over by %s.", report.Dur(r.SpentMS), report.Dur(r.SpentMS-r.BudgetMS))

@@ -15,14 +15,15 @@ import (
 
 // Island states: what the notch shows.
 const (
-	IslandQuiet = "quiet" // nothing runs: hidden behind the notch
-	IslandFocus = "focus" // a session runs
-	IslandDrift = "drift" // a session runs and went off task
-	IslandBreak = "break" // a break runs
-	IslandMeet  = "meet"  // a plan item or event starts soon
-	IslandDone  = "done"  // a session just ended
-	IslandRecap = "recap" // the end-of-day recap
-	IslandLabel = "label" // labelling the inbox
+	IslandQuiet  = "quiet"  // nothing runs: hidden behind the notch
+	IslandFocus  = "focus"  // a session runs
+	IslandDrift  = "drift"  // a session runs and went off task
+	IslandBreak  = "break"  // a break runs
+	IslandMeet   = "meet"   // a plan item or event starts soon
+	IslandDone   = "done"   // a session just ended
+	IslandRecap  = "recap"  // the end-of-day recap
+	IslandLabel  = "label"  // labelling the inbox
+	IslandBudget = "budget" // a project's budget ran low or out
 )
 
 // Notch ids: the Cocoa side sends them as menu clicks.
@@ -184,7 +185,7 @@ func Rank(state string) int {
 		return 4
 	case IslandDone:
 		return 3
-	case IslandRecap:
+	case IslandRecap, IslandBudget:
 		return 2
 	case IslandLabel:
 		return 1
@@ -196,7 +197,7 @@ func Rank(state string) int {
 // banner. Up-next notices need no moment: the compact island shows the slot.
 func NotchTopic(topic string) bool {
 	switch topic {
-	case focus.TopicDone, focus.TopicRecap, focus.TopicFocus, focus.TopicUpcoming, focus.TopicStarting:
+	case focus.TopicDone, focus.TopicRecap, focus.TopicFocus, focus.TopicUpcoming, focus.TopicStarting, focus.TopicBudget:
 		return true
 	}
 	return false

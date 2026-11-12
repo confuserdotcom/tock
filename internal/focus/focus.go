@@ -165,14 +165,17 @@ const (
 type Event struct {
 	Kind        EventKind
 	Title, Body string
-	Topic       string            // a Notify's topic: TopicFocus, TopicDone, …
-	OfSession   bool              // a Notify about the running session; drop it when that session was closed meanwhile
-	Minutes     int               // TopicDone: the finished session's planned length
-	Project     string            // TopicDone: the finished session's top project, "" = none
-	Refile      bool              // TopicDone: a refile of the session's time to Project is offered
-	Away        classify.Interval // TopicAway: the absence asked about
-	Before      classify.Want     // TopicAway: the label of what it follows, if any
-	Break       classify.Interval // TopicBreakScreen: the break taken, from its start to its planned end
+	Topic       string // a Notify's topic: TopicFocus, TopicDone, …
+	OfSession   bool   // a Notify about the running session; drop it when that session was closed meanwhile
+	Minutes     int    // TopicDone: the finished session's planned length
+	Project     string // TopicDone: the finished session's top project, "" = none; TopicBudget: the project
+	// BudgetMS, SpentMS and RunsOutMS (TopicBudget): the budget, what is
+	// spent of it and the day it runs out at this week's pace (0 = unknown).
+	BudgetMS, SpentMS, RunsOutMS int64
+	Refile                       bool              // TopicDone: a refile of the session's time to Project is offered
+	Away                         classify.Interval // TopicAway: the absence asked about
+	Before                       classify.Want     // TopicAway: the label of what it follows, if any
+	Break                        classify.Interval // TopicBreakScreen: the break taken, from its start to its planned end
 	// OffFrom, Idle, Key and Target (TopicWake, TopicWakeWarn): the start of
 	// the off-task run, whether it is idle in front, the front view's
 	// classify.Key and the label This is work gives it ("" or zero = none).

@@ -33,6 +33,8 @@ func Moment(a *app.App, n store.Notice, d app.NoticeData, now time.Time, unlabel
 			}
 		}
 		return DoneIsland(n, d, det, now.Location(), unlabelledMS), true, err
+	case focus.TopicBudget:
+		return BudgetIsland(n, d, now.Location()), true, nil
 	case focus.TopicRecap:
 		day, err := a.Day(now)
 		if err != nil {
