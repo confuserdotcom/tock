@@ -3,8 +3,9 @@ name: release
 # Pushing a tag like v5.1.0 tests it, builds the Linux tarballs with
 # make release, the source tarball and Homebrew formula with make formula,
 # and publishes them as a GitHub release, with the tag's CHANGELOG.md
-# section as notes. The dmg job adds the .dmg. Copy the release's tock.rb
-# to Formula/tock.rb in the homebrew-tock tap.
+# section as notes. The dmg job adds the .dmg. Once brew installs the
+# formula, the tap job puts it in the homebrew-tock tap (stable tags only,
+# and only with a TAP_TOKEN secret; without one, copy tock.rb by hand).
 
 on:
   push:
@@ -85,3 +86,33 @@ jobs:
           brew install --build-from-source local/tock/tock
           brew test local/tock/tock
           tock setup --check || true # nothing is set up on the runner: it only must run
+
+  # The tested formula goes to the tap, so brew users get the release. A
+  # pre-release (a dash in the tag) stays out. Needs a TAP_TOKEN secret: a
+  # fine-grained token with Contents read and write on homebrew-tock only.
+  tap:
+    needs: brew
+    if: ${{ !contains(github.ref_name, '-') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: update the formula
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
+        run: |
+          if [ -z "$TAP_TOKEN" ]; then
+            echo "::notice::no TAP_TOKEN secret: copy the release's tock.rb to homebrew-tock by hand"
+            exit 0
+          fi
+          gh release download "$GITHUB_REF_NAME" -R "$GITHUB_REPOSITORY" -p tock.rb -D "$RUNNER_TEMP"
+          git clone -q "https://x-access-token:${TAP_TOKEN}@github.com/${GITHUB_REPOSITORY_OWNER}/homebrew-tock.git" "$RUNNER_TEMP/tap"
+          cd "$RUNNER_TEMP/tap"
+          cp "$RUNNER_TEMP/tock.rb" Formula/tock.rb
+          if git diff --quiet; then
+            echo "the tap already has $GITHUB_REF_NAME"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -q -am "tock ${GITHUB_REF_NAME#v}"
+          git push -q origin HEAD
