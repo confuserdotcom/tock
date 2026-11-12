@@ -2,7 +2,7 @@
 
 What changed for you in each release. Dates are UTC.
 
-## Unreleased
+## v5.4.0-rc1 — 2026-11-12
 
 ### Added
 - **Why this label.** Clicking an entry on the dashboard timeline says
