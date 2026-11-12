@@ -43,6 +43,7 @@ var ownUsage = map[string]string{
 	"away":     awayUsage,
 	"category": categoryUsage,
 	"commits":  commitsUsage,
+	"agents":   agentsUsage,
 	"edit":     editUsage,
 	"goal":     goalUsage,
 	"invoice":  invoiceUsage,

@@ -8,7 +8,7 @@ Sections:
 - **Start here:** [Privacy in detail](#privacy-in-detail) · [TUI keys](#tui-keys)
 - **Using it:** [Commands](#commands) · [Choices](#choices) · [Files](#files) · [Plan](#plan) · [Focus guard](#focus-guard) · [Goals](#goals) · [Work hours](#work-hours) · [Routines](#routines) · [Time away](#time-away)
 - **Labels:** [Categories](#categories) · [The model](#the-model) · [Modules](#modules) · [AFK](#afk) · [Editing the timeline](#editing-the-timeline) · [Undo](#undo) · [Duplicate names](#duplicate-names)
-- **Looking back:** [Work blocks, summaries and questions](#work-blocks-summaries-and-questions) · [Trends and review](#trends-and-review) · [Web dashboard](#web-dashboard) · [Week report](#week-report) · [Billing](#billing) · [Commits](#commits) · [Calls](#calls)
+- **Looking back:** [Work blocks, summaries and questions](#work-blocks-summaries-and-questions) · [Trends and review](#trends-and-review) · [Web dashboard](#web-dashboard) · [Week report](#week-report) · [Billing](#billing) · [Commits](#commits) · [Agents](#agents) · [Calls](#calls)
 - **Your day around it:** [Calendar](#calendar) · [Planned sessions and meetings](#planned-sessions-and-meetings) · [Recommendations](#recommendations) · [Screen reading](#screen-reading) · [Menu bar and notifications](#menu-bar-and-notifications)
 - **Running it:** [Linux (Hyprland)](#linux-hyprland) · [Sync between machines](#sync-between-machines) · [Deleting old titles](#deleting-old-titles) · [Updates](#updates) · [Backup](#backup) · [When something went wrong](#when-something-went-wrong) · [Import](#import) · [Uninstall](#uninstall)
 
@@ -179,6 +179,7 @@ tock top [--days N | --week | --month] [--by category|app|site|project] [--limit
                                        where the time went: top categories, apps and sites
 tock commits [--days N | --week] [--project P]
                                        each commit with the project time behind it
+tock agents [--days N | --week]        what coding agents worked on, and your time in their windows
 tock trends [--month YYYY-MM] [--hours]  a month against the one before; --hours: focus by weekday and hour
 tock blocks [--date D]                 the day's work blocks: stretches of work on one thing
 tock review [--week YYYY-MM-DD] [--plan TEXT]
@@ -1171,6 +1172,33 @@ since last commit  tock 35m
 `--days N` and `--week` widen the range, `--project P` keeps one
 project. To show them, `tock commits` reads each commit's short hash and
 subject; it prints them and keeps them nowhere.
+
+## Agents
+
+`tock agents` is the agent ledger: what coding agents worked on and how
+much of it you sat through. It reads Claude Code's session logs in
+`~/.claude/projects` (nothing to set up) and files each session under the
+project whose `repos` hold its working directory.
+
+```
+$ tock agents --week
+project   agent     you  prompts  sessions
+tock       4h36    1h51       54         7
+agents worked 4h36 · you 1h51 in their windows · 2.5× leverage
+```
+
+- **agent:** the time the sessions worked. A session works from one
+  prompt, reply or tool result to the next while they are at most 3
+  minutes apart; a longer pause is the agent waiting for you. Subagents
+  count, and two sessions at once count twice; the last line then gives
+  the clock time too.
+- **you:** your time in windows whose title holds the session's title,
+  which Claude Code puts in the terminal title.
+- **prompts:** the prompts you typed.
+
+`--days N` and `--week` widen the range. tock reads each entry's type,
+time and directory and the session's title, never what was said, and
+keeps none of it.
 
 ## Billing
 

@@ -74,6 +74,7 @@ Looking back:
                                          where the time went: top categories, apps and sites
   tock commits [--days N | --week] [--project P]
                                          each commit with the project time behind it
+  tock agents [--days N | --week]        what coding agents worked on, and your time in their windows
   tock trends [--month YYYY-MM] [--hours]  a month against the one before; --hours: focus by weekday and hour
   tock blocks [--date D]                 the day's work blocks: stretches of work on one thing
   tock review [--week YYYY-MM-DD] [--plan TEXT]
@@ -163,6 +164,9 @@ type Env struct {
 	Sleep func(time.Duration)
 	// Git runs git for the commit counts; nil runs the git on PATH.
 	Git gitlog.Runner
+	// AgentDir is where coding agents keep their session logs; "" is
+	// Claude Code's own.
+	AgentDir string
 	// DirExists reports whether a directory is there; nil checks the disk.
 	DirExists func(string) bool
 	// NewLLM builds the client for summaries and questions; nil: Claude.
@@ -287,6 +291,7 @@ var commands = map[string]func(Env, []string) error{
 	"ocr":        cmdOCR,
 	"top":        cmdTop,
 	"commits":    cmdCommits,
+	"agents":     cmdAgents,
 	"model":      cmdModel,
 	"review":     cmdReview,
 	"report":     cmdReport,

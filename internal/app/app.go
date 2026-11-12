@@ -27,7 +27,12 @@ var ErrNoDB = errors.New("no data yet: is trackd running? (tock doctor says how 
 
 // Paths locates tock's files. Config and ShellLog may name missing files;
 // ShellLog "" turns shell dirs off.
-type Paths struct{ DB, Rules, Learned, Config, ShellLog string }
+type Paths struct {
+	DB, Rules, Learned, Config, ShellLog string
+	// Agents is where coding agents keep their session logs; "" is
+	// Claude Code's own (agentlog.DefaultDir).
+	Agents string
+}
 
 // App is an open session. It is not safe for concurrent use.
 type App struct {

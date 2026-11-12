@@ -39,6 +39,12 @@ window. Optional extras, each off until you turn it on:
 
 `[privacy] keep_titles = N` deletes titles and URL paths older than N days.
 
+`tock commits` and `tock agents` read other programs' files when you run
+them and store nothing from them. `tock commits` prints each commit's
+short hash and subject. `tock agents` reads Claude Code's session logs in
+`~/.claude/projects` for each entry's type, time and working directory
+and each session's title, never the prompts, replies or tool output.
+
 ## Files
 
 The data dir (`~/.local/share/tock`) and the state dir (`~/.local/state/tock`)
