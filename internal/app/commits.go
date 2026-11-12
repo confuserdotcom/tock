@@ -115,5 +115,13 @@ func (a *App) CommitLog(from, to time.Time) (report.CommitReport, error) {
 			}
 		}
 	}
-	return report.CommitTime(cs, vs, labels, f, t, CommitCapMS), nil
+	r := report.CommitTime(cs, vs, labels, f, t, CommitCapMS)
+	if ss, err := a.agentSessions(f-CommitCapMS, t); err == nil && len(ss) > 0 {
+		in := make([]report.AgentSession, len(ss))
+		for i, s := range ss {
+			in[i] = report.AgentSession{ID: s.ID, Project: a.projectOfDir(s.Dir), Events: s.Events}
+		}
+		report.AgentCommitTime(&r, in, AgentGapMS)
+	}
+	return r, nil
 }

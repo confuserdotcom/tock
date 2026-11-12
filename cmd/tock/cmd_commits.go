@@ -61,23 +61,42 @@ func commitLines(r report.CommitReport, project string, days bool, loc *time.Loc
 	if len(rows) == 0 {
 		return []string{"no commits in this range"}
 	}
-	var out []string
-	var total int64
+	agents := false
 	for _, row := range rows {
-		at := time.UnixMilli(row.AtMS).In(loc)
-		stamp := at.Format("15:04")
+		agents = agents || row.AgentMS > 0
+	}
+	stamp := func(ms int64) string {
+		at := time.UnixMilli(ms).In(loc)
 		if days {
-			stamp = at.Format("Mon 2 ") + stamp
+			return at.Format("Mon 2 15:04")
 		}
+		return at.Format("15:04")
+	}
+	// The header names the time columns: you, and agents when they worked.
+	head := fmt.Sprintf("%*s  %5s", len([]rune(stamp(rows[0].AtMS)))+2+projW+2+hashW, "", "you")
+	if agents {
+		head += fmt.Sprintf("  %5s", "agent")
+	}
+	out := []string{head}
+	var total, agentTotal int64
+	for _, row := range rows {
 		subj := []rune(report.Safe(row.Subject))
 		if len(subj) > 60 {
 			subj = append(subj[:59], '…')
 		}
-		out = append(out, fmt.Sprintf("%s  %-*s  %-*s  %5s  %s", stamp, projW, report.Safe(row.Project),
-			hashW, row.Hash, report.Dur(row.WorkMS), string(subj)))
+		line := fmt.Sprintf("%s  %-*s  %-*s  %5s", stamp(row.AtMS), projW, report.Safe(row.Project), hashW, row.Hash, report.Dur(row.WorkMS))
+		if agents {
+			line += fmt.Sprintf("  %5s", report.Dur(row.AgentMS))
+		}
+		out = append(out, line+"  "+string(subj))
 		total += row.WorkMS
+		agentTotal += row.AgentMS
 	}
-	out = append(out, fmt.Sprintf("%d commits · %s of project time behind them", len(rows), report.Dur(total)))
+	sum := fmt.Sprintf("%d commits · %s of your time behind them", len(rows), report.Dur(total))
+	if agents {
+		sum += fmt.Sprintf(", %s of agents'", report.Dur(agentTotal))
+	}
+	out = append(out, sum)
 	var open []string
 	for _, o := range r.Open {
 		if project == "" || o.Name == project {

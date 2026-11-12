@@ -4,8 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"tock/internal/store"
 )
@@ -100,11 +103,38 @@ func TestCommitsCmd(t *testing.T) {
 			t.Errorf("lacks %q:\n%s", want, out)
 		}
 	}
+	if !strings.Contains(out, "2 commits · 1h05 of your time behind them\n") || strings.Contains(out, "agent") {
+		t.Errorf("summary or an agent column without agents:\n%s", out)
+	}
 	code, out = te.run(t, "", "commits", "--days", "2", "--project", "ATLAS")
 	if code != 0 || !strings.Contains(out, "no commits") {
 		t.Fatalf("filtered: exit %d:\n%s", code, out)
 	}
 	if code, _ := te.run(t, "", "commits", "--days", "0"); code != 2 {
 		t.Fatalf("bad days: %d", code)
+	}
+}
+
+func TestCommitsWithAgents(t *testing.T) {
+	te := newTestEnv(t, repoRules)
+	te.seed(t, daySpans()...)
+	te.Git = fakeGit(at(t, "09:30")/1000, at(t, "10:05")/1000)
+	dir := t.TempDir()
+	te.AgentDir = dir
+	var b strings.Builder
+	for ms := at(t, "09:40"); ms <= at(t, "10:00"); ms += 2 * 60_000 { // an agent in /r/tock
+		ts := time.UnixMilli(ms).UTC()
+		fmt.Fprintf(&b, `{"type":"assistant","timestamp":%q,"cwd":"/r/tock","sessionId":"s"}`+"\n", ts.Format(time.RFC3339Nano))
+	}
+	os.MkdirAll(filepath.Join(dir, "p"), 0o700)
+	os.WriteFile(filepath.Join(dir, "p", "s.jsonl"), []byte(b.String()), 0o600)
+	code, out := te.run(t, "", "commits")
+	if code != 0 {
+		t.Fatalf("exit %d: %s", code, te.errb)
+	}
+	for _, want := range []string{"  you  agent\n", "10:05  tock  c1    35m    20m  Change 1\n", "of your time behind them, 20m of agents'"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("lacks %q:\n%s", want, out)
+		}
 	}
 }

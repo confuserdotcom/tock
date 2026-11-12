@@ -18,7 +18,11 @@ type ProjectCommit struct {
 // CommitRow is a commit and the project time that went into it.
 type CommitRow struct {
 	ProjectCommit
-	WorkMS int64
+	FromMS int64 // where its window starts: the previous commit, or the cap
+	WorkMS int64 // your time on the project in [FromMS, AtMS)
+	// AgentMS is the clock time coding agents worked on the project in the
+	// window (see AgentCommitTime).
+	AgentMS int64
 }
 
 // CommitReport is the commits of a range, oldest first, and per project the
@@ -44,7 +48,8 @@ func CommitTime(commits []ProjectCommit, views []classify.SpanView, labels []cla
 		prev := int64(-1 << 62)
 		for _, c := range cs {
 			if c.AtMS >= from && c.AtMS < to {
-				r.Rows = append(r.Rows, CommitRow{c, projectMS(views, labels, proj, max(prev, c.AtMS-capMS), c.AtMS)})
+				w := max(prev, c.AtMS-capMS)
+				r.Rows = append(r.Rows, CommitRow{ProjectCommit: c, FromMS: w, WorkMS: projectMS(views, labels, proj, w, c.AtMS)})
 			}
 			prev = c.AtMS
 		}
@@ -79,4 +84,20 @@ func projectMS(views []classify.SpanView, labels []classify.Label, proj string, 
 		}
 	}
 	return ms
+}
+
+// AgentCommitTime sets each row's AgentMS: the clock time its project's
+// agent sessions worked inside the row's window, sessions at once counted
+// once. gapMS is as in AgentLedger.
+func AgentCommitTime(r *CommitReport, sessions []AgentSession, gapMS int64) {
+	for i := range r.Rows {
+		row := &r.Rows[i]
+		var busy [][2]int64
+		for _, s := range sessions {
+			if s.Project == row.Project {
+				busy = append(busy, busySpans(s.Events, row.FromMS, row.AtMS, gapMS)...)
+			}
+		}
+		row.AgentMS, _ = sweep(busy)
+	}
 }
