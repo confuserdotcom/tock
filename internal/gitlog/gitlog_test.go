@@ -43,7 +43,7 @@ func TestCommitsArgs(t *testing.T) {
 	if want := []int64{1_700_000_100_000, 1_700_000_300_000}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("times = %v, want %v", got, want)
 	}
-	want := []string{"/r", "log", "--all", "--no-merges", "--format=%at", "--since=@1700000000",
+	want := []string{"/r", "log", "--all", "--no-merges", "-E", "--format=%at", "--since=@1700000000",
 		"--until=@1700000399", `--author=<me\+x@example\.com>`}
 	if !reflect.DeepEqual(f.calls[1], want) {
 		t.Fatalf("args = %q\nwant %q", f.calls[1], want)
@@ -92,7 +92,7 @@ func TestRealGit(t *testing.T) {
 		}
 	}
 	git(nil, "init", "-q", "-b", "main")
-	git(nil, "config", "user.email", "me@example.com")
+	git(nil, "config", "user.email", "1+me@example.com") // a plus, as GitHub noreply addresses have
 	git(nil, "config", "user.name", "Me")
 	commit := func(at int64, author string) {
 		d := time.Unix(at, 0).UTC().Format(time.RFC3339)

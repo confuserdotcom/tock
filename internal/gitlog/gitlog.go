@@ -51,7 +51,9 @@ func firstLine(s string) string {
 func Commits(ctx context.Context, run Runner, repo string, from, to int64) ([]int64, error) {
 	ctx, cancel := context.WithTimeout(ctx, Timeout)
 	defer cancel()
-	args := []string{"log", "--all", "--no-merges", "--format=%at",
+	// -E: git reads --author as a basic regex by default, where the \+ that
+	// QuoteMeta makes of a plus address means "one or more".
+	args := []string{"log", "--all", "--no-merges", "-E", "--format=%at",
 		"--since=@" + strconv.FormatInt(from/1000, 10), "--until=@" + strconv.FormatInt((to-1)/1000, 10)}
 	if out, err := run(ctx, repo, "config", "user.email"); err == nil {
 		if email := strings.TrimSpace(string(out)); email != "" {
