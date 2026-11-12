@@ -2,21 +2,7 @@
 
 What changed for you in each release. Dates are UTC.
 
-## v5.4.0-rc2 — 2026-11-12
-
-### Fixed
-- **Private windows in more browsers.** Microsoft Edge, Vivaldi, Chromium
-  and the beta, dev and nightly builds of Chrome, Edge and Brave were
-  recorded like any app, so an InPrivate or incognito window's titles
-  were kept. They now get the URL of the front tab, as Chrome does, and
-  nothing at all from a private window. Firefox forks (Zen, LibreWolf,
-  Waterfox, Floorp, Developer Edition, Nightly) are handled like Firefox.
-  Opera, Dia, Orion, Tor Browser, Mullvad Browser and a few others keep
-  the app only, without titles, because tock cannot tell their private
-  windows apart. The first time you use one of the newly supported
-  browsers, macOS asks whether trackd may control it.
-
-## v5.4.0-rc1 — 2026-11-12
+## v5.4.0 — 2026-11-12
 
 ### Added
 - **Why this label.** Clicking an entry on the dashboard timeline says
@@ -148,6 +134,16 @@ What changed for you in each release. Dates are UTC.
   copy was put back under it and that process went on using the old file.
 
 ### Fixed
+- **Private windows in more browsers.** Microsoft Edge, Vivaldi, Chromium
+  and the beta, dev and nightly builds of Chrome, Edge and Brave were
+  recorded like any app, so an InPrivate or incognito window's titles
+  were kept. They now get the URL of the front tab, as Chrome does, and
+  nothing at all from a private window. Firefox forks (Zen, LibreWolf,
+  Waterfox, Floorp, Developer Edition, Nightly) are handled like Firefox.
+  Opera, Dia, Orion, Tor Browser, Mullvad Browser and a few others keep
+  the app only, without titles, because tock cannot tell their private
+  windows apart. The first time you use one of the newly supported
+  browsers, macOS asks whether trackd may control it.
 - **Security:** the invoice preview and `tock report --open` wrote to the
   shared temp folder under a name anyone could guess, so on a Linux machine
   with other users a planted link could make them overwrite one of your
