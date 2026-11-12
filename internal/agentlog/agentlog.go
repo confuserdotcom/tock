@@ -3,14 +3,19 @@
 // subagents). It reads each entry's type, time, working directory and the
 // session's title only: never prompts, replies or tool output. It only
 // reads, and nothing it reads leaves the machine.
+//
+// An Index keeps what it read, by file, so the next update reads only the
+// lines appended since; Save and Load keep it between runs.
 package agentlog
 
 import (
 	"bufio"
 	"bytes"
+	"encoding/gob"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -32,24 +37,84 @@ type Session struct {
 // DefaultDir is where Claude Code keeps its session logs under home.
 func DefaultDir(home string) string { return filepath.Join(home, ".claude", "projects") }
 
-type entry struct {
-	Type      string `json:"type"`
-	Timestamp string `json:"timestamp"`
-	Cwd       string `json:"cwd"`
-	SessionID string `json:"sessionId"`
-	AITitle   string `json:"aiTitle"`
-	IsMeta    bool   `json:"isMeta"`
-	Sidechain bool   `json:"isSidechain"`
-	Origin    *struct {
-		Kind string `json:"kind"`
-	} `json:"origin"`
+// Index is what was read from each log under a root.
+type Index struct {
+	Version int
+	Files   map[string]*FileState
 }
 
-// Read returns the sessions with activity in [from, to), by first activity.
-// It skips logs not written since from. A missing root is no sessions.
+// FileState is one log as far as it was read: its size and modification
+// time then, the bytes read (whole lines only), and its sessions.
+type FileState struct {
+	Size, ModNS, Offset int64
+	Sessions            map[string]*Session
+}
+
+// indexVersion changes when what an Index holds changes; an older one is
+// read again from scratch.
+const indexVersion = 1
+
+// Read returns the sessions with activity in [from, to) without keeping an
+// index. A missing root is no sessions.
 func Read(root string, from, to int64) ([]Session, error) {
-	byID := map[string]*Session{}
-	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+	ix := &Index{}
+	if _, err := ix.Update(root); err != nil {
+		return nil, err
+	}
+	return ix.Sessions(from, to), nil
+}
+
+// Load reads an index saved by Save; a missing, unreadable or older one is
+// an empty index.
+func Load(path string) *Index {
+	ix := &Index{}
+	f, err := os.Open(path)
+	if err != nil {
+		return ix
+	}
+	defer f.Close()
+	if gob.NewDecoder(f).Decode(ix) != nil || ix.Version != indexVersion {
+		return &Index{}
+	}
+	return ix
+}
+
+// Save writes the index to path, through a temporary file so a reader
+// never sees half of it.
+func (ix *Index) Save(path string) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return fmt.Errorf("agentlog: save: %w", err)
+	}
+	tmp, err := os.CreateTemp(filepath.Dir(path), ".agents-*")
+	if err != nil {
+		return fmt.Errorf("agentlog: save: %w", err)
+	}
+	ix.Version = indexVersion
+	if err := gob.NewEncoder(tmp).Encode(ix); err != nil {
+		tmp.Close()
+		os.Remove(tmp.Name())
+		return fmt.Errorf("agentlog: save: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		os.Remove(tmp.Name())
+		return fmt.Errorf("agentlog: save: %w", err)
+	}
+	if err := os.Rename(tmp.Name(), path); err != nil {
+		os.Remove(tmp.Name())
+		return fmt.Errorf("agentlog: save: %w", err)
+	}
+	return nil
+}
+
+// Update reads what changed under root since the last update: the new
+// lines of a log that grew, a new or rewritten log whole, and forgets logs
+// that are gone. It reports whether anything changed.
+func (ix *Index) Update(root string) (changed bool, err error) {
+	if ix.Files == nil || ix.Version != indexVersion {
+		ix.Files, ix.Version = map[string]*FileState{}, indexVersion
+	}
+	seen := map[string]bool{}
+	err = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			switch {
 			case path == root && errors.Is(err, fs.ErrNotExist):
@@ -65,13 +130,64 @@ func Read(root string, from, to int64) ([]Session, error) {
 			return nil
 		}
 		info, err := d.Info()
-		if err != nil || info.ModTime().UnixMilli() < from {
+		if err != nil {
 			return nil
 		}
-		return readFile(path, parentSession(path), from, to, byID)
+		seen[path] = true
+		st := ix.Files[path]
+		size, mod := info.Size(), info.ModTime().UnixNano()
+		if st != nil && st.Size == size && st.ModNS == mod {
+			return nil
+		}
+		if st == nil || size < st.Offset {
+			st = &FileState{Sessions: map[string]*Session{}}
+		}
+		if readFrom(path, parentSession(path), st) {
+			st.Size, st.ModNS = size, mod
+			ix.Files[path] = st
+			changed = true
+		}
+		return nil
 	})
 	if err != nil {
-		return nil, fmt.Errorf("agentlog: read %s: %w", root, err)
+		return changed, fmt.Errorf("agentlog: read %s: %w", root, err)
+	}
+	for path := range ix.Files {
+		if !seen[path] {
+			delete(ix.Files, path)
+			changed = true
+		}
+	}
+	return changed, nil
+}
+
+// Sessions returns the sessions with activity in [from, to), by first
+// activity, a session's logs (its subagents', a resumed one's) joined.
+func (ix *Index) Sessions(from, to int64) []Session {
+	byID := map[string]*Session{}
+	paths := make([]string, 0, len(ix.Files))
+	for p := range ix.Files {
+		paths = append(paths, p)
+	}
+	slices.Sort(paths) // a session's own log before its subagents'
+	for _, p := range paths {
+		for id, part := range ix.Files[p].Sessions {
+			s := byID[id]
+			if s == nil {
+				s = &Session{ID: id}
+				byID[id] = s
+			}
+			if s.Dir == "" {
+				s.Dir = part.Dir
+			}
+			for _, t := range part.Titles {
+				if !slices.Contains(s.Titles, t) {
+					s.Titles = append(s.Titles, t)
+				}
+			}
+			s.Events = appendIn(s.Events, part.Events, from, to)
+			s.Prompts = appendIn(s.Prompts, part.Prompts, from, to)
+		}
 	}
 	var out []Session
 	for _, s := range byID {
@@ -81,6 +197,7 @@ func Read(root string, from, to int64) ([]Session, error) {
 		slices.Sort(s.Events)
 		s.Events = slices.Compact(s.Events)
 		slices.Sort(s.Prompts)
+		s.Prompts = slices.Compact(s.Prompts)
 		out = append(out, *s)
 	}
 	slices.SortFunc(out, func(a, b Session) int {
@@ -89,7 +206,16 @@ func Read(root string, from, to int64) ([]Session, error) {
 		}
 		return strings.Compare(a.ID, b.ID)
 	})
-	return out, nil
+	return out
+}
+
+func appendIn(dst, src []int64, from, to int64) []int64 {
+	for _, t := range src {
+		if t >= from && t < to {
+			dst = append(dst, t)
+		}
+	}
+	return dst
 }
 
 // skip are entry types that carry no activity, often large.
@@ -105,20 +231,27 @@ func parentSession(path string) string {
 	return filepath.Base(filepath.Dir(dir))
 }
 
-func readFile(path, session string, from, to int64, byID map[string]*Session) error {
+// readFrom reads path's whole lines from st.Offset on into st. A line still
+// being written is left for the next read. It reports false when the file
+// could not be read.
+func readFrom(path, session string, st *FileState) bool {
 	f, err := os.Open(path)
 	if err != nil {
-		return nil // gone or unreadable: nothing to count
+		return false // gone or unreadable: nothing to count
 	}
 	defer f.Close()
+	if _, err := f.Seek(st.Offset, io.SeekStart); err != nil {
+		return false
+	}
 	r := bufio.NewReaderSize(f, 1<<16)
 	for {
 		line, err := r.ReadBytes('\n')
-		if len(line) > 0 && !skipLine(line) {
-			take(line, session, from, to, byID)
-		}
 		if err != nil {
-			return nil
+			return true // EOF: a partial line waits for its newline
+		}
+		st.Offset += int64(len(line))
+		if !skipLine(line) {
+			take(line, session, st.Sessions)
 		}
 	}
 }
@@ -132,7 +265,20 @@ func skipLine(line []byte) bool {
 	return false
 }
 
-func take(line []byte, session string, from, to int64, byID map[string]*Session) {
+type entry struct {
+	Type      string `json:"type"`
+	Timestamp string `json:"timestamp"`
+	Cwd       string `json:"cwd"`
+	SessionID string `json:"sessionId"`
+	AITitle   string `json:"aiTitle"`
+	IsMeta    bool   `json:"isMeta"`
+	Sidechain bool   `json:"isSidechain"`
+	Origin    *struct {
+		Kind string `json:"kind"`
+	} `json:"origin"`
+}
+
+func take(line []byte, session string, byID map[string]*Session) {
 	var e entry
 	if json.Unmarshal(line, &e) != nil || e.SessionID == "" {
 		return
@@ -159,9 +305,6 @@ func take(line []byte, session string, from, to int64, byID map[string]*Session)
 		return
 	}
 	at := t.UnixMilli()
-	if at < from || at >= to {
-		return
-	}
 	if s.Dir == "" && !e.Sidechain {
 		s.Dir = e.Cwd
 	}

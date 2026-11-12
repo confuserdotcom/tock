@@ -79,3 +79,78 @@ func TestRead(t *testing.T) {
 		t.Fatalf("missing dir: %v %v", s, err)
 	}
 }
+
+func TestIndexIncremental(t *testing.T) {
+	root := t.TempDir()
+	dir := filepath.Join(root, "p")
+	os.MkdirAll(dir, 0o700)
+	f := filepath.Join(dir, "s.jsonl")
+	line := func(ts string) string {
+		return `{"type":"assistant","timestamp":"` + ts + `","cwd":"/u/x","sessionId":"s"}` + "\n"
+	}
+	write := func(s string, appendTo bool) {
+		flag := os.O_CREATE | os.O_WRONLY | os.O_TRUNC
+		if appendTo {
+			flag = os.O_CREATE | os.O_WRONLY | os.O_APPEND
+		}
+		h, err := os.OpenFile(f, flag, 0o600)
+		if err != nil {
+			t.Fatal(err)
+		}
+		h.WriteString(s)
+		h.Close()
+	}
+	count := func(ix *Index) int {
+		n := 0
+		for _, s := range ix.Sessions(0, 1<<62) {
+			n += len(s.Events)
+		}
+		return n
+	}
+	ix := &Index{}
+	write(line("2026-11-12T10:00:00Z"), false)
+	if ch, err := ix.Update(root); !ch || err != nil || count(ix) != 1 {
+		t.Fatalf("first: %v %v %d", ch, err, count(ix))
+	}
+	if ch, _ := ix.Update(root); ch {
+		t.Fatal("unchanged file read again")
+	}
+	// A line still being written waits for its newline.
+	full := line("2026-11-12T10:01:00Z")
+	write(full[:30], true)
+	ix.Update(root)
+	if count(ix) != 1 || ix.Files[f].Offset != int64(len(line("2026-11-12T10:00:00Z"))) {
+		t.Fatalf("partial: %d events, offset %d", count(ix), ix.Files[f].Offset)
+	}
+	write(full[30:], true)
+	ix.Update(root)
+	if count(ix) != 2 {
+		t.Fatalf("appended: %d", count(ix))
+	}
+	// Saved and loaded, it carries on from where it was.
+	p := filepath.Join(t.TempDir(), "state", "agents.index")
+	if err := ix.Save(p); err != nil {
+		t.Fatal(err)
+	}
+	ix2 := Load(p)
+	write(line("2026-11-12T10:02:00Z"), true)
+	ix2.Update(root)
+	if count(ix2) != 3 {
+		t.Fatalf("after load: %d", count(ix2))
+	}
+	// Rewritten shorter: read again whole. Gone: forgotten.
+	write(line("2026-11-12T11:00:00Z"), false)
+	ix2.Update(root)
+	if count(ix2) != 1 {
+		t.Fatalf("rewritten: %d", count(ix2))
+	}
+	os.Remove(f)
+	if ch, _ := ix2.Update(root); !ch || count(ix2) != 0 {
+		t.Fatal("gone file kept")
+	}
+	// A corrupt index is an empty one.
+	os.WriteFile(p, []byte("junk"), 0o600)
+	if ix := Load(p); len(ix.Files) != 0 {
+		t.Fatal("corrupt index loaded")
+	}
+}
