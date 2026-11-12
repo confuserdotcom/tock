@@ -128,11 +128,14 @@ export function LabelSheet({ target, onClose, onDone }: { target: Target | null;
           {target?.sub && <SheetDescription className="truncate">{target.sub}</SheetDescription>}
         </SheetHeader>
         {why.length > 0 && (
-          <dl className="space-y-1 text-xs" aria-label="Why this label">
+          <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-xs" aria-label="Why this label">
             {why.map((w) => (
-              <div key={w.field} className="flex gap-2">
-                <dt className="shrink-0 text-faint">{w.label}</dt>
-                <dd className="min-w-0 break-words text-muted-foreground">{w.text}</dd>
+              <div key={w.field} className="contents">
+                <dt className="text-faint">{w.field === "project" ? "Project" : "Category"}</dt>
+                <dd className="min-w-0 text-muted-foreground">
+                  <span className="text-foreground">{w.label}</span>
+                  <span className="block [overflow-wrap:anywhere]">{w.text}</span>
+                </dd>
               </div>
             ))}
           </dl>
