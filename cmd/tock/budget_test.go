@@ -24,6 +24,9 @@ func TestBudgetCmd(t *testing.T) {
 	if _, out := te.run(t, "", "budget"); !strings.Contains(out, "over by 40m") {
 		t.Fatalf("over:\n%s", out)
 	}
+	if code, _ := te.run(t, "", "project", "set", "ATLAS", "--budget-since", "2026-10-01"); code != 1 || !strings.Contains(te.errb.String(), "budget_since without a budget") {
+		t.Fatalf("since without budget: %d %s", code, te.errb)
+	}
 	if code, _ := te.run(t, "", "project", "set", "tock", "--budget", "lots"); code != 2 {
 		t.Fatal("bad budget must be usage")
 	}

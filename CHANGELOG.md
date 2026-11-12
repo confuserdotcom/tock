@@ -13,13 +13,16 @@ What changed for you in each release. Dates are UTC.
   to an hour of the day a second. Drag to scrub.
 - **Project budgets.** `budget = "40h"` (and `budget_since`) on a
   project, or `tock project set X --budget 40h`. `tock budget` shows the
-  time spent, this week's pace and the day the rest runs out.
+  time spent, this week's pace and the day the rest runs out. With rules
+  sync on, update every machine first: older versions refuse a
+  `rules.toml` with a budget in it.
 - **Agent ledger.** `tock agents` reads Claude Code's session logs and
   shows, per project, how long agents worked, how much of it you spent in
   their windows, and the prompts you typed. It reads times, directories
   and session titles only, never what was said.
 
 ### Fixed
+- `tock top` over a range that crosses New Year shows the years.
 - Commit counts were 0 when the repo's `user.email` has a `+` in it, as
   GitHub noreply addresses do.
 
