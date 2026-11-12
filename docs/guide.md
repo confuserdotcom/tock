@@ -1697,7 +1697,7 @@ Without Go, take `tock-<version>-linux-amd64.tar.gz` (or `arm64`) from a
 GitHub release, check it against `SHA256SUMS`, and install the two binaries:
 
 ```sh
-tar xzf tock-v5.0.0-linux-amd64.tar.gz && cd tock-v5.0.0-linux-amd64
+tar xzf tock-v5.4.0-linux-amd64.tar.gz && cd tock-v5.4.0-linux-amd64
 install -m 755 trackd tock ~/.local/bin/ && ~/.local/bin/trackd install && tock init
 ```
 
