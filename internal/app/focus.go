@@ -168,6 +168,7 @@ func (a *App) GuardTick(call bool) ([]focus.Event, focus.Guard, error) {
 			notes = append(notes, n)
 		}
 	}
+	notes = append(notes, a.budgetNotices(nowT)...)
 	return notes, guard, nil
 }
 

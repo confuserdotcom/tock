@@ -1,40 +1,41 @@
 package report
 
 import (
-	"reflect"
 	"testing"
 )
 
-func TestBurns(t *testing.T) {
+func TestBurn(t *testing.T) {
+	now := int64(1_000_000_000_000)
+	day := int64(24 * 3600_000)
+	// 2h of 10h spent, 3h this week: 8h left at 3h/7 a day is 18.67 days.
+	r := Burn(Budget{Project: "tock", BudgetMS: 10 * 3600_000}, 2*3600_000, 3*3600_000, now)
+	if r.SpentMS != 2*3600_000 || r.PerDayMS != 3*3600_000/7 || r.Pct() != 20 || r.Over() {
+		t.Fatalf("burn = %+v", r)
+	}
+	if d := r.RunsOutMS - (now + 56*day/3); d < -60_000 || d > 60_000 {
+		t.Fatalf("runs out %d ms off", d)
+	}
+	if r := Burn(Budget{BudgetMS: 15 * 60_000}, 30*60_000, 30*60_000, now); !r.Over() || r.Pct() != 200 || r.RunsOutMS != 0 {
+		t.Fatalf("over = %+v", r)
+	}
+	// A few seconds a week is no pace: no run-out day.
+	if r := Burn(Budget{BudgetMS: 3600_000}, 0, 60_000, now); r.RunsOutMS != 0 || r.PerDayMS != 60_000/7 {
+		t.Fatalf("slow = %+v", r)
+	}
+}
+
+func TestProjectDayMS(t *testing.T) {
 	vs, ls := build(t,
 		sv{id: 1, start: "08:00", end: "10:00", app: "Code", proj: "tock", cat: "Code"},
 		sv{id: 2, start: "10:00", end: "10:30", app: "idle", kind: "idle"},
-		sv{id: 3, start: "10:30", end: "11:30", app: "Code", proj: "tock", cat: "Code"},
-		sv{id: 4, start: "11:30", end: "12:00", app: "Code", proj: "ATLAS", cat: "Code"},
+		sv{id: 3, start: "10:30", end: "11:00", app: "Code", proj: "ATLAS", cat: "Code"},
+		sv{id: 4, start: "11:00", end: "11:10", app: "Code", cat: "Code"},
 	)
-	now := hm(t, "12:00")
-	day := int64(24 * 3600_000)
-	got := Burns([]Budget{
-		{Project: "tock", BudgetMS: 10 * 3600_000, SinceMS: hm(t, "09:00")},
-		{Project: "ATLAS", BudgetMS: 15 * 60_000},
-		{Project: "none", BudgetMS: 3600_000},
-	}, vs, ls, now)
-	want := []BurnRow{
-		// 09:00-10:00 + 10:30-11:30 = 2h of 10h; the week's pace is 3h/7 per
-		// day, so the 8h left last 18.67 days.
-		{Budget: Budget{Project: "tock", BudgetMS: 10 * 3600_000, SinceMS: hm(t, "09:00")}, SpentMS: 2 * 3600_000,
-			PerDayMS: 3 * 3600_000 / 7},
-		{Budget: Budget{Project: "ATLAS", BudgetMS: 15 * 60_000}, SpentMS: 30 * 60_000, PerDayMS: 30 * 60_000 / 7},
-		{Budget: Budget{Project: "none", BudgetMS: 3600_000}},
+	got := ProjectDayMS(vs, ls)
+	if len(got) != 2 || got["tock"] != 2*3600_000 || got["ATLAS"] != 30*60_000 {
+		t.Fatalf("got %v", got)
 	}
-	if d := got[0].RunsOutMS - (now + 56*day/3); d < -60_000 || d > 60_000 {
-		t.Fatalf("runs out %d ms off 18.67 days", d)
-	}
-	got[0].RunsOutMS = 0
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("got  %+v\nwant %+v", got, want)
-	}
-	if got[0].Pct() != 20 || got[1].Pct() != 200 || !got[1].Over() || got[0].Over() {
-		t.Fatalf("pct %d %d", got[0].Pct(), got[1].Pct())
+	if ProjectDayMS(nil, nil) != nil {
+		t.Fatal("empty day must be nil")
 	}
 }

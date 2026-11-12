@@ -51,7 +51,11 @@ func budgetLines(rows []report.BurnRow, now time.Time) []string {
 			line += "  over by " + report.Dur(r.SpentMS-r.BudgetMS)
 		case r.RunsOutMS > 0:
 			end := time.UnixMilli(r.RunsOutMS).In(now.Location())
-			line += fmt.Sprintf("  %s/day · runs out %s", report.Dur(r.PerDayMS), end.Format("Mon 2 Jan"))
+			layout := "Mon 2 Jan"
+			if end.Year() != now.Year() {
+				layout += " 2006"
+			}
+			line += fmt.Sprintf("  %s/day · runs out %s", report.Dur(r.PerDayMS), end.Format(layout))
 		default:
 			line += "  no time this week"
 		}

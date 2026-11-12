@@ -21,6 +21,11 @@ func TestBudgets(t *testing.T) {
 		t.Fatalf("rows = %+v", rows)
 	}
 
+	// Kept a while: new time does not show until it runs out.
+	e.Seed(t, apptest.Span{ID: 50, Start: "13:00", End: "14:00", Bundle: "term", App: "WezTerm", Title: "tock │ more"})
+	if again, _ := a.Budgets(); again[0].SpentMS != rows[0].SpentMS {
+		t.Fatalf("not kept: %+v", again)
+	}
 	if err := a.EditProject(ProjectSpec{Name: "tock", Budget: ptr(int64(10 * 3600_000)), BudgetSince: ptr(dayKey(e.Clock))}); err != nil {
 		t.Fatal(err)
 	}
@@ -31,7 +36,7 @@ func TestBudgets(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if rows[0].BudgetMS != 10*3600_000 || rows[0].SpentMS != 100*60_000 || rows[0].Over() || rows[0].RunsOutMS == 0 {
+	if rows[0].BudgetMS != 10*3600_000 || rows[0].SpentMS != 160*60_000 || rows[0].Over() || rows[0].RunsOutMS == 0 {
 		t.Fatalf("since today: %+v", rows)
 	}
 	if err := a.EditProject(ProjectSpec{Name: "tock", Budget: ptr(int64(-1)), BudgetSince: ptr("")}); err != nil {

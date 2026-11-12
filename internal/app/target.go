@@ -64,6 +64,9 @@ type pastDay struct {
 	ActiveHours, DeepHours [24]int64
 	// RunMS is the day's longest activity run (focus.LongestRunMS).
 	RunMS int64
+	// ProjectMS is the whole day's time per project (report.ProjectDayMS),
+	// for budgets.
+	ProjectMS map[string]int64
 }
 
 // fillPast computes and caches every day in [from, to) that is
@@ -144,6 +147,7 @@ func (a *App) fillPast(from, to time.Time) error {
 		p := pastDay{Stats: stats.Compute(stats.Clip(vs, ls, wFrom, wTo)), Active: report.Active(vs)}
 		p.ActiveHours, p.DeepHours = report.HourMS(vs, ls, d.Location())
 		p.RunMS = focus.LongestRunMS(vs)
+		p.ProjectMS = report.ProjectDayMS(vs, ls)
 		if len(a.rs.Goals) > 0 {
 			p.GoalMS = report.GoalTimes(a.rs.Goals, vs, ls)
 		}

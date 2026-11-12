@@ -60,6 +60,8 @@ const (
 	TopicMidday = "midday"
 	// TopicOver is the overworking notice's topic.
 	TopicOver = "overwork"
+	// TopicBudget: a project used 80% of its budget, or all of it.
+	TopicBudget = "budget"
 	// TopicBreakOver is the Break over notice's topic; it has no buttons.
 	TopicBreakOver = "breakover"
 	// TopicBreakScreen is the full-screen notice of a break that ran over;
