@@ -2,7 +2,7 @@
 
 What changed for you in each release. Dates are UTC.
 
-## Unreleased
+## v5.4.0-rc2 — 2026-11-12
 
 ### Fixed
 - **Private windows in more browsers.** Microsoft Edge, Vivaldi, Chromium
