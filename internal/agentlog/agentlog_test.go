@@ -29,7 +29,9 @@ not json
 {"parentUuid":"d","type":"assistant","timestamp":"2026-11-12T09:00:00.000Z","cwd":"/u/tock","sessionId":"s1","message":{}}
 `
 
-const sub = `{"parentUuid":null,"isSidechain":true,"type":"assistant","timestamp":"2026-11-12T10:00:15.000Z","cwd":"/u/tock/web","sessionId":"s1","message":{}}
+// A subagent's log has a session id of its own; it belongs to the session
+// whose folder holds it.
+const sub = `{"parentUuid":null,"isSidechain":true,"type":"assistant","timestamp":"2026-11-12T10:00:15.000Z","cwd":"/u/tock/web","sessionId":"agent-own-id","message":{}}
 `
 
 func TestRead(t *testing.T) {
@@ -63,6 +65,15 @@ func TestRead(t *testing.T) {
 	}}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got  %+v\nwant %+v", got, want)
+	}
+	// An unreadable folder is skipped, not an error.
+	locked := filepath.Join(dir, "-locked")
+	if err := os.Mkdir(locked, 0o000); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chmod(locked, 0o700)
+	if got, err := Read(dir, ms("2026-11-12T09:30:00Z"), ms("2026-11-12T11:00:00Z")); err != nil || len(got) != 1 {
+		t.Fatalf("with a locked folder: %d sessions, %v", len(got), err)
 	}
 	if s, err := Read(filepath.Join(dir, "missing"), 0, 1); err != nil || s != nil {
 		t.Fatalf("missing dir: %v %v", s, err)

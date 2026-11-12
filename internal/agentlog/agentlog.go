@@ -51,10 +51,15 @@ func Read(root string, from, to int64) ([]Session, error) {
 	byID := map[string]*Session{}
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
-			if errors.Is(err, fs.ErrNotExist) {
+			switch {
+			case path == root && errors.Is(err, fs.ErrNotExist):
 				return fs.SkipAll
+			case path == root:
+				return err
+			case d != nil && d.IsDir():
+				return fs.SkipDir // unreadable: skip it, keep the rest
 			}
-			return err
+			return nil
 		}
 		if d.IsDir() || !strings.HasSuffix(path, ".jsonl") {
 			return nil
@@ -63,7 +68,7 @@ func Read(root string, from, to int64) ([]Session, error) {
 		if err != nil || info.ModTime().UnixMilli() < from {
 			return nil
 		}
-		return readFile(path, from, to, byID)
+		return readFile(path, parentSession(path), from, to, byID)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("agentlog: read %s: %w", root, err)
@@ -90,7 +95,17 @@ func Read(root string, from, to int64) ([]Session, error) {
 // skip are entry types that carry no activity, often large.
 var skip = [][]byte{[]byte(`{"type":"api-request`), []byte(`{"type":"file-history`), []byte(`{"type":"queue-operation`)}
 
-func readFile(path string, from, to int64, byID map[string]*Session) error {
+// parentSession is the session a subagent log belongs to:
+// <session>/subagents/<agent>.jsonl names it by its folder. "" otherwise.
+func parentSession(path string) string {
+	dir := filepath.Dir(path)
+	if filepath.Base(dir) != "subagents" {
+		return ""
+	}
+	return filepath.Base(filepath.Dir(dir))
+}
+
+func readFile(path, session string, from, to int64, byID map[string]*Session) error {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil // gone or unreadable: nothing to count
@@ -100,7 +115,7 @@ func readFile(path string, from, to int64, byID map[string]*Session) error {
 	for {
 		line, err := r.ReadBytes('\n')
 		if len(line) > 0 && !skipLine(line) {
-			take(line, from, to, byID)
+			take(line, session, from, to, byID)
 		}
 		if err != nil {
 			return nil
@@ -117,10 +132,13 @@ func skipLine(line []byte) bool {
 	return false
 }
 
-func take(line []byte, from, to int64, byID map[string]*Session) {
+func take(line []byte, session string, from, to int64, byID map[string]*Session) {
 	var e entry
 	if json.Unmarshal(line, &e) != nil || e.SessionID == "" {
 		return
+	}
+	if session != "" {
+		e.SessionID = session
 	}
 	s := byID[e.SessionID]
 	if s == nil {
