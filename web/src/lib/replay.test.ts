@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { frame } from "./replay";
+import { frame, ordered } from "./replay";
 import type { Row } from "./api";
 
 const m = 60_000;
@@ -43,5 +43,14 @@ describe("frame", () => {
   it("is empty before the first row and in gaps", () => {
     expect(frame(rows, -m, 3).now).toBeNull();
     expect(frame([row(0, 10, "A", "deep"), row(20, 30, "B", "deep")], 15 * m, 3).now).toBeNull();
+  });
+});
+
+describe("ordered", () => {
+  it("sorts by start only when it has to", () => {
+    expect(ordered(rows)).toBe(rows);
+    const shuffled = [rows[2], rows[0], rows[1]];
+    expect(ordered(shuffled).map((r) => r.start)).toEqual([0, 30 * m, 35 * m]);
+    expect(shuffled[0]).toBe(rows[2]);
   });
 });

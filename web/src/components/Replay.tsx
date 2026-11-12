@@ -5,8 +5,11 @@ import { Button } from "@/components/ui/button";
 import type { Row } from "@/lib/api";
 import { dur, hhmm } from "@/lib/format";
 import { kindColor, kindLabel } from "@/lib/kinds";
-import { frame } from "@/lib/replay";
+import { frame, ordered } from "@/lib/replay";
 import { cn } from "@/lib/utils";
+
+// The longest step one animation frame may take.
+const MAX_FRAME_MS = 100;
 
 // How much of the day plays in one real second.
 const SPEEDS = [
@@ -19,7 +22,8 @@ const SPEEDS = [
 /** Replay plays a day back: a playhead runs over the day's rows while the
  *  app, title and running totals change under it. It only moves when you
  *  press play. */
-export function Replay({ rows, from, to, onClose }: { rows: Row[]; from: number; to: number; onClose: () => void }) {
+export function Replay({ rows: raw, from, to, onClose }: { rows: Row[]; from: number; to: number; onClose: () => void }) {
+  const rows = useMemo(() => ordered(raw), [raw]);
   const start = rows.length ? Math.max(from, rows[0].start) : from;
   const [at, setAt] = useState(start);
   const [playing, setPlaying] = useState(false);
@@ -32,7 +36,9 @@ export function Replay({ rows, from, to, onClose }: { rows: Row[]; from: number;
     if (!playing) return;
     let last = performance.now();
     let id = requestAnimationFrame(function step(t) {
-      const next = atRef.current + (t - last) * SPEEDS[speed].x;
+      // A hidden tab gets no frames: the first one back moves a frame, not
+      // the time it was away.
+      const next = atRef.current + Math.min(t - last, MAX_FRAME_MS) * SPEEDS[speed].x;
       last = t;
       if (next >= to) {
         setAt(to);
@@ -59,6 +65,8 @@ export function Replay({ rows, from, to, onClose }: { rows: Row[]; from: number;
     setPlaying((p) => !p);
   };
   const onKey = (e: React.KeyboardEvent) => {
+    // Space on a focused button already clicks it.
+    if (e.key === " " && (e.target as HTMLElement).closest("button")) return;
     if (e.key === " ") {
       e.preventDefault();
       toggle();
@@ -70,7 +78,7 @@ export function Replay({ rows, from, to, onClose }: { rows: Row[]; from: number;
 
   const now = f.now;
   return (
-    <div tabIndex={0} onKeyDown={onKey} className="outline-none" aria-label="Replay of the day">
+    <div onKeyDown={onKey} aria-label="Replay of the day">
       <Panel
         label="Replay"
         aside={
@@ -113,7 +121,9 @@ export function Replay({ rows, from, to, onClose }: { rows: Row[]; from: number;
               </div>
             </div>
 
-            <div ref={strip} className="relative mt-3 h-6 cursor-ew-resize touch-none select-none rounded-[2px] bg-secondary/40"
+            <div ref={strip} role="slider" aria-label="Time in the replay" aria-valuemin={from} aria-valuemax={to}
+              aria-valuenow={Math.round(at)} aria-valuetext={hhmm(at)} tabIndex={0}
+              className="relative mt-3 h-6 outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-ew-resize touch-none select-none rounded-[2px] bg-secondary/40"
               onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); setPlaying(false); scrub(e.clientX); }}
               onPointerMove={(e) => { if (e.buttons & 1) scrub(e.clientX); }}>
               {rows.map((r) => (

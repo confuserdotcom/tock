@@ -48,3 +48,12 @@ export function frame(rows: Row[], at: number, n: number): Frame {
   f.trail = joined.slice(-n);
   return f;
 }
+
+/** ordered returns rows by start time, the order frame needs, copying only
+ *  when they are not in it already. */
+export function ordered(rows: Row[]): Row[] {
+  for (let i = 1; i < rows.length; i++) {
+    if (rows[i].start < rows[i - 1].start) return [...rows].sort((a, b) => a.start - b.start);
+  }
+  return rows;
+}
