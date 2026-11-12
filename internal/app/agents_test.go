@@ -50,7 +50,13 @@ func TestAgents(t *testing.T) {
 	if r.Project != "tock" || r.AgentMS != 20*60_000 || r.Prompts != 1 || r.Sessions != 1 || r.YouMS != 100*60_000 {
 		t.Fatalf("row = %+v", r)
 	}
-	if a.projectOfDir("/elsewhere/x") != "/elsewhere/x" || a.projectOfDir("") != "(unknown)" {
-		t.Fatal("projectOfDir fallback")
+	for dir, want := range map[string]string{
+		"/elsewhere/x": "/elsewhere/x", "": "(unknown)",
+		"/private/tmp/claude-501/x/scratchpad": TempDirs, "/tmp/a": TempDirs,
+		"/private/var/folders/xf/zp7/T/essai/Licence": TempDirs, "/var/folders/ab/T/x": TempDirs,
+	} {
+		if got := a.projectOfDir(dir); got != want {
+			t.Errorf("projectOfDir(%q) = %q, want %q", dir, got, want)
+		}
 	}
 }

@@ -39,8 +39,14 @@ func (a *App) Agents(from, to time.Time) (report.Agents, error) {
 	return report.AgentLedger(in, vs, labels, f, t, AgentGapMS), nil
 }
 
+// TempDirs names the sessions that ran in a temporary folder, together.
+const TempDirs = "(temp folders)"
+
+var tempRoots = []string{"/tmp", "/private/tmp", "/var/folders", "/private/var/folders"}
+
 // projectOfDir is the project whose repo holds dir, the deepest repo
-// winning; else dir itself, "~/…" under home.
+// winning; else TempDirs for a temporary folder; else dir itself, "~/…"
+// under home.
 func (a *App) projectOfDir(dir string) string {
 	best, bestLen := "", -1
 	for _, p := range a.rs.Projects {
@@ -53,6 +59,11 @@ func (a *App) projectOfDir(dir string) string {
 	}
 	if best != "" {
 		return best
+	}
+	for _, t := range tempRoots {
+		if dir == t || strings.HasPrefix(dir, t+"/") {
+			return TempDirs
+		}
 	}
 	if a.home != "" && (dir == a.home || strings.HasPrefix(dir, a.home+string(filepath.Separator))) {
 		return "~" + dir[len(a.home):]

@@ -47,13 +47,14 @@ func agentLines(ag report.Agents) []string {
 	if len(ag.Rows) == 0 {
 		return []string{"no agent sessions in this range (tock reads Claude Code's logs in ~/.claude/projects)"}
 	}
+	const maxName = 40
 	w := len("project")
 	for _, r := range ag.Rows {
-		w = max(w, len([]rune(report.Safe(r.Project))))
+		w = max(w, len([]rune(shortName(report.Safe(r.Project), maxName))))
 	}
 	out := []string{fmt.Sprintf("%-*s  %6s  %6s  %7s  %8s", w, "project", "agent", "you", "prompts", "sessions")}
 	for _, r := range ag.Rows {
-		out = append(out, fmt.Sprintf("%-*s  %6s  %6s  %7d  %8d", w, report.Safe(r.Project),
+		out = append(out, fmt.Sprintf("%-*s  %6s  %6s  %7d  %8d", w, shortName(report.Safe(r.Project), maxName),
 			report.Dur(r.AgentMS), report.Dur(r.YouMS), r.Prompts, r.Sessions))
 	}
 	line := fmt.Sprintf("agents worked %s", report.Dur(ag.AgentMS))
@@ -65,4 +66,14 @@ func agentLines(ag report.Agents) []string {
 		line += fmt.Sprintf(" · %.1f× leverage", float64(ag.AgentMS)/float64(ag.YouMS))
 	}
 	return append(out, line)
+}
+
+// shortName keeps the end of a name longer than n runes, where a folder
+// path says the most: "…levels/deep/inside".
+func shortName(s string, n int) string {
+	r := []rune(s)
+	if len(r) <= n {
+		return s
+	}
+	return "…" + string(r[len(r)-n+1:])
 }

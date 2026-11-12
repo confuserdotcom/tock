@@ -44,3 +44,13 @@ func TestAgentsCmd(t *testing.T) {
 		t.Fatal("extra arg must be usage")
 	}
 }
+
+func TestAgentNameShortened(t *testing.T) {
+	long := "~/Projects/a-very-long-folder-name/with/many/levels/deep/inside"
+	if got := shortName(long, 40); len([]rune(got)) != 40 || !strings.HasPrefix(got, "…") || !strings.HasSuffix(got, "deep/inside") {
+		t.Fatalf("got %q (%d)", got, len([]rune(got)))
+	}
+	if shortName("tock", 40) != "tock" {
+		t.Fatal("short name changed")
+	}
+}
