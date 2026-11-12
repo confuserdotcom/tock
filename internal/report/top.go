@@ -122,7 +122,11 @@ var topTitles = map[string]string{
 // the time and the share of the range's tracked time.
 func TopLines(t Top, sections []string, limit int) []string {
 	last := t.To.AddDate(0, 0, -1)
-	out := []string{fmt.Sprintf("Top  %s – %s · %s tracked", t.From.Format("Mon 2 Jan"), last.Format("Mon 2 Jan"), Dur(t.TotalMS))}
+	layout := "Mon 2 Jan"
+	if t.From.Year() != last.Year() {
+		layout += " 2006"
+	}
+	out := []string{fmt.Sprintf("Top  %s – %s · %s tracked", t.From.Format(layout), last.Format(layout), Dur(t.TotalMS))}
 	if t.TotalMS == 0 {
 		return append(out, "nothing tracked in this range")
 	}

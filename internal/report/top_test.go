@@ -44,3 +44,11 @@ func TestBuildTop(t *testing.T) {
 		t.Fatalf("projects = %+v", p)
 	}
 }
+
+func TestTopLinesYear(t *testing.T) {
+	from := time.Date(2025, 11, 12, 0, 0, 0, 0, zone)
+	got := TopLines(Top{From: from, To: from.AddDate(1, 0, 1)}, nil, 3)[0]
+	if got != "Top  Wed 12 Nov 2025 – Thu 12 Nov 2026 · 0s tracked" {
+		t.Fatalf("title = %q", got)
+	}
+}
