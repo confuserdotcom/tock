@@ -200,6 +200,8 @@ func (r *Rule) matches(v *SpanView, clean string) bool {
 // Ruleset is a loaded, validated pair of rule files. Learned rules are
 // checked before user rules.
 type Ruleset struct {
+	// home expands "~" in repos and directories (see SetHome).
+	home       string
 	Categories []Category
 	Projects   []Project
 	Learned    []Rule
@@ -671,4 +673,29 @@ func (rs *Ruleset) BillableRate(project string) *float64 {
 // Client returns who a declared project's invoices go to, "" when none.
 func (rs *Ruleset) Client(project string) string {
 	return rs.projByLower[nameKey(project)].Client
+}
+
+// SetHome gives the user's home, which "~/…" in repos and in a view's
+// directory stand for. Without it only paths written the same way match.
+func (rs *Ruleset) SetHome(home string) {
+	rs.mu.Lock()
+	rs.home = home
+	clear(rs.memo)
+	rs.mu.Unlock()
+}
+
+// repoFor returns the project whose repo holds dir, the deepest repo
+// winning, and that repo as written; "" when none does.
+func (rs *Ruleset) repoFor(dir string) (project, repo string) {
+	d := filepath.Clean(ExpandHome(dir, rs.home))
+	best := -1
+	for _, p := range rs.Projects {
+		for _, r := range p.Repos {
+			e := filepath.Clean(ExpandHome(r, rs.home))
+			if (d == e || strings.HasPrefix(d, e+string(filepath.Separator))) && len(e) > best {
+				project, repo, best = p.Name, r, len(e)
+			}
+		}
+	}
+	return project, repo
 }

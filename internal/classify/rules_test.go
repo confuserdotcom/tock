@@ -264,3 +264,34 @@ func TestProjectBudget(t *testing.T) {
 		}
 	}
 }
+
+func TestRepoProject(t *testing.T) {
+	rs, err := Parse([]byte(baseRules+"[[project]]\nname='main'\nrepos=['~/tock']\n[[project]]\nname='web'\nrepos=['/h/tock/web']\n[[project]]\nname='ATLAS'\nrepos=['~/atlas']\n[[rule]]\ntitle='pinned'\nproject='ATLAS'\n"), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rs.SetHome("/h")
+	dir := func(d, title string) SpanView {
+		v := SpanView{ID: 1, BundleID: "term", App: "Terminal", Title: &title}
+		if d != "" {
+			v.Dir = &d
+		}
+		return v
+	}
+	for _, c := range []struct{ dir, title, want string }{
+		{"~/tock", "x", "main"},
+		{"~/tock/internal", "x", "main"},
+		{"/h/tock/web/src", "x", "web"}, // the deepest repo wins
+		{"~/tockfoo", "x", ""},
+		{"~/tock", "pinned", "ATLAS"}, // a rule wins over the folder
+		{"", "x", ""},
+	} {
+		l := rs.Label(dir(c.dir, c.title), nil)
+		if l.Project != c.want {
+			t.Errorf("%q %q: project %q, want %q", c.dir, c.title, l.Project, c.want)
+		}
+		if c.want == "main" && (l.ProjectSource != SourceRepo || l.ProjectRule != "repo:~/tock") {
+			t.Errorf("source %q rule %q", l.ProjectSource, l.ProjectRule)
+		}
+	}
+}

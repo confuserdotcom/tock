@@ -20,6 +20,7 @@ const (
 	SourceModule   Source = "module"  // a module's name or alias in the title
 	SourceProject  Source = "project" // the category the project is filed under
 	SourcePlan     Source = "plan"    // the module of the plan's task at that time
+	SourceRepo     Source = "repo"    // the working directory is in one of the project's repos
 )
 
 // Kept is the rule label a span kept when [privacy] keep_titles deleted its
@@ -220,6 +221,13 @@ func (rs *Ruleset) ruleLabel(v *SpanView) Label {
 				l.Project = r.Project
 				l.ProjectSource, l.ProjectRule = set.src, r.Ref()
 			}
+		}
+	}
+
+	// Below every rule: a terminal in a project's repo is that project.
+	if l.Project == "" && dir != "" {
+		if p, repo := rs.repoFor(dir); p != "" {
+			l.Project, l.ProjectSource, l.ProjectRule = p, SourceRepo, "repo:"+repo
 		}
 	}
 

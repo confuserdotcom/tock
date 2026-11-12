@@ -75,6 +75,8 @@ func whyText(rs *classify.Ruleset, src classify.Source, ref string) string {
 		return "the project's category"
 	case classify.SourcePlan:
 		return "your plan"
+	case classify.SourceRepo:
+		return "working in " + strings.TrimPrefix(ref, "repo:") + ", one of its repos"
 	case classify.SourceModel:
 		return "local model"
 	case classify.SourceScreen:
