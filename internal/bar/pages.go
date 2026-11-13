@@ -206,7 +206,7 @@ func weekPage(w report.Week, nowMS int64) Page {
 		b.Hi = day.Date.UnixMilli() <= nowMS && nowMS < next
 		p.Bars = append(p.Bars, b)
 	}
-	mid := &Page{Cells: []Cell{{K: "Tracked", V: report.Dur(w.TrackedMS)}, {K: "Deep", V: report.Dur(w.ByKind["deep"])}}}
+	mid := &Page{Cells: []Cell{{K: "Tracked", V: report.Dur(w.TrackedMS)}, {K: "Deep focus", V: report.Dur(w.ByKind["deep"])}}}
 	if scored > 0 {
 		mid.Cells = append(mid.Cells, Cell{K: "Avg score", V: strconv.Itoa(int(math.Round(float64(sum) / float64(scored))))})
 	}
