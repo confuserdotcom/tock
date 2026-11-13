@@ -2,7 +2,46 @@
 
 What changed for you in each release. Dates are UTC.
 
-## v5.5.1 — 2026-11-13
+Versions follow [semantic versioning](docs/stability.md) from v1.0.0 on.
+Releases 0.1.0 to 0.6.1 were first published as v5.0.0 to v5.5.1; binaries
+from then still print the old number.
+
+## v1.0.0 — unreleased
+
+### Added
+- **A stability promise.** [docs/stability.md](docs/stability.md) lists
+  what stays the same across 1.x: config keys, commands, flags, exit codes,
+  the `--json` and export formats, the database and the sync folder. Breaks
+  wait for 2.0.
+- **Support tiers.** macOS is tier 1, Linux on Hyprland, Sway, i3 and X11
+  is tier 2, Windows is experimental. The same page says what each means.
+- **Windows (experimental).** trackd records on Windows 10 and 11, starts
+  at sign-in with `trackd install`, and writes its own log. Build it from
+  source with `make build-windows`.
+- **`tock stop` and `tock start`** stop and start the background services
+  on every platform, and say so when there was nothing to stop or start.
+- **Focus sessions from the dashboard and the notch.** The dashboard has a
+  sidebar, a day dial and a focus card that starts and stops sessions; the
+  open notch starts one too.
+- **`tock model` scores the labeller** against the spans you labelled by
+  hand and lists what it leaves blank, by window.
+- **Releases carry an SBOM and signed build provenance** for the tarballs,
+  `tock.rb` and the `.dmg`; [docs/verify.md](docs/verify.md) shows how to
+  check them.
+
+### Changed
+- Without a rules file, tock writes starter rules instead of asking you to
+  run `tock init` first; time trackd already recorded shows straight away.
+- The title model overrules a rule for a whole site or app only where you
+  have overruled that rule by hand, so a site like chess.com no longer
+  lands in the wrong category.
+
+### Fixed
+- `tock start` on Windows checks that trackd stays up.
+- Started on an idle machine, trackd no longer dates the idle span from
+  before it ran.
+
+## v0.6.1 — 2026-11-13
 
 ### Added
 - **Budgets in the notch.** When a project reaches 80% of its budget or
@@ -25,7 +64,7 @@ What changed for you in each release. Dates are UTC.
   windows were cut; Sway with swayidle, i3 and X11 now count as reporting
   it.
 
-## v5.5.0 — 2026-11-12
+## v0.6.0 — 2026-11-12
 
 ### Added
 - **Agent ledger.** `tock agents` reads Claude Code's session logs and
@@ -59,7 +98,7 @@ What changed for you in each release. Dates are UTC.
   GitHub noreply addresses do.
 - `tock top` over a range that crosses New Year shows the years.
 
-## v5.4.0 — 2026-11-12
+## v0.5.0 — 2026-11-12
 
 ### Added
 - **Why this label.** Clicking an entry on the dashboard timeline says
@@ -220,7 +259,7 @@ What changed for you in each release. Dates are UTC.
 - Two tock programs starting at once after an update could both try to
   update the database.
 
-## v5.3.0 — 2026-11-06
+## v0.4.0 — 2026-11-06
 
 ### Added
 - Edit the timeline from the dashboard. Click a bar or drag across the
@@ -248,7 +287,7 @@ What changed for you in each release. Dates are UTC.
 - An export range across a daylight saving change could cover a year and
   a day.
 
-## v5.2.0 — 2026-11-05
+## v0.3.0 — 2026-11-05
 
 ### Added
 - A new dashboard, in its own tock window from the menu bar (with a Dock
@@ -301,7 +340,7 @@ What changed for you in each release. Dates are UTC.
   teal for deep work, blue for shallow, mauve for browsing, brick for
   distraction.
 
-## v5.1.0 — 2026-11-05
+## v0.2.0 — 2026-11-05
 
 ### Added
 - The dashboard compares each number with your usual same weekday: the
@@ -334,7 +373,7 @@ What changed for you in each release. Dates are UTC.
   loops share one database session.
 - Pushing a version tag publishes the GitHub release with the Linux tarballs.
 
-## v5.0.0 — 2026-11-05
+## v0.1.0 — 2026-11-05
 
 The first public release.
 

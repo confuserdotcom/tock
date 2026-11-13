@@ -344,11 +344,11 @@ hooks:
 	echo "hooks: post-commit and post-merge installed in $$dir"
 
 # release: the Linux builds of trackd and tock as tarballs in dist/, with
-# SHA256SUMS, for a GitHub release. Tag first (git tag v5.0.0) so VERSION is
+# SHA256SUMS, for a GitHub release. Tag first (git tag v1.0.0) so VERSION is
 # the tag. The Mac apps are built and signed on the Mac they run on (make
 # install), so they are not in the release.
 release:
-	@case "$(VERSION)" in v[0-9]*) ;; *) echo "release: VERSION $(VERSION) is not a tag like v5.0.0" >&2; exit 1;; esac
+	@case "$(VERSION)" in v[0-9]*) ;; *) echo "release: VERSION $(VERSION) is not a tag like v1.0.0" >&2; exit 1;; esac
 	rm -rf dist && mkdir -p dist
 	@for a in amd64 arm64; do \
 		d=dist/tock-$(VERSION)-linux-$$a; mkdir -p $$d && \

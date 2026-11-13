@@ -26,7 +26,7 @@ gh attestation verify tock-<version>-linux-amd64.tar.gz -R confuserdotcom/tock
 It checks a signed record (Sigstore) that the release workflow made the
 file from a commit in confuserdotcom/tock; the output names the workflow
 and the tag. It works for the tarballs, the `.dmg`, `SHA256SUMS`, the SBOM
-and `tock.rb`, from v5.5.2 on. Verify `SHA256SUMS` this way and step 1
+and `tock.rb`, from v1.0.0 on. Verify `SHA256SUMS` this way and step 1
 becomes as strong as step 2 for every file it lists.
 
 ## What is inside

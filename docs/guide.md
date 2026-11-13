@@ -1819,7 +1819,7 @@ make install-linux   # trackd and tock in ~/.local/bin, trackd.service enabled
 
 Without Go, take `tock-<version>-linux-amd64.tar.gz` (or `arm64`) from a
 GitHub release, check it against `SHA256SUMS`, and install the two binaries.
-From v5.5.2 every tarball, `tock.rb` and the `.dmg` also carry signed build
+From v1.0.0 every tarball, `tock.rb` and the `.dmg` also carry signed build
 provenance; `gh attestation verify tock-<version>-linux-amd64.tar.gz -R
 confuserdotcom/tock` checks that GitHub's release workflow built that file
 from the tag, not someone's laptop:
