@@ -401,8 +401,8 @@ static void pillDone(NSWindow *w);
         }
         CGFloat y = i * scaled(21);
         if (i > 0) {
-            [white(0.08) setFill];
-            NSRectFill(NSMakeRect(0, y, w, 1));
+            [white(0.1) setFill]; // over, not copy: NSRectFill would paint it opaque
+            NSRectFillUsingOperation(NSMakeRect(0, y, w, 1), NSCompositingOperationSourceOver);
         }
         [row[0] drawAtPoint:NSMakePoint(0, y + scaled(3)) withAttributes:na];
         NSSize vs = [row[1] sizeWithAttributes:va];
