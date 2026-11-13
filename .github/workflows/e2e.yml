@@ -1,0 +1,58 @@
+name: e2e
+
+# The real collector on real desktops: trackd records two windows, is
+# killed with no warning, starts again and recovers. See e2e/.
+on:
+  push:
+    branches: [main, "e2e-*"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  e2e-linux:
+    strategy:
+      fail-fast: false
+      matrix:
+        desktop: [openbox, i3, sway]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+      - name: install the desktop
+        run: |
+          sudo apt-get update -qq
+          case "${{ matrix.desktop }}" in
+            openbox) sudo apt-get install -y -qq xvfb openbox xterm xdotool ;;
+            i3) sudo apt-get install -y -qq xvfb i3-wm xterm ;;
+            sway) sudo apt-get install -y -qq sway foot ;;
+          esac
+      - name: record, kill, recover
+        run: |
+          case "${{ matrix.desktop }}" in
+            sway) scripts/e2e/sway.sh ;;
+            *) scripts/e2e/x11.sh "${{ matrix.desktop }}" ;;
+          esac
+
+  e2e-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+      - name: record, kill, recover
+        run: scripts/e2e/windows.ps1
+
+  e2e-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+      - name: record, kill, recover
+        run: scripts/e2e/macos.sh
