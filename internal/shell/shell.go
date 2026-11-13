@@ -8,6 +8,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"path/filepath"
 	"slices"
 	"sort"
 	"strconv"
@@ -135,16 +136,12 @@ func Attach(views []classify.SpanView, ev []Event, terminals []string, home stri
 	}
 }
 
-// fold writes home, and paths under it, with "~".
+// fold writes home, and paths under it, with "~" and / separators (on
+// Windows too, so dir rules read the same everywhere).
 func fold(dir, home string) string {
-	home = strings.TrimRight(home, "/")
-	switch {
-	case home == "":
+	home = strings.TrimRight(home, `/\`)
+	if home == "" || !classify.Within(dir, home) {
 		return dir
-	case dir == home:
-		return "~"
-	case strings.HasPrefix(dir, home+"/"):
-		return "~" + dir[len(home):]
 	}
-	return dir
+	return "~" + filepath.ToSlash(dir[len(home):])
 }
