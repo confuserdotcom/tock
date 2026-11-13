@@ -6,7 +6,8 @@
 tock records where your working time goes without a timer. A small daemon
 notes the app, window and site in front of you; rules you write in a TOML
 file turn that into categories and projects. It runs on macOS and on Linux
-under Hyprland, and everything stays in one SQLite file on your machine.
+under Hyprland, Sway, i3 or X11, and everything stays in one SQLite file on
+your machine.
 
 <img src="docs/readme/today.webp" width="100%" alt="The tock dashboard for one day: a timeline with one row per category, a focus score, minutes per hour, a donut of the kinds of time, and goals.">
 
@@ -52,7 +53,7 @@ make cert cert-trust   # once
 make install
 ```
 
-Linux (Hyprland): `make install-linux`, or the tarball from the releases
+Linux (Hyprland, Sway, i3 or X11; see the guide's Linux section): `make install-linux`, or the tarball from the releases
 page (check it against `SHA256SUMS`):
 
 ```sh

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -13,6 +14,7 @@ import (
 
 	"tock/internal/collect"
 	"tock/internal/config"
+	"tock/internal/desktop"
 	"tock/internal/focus"
 )
 
@@ -32,10 +34,21 @@ func (darwinRemover) CloseTab(bundle, host string) (bool, error) {
 }
 func (darwinRemover) Hide(bundle string) (bool, error) { return collect.HideApp(bundle) }
 
-type hyprRemover struct{}
+// linuxRemover hides windows the way the session's desktop allows.
+type linuxRemover struct{}
 
-func (hyprRemover) CloseTab(string, string) (bool, error) { return false, nil }
-func (hyprRemover) Hide(class string) (bool, error)       { return collect.HyprHide(class) }
+func (linuxRemover) CloseTab(string, string) (bool, error) { return false, nil }
+func (linuxRemover) Hide(class string) (bool, error) {
+	d, err := desktop.Detect(desktop.System())
+	if err != nil {
+		return false, err
+	}
+	ok, err := collect.HideWindows(d, class)
+	if errors.Is(err, collect.ErrUnsupported) {
+		return false, nil // X11: nothing to hide with; the drift notice still goes out
+	}
+	return ok, err
+}
 
 // hookTimeout bounds one hook command.
 const hookTimeout = 20 * time.Second
@@ -171,7 +184,7 @@ func (f *focusLoop) block(b *focus.Block) (focus.Event, bool) {
 // defaultRemover is the platform's Remover.
 func defaultRemover() Remover {
 	if runtime.GOOS == "linux" {
-		return hyprRemover{}
+		return linuxRemover{}
 	}
 	return darwinRemover{}
 }

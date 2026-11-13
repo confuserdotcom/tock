@@ -10,7 +10,7 @@ Sections:
 - **Labels:** [Categories](#categories) · [The model](#the-model) · [Modules](#modules) · [AFK](#afk) · [Editing the timeline](#editing-the-timeline) · [Undo](#undo) · [Duplicate names](#duplicate-names)
 - **Looking back:** [Work blocks, summaries and questions](#work-blocks-summaries-and-questions) · [Trends and review](#trends-and-review) · [Web dashboard](#web-dashboard) · [Week report](#week-report) · [Budgets](#budgets) · [Billing](#billing) · [Commits](#commits) · [Agents](#agents) · [Calls](#calls)
 - **Your day around it:** [Calendar](#calendar) · [Planned sessions and meetings](#planned-sessions-and-meetings) · [Recommendations](#recommendations) · [Screen reading](#screen-reading) · [Menu bar and notifications](#menu-bar-and-notifications)
-- **Running it:** [Linux (Hyprland)](#linux-hyprland) · [Sync between machines](#sync-between-machines) · [Deleting old titles](#deleting-old-titles) · [Updates](#updates) · [Backup](#backup) · [When something went wrong](#when-something-went-wrong) · [Import](#import) · [Uninstall](#uninstall)
+- **Running it:** [Linux](#linux) · [Sync between machines](#sync-between-machines) · [Deleting old titles](#deleting-old-titles) · [Updates](#updates) · [Backup](#backup) · [When something went wrong](#when-something-went-wrong) · [Import](#import) · [Uninstall](#uninstall)
 
 ## Privacy in detail
 
@@ -349,7 +349,7 @@ hotkey = true            # ⌥⌘F from any app: what you are working on and how
 # meeting_apps / meeting_hosts replace the built-in lists of meeting apps
 # (bundle ids) and hosts during which break and distraction nudges stay quiet
 block = false            # close distracting tabs and hide distracting apps in sessions
-block_apps = []          # bundle ids (Hyprland classes) blocked besides distractions
+block_apps = []          # bundle ids (window classes on Linux) blocked besides distractions
 block_hosts = []         # sites blocked besides distractions; subdomains too
 block_grace = 10         # seconds a distraction may stay in front
 focus_on = ""            # Shortcuts shortcut run when a session starts
@@ -512,7 +512,8 @@ in front for 10 seconds (`block_grace`) during a session is taken away:
   shows that site;
 - any other app (and Firefox) is hidden. On Hyprland its windows move to
   the special workspace `tock` (`hyprctl dispatch togglespecialworkspace
-  tock` brings them back).
+  tock` brings them back), on Sway and i3 to the scratchpad; X11 has no
+  way to hide them.
 
 A distraction is time whose category has `kind = "distract"`, plus the apps
 in `block_apps` and the sites in `block_hosts`. Nothing is blocked during a
@@ -896,8 +897,9 @@ While a video plays in the front app (it keeps the display awake), trackd
 waits `[afk] video` minutes (3 hours by default) before it goes idle. Music
 does not count. During a call you are never AFK (see Calls).
 
-**Machines that report no input.** On Hyprland trackd only learns about
-input through the hypridle hook (see Linux). Without it, and for another
+**Machines that report no input.** On Hyprland and Sway trackd only
+learns about input through the hypridle or swayidle hook (see Linux); X11
+and i3 report it themselves. Without it, and for another
 machine whose sync folder doesn't say it reports input (an older tock),
 tock guesses: one window left unchanged for longer than `[afk] stale`
 minutes (20) keeps its category's window and the rest is idle. A page turn
@@ -908,8 +910,8 @@ names those machines.
 cut by these rules, `· 47m to other machines` for time you spent on another
 machine while a window stayed open here (see Sync between machines).
 
-hypridle can miss idle even when it is hooked in: it stops, crashes or is
-held off by a player. So on Linux, and for another machine whose sync
+hypridle (or swayidle) can miss idle even when it is hooked in: it stops,
+crashes or is held off by a player. So on Linux, and for another machine whose sync
 folder doesn't say its input comes from macOS, one window left unchanged
 for longer than `[afk] trust` minutes (180) keeps its category's window
 and the rest is idle. A Mac's own input is always trusted. trackd also
@@ -1780,10 +1782,15 @@ off and brings the banners back.
 `tockbar notch-demo` plays made-up moments in the notch, with no database,
 for recording a demo.
 
-## Linux (Hyprland)
+## Linux
 
-On Linux, trackd reads the focused window from Hyprland's sockets. It needs
-no cgo, no bundle and no permissions.
+On Linux, trackd reads the focused window from Hyprland's sockets, from
+Sway's or i3's IPC socket, or from the X server (any X11 window manager
+that sets `_NET_ACTIVE_WINDOW`, which nearly all do). It needs no cgo, no
+bundle and no permissions. It finds the session by itself: the session's
+variables first, then the sockets on disk. `TOCK_DESKTOP=hyprland`, `sway`,
+`i3` or `x11` in trackd's environment picks one by hand, and `tock doctor`
+says which it sees.
 
 ```sh
 make install-linux   # trackd and tock in ~/.local/bin, trackd.service enabled
@@ -1809,7 +1816,7 @@ trackd runs as the systemd user unit `trackd.service` and starts with your
 graphical session. Its log is `~/.local/state/tock/trackd.log`, and
 `systemctl --user status trackd` shows the unit.
 
-Hyprland gives a window's title but no browser's address. A small tock
+The desktop gives a window's title but no browser's address. A small tock
 extension sends the tab in front to trackd through the browser's native
 messaging (trackd is started by the browser and reads its stdin; nothing
 goes over the network). Run
@@ -1824,6 +1831,8 @@ the same way as on the Mac (host and path; no query, no fragment). An
 incognito window, or a browser window the extension cannot see, counts as
 private: no title and no address. Firefox loads it only for one session
 (unsigned add-ons). `tock doctor` says when the extension last reported.
+
+### Hyprland
 
 Wayland gives no app the idle time, so hypridle tells trackd. Add this to
 hypridle's config, keeping your other listeners. That is
@@ -1883,8 +1892,56 @@ An always-on idle inhibitor (a "caffeine" or keep-awake mode) also stops a
 shared hypridle from ever reporting you idle; a separate one for trackd with
 those two lines does not have that problem.
 
-- **Rules.** On Linux, a window's bundle id and app name are its Hyprland
-  class, such as `kitty` or `firefox`. `hyprctl clients` lists the classes.
+### Sway and i3
+
+trackd reads the focused window from the IPC socket (`$SWAYSOCK`, `$I3SOCK`,
+or the newest `sway-ipc.*.sock` in `$XDG_RUNTIME_DIR`). Sway does not start
+`graphical-session.target` by itself, so start trackd from Sway's config
+and hand it the session's variables:
+
+```
+exec systemctl --user import-environment SWAYSOCK WAYLAND_DISPLAY DISPLAY XAUTHORITY
+exec systemctl --user start trackd
+```
+
+Idle comes from swayidle, the same two commands as hypridle's:
+
+```
+exec swayidle -w \
+    timeout 300 'trackd idle --after 300' \
+    resume 'trackd active'
+```
+
+Keep your other timeouts on the same swayidle line. `tock doctor` finds the
+hook on a running swayidle's command line or in its config
+(`~/.config/swayidle/config`). Under i3 (X11) the window comes from i3's
+socket and idle from the X server, so no swayidle is needed there. When
+blocking hides an app, its windows go to the scratchpad (`scratchpad show`
+brings them back).
+
+### X11
+
+Any other X11 session works through the X server itself: the active
+window's `WM_CLASS` and title, and the screensaver extension's idle time,
+so there is no idle hook to set up. trackd connects over the local socket
+(`DISPLAY=:0` and the like; a remote display is not supported) with the
+cookie in `$XAUTHORITY` or `~/.Xauthority`. When your desktop does not
+start `graphical-session.target` (a bare window manager from `startx`), add
+to `~/.xinitrc` before the window manager starts:
+
+```sh
+systemctl --user import-environment DISPLAY XAUTHORITY
+systemctl --user start trackd
+```
+
+Blocking cannot hide windows on X11; the drift notice still goes out.
+
+### On every desktop
+
+- **Rules.** On Linux, a window's bundle id and app name are its class:
+  Hyprland's class, Sway's `app_id` (the X11 class for Xwayland windows),
+  or X11's `WM_CLASS` class, such as `kitty` or `firefox`. `hyprctl
+  clients`, `swaymsg -t get_tree` or `xprop WM_CLASS` show them.
   Write rules with `app = "firefox"`, or with titles, as on the Mac.
 - **Terminals.** The zsh hook works the same. kitty, WezTerm, Alacritty,
   foot and ghostty are known terminals.

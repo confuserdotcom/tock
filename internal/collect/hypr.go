@@ -31,7 +31,7 @@ const (
 const IdleFile = "idle"
 
 // lockers are the screen lockers whose process means the session is locked.
-var lockers = []string{"hyprlock", "swaylock"}
+var lockers = []string{"hyprlock", "swaylock", "waylock", "gtklock", "i3lock", "slock", "xsecurelock"}
 
 // HyprOptions configures the Hyprland source. Empty fields take the
 // defaults from the environment.

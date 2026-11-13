@@ -355,3 +355,30 @@ func TestMachineFileCarriesVersionAndUpdateError(t *testing.T) {
 		t.Fatalf("remote update error = %q after it went", v)
 	}
 }
+
+func TestSwayidleHooked(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", "")
+	write := func(proc, pid, cmd string) {
+		os.MkdirAll(filepath.Join(proc, pid), 0o700)
+		os.WriteFile(filepath.Join(proc, pid, "cmdline"), []byte(cmd), 0o600)
+	}
+	proc := t.TempDir()
+	write(proc, "20", "swayidle\x00-w\x00timeout\x00300\x00trackd idle --after 300\x00resume\x00trackd active\x00")
+	if !swayidleHooked(proc, home) {
+		t.Fatal("hook on the command line not seen")
+	}
+	proc = t.TempDir()
+	write(proc, "21", "/usr/bin/swayidle\x00-w\x00")
+	if swayidleHooked(proc, home) {
+		t.Fatal("no hook anywhere, yet hooked")
+	}
+	os.MkdirAll(filepath.Join(home, ".config", "swayidle"), 0o700)
+	os.WriteFile(filepath.Join(home, ".config", "swayidle", "config"), []byte("timeout 300 'trackd idle --after 300' resume 'trackd active'\n"), 0o600)
+	if !swayidleHooked(proc, home) {
+		t.Fatal("hook in the default config not seen")
+	}
+	if swayidleHooked(t.TempDir(), home) {
+		t.Fatal("no swayidle running, yet hooked")
+	}
+}

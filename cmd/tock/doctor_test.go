@@ -221,6 +221,39 @@ func TestDoctorLinux(t *testing.T) {
 	}
 }
 
+func TestDoctorLinuxDesktops(t *testing.T) {
+	for _, c := range []struct {
+		desktop  string
+		swayidle bool
+		want     []string
+		not      string
+	}{
+		{"sway", false, []string{"ok  desktop: Sway or i3", "!!  idle: swayidle does not run trackd idle"}, ""},
+		{"sway", true, []string{"ok  desktop: Sway or i3"}, "idle: swayidle"},
+		{"x11", false, []string{"ok  desktop: X11 (idle from the X screensaver extension)"}, "!!  idle"},
+		{"", false, []string{"!!  desktop: no Hyprland, Sway, i3 or X11 session found"}, ""},
+	} {
+		te, _ := doctorEnv(t, testRules)
+		te.Linux = true
+		d, sw := c.desktop, c.swayidle
+		te.Desktop = func() string { return d }
+		te.Swayidle = func() bool { return sw }
+		te.seed(t, daySpans()...)
+		_, out := te.run(t, "", "doctor")
+		for _, w := range c.want {
+			if !strings.Contains(out, w) {
+				t.Errorf("%s/%v: no %q:\n%s", c.desktop, c.swayidle, w, out)
+			}
+		}
+		if c.not != "" && strings.Contains(out, c.not) {
+			t.Errorf("%s/%v: has %q:\n%s", c.desktop, c.swayidle, c.not, out)
+		}
+		if strings.Contains(out, "hypridle") {
+			t.Errorf("%s: mentions hypridle:\n%s", c.desktop, out)
+		}
+	}
+}
+
 // lagDoctor is tock doctor on a Mac that syncs with ryuk. ryuk's machine.json
 // is ryukJSON, and the Mac published pubVer pubAge before testNow ("" for none).
 func lagDoctor(t *testing.T, ryukJSON, pubVer string, pubAge time.Duration) (code int, out string) {

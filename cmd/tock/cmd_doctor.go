@@ -14,6 +14,7 @@ import (
 	"tock/internal/app"
 	"tock/internal/classify"
 	"tock/internal/config"
+	"tock/internal/desktop"
 	"tock/internal/fronttab"
 	"tock/internal/gitlog"
 	"tock/internal/store"
@@ -251,9 +252,30 @@ func doctorNotify(on bool, h app.Health, ok func(name, detail string)) {
 // not say they report input.
 func doctorAFK(env Env, cfg config.Config, ok func(name, detail string), bad func(name, detail, fix string)) {
 	stale := classify.FormatDur(cfg.AFK.StaleMS)
-	if env.Linux && (env.Hypridle == nil || !env.Hypridle()) {
-		bad("idle", "hypridle does not run trackd idle, so trackd never sees you leave; windows over "+stale+" are cut",
-			"add the listener in README › Linux to hypridle's config (the -c file it runs with, else ~/.config/hypr/hypridle.conf)")
+	if env.Linux {
+		dt := desktop.Hyprland
+		if env.Desktop != nil {
+			dt = env.Desktop()
+		}
+		switch dt {
+		case desktop.Hyprland:
+			ok("desktop", "Hyprland")
+			if env.Hypridle == nil || !env.Hypridle() {
+				bad("idle", "hypridle does not run trackd idle, so trackd never sees you leave; windows over "+stale+" are cut",
+					"add the listener in README › Linux to hypridle's config (the -c file it runs with, else ~/.config/hypr/hypridle.conf)")
+			}
+		case desktop.Sway:
+			ok("desktop", "Sway or i3")
+			if env.Swayidle == nil || !env.Swayidle() {
+				bad("idle", "swayidle does not run trackd idle, so trackd never sees you leave; windows over "+stale+" are cut",
+					"add the swayidle line in the guide's Linux › Sway and i3 to your sway config and reload it")
+			}
+		case desktop.X11:
+			ok("desktop", "X11 (idle from the X screensaver extension)")
+		default:
+			bad("desktop", "no Hyprland, Sway, i3 or X11 session found, so trackd records nothing",
+				"run trackd inside a supported session, or set TOCK_DESKTOP=hyprland|sway|x11 in its environment")
+		}
 	}
 	detail := "idle after 5m without input"
 	if rs, err := classify.Load(env.rulesPath(), env.learnedPath()); err == nil {

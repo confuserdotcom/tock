@@ -18,6 +18,7 @@ import (
 
 	"tock/internal/app"
 	"tock/internal/claude"
+	"tock/internal/desktop"
 	"tock/internal/gitlog"
 	"tock/internal/shell"
 	"tock/internal/slack"
@@ -184,6 +185,12 @@ type Env struct {
 	Linux bool
 	// Hypridle reports whether hypridle runs trackd idle (Linux); nil: no.
 	Hypridle func() bool
+	// Desktop names the Linux session's desktop (desktop.Hyprland, …), ""
+	// when none is found; nil means Hyprland.
+	Desktop func() string
+	// Swayidle reports whether trackd sees input on Sway or i3: swayidle
+	// runs trackd idle, or i3 runs on X, which reports it; nil: no.
+	Swayidle func() bool
 }
 
 func (e Env) dbPath() string       { return filepath.Join(e.DataDir, "tock.db") }
@@ -233,6 +240,14 @@ func defaultEnv() Env {
 		Hypridle: func() bool {
 			home, _ := os.UserHomeDir()
 			return app.HypridleHooked(home)
+		},
+		Desktop: func() string {
+			d, _ := desktop.Detect(desktop.System())
+			return d
+		},
+		Swayidle: func() bool {
+			home, _ := os.UserHomeDir()
+			return desktop.IdleHook(desktop.System(), desktop.Sway) == "" || app.SwayidleHooked(home)
 		},
 	}
 }

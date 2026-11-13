@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"tock/internal/classify"
+	"tock/internal/desktop"
 	"tock/internal/span"
 	"tock/internal/store"
 	"tock/internal/syncdir"
@@ -80,7 +81,18 @@ func inputKnown(goos, home string) bool {
 	if goos != "linux" {
 		return true
 	}
-	return HypridleHooked(home)
+	e := desktop.System()
+	d, err := desktop.Detect(e)
+	if err != nil {
+		return false
+	}
+	switch desktop.IdleHook(e, d) {
+	case "hypridle":
+		return HypridleHooked(home)
+	case "swayidle":
+		return SwayidleHooked(home)
+	}
+	return true // the X server reports input itself
 }
 
 // HypridleHooked reports whether a running hypridle's config runs trackd
@@ -320,4 +332,49 @@ func (a *App) readMachineFile(dir, machine string) error {
 		return err
 	}
 	return a.st.SetState(RemoteInputKey(machine), v, a.nowMS())
+}
+
+// SwayidleHooked reports whether a running swayidle runs trackd idle: on
+// its command line, where swayidle usually takes its commands, or in its
+// config (-C, else ~/.config/swayidle/config or $XDG_CONFIG_HOME's).
+func SwayidleHooked(home string) bool { return swayidleHooked("/proc", home) }
+
+func swayidleHooked(proc, home string) bool {
+	ents, err := os.ReadDir(proc)
+	if err != nil {
+		return false
+	}
+	for _, e := range ents {
+		if e.Name()[0] < '0' || e.Name()[0] > '9' {
+			continue
+		}
+		b, err := os.ReadFile(filepath.Join(proc, e.Name(), "cmdline"))
+		if err != nil {
+			continue
+		}
+		args := strings.Split(strings.TrimRight(string(b), "\x00"), "\x00")
+		if filepath.Base(args[0]) != "swayidle" {
+			continue
+		}
+		if strings.Contains(strings.Join(args, " "), "trackd idle") {
+			return true
+		}
+		conf := ""
+		for i, a := range args {
+			if a == "-C" && i+1 < len(args) {
+				conf = args[i+1]
+			}
+		}
+		if conf == "" {
+			dir := os.Getenv("XDG_CONFIG_HOME")
+			if dir == "" {
+				dir = filepath.Join(home, ".config")
+			}
+			conf = filepath.Join(dir, "swayidle", "config")
+		}
+		if c, err := os.ReadFile(conf); err == nil && strings.Contains(string(c), "trackd idle") {
+			return true
+		}
+	}
+	return false
 }

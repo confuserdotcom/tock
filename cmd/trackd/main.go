@@ -50,15 +50,19 @@ func stateDir() string {
 	return filepath.Join(home(), ".local", "state", "tock")
 }
 
-// newSource builds the collector: Hyprland on Linux, else macOS.
+// newSource builds the collector: on Linux the session's desktop
+// (Hyprland, Sway/i3 or X11), else macOS.
 // Permission prompts are allowed only when launchd (or open) started
 // trackd: a terminal-launched process would attribute them to the terminal.
 func newSource() (collect.Source, error) {
 	if runtime.GOOS == "linux" {
-		return collect.NewHyprland(collect.HyprOptions{
-			IdleFile:    filepath.Join(stateDir(), collect.IdleFile),
-			BrowserFile: filepath.Join(stateDir(), fronttab.File),
-		})
+		idle, browser := filepath.Join(stateDir(), collect.IdleFile), filepath.Join(stateDir(), fronttab.File)
+		src, desktop, err := collect.NewLinux(collect.HyprOptions{IdleFile: idle, BrowserFile: browser},
+			collect.LinuxOptions{IdleFile: idle, BrowserFile: browser})
+		if err == nil {
+			fmt.Fprintf(os.Stderr, "trackd: reading the %s session\n", desktop)
+		}
+		return src, err
 	}
 	underLaunchd := os.Getppid() == 1
 	return collect.NewDarwin(collect.Options{
