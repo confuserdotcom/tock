@@ -92,3 +92,18 @@ func TestAttach(t *testing.T) {
 		}
 	}
 }
+
+func TestFoldNativePaths(t *testing.T) {
+	home := filepath.Join(string(filepath.Separator)+"h", "ann")
+	cases := map[string]string{
+		home:                            "~",
+		filepath.Join(home, "x", "sub"): "~/x/sub",
+		filepath.Join(home+"x", "sub"):  filepath.Join(home+"x", "sub"),
+		filepath.Join(string(filepath.Separator)+"srv", "x"): filepath.Join(string(filepath.Separator)+"srv", "x"),
+	}
+	for in, want := range cases {
+		if got := fold(in, home); got != want {
+			t.Errorf("fold(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
