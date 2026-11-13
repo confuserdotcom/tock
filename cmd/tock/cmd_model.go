@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"tock/internal/classify"
+	"tock/internal/report"
 )
 
 const modelUsage = `model: usage: tock model | tock model why <app> "<title>" [<label>]`
@@ -53,6 +54,11 @@ func cmdModel(env Env, args []string) error {
 	if err != nil {
 		return err
 	}
+	ag, err := a.ModelAgreement()
+	if err != nil {
+		return err
+	}
+	defer printAgreement(env, ag)
 	if st.Held == 0 {
 		fmt.Fprintln(env.Stdout, "Model  nothing labelled to learn from yet")
 		return nil
@@ -100,4 +106,45 @@ func scored(xs []classify.Scored) string {
 		return "-"
 	}
 	return b.String()
+}
+
+// printAgreement is the whole labeller against your hand labels: the one
+// number that says how often tock files your time where you would.
+func printAgreement(env Env, ag classify.Agreement) {
+	if ag.Spans == 0 {
+		return
+	}
+	lo, hi := classify.Wilson(ag.Agreed, ag.Spans)
+	spans := "spans"
+	if ag.Spans == 1 {
+		spans = "span"
+	}
+	fmt.Fprintf(env.Stdout, "\nYour labels  %d %s · %s, held out from what labels them\n", ag.Spans, spans, report.Dur(ag.MS))
+	fmt.Fprintf(env.Stdout, "  agrees      %3d%% of the time  (%d%% of spans, 95%% range %d-%d%%)\n",
+		pct64(ag.AgreedMS, ag.MS), pct(ag.Agreed, ag.Spans), int(lo*100+0.5), int(hi*100+0.5))
+	fmt.Fprintf(env.Stdout, "  blank       %3d%% of the time\n", pct64(ag.UnlabelledMS, ag.MS))
+	fmt.Fprintln(env.Stdout, "  You label by hand mostly what tock missed, so this is a floor.")
+	for _, r := range ag.PerCategory {
+		prec := "-"
+		if r.GuessedMS >= 10*60_000 { // less is noise
+			prec = fmt.Sprintf("%d%%", pct64(r.AgreedMS, r.GuessedMS))
+		}
+		fmt.Fprintf(env.Stdout, "  %-18s %7s  found %3d%%  right when it says so %s\n", r.Category, report.Dur(r.MS), pct64(r.AgreedMS, r.MS), prec)
+	}
+	for i, c := range ag.Confusions {
+		if i == 5 {
+			break
+		}
+		if i == 0 {
+			fmt.Fprintln(env.Stdout, "  filed instead under")
+		}
+		fmt.Fprintf(env.Stdout, "    %-18s → %-18s %s\n", c.Label, c.Guess, report.Dur(c.MS))
+	}
+}
+
+func pct64(n, of int64) int {
+	if of == 0 {
+		return 0
+	}
+	return int((n*100 + of/2) / of)
 }

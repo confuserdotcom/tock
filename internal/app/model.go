@@ -270,3 +270,13 @@ func fnv32(s string) uint32 {
 	}
 	return h
 }
+
+// ModelAgreement scores the whole labeller against your hand labels, held
+// out in five folds (see classify.Ruleset.Agreement).
+func (a *App) ModelAgreement() (classify.Agreement, error) {
+	vs, _, o, err := a.history()
+	if err != nil {
+		return classify.Agreement{}, err
+	}
+	return a.rs.Agreement(vs, o, 5), nil
+}
