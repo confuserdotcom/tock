@@ -43,6 +43,9 @@ func RecText(r recommend.Rec) string {
 // Countdown renders ms as m:ss, rounding up to the second; negative is 0:00.
 func Countdown(ms int64) string {
 	s := (max(ms, 0) + 999) / 1000
+	if s >= 3600 {
+		return fmt.Sprintf("%d:%02d:%02d", s/3600, s/60%60, s%60)
+	}
 	return fmt.Sprintf("%d:%02d", s/60, s%60)
 }
 

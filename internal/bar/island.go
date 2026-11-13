@@ -239,8 +239,8 @@ func (s Snapshot) IslandBase(nowMS int64) Island {
 	if !s.BreakUntil.IsZero() && s.BreakUntil.UnixMilli() > nowMS {
 		end := s.BreakUntil.UnixMilli()
 		return Island{State: IslandBreak,
-			Face: Face{Dot: DotBreak, Left: "Break", Right: report.Countdown(end - nowMS), EndMS: end},
-			Hover: &Panel{Face: Face{Dot: DotBreak, Left: "Break", Right: report.Countdown(end - nowMS), EndMS: end},
+			Face: Face{Dot: DotBreak, Left: "Break", Right: report.Countdown(end - nowMS), RightDim: "left", EndMS: end},
+			Hover: &Panel{Face: Face{Dot: DotBreak, Left: "Break", Right: report.Countdown(end - nowMS), RightDim: "left", EndMS: end},
 				Lead: "Break", Sub: "until " + clock(end, s.loc())}}
 	}
 	return s.quietIsland()
@@ -271,7 +271,8 @@ func (s Snapshot) focusIsland(ss focus.Session, nowMS int64) Island {
 	goal = report.Cut(goal, goalCells)
 	f := Face{Dot: LevelKind(s.Live.Level), Left: goal}
 	if ss.PlannedMS > 0 {
-		f.EndMS = ss.PlannedMS
+		// "left": alone, 18:58 reads as the time of day
+		f.EndMS, f.RightDim = ss.PlannedMS, "left"
 	}
 	state := IslandFocus
 	if s.DistractAtMS > 0 && nowMS-s.DistractAtMS < driftShowMS {
@@ -285,9 +286,6 @@ func (s Snapshot) focusIsland(ss focus.Session, nowMS int64) Island {
 		sub += fmt.Sprintf(" · focus %d%%", s.Live.Level)
 	}
 	hf := f
-	if ss.PlannedMS > 0 {
-		hf.RightDim = "left"
-	}
 	lead := ss.Goal
 	if lead == "" {
 		lead = "Focus session"
@@ -380,13 +378,13 @@ func DoneIsland(n store.Notice, d app.NoticeData, detail *report.SessionDetail, 
 			p.Sub += " · ended on time"
 		}
 		p.Cells = []Cell{
-			{K: "Deep", V: strconv.Itoa(detail.DeepPct()) + "%"},
-			{K: "Longest run", V: report.Dur(ss.LongestMS)},
+			{K: "Deep focus", V: strconv.Itoa(detail.DeepPct()) + "%"},
+			{K: "Longest block", V: report.Dur(ss.LongestMS)},
 		}
 		if ss.Switches >= 0 {
 			p.Cells = append(p.Cells, Cell{K: "Switches", V: strconv.Itoa(ss.Switches)})
 		}
-		p.Cells = append(p.Cells, Cell{K: "Distracted", V: report.Dur(ss.DistractMS)})
+		p.Cells = append(p.Cells, Cell{K: "Distracting", V: report.Dur(ss.DistractMS)})
 	}
 	p.Face = f
 	p.Buttons = noticeButtons(n, d, func(b Button) bool { return b.ID == ActAgain || b.ID == ActRefile })
