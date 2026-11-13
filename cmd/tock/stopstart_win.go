@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"time"
 
 	"tock/internal/stopsignal"
@@ -15,6 +14,9 @@ import (
 var (
 	sendStop       = stopsignal.Send
 	startTrackdExe = func(path string) error {
+		if _, err := os.Stat(path); err != nil {
+			return fmt.Errorf("no %s next to tock", filepath.Base(path))
+		}
 		devnull, err := os.Open(os.DevNull)
 		if err != nil {
 			return err
@@ -50,11 +52,5 @@ func startWindows() error {
 	if err != nil {
 		return err
 	}
-	trackd := filepath.Join(filepath.Dir(exe), "trackd.exe")
-	if runtime.GOOS == "windows" { // tests elsewhere fake the start
-		if _, err := os.Stat(trackd); err != nil {
-			return fmt.Errorf("no trackd.exe next to %s", exe)
-		}
-	}
-	return startTrackdExe(trackd)
+	return startTrackdExe(filepath.Join(filepath.Dir(exe), "trackd.exe"))
 }
