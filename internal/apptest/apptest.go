@@ -374,3 +374,39 @@ func FocusHistory(days int) []Span {
 	}
 	return out
 }
+
+// Home points HOME (USERPROFILE on Windows) at a new empty folder for the
+// rest of the test binary, so no test reads the real user's files: tock
+// falls back to ~/.claude/projects for agent logs, which on a developer's
+// machine is hundreds of megabytes of private, changing data. Call it
+// first in TestMain and run the returned cleanup after m.Run.
+//
+// Go's own caches and settings stay where they were, so tests that run
+// the go command keep working.
+func Home() (cleanup func()) {
+	if h, err := os.UserHomeDir(); err == nil {
+		keep := map[string]string{"GOPATH": filepath.Join(h, "go")}
+		if c, err := os.UserCacheDir(); err == nil {
+			keep["GOCACHE"] = filepath.Join(c, "go-build")
+		}
+		if c, err := os.UserConfigDir(); err == nil {
+			keep["GOENV"] = filepath.Join(c, "go", "env")
+		}
+		for k, v := range keep {
+			if os.Getenv(k) == "" {
+				_ = os.Setenv(k, v)
+			}
+		}
+	}
+	dir, err := os.MkdirTemp("", "tock-home-")
+	if err != nil {
+		panic(err)
+	}
+	for _, k := range []string{"HOME", "USERPROFILE"} {
+		_ = os.Setenv(k, dir)
+	}
+	for _, k := range []string{"XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_STATE_HOME", "XDG_CACHE_HOME"} {
+		_ = os.Unsetenv(k)
+	}
+	return func() { _ = os.RemoveAll(dir) }
+}

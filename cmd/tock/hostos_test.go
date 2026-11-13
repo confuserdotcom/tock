@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"tock/internal/app"
+	"tock/internal/apptest"
 	"tock/internal/service"
 	"tock/internal/store"
 )
@@ -24,7 +25,10 @@ func TestMain(m *testing.M) {
 	}
 	app.HostOS = "darwin"
 	installMethod = func() service.Method { return service.Source }
-	os.Exit(m.Run())
+	cleanup := apptest.Home()
+	code := m.Run()
+	cleanup()
+	os.Exit(code)
 }
 
 // holdStore is the helper process of the restore lock test: it opens the
