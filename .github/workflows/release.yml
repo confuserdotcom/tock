@@ -20,6 +20,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write # signs the build provenance (Sigstore, keyless)
+      attestations: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -37,6 +39,14 @@ jobs:
           test -s "$RUNNER_TEMP/notes.md" || { echo "CHANGELOG.md has no section for $GITHUB_REF_NAME" >&2; exit 1; }
       - name: build
         run: make release formula VERSION="$GITHUB_REF_NAME"
+      # Signed provenance: gh attestation verify <file> -R confuserdotcom/tock
+      # proves a tarball was built by this workflow from this tag.
+      - name: attest
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            dist/*.tar.gz
+            dist/tock.rb
       - name: publish
         env:
           GH_TOKEN: ${{ github.token }}
@@ -58,6 +68,8 @@ jobs:
     runs-on: macos-latest
     permissions:
       contents: write
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
@@ -65,6 +77,10 @@ jobs:
           go-version-file: go.mod
       - name: build
         run: make dmg VERSION="$GITHUB_REF_NAME"
+      - name: attest
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: dist/tock-${{ github.ref_name }}.dmg
       - name: upload
         env:
           GH_TOKEN: ${{ github.token }}
