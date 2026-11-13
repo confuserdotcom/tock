@@ -154,6 +154,13 @@ func TestCollectKillRecover(t *testing.T) {
 		env = append(env, "TOCK_DESKTOP="+d)
 	}
 
+	// A fresh install: the starter rules, as a new user gets them.
+	initCmd := exec.Command(tock, "init")
+	initCmd.Env = env
+	if out, err := initCmd.CombinedOutput(); err != nil {
+		t.Fatalf("tock init: %v\n%s", err, out)
+	}
+
 	// Run 1: record, then die mid-span.
 	d1 := start(t, trackd, env)
 	time.Sleep(3 * time.Second) // open the store, first poll

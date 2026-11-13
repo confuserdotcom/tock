@@ -22,8 +22,9 @@ i3)
 	;;
 esac
 sleep 1
-xterm -T tock-e2e-alpha &
-xterm -T tock-e2e-beta &
+# no shell inside: Ubuntu's bash prompt would retitle the window
+xterm -T tock-e2e-alpha -e sleep 600 &
+xterm -T tock-e2e-beta -e sleep 600 &
 sleep 2
 export E2E_TITLES=tock-e2e-alpha,tock-e2e-beta
 go test -tags e2e ./e2e -v -count=1
