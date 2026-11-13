@@ -18,6 +18,7 @@ import (
 	"tock/internal/config"
 	"tock/internal/service"
 	"tock/internal/span"
+	"tock/internal/stopsignal"
 	"tock/internal/store"
 	"tock/internal/update"
 )
@@ -302,11 +303,25 @@ func runWithStore(o daemonOpts, log *slog.Logger, st *store.Store) int {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGTERM, syscall.SIGINT)
 	defer signal.Stop(sigs)
+	// Windows has no SIGTERM for trackd: tock asks through a named event.
+	stopReq, releaseStop, err := stopsignal.Listen(stopsignal.Trackd)
+	if err != nil && !errors.Is(err, stopsignal.ErrUnsupported) {
+		log.Warn("stop signal unavailable; only a kill stops trackd", "err", err)
+	}
+	if releaseStop != nil {
+		defer releaseStop()
+	}
 	go func() {
-		if _, ok := <-sigs; ok {
+		select {
+		case _, ok := <-sigs:
+			if !ok {
+				return
+			}
 			log.Info("signal received, stopping")
-			src.Stop()
+		case <-stopReq:
+			log.Info("stop requested, stopping")
 		}
+		src.Stop()
 	}()
 	reason := store.RunSignal // a clean stop: a signal, or the source ended
 
