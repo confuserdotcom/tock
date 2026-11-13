@@ -43,7 +43,10 @@ window. Optional extras, each off until you turn it on:
 nothing from it; it prints each commit's short hash and subject. tock
 (not trackd or the menu bar app) reads Claude Code's session logs in
 `~/.claude/projects` for each entry's type, time and working directory
-and each session's title, never the prompts, replies or tool output. It
+and each session's title, never the text of prompts, replies or tool
+output (it counts the prompts you typed, by entry type). Session titles
+are written by Claude Code from your first prompts, so they can hint at
+what a session was about. It
 keeps those times, directories and titles in `agents.index` in its state
 folder. `[shell] agents = false` stops it using them for labels.
 

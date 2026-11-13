@@ -1220,7 +1220,8 @@ agents worked 4h36 · you 1h51 in their windows · 2.5× leverage
   the clock time too.
 - **you:** your time in windows whose title holds the session's title,
   which Claude Code puts in the terminal title.
-- **prompts:** the prompts you typed.
+- **prompts:** how many prompts you typed. tock counts them from each
+  entry's type; it never reads their text.
 
 `--days N` and `--week` widen the range. The dashboard's Today page has
 the same table for the day it shows.
@@ -1233,7 +1234,7 @@ directory does). `agents = false` under `[shell]` in `config.toml` turns
 that off.
 
 tock reads each entry's type, time and directory and the session's title,
-never what was said. It keeps those in `agents.index` in its state folder
+never the text of a prompt, reply or tool result. It keeps those in `agents.index` in its state folder
 so the next run reads only new lines; delete the file to read everything
 again.
 

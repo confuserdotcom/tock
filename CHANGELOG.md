@@ -30,9 +30,10 @@ What changed for you in each release. Dates are UTC.
 ### Added
 - **Agent ledger.** `tock agents` reads Claude Code's session logs and
   shows, per project, how long agents worked, how much of it you spent in
-  their windows, and the prompts you typed. The dashboard's Today page
-  shows the day's. tock reads times, working directories and session
-  titles only, never what was said.
+  their windows, and how many prompts you typed. The dashboard's Today
+  page shows the day's. tock reads times, working directories and session
+  titles only: it counts prompts but never reads their text, or any reply
+  or tool output.
 - **Terminal time from agent sessions.** A terminal showing a Claude Code
   session works in that session's directory, and a directory inside a
   project's `repos` now labels the project (below your rules and tags).
