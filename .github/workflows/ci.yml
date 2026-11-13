@@ -25,6 +25,18 @@ jobs:
       - name: test
         run: CGO_ENABLED=0 go test ./... -count=1
 
+  # Data races: trackd's sources, the store and the notch runner all hand
+  # values between goroutines. Includes the performance budget tests.
+  race:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+      - name: test with the race detector
+        run: CGO_ENABLED=1 go test -race ./... -count=1
+
   # Known vulnerabilities in the Go code and the modules it calls.
   vuln:
     runs-on: ubuntu-latest
