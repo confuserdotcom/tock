@@ -226,6 +226,7 @@ func TestHyprlandSourceSocketLost(t *testing.T) {
 }
 
 func TestHyprHide(t *testing.T) {
+	testfs.UnixOnly(t, "Hyprland runs on Linux")
 	if got := HyprHideCommand("org.mozilla.firefox"); got != `dispatch movetoworkspacesilent special:tock,class:^(org\.mozilla\.firefox)$` {
 		t.Fatalf("command = %q", got)
 	}
