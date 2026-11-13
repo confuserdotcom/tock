@@ -16,13 +16,16 @@ import (
 )
 
 // stubService records stop/start and restores the real ones after the test.
+// It stands in for launchd/systemd, so it pins a non-Windows host: on
+// Windows tock start runs trackd itself and always acts.
 func stubService(t *testing.T) *[]string {
 	t.Helper()
 	var calls []string
-	oldStop, oldStart := restoreStop, restoreStart
+	oldStop, oldStart, oldGOOS := restoreStop, restoreStart, setupGOOS
 	restoreStop = func(Env) error { calls = append(calls, "stop"); return nil }
 	restoreStart = func(Env) error { calls = append(calls, "start"); return nil }
-	t.Cleanup(func() { restoreStop, restoreStart = oldStop, oldStart })
+	setupGOOS = "darwin"
+	t.Cleanup(func() { restoreStop, restoreStart, setupGOOS = oldStop, oldStart, oldGOOS })
 	return &calls
 }
 
@@ -110,12 +113,15 @@ func TestRestoreRefusesNewerSchema(t *testing.T) {
 func TestRestoreLeavesServicesOfOtherDataDirs(t *testing.T) {
 	te := newTestEnv(t, "")
 	var ran []string
-	old := setupRun
+	old, oldGOOS := setupRun, setupGOOS
 	setupRun = func(name string, args ...string) (string, error) {
 		ran = append(ran, name+" "+strings.Join(args, " "))
 		return "", nil
 	}
-	t.Cleanup(func() { setupRun = old })
+	// launchd and systemd only; on Windows tock runs trackd itself and
+	// always acts.
+	setupGOOS = "darwin"
+	t.Cleanup(func() { setupRun, setupGOOS = old, oldGOOS })
 	if err := stopServices(te.Env); err != nil {
 		t.Fatal(err)
 	}
