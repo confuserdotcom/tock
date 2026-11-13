@@ -53,7 +53,7 @@ func TestProjectRateAndRepos(t *testing.T) {
 	if got := rs.Projects[1].Repos; len(got) != 2 || got[0] != "~/code/atlas" || got[1] != "/srv/x" {
 		t.Fatalf("repos = %q", got)
 	}
-	for in, want := range map[string]string{"~": "/h", "~/a/b": "/h/a/b", "/x": "/x", "~x": "~x"} {
+	for in, want := range map[string]string{"~": "/h", "~/a/b": filepath.Join("/h", "a", "b"), "/x": "/x", "~x": "~x"} {
 		if got := ExpandHome(in, "/h"); got != want {
 			t.Errorf("ExpandHome(%q) = %q, want %q", in, got, want)
 		}

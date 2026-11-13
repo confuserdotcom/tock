@@ -3,9 +3,12 @@ package main
 import (
 	"reflect"
 	"testing"
+
+	"tock/internal/testfs"
 )
 
 func TestDecide(t *testing.T) {
+	testfs.UnixOnly(t, "paths inside the macOS app bundle")
 	self := "/Applications/tock.app/Contents/MacOS/tockapp"
 	setup := []string{"/Applications/tock.app/Contents/Resources/libexec/tock", "setup",
 		"--from", "/Applications/tock.app/Contents/Resources/libexec", "--cli"}

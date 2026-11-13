@@ -9,11 +9,12 @@ import (
 	"time"
 
 	"tock/internal/apptest"
+	"tock/internal/testfs"
 )
 
 func TestAgentDirsLabelTerminalTime(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	testfs.SetHome(t, home)
 	e := apptest.New(t, apptest.Rules+"\n[[project]]\nname = \"Proj\"\nrepos = [\"~/proj\"]\n")
 	e.WriteConfig(t, "[shell]\nterminals = [\"term\"]\n")
 	e.Seed(t, apptest.DaySpans()...)

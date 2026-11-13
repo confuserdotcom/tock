@@ -331,7 +331,7 @@ func TestSync(t *testing.T) {
 }
 
 func TestSyncUpdate(t *testing.T) {
-	c, err := Load(write(t, "[sync]\ndir = \"/tmp/s\"\n"))
+	c, err := Load(write(t, "[sync]\ndir = '"+t.TempDir()+"'\n"))
 	if err != nil || c.Sync.Update {
 		t.Fatalf("default: Update = %v, %v (updates are opt-in)", c.Sync.Update, err)
 	}

@@ -13,6 +13,7 @@ import (
 
 	"tock/internal/collect"
 	"tock/internal/store"
+	"tock/internal/testfs"
 	"tock/internal/update"
 )
 
@@ -120,6 +121,7 @@ func (f *updFix) body(name string) string {
 }
 
 func TestUpdateLoopInstalls(t *testing.T) {
+	testfs.UnixOnly(t, "self-update over the sync folder is Linux only")
 	f := newUpdFix(t, "")
 	f.publish("v2", "TRACKD-v2")
 	u := f.newLoop()
@@ -143,6 +145,7 @@ func TestUpdateLoopInstalls(t *testing.T) {
 }
 
 func TestUpdateLoopNeverAppliesTheSameManifestTwice(t *testing.T) {
+	testfs.UnixOnly(t, "self-update over the sync folder is Linux only")
 	f := newUpdFix(t, "")
 	f.publish("v2", "TRACKD-v2")
 	f.newLoop().tick()
@@ -180,6 +183,7 @@ func TestUpdateLoopOff(t *testing.T) {
 // (a) A key and a signed build in the sync folder are not enough: with no
 // key pinned on this machine, nothing is installed.
 func TestUpdateLoopNoTrustedKey(t *testing.T) {
+	testfs.UnixOnly(t, "self-update over the sync folder is Linux only")
 	f := newUpdFix(t, "")
 	f.noTrust = true
 	f.publish("v2", "TRACKD-v2")
@@ -196,6 +200,7 @@ func TestUpdateLoopNoTrustedKey(t *testing.T) {
 }
 
 func TestUpdateLoopKeyChanged(t *testing.T) {
+	testfs.UnixOnly(t, "self-update over the sync folder is Linux only")
 	f := newUpdFix(t, "")
 	f.publish("v2", "TRACKD-v2")
 	other, err := update.LoadOrCreateKey(filepath.Join(f.dir, "other", "update.key"))
@@ -220,6 +225,7 @@ func TestUpdateLoopKeyChanged(t *testing.T) {
 }
 
 func TestUpdateLoopHashMismatchRetries(t *testing.T) {
+	testfs.UnixOnly(t, "self-update over the sync folder is Linux only")
 	f := newUpdFix(t, "")
 	f.publish("v2", "TRACKD-v2")
 	// the file arrives different from what the manifest says
@@ -249,6 +255,7 @@ func TestUpdateLoopHashMismatchRetries(t *testing.T) {
 }
 
 func TestRunDaemonReturnsExitUpdated(t *testing.T) {
+	testfs.UnixOnly(t, "self-update over the sync folder is Linux only")
 	if runtime.GOARCH != "amd64" && runtime.GOARCH != "arm64" {
 		t.Skip("no published build for " + runtime.GOARCH)
 	}

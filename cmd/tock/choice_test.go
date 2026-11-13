@@ -206,7 +206,8 @@ func TestDetach(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer out.Close()
-	if err := detach("/bin/sh", []string{"-c", "echo 'tock web: http://127.0.0.1:1/#x'"}, out); err != nil {
+	t.Setenv("TOCK_TEST_ECHO", "tock web: http://127.0.0.1:1/#x")
+	if err := detach(os.Args[0], nil, out); err != nil {
 		t.Fatal(err)
 	}
 	te.Sleep = time.Sleep

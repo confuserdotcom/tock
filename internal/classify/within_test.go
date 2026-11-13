@@ -1,6 +1,9 @@
 package classify
 
-import "testing"
+import (
+	"path/filepath"
+	"testing"
+)
 
 func TestWithin(t *testing.T) {
 	cases := []struct {
@@ -26,7 +29,7 @@ func TestWithin(t *testing.T) {
 }
 
 func TestExpandHomeBackslashOnlyWithBackslashSeparator(t *testing.T) {
-	if got := ExpandHome("~/x", "/h"); got != "/h/x" {
+	if got := ExpandHome("~/x", "/h"); got != filepath.Join("/h", "x") {
 		t.Fatalf("~/x = %q", got)
 	}
 	if got := ExpandHome("~", "/h"); got != "/h" {

@@ -4,11 +4,13 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"tock/internal/testfs"
 )
 
 func TestTockBinFindsBrewsTock(t *testing.T) {
 	h := t.TempDir()
-	t.Setenv("HOME", h)
+	testfs.SetHome(t, h)
 	t.Setenv("TOCK_BIN", "")
 	brew := filepath.Join(t.TempDir(), "tock")
 	if err := os.WriteFile(brew, []byte("#!/bin/sh\n"), 0o755); err != nil {

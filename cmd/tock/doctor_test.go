@@ -13,6 +13,7 @@ import (
 	"tock/internal/service"
 
 	"tock/internal/store"
+	"tock/internal/testfs"
 	"tock/internal/update"
 )
 
@@ -319,6 +320,7 @@ func TestDoctorUpdatesNothingPublished(t *testing.T) {
 }
 
 func TestDoctorUpdatesLinux(t *testing.T) {
+	testfs.UnixOnly(t, "self-update over the sync folder is Linux only")
 	linux := func(cfg string, states map[string]string) string {
 		te, _ := doctorEnv(t, testRules)
 		te.Linux = true
