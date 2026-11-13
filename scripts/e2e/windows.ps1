@@ -6,7 +6,9 @@ foreach ($t in 'tock-e2e-alpha', 'tock-e2e-beta') {
 }
 Start-Sleep -Seconds 4
 $env:E2E_TITLES = 'tock-e2e-alpha,tock-e2e-beta'
-$env:E2E_FOCUS = "if (-not (New-Object -ComObject WScript.Shell).AppActivate('{title}')) { exit 1 }"
+# F15 after each switch is user input: a runner that sat a few minutes
+# with none is idle to trackd, and records Idle, rightly.
+$env:E2E_FOCUS = "`$w = New-Object -ComObject WScript.Shell; if (-not `$w.AppActivate('{title}')) { exit 1 }; `$w.SendKeys('{F15}')"
 go test -tags e2e ./e2e -v -count=1
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
