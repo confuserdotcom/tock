@@ -116,10 +116,10 @@ func TestRestoreLeavesServicesOfOtherDataDirs(t *testing.T) {
 		return "", nil
 	}
 	t.Cleanup(func() { setupRun = old })
-	if err := stopForRestore(te.Env); err != nil {
+	if err := stopServices(te.Env); err != nil {
 		t.Fatal(err)
 	}
-	if err := startAfterRestore(te.Env); err != nil {
+	if err := startServices(te.Env); err != nil {
 		t.Fatal(err)
 	}
 	if len(ran) != 0 {

@@ -104,6 +104,7 @@ Setup and data:
                                          (default ~/.local/share/tock/backups/)
   tock restore [<n|path> [--yes]]        list snapshots of the database, or put one back
                                          (stops and starts trackd)
+  tock stop | tock start                 stop recording until tock start or your next login
   tock prune [--days N] [--dry-run]      delete window titles (and URL paths) older than N days
                                          (default [privacy] keep_titles); labels stay
   tock import activitywatch <export.json>
@@ -289,6 +290,8 @@ var commands = map[string]func(Env, []string) error{
 	"bug-report": cmdBugReport,
 	"backup":     cmdBackup,
 	"restore":    cmdRestore,
+	"stop":       cmdStop,
+	"start":      cmdStart,
 	"sync":       cmdSync,
 	"shell-init": cmdShellInit,
 	"away":       cmdAway,

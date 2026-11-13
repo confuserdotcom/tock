@@ -24,8 +24,8 @@ import (
 // restoreStop and restoreStart stop and start what holds tock.db open:
 // trackd, and on macOS the menu bar (which runs tock web). Tests swap them.
 var (
-	restoreStop  = stopForRestore
-	restoreStart = startAfterRestore
+	restoreStop  = stopServices
+	restoreStart = startServices
 )
 
 var restoreLabels = []string{"com.tock.trackd", "com.tock.bar"}
@@ -37,9 +37,14 @@ func servicesUse(env Env) bool {
 	return filepath.Clean(env.DataDir) == filepath.Clean(paths.Standard().Data)
 }
 
-func stopForRestore(env Env) error {
+// stopServices stops trackd (and the menu bar app on macOS) when they use
+// env's data dir, and waits until they are gone.
+func stopServices(env Env) error {
 	if !servicesUse(env) {
 		return nil
+	}
+	if setupGOOS == "windows" {
+		return stopWindows(env)
 	}
 	if env.Linux {
 		_, err := setupRun("systemctl", "--user", "stop", "trackd")
@@ -62,9 +67,13 @@ func stopForRestore(env Env) error {
 	return nil
 }
 
-func startAfterRestore(env Env) error {
+// startServices starts what stopServices stopped.
+func startServices(env Env) error {
 	if !servicesUse(env) {
 		return nil
+	}
+	if setupGOOS == "windows" {
+		return startWindows()
 	}
 	if env.Linux {
 		_, err := setupRun("systemctl", "--user", "start", "trackd")
