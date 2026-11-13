@@ -260,7 +260,27 @@ func (s Snapshot) quietIsland() Island {
 	} else if s.Active {
 		p.Sub = "Everything today has a label."
 	}
+	if ps := s.Presets; len(ps) > 0 && !s.NoFocus {
+		// The default length first and primary, the next one beside it.
+		start := []NButton{{ID: IDStart + strconv.Itoa(ps[0]), Title: "Focus " + presetName(ps[0]), Primary: true}}
+		if len(ps) > 1 {
+			start = append(start, NButton{ID: IDStart + strconv.Itoa(ps[1]), Title: presetName(ps[1])})
+		}
+		p.Buttons[0].Primary = false
+		p.Buttons = append(start, p.Buttons...)
+	}
 	return Island{State: IslandQuiet, Hover: p}
+}
+
+// presetName is a session length as a button says it: 25m, 1h, 1h30.
+func presetName(min int) string {
+	switch {
+	case min < 60:
+		return strconv.Itoa(min) + "m"
+	case min%60 == 0:
+		return strconv.Itoa(min/60) + "h"
+	}
+	return fmt.Sprintf("%dh%02d", min/60, min%60)
 }
 
 func (s Snapshot) focusIsland(ss focus.Session, nowMS int64) Island {

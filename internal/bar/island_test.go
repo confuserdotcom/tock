@@ -30,6 +30,15 @@ func TestIslandQuiet(t *testing.T) {
 	if len(h.Buttons) != 2 || h.Buttons[0].ID != IDDashboard || !h.Buttons[0].Primary || h.Buttons[1].ID != IDNotchLabel {
 		t.Fatalf("buttons = %+v", h.Buttons)
 	}
+	// With presets the notch starts a session in one click, the default
+	// length first: the open notch is a control, not only a readout.
+	s.Presets = []int{25, 50, 90}
+	b := s.IslandBase(t1720).Hover.Buttons
+	if len(b) != 4 || b[0] != (NButton{ID: IDStart + "25", Title: "Focus 25m", Primary: true}) || b[1] != (NButton{ID: IDStart + "50", Title: "50m"}) ||
+		b[2].ID != IDDashboard || b[2].Primary || b[3].ID != IDNotchLabel {
+		t.Fatalf("buttons with presets = %+v", b)
+	}
+	s.Presets = nil
 	s.UnlabelledMS = 30_000
 	if b := s.IslandBase(t1720).Hover.Buttons; len(b) != 1 {
 		t.Fatalf("under a minute unlabelled still offers labelling: %+v", b)
