@@ -38,6 +38,10 @@ func stateDir() string  { return paths.Default().State }
 // Permission prompts are allowed only when launchd (or open) started
 // trackd: a terminal-launched process would attribute them to the terminal.
 func newSource() (collect.Source, error) {
+	if runtime.GOOS == "windows" {
+		fmt.Fprintln(os.Stderr, "trackd: reading the Windows session")
+		return collect.NewWindows(collect.LinuxOptions{BrowserFile: filepath.Join(stateDir(), fronttab.File)})
+	}
 	if runtime.GOOS == "linux" {
 		idle, browser := filepath.Join(stateDir(), collect.IdleFile), filepath.Join(stateDir(), fronttab.File)
 		src, desktop, err := collect.NewLinux(collect.HyprOptions{IdleFile: idle, BrowserFile: browser},
@@ -148,6 +152,10 @@ func main() {
 			o.SnapshotExe = exe
 			o.Premigrate = workerMigrate(exe)
 		}
+	}
+	if runtime.GOOS == "windows" {
+		// Notices go through the tray app once it exists; until then none.
+		o.Notifier, o.Camera, o.Mic, o.Calendar, o.OCR = nil, nil, nil, nil, nil
 	}
 	if runtime.GOOS == "linux" {
 		o.Notifier, o.Camera, o.Mic, o.Calendar, o.OCR = notifySendNotifier{}, nil, nil, nil, nil
