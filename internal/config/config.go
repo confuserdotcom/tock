@@ -9,8 +9,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
-	"slices"
-	"strconv"
 	"strings"
 	"time"
 
@@ -104,74 +102,6 @@ type Plan struct {
 
 // MaxKeepTitles is the longest keep_titles, in days.
 const MaxKeepTitles = 3650
-
-// Invoice is the [invoice] section: who the invoices tock invoice writes
-// are from.
-type Invoice struct {
-	Name     string
-	Address  []string // lines
-	Currency string   // printed after amounts; "" = none
-	Note     string   // printed at the bottom, e.g. payment terms
-	TaxID    string   // the issuer's tax or VAT number; "" = none
-
-	// RoundStepS rounds each day's billed time to this many seconds
-	// (round = "15m"); 1 = no rounding. RoundMode is "nearest" (a half
-	// step rounds up) or "up".
-	RoundStepS int64
-	RoundMode  string
-	// MinorUnits is how many decimals amounts have, 0 to 3.
-	MinorUnits int
-
-	// TaxLabel ("VAT"), TaxBP (tax_rate in basis points: "20" is 2000; 0
-	// = no tax line) and TaxNote (e.g. reverse charge).
-	TaxLabel string
-	TaxBP    int64
-	TaxNote  string
-
-	// Clients are [[invoice.client]] details, found by a project's client
-	// name.
-	Clients []InvoiceClient
-}
-
-// InvoiceClient is one [[invoice.client]]: who an invoice is to.
-type InvoiceClient struct {
-	Name    string
-	Address []string
-	TaxID   string
-}
-
-// DefaultInvoice is [invoice] when config.toml sets nothing: no rounding,
-// two decimals, no tax.
-func DefaultInvoice() Invoice {
-	return Invoice{RoundStepS: 1, RoundMode: "nearest", MinorUnits: 2}
-}
-
-// Client returns the [[invoice.client]] named name, ignoring case.
-func (inv Invoice) Client(name string) (InvoiceClient, bool) {
-	for _, c := range inv.Clients {
-		if strings.EqualFold(c.Name, strings.TrimSpace(name)) {
-			return c, true
-		}
-	}
-	return InvoiceClient{}, false
-}
-
-// MaxRoundStepS is the longest [invoice] round.
-const MaxRoundStepS = 24 * 3600
-
-// Slack is the [slack] section: the status and do-not-disturb tock sets in
-// Slack while a focus session runs.
-type Slack struct {
-	Enabled bool
-	Status  string // status text
-	Emoji   string // ":name:"
-	DND     bool   // snooze notifications for the session
-}
-
-// DefaultSlack is the [slack] section used when the file does not set it.
-func DefaultSlack() Slack {
-	return Slack{Status: "In a focus session", Emoji: ":dart:", DND: true}
-}
 
 // Sync is the [sync] section: the folder shared with tock's other machines
 // (synced by Syncthing or the like) and this machine's name in it.
@@ -269,35 +199,6 @@ func DefaultShell() Shell {
 		"kitty", "org.wezfurlong.wezterm", "Alacritty", "foot"}}
 }
 
-// lists hold the defaults followed by the user's additions.
-type LLM struct {
-	Enabled    bool
-	Model      string
-	MinMS      int64    // least inbox time a key needs before it is sent
-	DenyApps   []string // bundle ids never sent
-	DenyHosts  []string // RE2 patterns against the URL host
-	DenyTitles []string // RE2 patterns, case-insensitive, against the title text
-}
-
-// DefaultLLM is the [llm] section used when the file does not set it. Every
-// call returns fresh slices.
-func DefaultLLM() LLM {
-	return LLM{
-		Enabled: false, Model: "claude-haiku-5-5", MinMS: 2 * 60_000, // opt-in: a backend is not consent
-		DenyApps: []string{
-			"com.1password.1password", "com.agilebits.onepassword7", "com.bitwarden.desktop",
-			"com.apple.keychainaccess", "com.apple.Passwords",
-			"com.apple.mail", "com.microsoft.Outlook", "com.readdle.smartemail-Mac",
-			"com.apple.MobileSMS", "net.whatsapp.WhatsApp", "org.whispersystems.signal-desktop",
-			"ru.keepcoder.Telegram", "com.tinyspeck.slackmacgap",
-		},
-		DenyHosts: []string{
-			`(^|\.)(bank|banque|paypal|revolut|wise|boursorama|lcl|credit-agricole|societegenerale|bnpparibas|n26|qonto)(\.|$)`,
-			`(^|\.)(mail\.google\.com|outlook\.(live|office)\.com|proton\.me)$`,
-		},
-	}
-}
-
 // Default is the configuration used when there is no file.
 func Default() Config {
 	return finish(Config{Score: stats.DefaultWeights, Focus: DefaultFocus(), LLM: DefaultLLM(), Shell: DefaultShell(), Away: DefaultAway(), AFK: DefaultAFK(), Slack: DefaultSlack(), Routine: DefaultRoutine(), Inbox: DefaultInbox(),
@@ -310,22 +211,6 @@ type scoreTOML struct {
 	Blocks  *float64 `toml:"blocks"`
 	Calm    *float64 `toml:"calm"`
 	Stretch *float64 `toml:"stretch"`
-}
-
-type slackTOML struct {
-	Enabled *bool   `toml:"enabled"`
-	Status  *string `toml:"status"`
-	Emoji   *string `toml:"emoji"`
-	DND     *bool   `toml:"dnd"`
-}
-
-type llmTOML struct {
-	Enabled    *bool     `toml:"enabled"`
-	Model      *string   `toml:"model"`
-	MinMinutes *int      `toml:"min_minutes"`
-	DenyApps   *[]string `toml:"deny_apps"`
-	DenyHosts  *[]string `toml:"deny_hosts"`
-	DenyTitles *[]string `toml:"deny_titles"`
 }
 
 type shellTOML struct {
@@ -355,37 +240,6 @@ type syncTOML struct {
 	Machine *string `toml:"machine"`
 	Rules   *bool   `toml:"rules"`
 	Update  *bool   `toml:"update"`
-}
-
-type hoursTOML struct {
-	Days  *[]string `toml:"days"`
-	Start *string   `toml:"start"`
-	End   *string   `toml:"end"`
-	// OverGrace and OverRepeat tune the overworking notice (minutes); alone
-	// they do not turn the schedule on.
-	OverGrace  *int `toml:"over_grace"`
-	OverRepeat *int `toml:"over_repeat"`
-}
-
-type invoiceTOML struct {
-	Name       *string             `toml:"name"`
-	Address    *[]string           `toml:"address"`
-	Currency   *string             `toml:"currency"`
-	Note       *string             `toml:"note"`
-	TaxID      *string             `toml:"tax_id"`
-	Round      *string             `toml:"round"`
-	RoundMode  *string             `toml:"round_mode"`
-	MinorUnits *int                `toml:"minor_units"`
-	TaxLabel   *string             `toml:"tax_label"`
-	TaxRate    *string             `toml:"tax_rate"`
-	TaxNote    *string             `toml:"tax_note"`
-	Client     []invoiceClientTOML `toml:"client"`
-}
-
-type invoiceClientTOML struct {
-	Name    *string   `toml:"name"`
-	Address *[]string `toml:"address"`
-	TaxID   *string   `toml:"tax_id"`
 }
 
 type modelTOML struct {
@@ -630,251 +484,8 @@ func Parse(name string, b []byte) (Config, error) {
 	return finish(c), nil
 }
 
-// decodeInvoice reads the [invoice] section.
-func decodeInvoice(f invoiceTOML, c *Invoice) error {
-	for _, t := range []struct {
-		key string
-		v   *string
-		dst *string
-		max int
-	}{{"name", f.Name, &c.Name, 100}, {"currency", f.Currency, &c.Currency, 8}, {"note", f.Note, &c.Note, 300},
-		{"tax_id", f.TaxID, &c.TaxID, 50}, {"tax_label", f.TaxLabel, &c.TaxLabel, 20}, {"tax_note", f.TaxNote, &c.TaxNote, 200}} {
-		if t.v == nil {
-			continue
-		}
-		v, err := invoiceText(t.key, *t.v, t.max)
-		if err != nil {
-			return err
-		}
-		*t.dst = v
-	}
-	if f.Address != nil {
-		a, err := invoiceAddress("address", *f.Address)
-		if err != nil {
-			return err
-		}
-		c.Address = a
-	}
-	if f.Round != nil {
-		d, err := time.ParseDuration(strings.TrimSpace(*f.Round))
-		if err != nil || d < time.Second || d > MaxRoundStepS*time.Second || d%time.Second != 0 {
-			return fmt.Errorf("[invoice] round = %q, want whole seconds from 1s to 24h, e.g. \"6m\" or \"15m\"", *f.Round)
-		}
-		c.RoundStepS = int64(d / time.Second)
-	}
-	if f.RoundMode != nil {
-		switch m := strings.TrimSpace(*f.RoundMode); m {
-		case "nearest", "up":
-			c.RoundMode = m
-		default:
-			return fmt.Errorf("[invoice] round_mode = %q, want \"nearest\" or \"up\"", *f.RoundMode)
-		}
-	}
-	if f.MinorUnits != nil {
-		if u := *f.MinorUnits; u < 0 || u > 3 {
-			return fmt.Errorf("[invoice] minor_units = %d, want 0 to 3", u)
-		}
-		c.MinorUnits = *f.MinorUnits
-	}
-	if f.TaxRate != nil {
-		bp, err := ParseTaxRate(*f.TaxRate)
-		if err != nil {
-			return fmt.Errorf("[invoice] tax_rate: %w", err)
-		}
-		c.TaxBP = bp
-	}
-	c.Clients = nil
-	for i, fc := range f.Client {
-		if fc.Name == nil || strings.TrimSpace(*fc.Name) == "" {
-			return fmt.Errorf("[[invoice.client]] #%d has no name", i+1)
-		}
-		var cl InvoiceClient
-		var err error
-		if cl.Name, err = invoiceText("client name", *fc.Name, 100); err != nil {
-			return err
-		}
-		if _, dup := c.Client(cl.Name); dup {
-			return fmt.Errorf("[[invoice.client]] %q is listed twice", cl.Name)
-		}
-		if fc.Address != nil {
-			if cl.Address, err = invoiceAddress("client address", *fc.Address); err != nil {
-				return err
-			}
-		}
-		if fc.TaxID != nil {
-			if cl.TaxID, err = invoiceText("client tax_id", *fc.TaxID, 50); err != nil {
-				return err
-			}
-		}
-		c.Clients = append(c.Clients, cl)
-	}
-	return nil
-}
-
-func invoiceText(key, v string, max int) (string, error) {
-	v = strings.TrimSpace(v)
-	if len([]rune(v)) > max {
-		return "", fmt.Errorf("[invoice] %s is longer than %d characters", key, max)
-	}
-	return v, nil
-}
-
-func invoiceAddress(key string, lines []string) ([]string, error) {
-	if len(lines) > 6 {
-		return nil, fmt.Errorf("[invoice] %s has more than 6 lines", key)
-	}
-	var out []string
-	for _, l := range lines {
-		if len([]rune(l)) > 100 {
-			return nil, fmt.Errorf("[invoice] %s has a line longer than 100 characters", key)
-		}
-		out = append(out, strings.TrimSpace(l))
-	}
-	return out, nil
-}
-
-// ParseTaxRate reads a tax rate in percent, a decimal string with at most
-// two decimals from "0" to "100", as basis points: "20" is 2000, "5.5" is
-// 550.
-func ParseTaxRate(s string) (int64, error) {
-	s = strings.TrimSpace(s)
-	whole, frac, _ := strings.Cut(s, ".")
-	if whole == "" || len(frac) > 2 || !allDigits(whole) || (frac != "" && !allDigits(frac)) || len(whole) > 3 {
-		return 0, fmt.Errorf("%q, want a percentage such as \"20\" or \"5.5\" (at most two decimals)", s)
-	}
-	bp, _ := strconv.ParseInt(whole+frac+strings.Repeat("0", 2-len(frac)), 10, 64)
-	if bp > 10000 {
-		return 0, fmt.Errorf("%q is over 100", s)
-	}
-	return bp, nil
-}
-
-func allDigits(s string) bool {
-	for _, r := range s {
-		if r < '0' || r > '9' {
-			return false
-		}
-	}
-	return true
-}
-
-// dayNames are the [hours] days names, indexed by time.Weekday.
-var dayNames = [7]string{"sun", "mon", "tue", "wed", "thu", "fri", "sat"}
-
-// decodeHours reads the [hours] section. Any key turns the schedule on;
-// start and end are then required, and days default to mon to fri.
-func decodeHours(f hoursTOML, h *stats.Hours) error {
-	if f.Days == nil && f.Start == nil && f.End == nil {
-		return nil
-	}
-	if f.Start == nil || f.End == nil {
-		return errors.New(`[hours] needs both start and end, like "09:00"`)
-	}
-	h.Set = true
-	for _, k := range []struct {
-		key string
-		v   string
-		dst *int
-	}{{"start", *f.Start, &h.StartMin}, {"end", *f.End, &h.EndMin}} {
-		at, ok := parseClock(k.v)
-		if !ok || at < 0 {
-			return fmt.Errorf(`[hours] %s = %q, want "HH:MM"`, k.key, k.v)
-		}
-		*k.dst = at
-	}
-	if h.StartMin >= h.EndMin {
-		return fmt.Errorf("[hours] start %s is not before end %s", *f.Start, *f.End)
-	}
-	days := []string{"mon", "tue", "wed", "thu", "fri"}
-	if f.Days != nil {
-		days = *f.Days
-		if len(days) == 0 {
-			return errors.New("[hours] days is empty, want at least one of mon … sun")
-		}
-	}
-	for _, d := range days {
-		i := slices.Index(dayNames[:], strings.ToLower(strings.TrimSpace(d)))
-		switch {
-		case i < 0:
-			return fmt.Errorf("[hours] days has %q, want mon, tue, wed, thu, fri, sat or sun", d)
-		case h.Days[i]:
-			return fmt.Errorf("[hours] days has %q twice", d)
-		}
-		h.Days[i] = true
-	}
-	return nil
-}
-
 // hostRE is a URL host as block_hosts takes it.
 var hostRE = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$`)
-
-// emojiRE is a Slack emoji code.
-var emojiRE = regexp.MustCompile(`^:[a-z0-9_+'-]+:$`)
-
-// decodeSlack applies the keys present in f to c and validates them.
-func decodeSlack(f slackTOML, c *Slack) error {
-	if f.Enabled != nil {
-		c.Enabled = *f.Enabled
-	}
-	if f.Status != nil {
-		s := strings.TrimSpace(*f.Status)
-		if s == "" || len([]rune(s)) > 100 {
-			return fmt.Errorf("[slack] status = %q, want 1 to 100 characters", *f.Status)
-		}
-		c.Status = s
-	}
-	if f.Emoji != nil {
-		if !emojiRE.MatchString(*f.Emoji) {
-			return fmt.Errorf(`[slack] emoji = %q, want a code such as ":dart:"`, *f.Emoji)
-		}
-		c.Emoji = *f.Emoji
-	}
-	if f.DND != nil {
-		c.DND = *f.DND
-	}
-	return nil
-}
-
-// decodeLLM applies the keys present in f to c and validates them. Lists
-// are appended to the defaults.
-func decodeLLM(f llmTOML, c *LLM) error {
-	if f.Enabled != nil {
-		c.Enabled = *f.Enabled
-	}
-	if f.Model != nil {
-		if strings.TrimSpace(*f.Model) == "" {
-			return errors.New("[llm] model is empty")
-		}
-		c.Model = *f.Model
-	}
-	if f.MinMinutes != nil {
-		if *f.MinMinutes < 1 || *f.MinMinutes > 600 {
-			return fmt.Errorf("[llm] min_minutes = %d, want 1 to 600", *f.MinMinutes)
-		}
-		c.MinMS = int64(*f.MinMinutes) * 60_000
-	}
-	if f.DenyApps != nil {
-		c.DenyApps = append(append([]string{}, c.DenyApps...), *f.DenyApps...)
-	}
-	for _, l := range []struct {
-		key, prefix string
-		v, dst      *[]string
-	}{
-		{"deny_hosts", "", f.DenyHosts, &c.DenyHosts},
-		{"deny_titles", "(?i)", f.DenyTitles, &c.DenyTitles},
-	} {
-		if l.v == nil {
-			continue
-		}
-		for _, p := range *l.v {
-			if _, err := regexp.Compile(l.prefix + p); err != nil {
-				return fmt.Errorf("[llm] %s has %q: %v", l.key, p, err)
-			}
-		}
-		*l.dst = append(append([]string{}, *l.dst...), *l.v...)
-	}
-	return nil
-}
 
 // parseClock reads "HH:MM" as minutes after midnight; "" is -1 (off).
 func parseClock(s string) (int, bool) {
