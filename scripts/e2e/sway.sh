@@ -13,8 +13,8 @@ for _ in 1 2 3 4 5 6 7 8 9 10; do
 done
 export SWAYSOCK
 unset DISPLAY
-swaymsg -q exec 'foot -T tock-e2e-alpha'
-swaymsg -q exec 'foot -T tock-e2e-beta'
+swaymsg -q exec 'foot -T tock-e2e-alpha sleep 600'
+swaymsg -q exec 'foot -T tock-e2e-beta sleep 600'
 sleep 3
 swaymsg -t get_tree | grep -c tock-e2e || true
 export E2E_TITLES=tock-e2e-alpha,tock-e2e-beta
