@@ -1088,9 +1088,20 @@ page to your browser and runs until you press ctrl-c.
 
 The top bar's date steps by the view's unit: a day on Today, a week on
 Week, a month on Trends; click it for a calendar, and **Today** (or `t`)
-comes back. The status strip under the views shows whether trackd is
-recording (hover for when it last wrote), whether rules.toml loads (click
-for the rules), and a running focus session with its progress. Keys `1`–`6`
+comes back. The views sit in a sidebar. Under them, a focus box starts a
+session at one of your preset lengths, or counts down the running one and
+ends it; below that, whether trackd is recording (hover for when it last
+wrote) and whether rules.toml and config.toml load (click to fix them).
+
+Today opens on three cards: the whole day as a 24-hour dial (your time in
+kind colours, your work hours round the outside, a hand at now; click an
+hour to zoom the timeline there), the focus score, and a Focus card where
+you name what you are about to work on, pick a length and start (`f` puts
+the cursor there from anywhere). A running session shows its countdown
+ring and **End session** in that card instead. Under the cards, a row of
+next moves says what is worth doing about today: unlabelled time waiting
+in the Inbox, how much more reaches a goal, a limit nearly or already
+spent. Each one opens where you deal with it. Keys `1`–`6`
 switch views, ← → step the date, ⌘K opens a palette for views, dates,
 settings and the theme, and `?` lists every key and gesture. Every change
 shows a toast with **Undo**. The page refreshes itself every minute.
@@ -1743,7 +1754,9 @@ Nothing shows while nothing runs. Rest the pointer on the notch and it grows
 a little (and ticks the trackpad); click it, or swipe down on it with two
 fingers, to see today's time, score and how much is left to label. A quick
 pass of the pointer on its way to a menu does nothing. With
-`[notch] open_on_hover = true` the rest alone opens it.
+`[notch] open_on_hover = true` the rest alone opens it. With Focus on,
+the open notch starts a session in one click: **Focus 25m** (your default
+length) and the next preset sit beside **Open Today**.
 
 - **A focus session** shows its goal on the left of the notch and the time
   left on the right. The dot is the live focus level in its kind colour:

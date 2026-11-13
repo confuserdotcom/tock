@@ -11,6 +11,11 @@ import { TimeTable } from "@/components/Tables";
 import { LabelSheet, type Target } from "@/components/LabelSheet";
 import { Replay } from "@/components/Replay";
 import { AgentsAndBudgets } from "@/components/AgentsBudgets";
+import { DayDial } from "@/components/charts/DayDial";
+import { FocusPanel } from "@/components/FocusControl";
+import { NextMoves } from "@/components/NextMoves";
+import { useLive } from "@/lib/live";
+import { moves } from "@/lib/moves";
 import { Button } from "@/components/ui/button";
 import { useApi, type Day } from "@/lib/api";
 import { addDays, delta, dur, hhmm, parseDate } from "@/lib/format";
@@ -25,6 +30,7 @@ export default function Today({ date, tick }: { date: string; tick: number }) {
   const { data: d, error, loading, reload } = useApi<Day>(`/api/day?date=${date}`, tick);
   const [target, setTarget] = useState<Target | null>(null);
   const { focus } = useGroups();
+  const { inboxMS } = useLive();
   // The timeline's zoom and what it picks out, both cleared on another day.
   const [win, setWin] = useState<{ date: string; w: Win } | null>(null);
   const [hl, setHl] = useState<{ date: string; h: Highlight } | null>(null);
@@ -76,6 +82,52 @@ export default function Today({ date, tick }: { date: string; tick: number }) {
 
   return (
     <div className="space-y-5">
+      <div className="grid gap-5 lg:grid-cols-2 xl:grid-cols-[minmax(260px,300px)_minmax(0,1fr)_minmax(0,1.15fr)]">
+        <Panel className="anim-rise" label={d.today ? "Your day so far" : "Around the clock"} aside="click an hour">
+          <DayDial d={d} onHour={(h) => zoomTo(day0 + h * 3_600_000, day0 + (h + 1) * 3_600_000)} />
+        </Panel>
+        <Panel className="anim-rise [animation-delay:60ms]" label={focus ? "Focus score" : "The day"} aside={focus ? <ScoreHelp d={d} /> : undefined}>
+          {focus && (
+          <>
+          <div className="num text-[56px] font-semibold leading-none tracking-[-0.03em]">{d.score.value}</div>
+          <div className="mt-1.5 text-sm">
+            {u ? (
+              <>
+                <Change v={d.score.value - u.score} text={`${d.score.value - u.score >= 0 ? "+" : "−"}${Math.abs(d.score.value - u.score)}`} />{" "}
+                <span className="text-muted-foreground">vs your usual {new Date(d.date).toLocaleDateString("en-GB", { weekday: "long" })} ({u.score})</span>
+              </>
+            ) : (
+              <span className="text-muted-foreground">No usual day to compare with yet</span>
+            )}
+          </div>
+          </>
+          )}
+          <dl className={cn("grid grid-cols-[1fr_auto_auto] gap-x-3.5 gap-y-2", focus && "mt-5")}>
+            <Stat k="Focus time" v={dur(d.stats.focusMS)} c={u ? d.stats.focusMS - u.focusMS : null} />
+            <Stat k="Longest block" v={dur(d.stats.longestMS)} c={u ? d.stats.longestMS - u.longestMS : null} />
+            <Stat k="Distracting" v={dur(d.stats.distractMS)} c={u ? d.stats.distractMS - u.distractMS : null} lowerIsGood />
+            <dt>Switches / hour</dt>
+            <dd className="num text-right">{sph.toFixed(1)}</dd>
+            <dd className="num text-right text-xs">{u ? <Change v={sph - u.switchesPerHour} text={(sph - u.switchesPerHour >= 0 ? "+" : "−") + Math.abs(sph - u.switchesPerHour).toFixed(1)} lowerIsGood /> : null}</dd>
+          </dl>
+        </Panel>
+
+        {d.today && focus ? (
+          <Panel className="anim-rise [animation-delay:120ms] lg:col-span-2 xl:col-span-1" label="Focus" aside={<kbd className="rounded border bg-secondary px-1 font-sans text-[10px]">f</kbd>}>
+            <FocusPanel />
+          </Panel>
+        ) : (
+        <Panel className="anim-rise [animation-delay:120ms] lg:col-span-2 xl:col-span-1" label="Kinds of time">
+          {kinds.length ? (
+            <Donut data={kinds} center={dur(kinds.reduce((s, k) => s + k.ms, 0))} sub="tracked" active={highlight?.kind !== undefined ? highlight.label : null}
+              onSelect={(name) => { const k = kindRows.find((x) => kindLabel(x.kind) === name); if (k) pickOut({ kind: k.kind, label: name }); }} />
+          ) : <Empty>Nothing labelled yet.</Empty>}
+        </Panel>
+        )}
+      </div>
+
+      <NextMoves moves={moves({ inboxMS, goals: d.goals, today: d.today })} />
+
       <div ref={timelineRef} className="scroll-mt-4">
       <Panel
         label="Timeline"
@@ -120,43 +172,19 @@ export default function Today({ date, tick }: { date: string; tick: number }) {
         <Replay key={d.date} rows={d.timeline} from={bounds.from} to={d.today ? Math.min(now, bounds.to) : bounds.to} onClose={() => setReplay(null)} />
       )}
 
-      <div className="grid gap-5 lg:grid-cols-[300px_1fr_1fr]">
-        <Panel label={focus ? "Focus score" : "The day"} aside={focus ? <ScoreHelp d={d} /> : undefined}>
-          {focus && (
-          <>
-          <div className="num text-[56px] font-semibold leading-none tracking-[-0.03em]">{d.score.value}</div>
-          <div className="mt-1.5 text-sm">
-            {u ? (
-              <>
-                <Change v={d.score.value - u.score} text={`${d.score.value - u.score >= 0 ? "+" : "−"}${Math.abs(d.score.value - u.score)}`} />{" "}
-                <span className="text-muted-foreground">vs your usual {new Date(d.date).toLocaleDateString("en-GB", { weekday: "long" })} ({u.score})</span>
-              </>
-            ) : (
-              <span className="text-muted-foreground">No usual day to compare with yet</span>
-            )}
-          </div>
-          </>
-          )}
-          <dl className={cn("grid grid-cols-[1fr_auto_auto] gap-x-3.5 gap-y-2", focus && "mt-5")}>
-            <Stat k="Focus time" v={dur(d.stats.focusMS)} c={u ? d.stats.focusMS - u.focusMS : null} />
-            <Stat k="Longest block" v={dur(d.stats.longestMS)} c={u ? d.stats.longestMS - u.longestMS : null} />
-            <Stat k="Distracting" v={dur(d.stats.distractMS)} c={u ? d.stats.distractMS - u.distractMS : null} lowerIsGood />
-            <dt>Switches / hour</dt>
-            <dd className="num text-right">{sph.toFixed(1)}</dd>
-            <dd className="num text-right text-xs">{u ? <Change v={sph - u.switchesPerHour} text={(sph - u.switchesPerHour >= 0 ? "+" : "−") + Math.abs(sph - u.switchesPerHour).toFixed(1)} lowerIsGood /> : null}</dd>
-          </dl>
-        </Panel>
-
+      <div className={cn("grid gap-5", d.today && focus && "lg:grid-cols-2")}>
         <Panel label="Minutes per hour" aside="click an hour to zoom">
           <HourBars hours={d.hours} first={d.hourFirst} last={d.hourLast} onHour={(h) => zoomTo(day0 + h * 3_600_000, day0 + (h + 1) * 3_600_000)} />
         </Panel>
 
+        {d.today && focus && (
         <Panel label="Kinds of time">
           {kinds.length ? (
             <Donut data={kinds} center={dur(kinds.reduce((s, k) => s + k.ms, 0))} sub="tracked" active={highlight?.kind !== undefined ? highlight.label : null}
               onSelect={(name) => { const k = kindRows.find((x) => kindLabel(x.kind) === name); if (k) pickOut({ kind: k.kind, label: name }); }} />
           ) : <Empty>Nothing labelled yet.</Empty>}
         </Panel>
+        )}
       </div>
 
       <div className="grid gap-5 lg:grid-cols-3">
@@ -247,12 +275,12 @@ function Stat({ k, v, c, lowerIsGood }: { k: string; v: string; c: number | null
 function TodaySkeleton() {
   return (
     <div className="space-y-5">
-      <Skeleton className="h-40 w-full" />
-      <div className="grid gap-5 lg:grid-cols-[300px_1fr_1fr]">
-        <Skeleton className="h-72" />
-        <Skeleton className="h-72" />
-        <Skeleton className="h-72" />
+      <div className="grid gap-5 lg:grid-cols-2 xl:grid-cols-[minmax(260px,300px)_minmax(0,1fr)_minmax(0,1.15fr)]">
+        <Skeleton className="h-[318px]" />
+        <Skeleton className="h-[318px]" />
+        <Skeleton className="h-[318px]" />
       </div>
+      <Skeleton className="h-40 w-full" />
     </div>
   );
 }

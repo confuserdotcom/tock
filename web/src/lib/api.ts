@@ -130,6 +130,7 @@ export type Status = {
   recording: boolean; lastSeenMS: number; rulesError?: string; configError?: string; paused?: string;
   session: { goal: string; startMS: number; plannedMS: number } | null;
   focus?: boolean; billing?: boolean;
+  presets?: number[]; // session lengths in minutes, the default first
 };
 export type WeekDay = { billedMS?: number; date: string; trackedMS: number; byKind: ByKind; future: boolean; score: number; deepMS: number };
 export type Week = {

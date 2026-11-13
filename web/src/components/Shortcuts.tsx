@@ -7,6 +7,7 @@ const GROUPS: [string, [string, string][]][] = [
     [",", "Settings"],
     ["← →", "Previous or next day, week or month"],
     ["t", "Back to today"],
+    ["f", "Name and start a focus session"],
     ["⌘K", "Go to a view or a date"],
     ["⌘+  ⌘−  ⌘0", "Zoom the page"],
     ["?", "This list"],
