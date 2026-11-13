@@ -7,11 +7,13 @@ import (
 	"tock/internal/span"
 )
 
-// browserClasses are the Hyprland classes of the browsers the extension
-// runs in, lowercased.
+// browserClasses are the Linux window classes and the Windows exe names
+// of the browsers the extension runs in, lowercased.
 var browserClasses = map[string]bool{
 	"chromium": true, "chromium-browser": true, "google-chrome": true,
 	"brave-browser": true, "firefox": true, "org.mozilla.firefox": true,
+	// Windows
+	"chrome": true, "msedge": true, "brave": true, "vivaldi": true,
 }
 
 // applyFrontTab adds the front tab's address to a browser sample whose

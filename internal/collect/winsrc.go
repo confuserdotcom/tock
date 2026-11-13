@@ -24,6 +24,20 @@ type windowBackend interface {
 	close()
 }
 
+// Optional windowBackend abilities, used when a backend has them (the
+// Windows one has all three).
+type (
+	// appNamer gives the display name for a class ("Google Chrome" for
+	// chrome); "" keeps the class.
+	appNamer interface{ appName(class string) string }
+	// lockKnower says whether the session is locked, instead of looking
+	// for a screen locker process.
+	lockKnower interface{ isLocked() bool }
+	// eventSource reports sleep, wake, lock and unlock to f, from the time
+	// watch runs.
+	eventSource interface{ onEvent(f func(span.EventKind)) }
+)
+
 // LinuxOptions configures the Sway/i3 and X11 sources. Empty fields take
 // the defaults from the environment.
 type LinuxOptions struct {
@@ -95,6 +109,11 @@ func (s *winSource) Run() error {
 		return nil
 	default:
 	}
+	if es, ok := s.b.(eventSource); ok {
+		es.onEvent(func(k span.EventKind) {
+			s.trySend(span.Input{Event: &span.Event{TS: s.opts.Now(), Kind: k}})
+		})
+	}
 	evErr := make(chan error, 1)
 	go func() {
 		evErr <- s.b.watch(func(class, title string) {
@@ -138,6 +157,11 @@ func (s *winSource) poll() {
 
 func (s *winSource) fill(smp *span.Sample, class, title string) {
 	setWindow(smp, class, title)
+	if n, ok := s.b.(appNamer); ok && class != "" {
+		if app := n.appName(class); app != "" {
+			smp.App = app
+		}
+	}
 	if s.opts.BrowserFile != "" && browserClasses[strings.ToLower(smp.BundleID)] {
 		if st, ok := fronttab.Read(s.opts.BrowserFile); ok {
 			applyFrontTab(smp, st, s.since.Load())
@@ -151,5 +175,11 @@ func (s *winSource) base() *span.Sample {
 	if ms, ok := s.b.idleMS(); ok {
 		idle = float64(ms) / 1000
 	}
-	return &span.Sample{TS: now, IdleS: idle, Locked: lockerRunning(s.opts.Proc), AXTrusted: true}
+	var locked bool
+	if l, ok := s.b.(lockKnower); ok {
+		locked = l.isLocked()
+	} else {
+		locked = lockerRunning(s.opts.Proc)
+	}
+	return &span.Sample{TS: now, IdleS: idle, Locked: locked, AXTrusted: true}
 }
