@@ -14,6 +14,14 @@ import (
 func TestStopAndStart(t *testing.T) {
 	te := newTestEnv(t, "")
 	calls := stubService(t)
+	// Another data folder: the service never uses it, so say so, do nothing.
+	if code, _ := te.run(t, "", "start"); code != 1 || !strings.Contains(te.errb.String(), "nothing done") {
+		t.Fatalf("start, other folder: %d %s", code, te.errb.String())
+	}
+	if len(*calls) != 0 {
+		t.Fatalf("calls with another folder = %v", *calls)
+	}
+	te.DataDir = paths.Standard().Data
 	if code, out := te.run(t, "", "stop"); code != 0 || !strings.Contains(out, "stopped") {
 		t.Fatalf("stop: %d %q %s", code, out, te.errb.String())
 	}
@@ -33,6 +41,7 @@ func TestStopFails(t *testing.T) {
 	old := restoreStop
 	restoreStop = func(Env) error { return errors.New("nope") }
 	t.Cleanup(func() { restoreStop = old })
+	te.DataDir = paths.Standard().Data
 	if code, _ := te.run(t, "", "stop"); code != 1 || !strings.Contains(te.errb.String(), "nope") {
 		t.Fatalf("code %d err %s", code, te.errb.String())
 	}

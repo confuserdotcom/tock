@@ -31,11 +31,16 @@ var (
 var restoreLabels = []string{"com.tock.trackd", "com.tock.bar"}
 
 // servicesUse reports whether trackd and the menu bar use env's data dir.
-// They run with the default one; a restore into another (TOCK_DATA_DIR)
-// must leave them alone.
+// launchd and systemd run them with the default one, so a restore into
+// another (TOCK_DATA_DIR) must leave them alone. On Windows tock start runs
+// trackd itself, with this environment: always the same dir.
 func servicesUse(env Env) bool {
-	return filepath.Clean(env.DataDir) == filepath.Clean(paths.Standard().Data)
+	return setupGOOS == "windows" || filepath.Clean(env.DataDir) == filepath.Clean(paths.Standard().Data)
 }
+
+// errOtherDataDir is tock start and stop with TOCK_DATA_DIR elsewhere on
+// macOS or Linux: the service never uses that folder, so nothing is done.
+var errOtherDataDir = errors.New("TOCK_DATA_DIR is not the default folder, and the background trackd only ever uses the default; nothing done")
 
 // stopServices stops trackd (and the menu bar app on macOS) when they use
 // env's data dir, and waits until they are gone.

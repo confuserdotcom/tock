@@ -12,6 +12,9 @@ func cmdStop(env Env, args []string) error {
 	if fs.NArg() > 0 {
 		return usagef("stop: usage: tock stop")
 	}
+	if !servicesUse(env) {
+		return fmt.Errorf("stop: %w", errOtherDataDir)
+	}
 	if err := restoreStop(env); err != nil {
 		return fmt.Errorf("stop: %w", err)
 	}
@@ -27,6 +30,9 @@ func cmdStart(env Env, args []string) error {
 	}
 	if fs.NArg() > 0 {
 		return usagef("start: usage: tock start")
+	}
+	if !servicesUse(env) {
+		return fmt.Errorf("start: %w", errOtherDataDir)
 	}
 	if err := restoreStart(env); err != nil {
 		return fmt.Errorf("start: %w", err)
