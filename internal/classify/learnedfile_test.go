@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"tock/internal/testfs"
 )
 
 func TestAppendLearnedNewestFirstAndRoundTrip(t *testing.T) {
@@ -45,7 +47,7 @@ func TestAppendLearnedNewestFirstAndRoundTrip(t *testing.T) {
 		if fi.IsDir() {
 			want = 0o700
 		}
-		if fi.Mode().Perm() != want {
+		if !testfs.Perm(fi, want) {
 			t.Errorf("%s mode = %v, want %v", p, fi.Mode().Perm(), want)
 		}
 	}

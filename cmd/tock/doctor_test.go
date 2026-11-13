@@ -262,7 +262,7 @@ func lagDoctor(t *testing.T, ryukJSON, pubVer string, pubAge time.Duration) (cod
 	te, _ := doctorEnv(t, testRules)
 	te.seed(t, daySpans()...)
 	setStates(t, te, map[string]string{store.KeyHeartbeat: nowMS(), store.KeyAXTrusted: "1", store.KeyVersion: "mac1"})
-	writeFile(t, te.paths().Config, "[sync]\ndir = \""+dir+"\"\nmachine = \"mac\"\n")
+	writeFile(t, te.paths().Config, "[sync]\ndir = '"+dir+"'\nmachine = \"mac\"\n")
 	os.MkdirAll(filepath.Join(dir, "ryuk"), 0o700)
 	line := `{"s":` + strconv.FormatInt(at(t, "11:45"), 10) + `,"e":` + strconv.FormatInt(at(t, "12:15"), 10) + `,"b":"kitty","a":"kitty","c":"Code"}` + "\n"
 	os.WriteFile(filepath.Join(dir, "ryuk", "2026-10-10.jsonl"), []byte(line), 0o600)

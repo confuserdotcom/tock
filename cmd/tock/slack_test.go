@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"tock/internal/slack"
+	"tock/internal/testfs"
 )
 
 func slackServer(t *testing.T, te *tenv) *[]string {
@@ -40,7 +41,7 @@ func TestSlackLoginStartStop(t *testing.T) {
 		t.Fatalf("login: %s", te.errb)
 	}
 	fi, err := os.Stat(te.slackTokenPath())
-	if err != nil || fi.Mode().Perm() != 0o600 {
+	if err != nil || !testfs.Perm(fi, 0o600) {
 		t.Fatalf("token file = %v, %v", fi, err)
 	}
 	until := strconv.FormatInt(testNow.UnixMilli()+25*60_000, 10)

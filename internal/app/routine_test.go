@@ -90,7 +90,7 @@ func TestStartOfDayPlan(t *testing.T) {
 	if err := os.WriteFile(file, []byte("Standup due:2026-10-10 @10h00\nReview due:2026-10-10 @14:00\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	e := startEnv(t, "[plan]\nfile = \""+file+"\"\n")
+	e := startEnv(t, "[plan]\nfile = '"+file+"'\n")
 	a := open(t, e)
 	notes, err := a.FocusTick(false)
 	if err != nil || len(notes) != 1 || !strings.HasSuffix(notes[0].Body, "Today: 10:00 Standup · 14:00 Review.") {
@@ -293,7 +293,7 @@ func TestRoutineWorkDay(t *testing.T) {
 		apptest.Span{ID: 4, Start: "12:30", Bundle: "term", App: "WezTerm", Title: "afternoon"},
 	)
 	e.WriteConfig(t, "[focus]\nbreak_after = 480\n[hours]\ndays = [\"mon\",\"tue\",\"wed\",\"thu\",\"fri\",\"sat\",\"sun\"]\nstart = \"09:00\"\nend = \"17:00\"\n"+
-		"[plan]\nfile = \""+file+"\"\n")
+		"[plan]\nfile = '"+file+"'\n")
 	a := open(t, e)
 	tick := func(a *App, h, m int) []string {
 		t.Helper()

@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"tock/internal/testfs"
 )
 
 // A data or state dir someone made with a loose umask (make update did) is
@@ -20,7 +22,7 @@ func TestTightenDir(t *testing.T) {
 	if err != nil || !changed {
 		t.Fatalf("tighten: %v %v", changed, err)
 	}
-	if fi, _ := os.Stat(d); fi.Mode().Perm() != 0o700 {
+	if fi, _ := os.Stat(d); !testfs.Perm(fi, 0o700) {
 		t.Fatalf("mode %v", fi.Mode().Perm())
 	}
 	if changed, err := tightenDir(d); err != nil || changed {

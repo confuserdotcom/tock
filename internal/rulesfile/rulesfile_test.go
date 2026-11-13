@@ -8,6 +8,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"tock/internal/testfs"
 )
 
 const rules = "[[category]]\nname = \"Study\"\nkind = \"deep\"\n"
@@ -68,7 +70,7 @@ func TestReadWrite(t *testing.T) {
 	if fi, _ := os.Stat(f.Rules); !fi.ModTime().Equal(at) {
 		t.Fatalf("rules.toml changed at %v, want %v", fi.ModTime(), at)
 	}
-	if fi, _ := os.Stat(f.Rules); fi.Mode().Perm() != 0o600 {
+	if fi, _ := os.Stat(f.Rules); !testfs.Perm(fi, 0o600) {
 		t.Fatalf("mode %v", fi.Mode().Perm())
 	}
 }

@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	_ "modernc.org/sqlite"
+
+	"tock/internal/testfs"
 )
 
 // liveDB makes a small SQLite file with one table and n rows.
@@ -56,7 +58,7 @@ func TestWriteListExtract(t *testing.T) {
 		if fi.IsDir() {
 			want = 0o700
 		}
-		if fi.Mode().Perm() != want {
+		if !testfs.Perm(fi, want) {
 			t.Errorf("%s mode %v, want %v", p, fi.Mode().Perm(), want)
 		}
 	}

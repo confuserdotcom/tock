@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"tock/internal/testfs"
 )
 
 const reorderCats = `[[category]]
@@ -125,7 +127,7 @@ func TestMoveRule(t *testing.T) {
 	if want := learnedHeader + "# b\n[[rule]]\napp = 'B'\nproject = \"p\"\n\n# a\n[[rule]]\napp = 'A'\nproject = \"p\"\n"; string(got) != want {
 		t.Fatalf("file =\n%s", got)
 	}
-	if fi, _ := os.Stat(path); fi.Mode().Perm() != 0o600 {
+	if fi, _ := os.Stat(path); !testfs.Perm(fi, 0o600) {
 		t.Errorf("mode = %v", fi.Mode().Perm())
 	}
 

@@ -223,7 +223,7 @@ func TestRemoteRowsRefuseLabels(t *testing.T) {
 	dir := t.TempDir()
 	er := apptest.New(t, apptest.Rules)
 	er.Seed(t, apptest.Span{ID: 1, Start: "11:45", End: "12:15", Bundle: "term", App: "WezTerm", Title: "tock │ ryuk"})
-	er.WriteConfig(t, "[sync]\ndir = \""+dir+"\"\nmachine = \"ryuk\"\n")
+	er.WriteConfig(t, "[sync]\ndir = '"+dir+"'\nmachine = \"ryuk\"\n")
 	ra, err := app.Open(app.Paths{DB: er.DB, Rules: er.Rules, Learned: er.Learned, Config: er.Config}, er.NowFunc())
 	if err != nil {
 		t.Fatal(err)
@@ -234,7 +234,7 @@ func TestRemoteRowsRefuseLabels(t *testing.T) {
 	ra.Close()
 
 	m, e := seeded(t)
-	e.WriteConfig(t, "[sync]\ndir = \""+dir+"\"\nmachine = \"mac\"\n")
+	e.WriteConfig(t, "[sync]\ndir = '"+dir+"'\nmachine = \"mac\"\n")
 	ma, err := app.Open(app.Paths{DB: e.DB, Rules: e.Rules, Learned: e.Learned, Config: e.Config}, e.NowFunc())
 	if err != nil {
 		t.Fatal(err)

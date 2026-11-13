@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"tock/internal/span"
+	"tock/internal/testfs"
 )
 
 func TestParseActiveWindowEvent(t *testing.T) {
@@ -47,7 +48,7 @@ func TestIdleFileAndLock(t *testing.T) {
 	if got := idleSeconds(idle, now+60_000); got != 360 {
 		t.Fatalf("idle = %v, want 360", got)
 	}
-	if fi, _ := os.Stat(idle); fi.Mode().Perm() != 0o600 {
+	if fi, _ := os.Stat(idle); !testfs.Perm(fi, 0o600) {
 		t.Fatalf("mode %v", fi.Mode())
 	}
 	if err := ClearIdle(idle); err != nil || idleSeconds(idle, now) != 0 {

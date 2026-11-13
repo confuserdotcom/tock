@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"tock/internal/testfs"
 )
 
 const sentinel = "ZZSENTINELZZ"
@@ -57,7 +59,7 @@ address = ["1 ` + sentinel + ` Street", "Town"]
 	if !strings.Contains(stdout, "doctor.json") || !strings.Contains(stdout, "Nothing was sent") {
 		t.Fatalf("stdout:\n%s", stdout)
 	}
-	if fi, err := os.Stat(out); err != nil || fi.Mode().Perm() != 0o600 {
+	if fi, err := os.Stat(out); err != nil || !testfs.Perm(fi, 0o600) {
 		t.Fatalf("archive mode: %v %v", fi, err)
 	}
 	members := readTarGz(t, out)

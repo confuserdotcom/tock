@@ -6,6 +6,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"tock/internal/testfs"
 )
 
 // TestStarterCorpus checks the starter rules against synthetic samples of the
@@ -53,7 +55,7 @@ func TestWriteStarter(t *testing.T) {
 	if err != nil || string(b) != string(Starter) {
 		t.Fatalf("written = %d bytes, %v", len(b), err)
 	}
-	if fi, _ := os.Stat(path); fi.Mode().Perm() != 0o600 {
+	if fi, _ := os.Stat(path); !testfs.Perm(fi, 0o600) {
 		t.Fatalf("mode = %v", fi.Mode().Perm())
 	}
 	if err := os.WriteFile(path, []byte("mine"), 0o600); err != nil {

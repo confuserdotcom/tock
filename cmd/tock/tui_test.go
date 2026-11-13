@@ -60,7 +60,7 @@ func TestPlanCommandLine(t *testing.T) {
 	}
 	file := te.ConfigDir + "/../todo.txt"
 	os.MkdirAll(te.ConfigDir, 0o755)
-	os.WriteFile(te.ConfigDir+"/config.toml", []byte("[plan]\nfile = \""+file+"\"\n"), 0o644)
+	os.WriteFile(te.ConfigDir+"/config.toml", []byte("[plan]\nfile = '"+file+"'\n"), 0o644)
 	os.WriteFile(file, []byte("(A) a due:"+testNow.Format("2006-01-02")+"\nx done one\nb\n"), 0o644)
 	te.out.Reset()
 	if code, out := te.run(t, "", "plan"); code != 0 || out != "Today\n  (A) a due:"+testNow.Format("2006-01-02")+"\nNo date\n  b\n" {

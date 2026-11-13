@@ -63,11 +63,12 @@ func TestHoldersSkipsDeadPIDs(t *testing.T) {
 	if err := os.MkdirAll(hd, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	// Pid 1 is alive on every Unix; a huge pid is not.
-	_ = os.WriteFile(filepath.Join(hd, "1"), []byte("launchd"), 0o600)
+	// This process is alive everywhere; a huge pid is not.
+	self := os.Getpid()
+	_ = os.WriteFile(filepath.Join(hd, strconv.Itoa(self)), []byte("tock"), 0o600)
 	_ = os.WriteFile(filepath.Join(hd, "99999999"), []byte("gone"), 0o600)
 	got := holders(filepath.Join(dir, "tock.db"))
-	if len(got) != 1 || got[0].PID != 1 || got[0].Name != "launchd" {
+	if len(got) != 1 || got[0].PID != self || got[0].Name != "tock" {
 		t.Fatalf("holders = %+v", got)
 	}
 	if _, err := os.Stat(filepath.Join(hd, "99999999")); !os.IsNotExist(err) {

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"tock/internal/span"
+	"tock/internal/testfs"
 )
 
 func dbPath(t *testing.T) string {
@@ -21,6 +22,8 @@ func openAt(t *testing.T, path string) *Store {
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
+	// Windows can't remove an open file: close before TempDir's cleanup.
+	t.Cleanup(func() { _ = s.Close() })
 	return s
 }
 
@@ -350,7 +353,7 @@ func TestBackupTo(t *testing.T) {
 	if err := s.BackupTo(dst); err != nil {
 		t.Fatal(err)
 	}
-	if fi, err := os.Stat(dst); err != nil || fi.Mode().Perm() != 0o600 {
+	if fi, err := os.Stat(dst); err != nil || !testfs.Perm(fi, 0o600) {
 		t.Fatalf("snapshot mode: %v %v", fi, err)
 	}
 	cp := openAt(t, dst)

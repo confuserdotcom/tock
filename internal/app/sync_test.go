@@ -12,6 +12,7 @@ import (
 	"tock/internal/classify"
 	"tock/internal/store"
 	"tock/internal/syncdir"
+	"tock/internal/testfs"
 )
 
 // twoMachines is the seeded day on "mac" and 30 min of tock work on "ryuk"
@@ -21,10 +22,10 @@ func twoMachines(t *testing.T) (mac, ryuk *App, dir string) {
 	dir = t.TempDir()
 	em := apptest.New(t, apptest.Rules)
 	em.Seed(t, apptest.DaySpans()...)
-	em.WriteConfig(t, "[sync]\ndir = \""+dir+"\"\nmachine = \"mac\"\n")
+	em.WriteConfig(t, "[sync]\ndir = '"+dir+"'\nmachine = \"mac\"\n")
 	er := apptest.New(t, apptest.Rules)
 	er.Seed(t, apptest.Span{ID: 1, Start: "11:45", End: "12:15", Bundle: "term", App: "WezTerm", Title: "tock │ ryuk"})
-	er.WriteConfig(t, "[sync]\ndir = \""+dir+"\"\nmachine = \"ryuk\"\n")
+	er.WriteConfig(t, "[sync]\ndir = '"+dir+"'\nmachine = \"ryuk\"\n")
 	return open(t, em), open(t, er), dir
 }
 
@@ -42,7 +43,7 @@ func TestSyncMergesTheOtherMachine(t *testing.T) {
 	if err != nil || !strings.Contains(string(b), `"b":"term"`) || !strings.Contains(string(b), `"c":"Code","p":"tock"`) {
 		t.Fatalf("ryuk day file = %s, %v", b, err)
 	}
-	if fi, _ := os.Stat(filepath.Join(dir, "ryuk", "2026-10-10.jsonl")); fi.Mode().Perm() != 0o600 {
+	if fi, _ := os.Stat(filepath.Join(dir, "ryuk", "2026-10-10.jsonl")); !testfs.Perm(fi, 0o600) {
 		t.Fatalf("day file mode %v", fi.Mode())
 	}
 

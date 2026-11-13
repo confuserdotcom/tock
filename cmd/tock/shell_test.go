@@ -7,6 +7,8 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+
+	"tock/internal/testfs"
 )
 
 func TestShellInitZsh(t *testing.T) {
@@ -42,7 +44,7 @@ func TestShellInitZsh(t *testing.T) {
 		t.Fatalf("zsh run: %v %s", err, b)
 	}
 	fi, err := os.Stat(te.shellLogPath())
-	if err != nil || fi.Mode().Perm() != 0o600 {
+	if err != nil || !testfs.Perm(fi, 0o600) {
 		t.Fatalf("log mode: %v %v", fi, err)
 	}
 	b, _ := os.ReadFile(te.shellLogPath())

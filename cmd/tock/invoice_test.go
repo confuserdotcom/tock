@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"tock/internal/store"
+	"tock/internal/testfs"
 )
 
 const rateRules = "name = \"tock\"\nrate = 60\n"
@@ -304,7 +305,7 @@ func TestInvoiceDraftPath(t *testing.T) {
 	if code != 0 || !strings.Contains(out, "draft: "+want) {
 		t.Fatalf("%d %q %s", code, out, te.errb)
 	}
-	if fi, err := os.Lstat(want); err != nil || !fi.Mode().IsRegular() || fi.Mode().Perm() != 0o600 {
+	if fi, err := os.Lstat(want); err != nil || !fi.Mode().IsRegular() || !testfs.Perm(fi, 0o600) {
 		t.Fatalf("draft file: %v %v", fi, err)
 	}
 	// A symlink in its place is replaced, not followed.
@@ -360,10 +361,10 @@ func TestWriteOwnTightensDir(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if fi, _ := os.Stat(d); fi.Mode().Perm() != 0o700 {
+	if fi, _ := os.Stat(d); !testfs.Perm(fi, 0o700) {
 		t.Fatalf("dir mode %v", fi.Mode().Perm())
 	}
-	if fi, _ := os.Stat(p); fi.Mode().Perm() != 0o600 {
+	if fi, _ := os.Stat(p); !testfs.Perm(fi, 0o600) {
 		t.Fatalf("file mode %v", fi.Mode().Perm())
 	}
 }

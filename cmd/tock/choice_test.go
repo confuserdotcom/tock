@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"tock/internal/config"
+	"tock/internal/testfs"
 )
 
 func (te *tenv) writeConfig(t *testing.T, body string) string {
@@ -63,7 +64,7 @@ func TestChoiceSet(t *testing.T) {
 	if got := readFile(t, p+".bak"); got != "# mine\n[focus]\nnotify = true  # all of them\n" {
 		t.Fatalf("config.toml.bak = %q", got)
 	}
-	if fi, err := os.Stat(p); err != nil || fi.Mode().Perm() != 0o600 {
+	if fi, err := os.Stat(p); err != nil || !testfs.Perm(fi, 0o600) {
 		t.Fatalf("mode %v %v", fi.Mode(), err)
 	}
 	code, out = te.run(t, "", "choice", "notify", "off")

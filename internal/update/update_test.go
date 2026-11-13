@@ -14,6 +14,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"tock/internal/testfs"
 )
 
 var t0 = time.Date(2026, 10, 20, 12, 0, 0, 0, time.UTC)
@@ -61,11 +63,11 @@ func TestKeyCreateAndReload(t *testing.T) {
 		t.Fatal(err)
 	}
 	fi, _ := os.Stat(path)
-	if fi.Mode().Perm() != 0o600 {
+	if !testfs.Perm(fi, 0o600) {
 		t.Fatalf("key mode = %v; want 0600", fi.Mode().Perm())
 	}
 	di, _ := os.Stat(dir)
-	if di.Mode().Perm() != 0o700 {
+	if !testfs.Perm(di, 0o700) {
 		t.Fatalf("dir mode = %v; want 0700", di.Mode().Perm())
 	}
 	k2, err := LoadOrCreateKey(path)
@@ -123,7 +125,7 @@ func TestPublishLayoutAndVerify(t *testing.T) {
 	if m.Files["trackd"] != sum("TRACKD1") || m.Files["tock"] != sum("TOCK1") {
 		t.Fatalf("sums = %v", m.Files)
 	}
-	if fi, _ := os.Stat(filepath.Join(dir, "trackd")); fi.Mode().Perm() != 0o600 {
+	if fi, _ := os.Stat(filepath.Join(dir, "trackd")); !testfs.Perm(fi, 0o600) {
 		t.Fatalf("published file mode = %v; want 0600", fi.Mode().Perm())
 	}
 }
@@ -419,7 +421,7 @@ func TestApplyInstalls(t *testing.T) {
 		t.Fatal("new contents not installed")
 	}
 	for _, n := range Names {
-		if fi, _ := os.Stat(filepath.Join(dir, n)); fi.Mode().Perm() != 0o755 {
+		if fi, _ := os.Stat(filepath.Join(dir, n)); !testfs.Perm(fi, 0o755) {
 			t.Fatalf("%s mode = %v; want 0755", n, fi.Mode().Perm())
 		}
 	}

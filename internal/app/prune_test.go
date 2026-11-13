@@ -44,7 +44,7 @@ func TestPruneTitles(t *testing.T) {
 	e.Seed(t, apptest.DaySpans()...)
 	e.Seed(t, oldSpans(40)...)
 	syncDir := t.TempDir()
-	e.WriteConfig(t, "[privacy]\nkeep_titles = 30\n[sync]\ndir = \""+syncDir+"\"\nmachine = \"mac\"\n")
+	e.WriteConfig(t, "[privacy]\nkeep_titles = 30\n[sync]\ndir = '"+syncDir+"'\nmachine = \"mac\"\n")
 	own := filepath.Join(syncDir, "mac")
 	if err := os.MkdirAll(own, 0o700); err != nil {
 		t.Fatal(err)

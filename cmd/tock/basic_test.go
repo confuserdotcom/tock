@@ -7,6 +7,7 @@ import (
 
 	"tock/internal/classify"
 	"tock/internal/store"
+	"tock/internal/testfs"
 )
 
 func TestUsageAndUnknownCommand(t *testing.T) {
@@ -32,7 +33,7 @@ func TestInitWritesStarterOnce(t *testing.T) {
 		t.Fatalf("rules.toml is not the starter file (err %v)", err)
 	}
 	for p, want := range map[string]os.FileMode{te.rulesPath(): 0o600, te.ConfigDir: 0o700} {
-		if fi, err := os.Stat(p); err != nil || fi.Mode().Perm() != want {
+		if fi, err := os.Stat(p); err != nil || !testfs.Perm(fi, want) {
 			t.Errorf("%s mode = %v, want %v", p, fi.Mode().Perm(), want)
 		}
 	}

@@ -4,6 +4,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"tock/internal/testfs"
 )
 
 func TestTodayReport(t *testing.T) {
@@ -67,7 +69,7 @@ func TestTodayKeysNumbersAndSavesListing(t *testing.T) {
 	if k, err := resolveListed(te.Env, "3"); err != nil || k != "Arc · youtube.com" {
 		t.Fatalf("listing 3 = %q, %v", k, err)
 	}
-	if fi, err := os.Stat(te.listingPath()); err != nil || fi.Mode().Perm() != 0o600 {
+	if fi, err := os.Stat(te.listingPath()); err != nil || !testfs.Perm(fi, 0o600) {
 		t.Fatalf("listing file mode: %v %v", fi, err)
 	}
 }

@@ -19,7 +19,7 @@ func TestSyncCommandAndDoctor(t *testing.T) {
 	if _, out := te.run(t, "", "doctor"); !strings.Contains(out, "!!  sync: no folder") {
 		t.Fatalf("missing folder:\n%s", out)
 	}
-	writeFile(t, te.paths().Config, "[sync]\ndir = \""+dir+"\"\nmachine = \"mac\"\n")
+	writeFile(t, te.paths().Config, "[sync]\ndir = '"+dir+"'\nmachine = \"mac\"\n")
 	// ryuk's day file, as its trackd writes it.
 	os.MkdirAll(filepath.Join(dir, "ryuk"), 0o700)
 	line := `{"s":` + strconv.FormatInt(at(t, "11:45"), 10) + `,"e":` + strconv.FormatInt(at(t, "12:15"), 10) + `,"b":"kitty","a":"kitty","c":"Code"}` + "\n"
@@ -48,7 +48,7 @@ func TestDoctorNamesMachinesWithoutInput(t *testing.T) {
 	dir := t.TempDir()
 	te, _ := doctorEnv(t, testRules)
 	te.seed(t, daySpans()...)
-	writeFile(t, te.paths().Config, "[sync]\ndir = \""+dir+"\"\nmachine = \"mac\"\n")
+	writeFile(t, te.paths().Config, "[sync]\ndir = '"+dir+"'\nmachine = \"mac\"\n")
 	os.MkdirAll(filepath.Join(dir, "ryuk"), 0o700)
 	line := `{"s":` + strconv.FormatInt(at(t, "11:45"), 10) + `,"e":` + strconv.FormatInt(at(t, "12:15"), 10) + `,"b":"zathura","a":"zathura"}` + "\n"
 	os.WriteFile(filepath.Join(dir, "ryuk", "2026-10-10.jsonl"), []byte(line), 0o600)
@@ -67,7 +67,7 @@ func TestDoctorNamesMachinesThatMissIdle(t *testing.T) {
 	dir := t.TempDir()
 	te, _ := doctorEnv(t, testRules)
 	te.seed(t, daySpans()...)
-	writeFile(t, te.paths().Config, "[sync]\ndir = \""+dir+"\"\nmachine = \"mac\"\n")
+	writeFile(t, te.paths().Config, "[sync]\ndir = '"+dir+"'\nmachine = \"mac\"\n")
 	os.MkdirAll(filepath.Join(dir, "ryuk"), 0o700)
 	line := `{"s":` + strconv.FormatInt(at(t, "00:30"), 10) + `,"e":` + strconv.FormatInt(at(t, "08:30"), 10) + `,"b":"zathura","a":"zathura"}` + "\n"
 	os.WriteFile(filepath.Join(dir, "ryuk", "2026-10-10.jsonl"), []byte(line), 0o600)

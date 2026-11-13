@@ -10,6 +10,8 @@ import (
 	"slices"
 	"testing"
 	"testing/fstest"
+
+	"tock/internal/testfs"
 )
 
 func versionRows(t *testing.T, db *sql.DB) []int {
@@ -130,6 +132,7 @@ func TestSchemaVersion(t *testing.T) {
 }
 
 func TestPermsDirAndFiles(t *testing.T) {
+	testfs.UnixOnly(t, "the store chmods its dir and files")
 	dir := filepath.Join(t.TempDir(), "sub")
 	path := filepath.Join(dir, "tock.db")
 	s := openAt(t, path)
@@ -159,6 +162,7 @@ func TestPermsDirAndFiles(t *testing.T) {
 
 // TestPermsTightensLooseExistingDir: a pre-existing 0755 dir is tightened.
 func TestPermsTightensLooseExistingDir(t *testing.T) {
+	testfs.UnixOnly(t, "the store chmods its dir and files")
 	dir := t.TempDir()
 	if err := os.Chmod(dir, 0o755); err != nil {
 		t.Fatal(err)

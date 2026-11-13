@@ -28,7 +28,7 @@ func TestSyncLoop(t *testing.T) {
 		t.Fatalf("sync off must be quiet: %s", logb.String())
 	}
 	dir := t.TempDir()
-	e.WriteConfig(t, "[sync]\ndir = \""+dir+"\"\nmachine = \"mac\"\n")
+	e.WriteConfig(t, "[sync]\ndir = '"+dir+"'\nmachine = \"mac\"\n")
 	s.tick()
 	if _, err := os.Stat(filepath.Join(dir, "mac", "2026-10-10.jsonl")); err != nil {
 		t.Fatal(err)

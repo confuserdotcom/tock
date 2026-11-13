@@ -150,6 +150,8 @@ func (e *Env) raw(t testing.TB) *sql.DB {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Windows can't remove an open file: close before TempDir's cleanup.
+	t.Cleanup(func() { _ = db.Close() })
 	return db
 }
 

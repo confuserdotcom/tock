@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"tock/internal/testfs"
 )
 
 // plistJSON renders c and converts it to JSON with plutil, failing on any
@@ -141,7 +143,7 @@ func TestInstallWritesAndLoads(t *testing.T) {
 	if gotLabel != "com.tock.bar" || strings.Join(calls, ",") != "bootout,bootstrap" {
 		t.Fatalf("label %q, launchctl %v", gotLabel, calls)
 	}
-	if fi, err := os.Stat(c.LogPath); err != nil || fi.Mode().Perm() != 0o600 {
+	if fi, err := os.Stat(c.LogPath); err != nil || !testfs.Perm(fi, 0o600) {
 		t.Fatalf("log: %v %v", fi, err)
 	}
 	if err := Uninstall("com.tock.bar"); err != nil {

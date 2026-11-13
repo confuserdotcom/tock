@@ -14,6 +14,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"tock/internal/testfs"
 )
 
 var paris = func() *time.Location {
@@ -344,7 +346,7 @@ func TestInvoiceFilesRepairVerifyRecover(t *testing.T) {
 	}
 	for _, f := range []string{"2026-0001.json", "2026-0001.pdf"} {
 		fi, err := os.Stat(filepath.Join(dir, f))
-		if err != nil || fi.Mode().Perm() != 0o600 {
+		if err != nil || !testfs.Perm(fi, 0o600) {
 			t.Fatalf("%s: %v %v", f, fi, err)
 		}
 	}

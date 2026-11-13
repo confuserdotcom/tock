@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"tock/internal/testfs"
 )
 
 // fakeMac is the keychain, codesign and launchctl that tock setup talks to.
@@ -162,7 +164,7 @@ func TestSetupFreshMac(t *testing.T) {
 		"tock.app/Contents/Resources/MenuGlyph@2x.png": 0o644,
 	} {
 		fi, err := os.Stat(filepath.Join(te.DataDir, p))
-		if err != nil || fi.Mode().Perm() != mode {
+		if err != nil || !testfs.Perm(fi, mode) {
 			t.Errorf("%s: %v %v", p, fi, err)
 		}
 	}
@@ -282,7 +284,7 @@ func TestSetupLinux(t *testing.T) {
 	if code, _ := te.run(t, "", "setup", "--from", from, "--no-doctor"); code != 0 || !installed {
 		t.Fatalf("code %d installed %v err %q calls %q", code, installed, te.errb, f.calls)
 	}
-	if fi, err := os.Stat(filepath.Join(home, ".local", "bin", "trackd")); err != nil || fi.Mode().Perm() != 0o755 {
+	if fi, err := os.Stat(filepath.Join(home, ".local", "bin", "trackd")); err != nil || !testfs.Perm(fi, 0o755) {
 		t.Fatalf("trackd not installed: %v %v", fi, err)
 	}
 }
@@ -330,7 +332,7 @@ func TestSetupCLICopiesTock(t *testing.T) {
 	}
 	dst := filepath.Join(home, ".local", "bin", "tock")
 	fi, err := os.Stat(dst)
-	if err != nil || fi.Mode().Perm() != 0o755 {
+	if err != nil || !testfs.Perm(fi, 0o755) {
 		t.Fatalf("%s: %v %v", dst, fi, err)
 	}
 	if b, _ := os.ReadFile(dst); string(b) != "tock binary" {

@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"tock/internal/store"
+	"tock/internal/testfs"
 )
 
 // untar extracts path into a temp dir and returns the entry names, sorted.
@@ -71,10 +72,10 @@ func TestBackupDefaultPath(t *testing.T) {
 		t.Fatalf("out = %q", out)
 	}
 	fi, err := os.Stat(want)
-	if err != nil || fi.Mode().Perm() != 0o600 {
+	if err != nil || !testfs.Perm(fi, 0o600) {
 		t.Fatalf("archive mode: %v %v", fi, err)
 	}
-	if di, err := os.Stat(filepath.Dir(want)); err != nil || di.Mode().Perm() != 0o700 {
+	if di, err := os.Stat(filepath.Dir(want)); err != nil || !testfs.Perm(di, 0o700) {
 		t.Fatalf("backups dir mode: %v %v", di, err)
 	}
 	dir, names := untar(t, want)

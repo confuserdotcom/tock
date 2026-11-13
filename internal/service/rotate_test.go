@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"tock/internal/testfs"
 )
 
 // An 11 MB log becomes log.1 (11 MB) and a fresh, empty log.
@@ -30,7 +32,7 @@ func TestRotateLog(t *testing.T) {
 			t.Fatalf("RotateLog(%s): %v", p, err)
 		}
 	}
-	if fi, _ := os.Stat(big + ".1"); fi == nil || fi.Size() != 11<<20 || fi.Mode().Perm() != 0o600 {
+	if fi, _ := os.Stat(big + ".1"); fi == nil || fi.Size() != 11<<20 || !testfs.Perm(fi, 0o600) {
 		t.Fatalf("log.1 = %v", fi)
 	}
 	if fi, _ := os.Stat(big); fi.Size() != 0 {

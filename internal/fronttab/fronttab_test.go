@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"tock/internal/testfs"
 )
 
 func frame(t *testing.T, v any) []byte {
@@ -41,7 +43,7 @@ func TestBrowserHostWritesTheFrontTab(t *testing.T) {
 	if st.AtMS != 42 || st.URL != "www.chess.com/play/online" || st.Title != "Play" || !st.Focused || st.Private {
 		t.Fatalf("state = %+v", st)
 	}
-	if fi, _ := os.Stat(path); fi.Mode().Perm() != 0o600 {
+	if fi, _ := os.Stat(path); !testfs.Perm(fi, 0o600) {
 		t.Fatalf("mode %v", fi.Mode())
 	}
 	// The last message wins; an incognito tab leaves no address or title on disk.

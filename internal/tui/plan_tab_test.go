@@ -21,7 +21,7 @@ func planModel(t *testing.T, command string, lines ...string) (Model, string) {
 	if err := os.WriteFile(file, []byte(strings.Join(lines, "\n")+"\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	cfg := "[plan]\nfile = \"" + file + "\"\n"
+	cfg := "[plan]\nfile = '" + file + "'\n"
 	if command != "" {
 		cfg += "command = '" + command + "'\n"
 	}
