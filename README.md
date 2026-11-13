@@ -6,7 +6,7 @@
 tock records where your working time goes without a timer. A small daemon
 notes the app, window and site in front of you; rules you write in a TOML
 file turn that into categories and projects. It runs on macOS and on Linux
-under Hyprland, Sway, i3 or X11, with Windows in preview, and everything
+under Hyprland, Sway, i3 or X11, with Windows experimental, and everything
 stays in one SQLite file on your machine.
 
 <img src="docs/readme/today.webp" width="100%" alt="The tock dashboard for one day: a timeline with one row per category, a focus score, minutes per hour, a donut of the kinds of time, and goals.">
@@ -62,7 +62,7 @@ tar xzf tock-v*-linux-amd64.tar.gz && cd tock-v*-linux-amd64
 install -m 755 trackd tock ~/.local/bin/ && ~/.local/bin/trackd install && tock init
 ```
 
-Windows 10 and 11 are in preview, not in a release yet. Build it with
+Windows 10 and 11 are experimental, not in a release yet. Build it with
 `make build-windows` (binaries land in `build/windows-amd64`), keep
 `tock.exe` and `trackd.exe` in one folder, then run `tock init` and
 `trackd install`: trackd starts now and whenever you sign in
@@ -91,6 +91,7 @@ tock session start 50     # a 50-minute focus session
 - [Guide](docs/guide.md): every command, file and setting.
 - [Architecture](docs/architecture.md): how the pieces fit together.
 - [Privacy](docs/privacy.md): what is recorded and what can leave the machine.
+- [Stability](docs/stability.md): what stays the same between releases, and how well each platform is supported.
 - [CHANGELOG](CHANGELOG.md)
 
 The same pages are at [confuserdotcom.github.io/tock](https://confuserdotcom.github.io/tock/).
