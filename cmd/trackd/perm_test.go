@@ -11,6 +11,7 @@ import (
 // A data or state dir someone made with a loose umask (make update did) is
 // closed to other users at start: the privacy page promises 0700.
 func TestTightenDir(t *testing.T) {
+	testfs.UnixOnly(t, "Windows dirs have no Unix modes; tightenDir does nothing there")
 	d := filepath.Join(t.TempDir(), "state")
 	if err := os.Mkdir(d, 0o755); err != nil {
 		t.Fatal(err)

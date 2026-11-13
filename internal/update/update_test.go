@@ -56,6 +56,7 @@ func read(t *testing.T, path string) string {
 }
 
 func TestKeyCreateAndReload(t *testing.T) {
+	testfs.UnixOnly(t, "self-update over the sync folder is Linux only")
 	dir := filepath.Join(t.TempDir(), "data")
 	path := filepath.Join(dir, "update.key")
 	k1, err := LoadOrCreateKey(path)
@@ -472,6 +473,7 @@ func TestPublishedSkipsBadManifests(t *testing.T) {
 }
 
 func TestBootstrapCommand(t *testing.T) {
+	testfs.UnixOnly(t, "self-update over the sync folder is Linux only")
 	m := Manifest{Files: map[string]string{"trackd": sum("T"), "tock": sum("K")}}
 	got := BootstrapCommand("/home/a/Sync/tock", "/home/a", "amd64", m, "ff00")
 	for _, want := range []string{"cp ~/Sync/tock/bin/linux-amd64/trackd trackd.new", sum("T") + " trackd.new", sum("K") + " tock.new",

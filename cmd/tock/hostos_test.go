@@ -16,6 +16,12 @@ func TestMain(m *testing.M) {
 		holdStore(p)
 		return
 	}
+	// A portable stand-in for `sh -c 'echo …'` in tests that start a
+	// process: print the value and exit.
+	if s, ok := os.LookupEnv("TOCK_TEST_ECHO"); ok {
+		os.Stdout.WriteString(s + "\n")
+		os.Exit(0)
+	}
 	app.HostOS = "darwin"
 	installMethod = func() service.Method { return service.Source }
 	os.Exit(m.Run())

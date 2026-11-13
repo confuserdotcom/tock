@@ -138,6 +138,7 @@ func setupRig(t *testing.T, te *tenv, goos string) (*fakeMac, string) {
 }
 
 func TestSetupFreshMac(t *testing.T) {
+	testfs.UnixOnly(t, "macOS setup flow; Windows setup comes with the Task Scheduler work")
 	te := newTestEnv(t, testRules)
 	f, from := setupRig(t, te, "darwin")
 	if err := os.Remove(te.rulesPath()); err != nil {
@@ -186,6 +187,7 @@ func TestSetupFreshMac(t *testing.T) {
 }
 
 func TestSetupAgainKeepsTheCertAndRestartsTheApps(t *testing.T) {
+	testfs.UnixOnly(t, "macOS setup flow")
 	te := newTestEnv(t, testRules)
 	f, from := setupRig(t, te, "darwin")
 	if code, _ := te.run(t, "", "setup", "--from", from, "--no-doctor"); code != 0 {
@@ -241,6 +243,7 @@ func TestSetupMissingPayload(t *testing.T) {
 }
 
 func TestSetupFindsItsFilesNextToTock(t *testing.T) {
+	testfs.UnixOnly(t, "macOS setup flow")
 	te := newTestEnv(t, testRules)
 	_, from := setupRig(t, te, "darwin")
 	bin := filepath.Join(filepath.Dir(filepath.Dir(from)), "bin")
@@ -253,6 +256,7 @@ func TestSetupFindsItsFilesNextToTock(t *testing.T) {
 }
 
 func TestSetupCheck(t *testing.T) {
+	testfs.UnixOnly(t, "macOS setup flow")
 	te := newTestEnv(t, testRules)
 	_, from := setupRig(t, te, "darwin")
 	code, out := te.run(t, "", "setup", "--check", "--from", from)
@@ -317,6 +321,7 @@ func TestNewSigningCert(t *testing.T) {
 }
 
 func TestSetupCLICopiesTock(t *testing.T) {
+	testfs.UnixOnly(t, "macOS setup flow")
 	te := newTestEnv(t, testRules)
 	_, from := setupRig(t, te, "darwin")
 	self := filepath.Join(from, "tock")

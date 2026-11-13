@@ -29,3 +29,19 @@ func UnixOnly(t TB, why string) {
 		t.Skip("Unix only: " + why)
 	}
 }
+
+// Setenver is the part of testing.TB that SetHome needs.
+type Setenver interface {
+	Helper()
+	Setenv(key, value string)
+}
+
+// SetHome makes dir the home directory for os.UserHomeDir on every
+// platform: HOME on Unix, USERPROFILE on Windows.
+func SetHome(t Setenver, dir string) {
+	t.Helper()
+	t.Setenv("HOME", dir)
+	if runtime.GOOS == "windows" {
+		t.Setenv("USERPROFILE", dir)
+	}
+}

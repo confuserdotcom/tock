@@ -6,11 +6,12 @@ import (
 	"testing"
 
 	"tock/internal/apptest"
+	"tock/internal/testfs"
 )
 
 func TestShellDirsLabelTerminalTime(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	testfs.SetHome(t, home)
 	e := apptest.New(t, apptest.Rules+"\n[[rule]]\ndir = '^~/x(/|$)'\nproject = \"ATLAS\"\n")
 	e.WriteConfig(t, "[shell]\nterminals = [\"term\"]\n")
 	e.Seed(t, apptest.DaySpans()...)

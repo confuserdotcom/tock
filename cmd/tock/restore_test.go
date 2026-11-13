@@ -81,9 +81,11 @@ func TestRestoreSwapsAndKeepsOld(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(te.DataDir, ".restore-tmp.db")); !os.IsNotExist(err) {
 		t.Fatal("temp file left behind")
 	}
-	if _, err := store.Open(te.dbPath()); err != nil {
+	st, err := store.Open(te.dbPath())
+	if err != nil {
 		t.Fatalf("restored db does not open: %v", err)
 	}
+	_ = st.Close()
 }
 
 func TestRestoreRefusesNewerSchema(t *testing.T) {

@@ -15,7 +15,7 @@ func TestSyncCommandAndDoctor(t *testing.T) {
 	if code, out := te.run(t, "", "sync"); code != 1 || !strings.Contains(te.errb.String(), "sync is off") {
 		t.Fatalf("sync off: %d %s %s", code, out, te.errb.String())
 	}
-	writeFile(t, te.paths().Config, "[sync]\ndir = \""+filepath.Join(dir, "missing")+"\"\nmachine = \"mac\"\n")
+	writeFile(t, te.paths().Config, "[sync]\ndir = '"+filepath.Join(dir, "missing")+"'\nmachine = \"mac\"\n")
 	if _, out := te.run(t, "", "doctor"); !strings.Contains(out, "!!  sync: no folder") {
 		t.Fatalf("missing folder:\n%s", out)
 	}

@@ -165,6 +165,7 @@ func next(t *testing.T, ch <-chan span.Input) *span.Sample {
 }
 
 func TestHyprlandSource(t *testing.T) {
+	testfs.UnixOnly(t, "Hyprland runs on Linux")
 	f := newFakeHypr(t)
 	src, err := NewHyprland(HyprOptions{Dir: f.dir, PollInterval: time.Hour, Proc: t.TempDir(),
 		IdleFile: filepath.Join(t.TempDir(), IdleFile), Now: func() int64 { return 5000 }})
@@ -197,6 +198,7 @@ func TestHyprlandSource(t *testing.T) {
 }
 
 func TestHyprlandSourceSocketLost(t *testing.T) {
+	testfs.UnixOnly(t, "Hyprland runs on Linux")
 	f := newFakeHypr(t)
 	src, err := NewHyprland(HyprOptions{Dir: f.dir, PollInterval: time.Hour, Proc: t.TempDir()})
 	if err != nil {

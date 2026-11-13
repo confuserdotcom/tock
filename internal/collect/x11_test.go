@@ -11,6 +11,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"tock/internal/testfs"
 )
 
 func TestXDisplay(t *testing.T) {
@@ -42,6 +44,7 @@ func xauthEntry(family uint16, addr, num, name string, data []byte) []byte {
 }
 
 func TestXCookie(t *testing.T) {
+	testfs.UnixOnly(t, "X11 runs on Linux")
 	file := append(append(append(
 		xauthEntry(256, "other", "0", "MIT-MAGIC-COOKIE-1", []byte("nope")),
 		xauthEntry(65535, "", "", "MIT-MAGIC-COOKIE-1", []byte("wild"))...),
