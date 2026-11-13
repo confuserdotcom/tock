@@ -2,6 +2,29 @@
 
 What changed for you in each release. Dates are UTC.
 
+## v5.5.1 — 2026-11-13
+
+### Added
+- **Budgets in the notch.** When a project reaches 80% of its budget or
+  runs over, the notch opens with what is spent, what is left (or how far
+  over), the day it runs out at this week's pace, and a gauge. With the
+  notch off it is still a notification.
+- **Replay as a video.** The dashboard's Replay has a **Video** button that
+  saves the day as a 20-second 1280x720 clip (webm; mp4 where the browser
+  records only that), in the dashboard's theme.
+- **Sway, i3 and X11.** trackd on Linux now reads Sway and i3 over their
+  IPC socket and any other X11 window manager through the X server, not
+  only Hyprland. It finds the session by itself; `TOCK_DESKTOP` picks one
+  by hand. On X11 and i3 idle comes from the X server with no setup; on
+  Sway add the swayidle line from the guide. Blocking hides windows in
+  Sway's and i3's scratchpad; X11 has no way to hide them. `tock doctor`
+  names the desktop it sees and checks its idle hook.
+
+### Fixed
+- A Linux machine without hypridle counted as reporting no input, so long
+  windows were cut; Sway with swayidle, i3 and X11 now count as reporting
+  it.
+
 ## v5.5.0 — 2026-11-12
 
 ### Added
