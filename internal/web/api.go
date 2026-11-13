@@ -168,6 +168,8 @@ type statusJSON struct {
 	// of the dashboard.
 	Focus   bool `json:"focus"`
 	Billing bool `json:"billing"`
+	// Presets are the session lengths in minutes, the default first.
+	Presets []int `json:"presets"`
 }
 
 type blockJSON struct {
@@ -371,7 +373,8 @@ func (s *Server) status(*http.Request) (any, error) {
 		return nil, err
 	}
 	cfg := s.a.Config()
-	out := statusJSON{Recording: h.TrackdUp && !h.Paused(), LastSeenMS: h.LastSeenMS, Focus: cfg.Focus.Enabled, Billing: cfg.Billing.Enabled}
+	out := statusJSON{Recording: h.TrackdUp && !h.Paused(), LastSeenMS: h.LastSeenMS, Focus: cfg.Focus.Enabled, Billing: cfg.Billing.Enabled,
+		Presets: append([]int{}, cfg.Focus.Presets...)}
 	if h.Paused() {
 		out.Paused = h.CapturePaused
 	}

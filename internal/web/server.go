@@ -71,6 +71,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /", files)
 	mux.HandleFunc("GET /api/day", s.api(s.day))
 	mux.HandleFunc("GET /api/status", s.api(s.status))
+	mux.HandleFunc("POST /api/session", s.api(s.session))
 	mux.HandleFunc("GET /api/week", s.api(s.week))
 	mux.HandleFunc("GET /api/top", s.api(s.top))
 	mux.HandleFunc("GET /api/agents", s.api(s.agents))
