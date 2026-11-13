@@ -4,8 +4,12 @@ name: e2e
 # killed with no warning, starts again and recovers. See e2e/.
 on:
   push:
-    branches: [main, "e2e-*"]
+    branches: ["**"]
   pull_request:
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions:
   contents: read
