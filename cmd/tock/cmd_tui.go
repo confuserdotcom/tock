@@ -40,7 +40,7 @@ func cmdTUI(env Env) error { return cmdTUIOn(env, "") }
 
 // cmdTUIOn is cmdTUI opened on a named tab ("" = today).
 func cmdTUIOn(env Env, tab string) error {
-	a, err := openApp(env)
+	a, err := openAppAsIs(env)
 	if errors.Is(err, classify.ErrNoRules) {
 		fmt.Fprint(env.Stdout, welcome)
 		fmt.Fprintf(env.Stdout, "  Create starter rules in %s? [Y/n] ", env.rulesPath())

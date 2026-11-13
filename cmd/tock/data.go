@@ -2,10 +2,12 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 
 	"tock/internal/app"
+	"tock/internal/classify"
 	"tock/internal/config"
 	"tock/internal/store"
 )
@@ -19,7 +21,26 @@ func (e Env) paths() app.Paths {
 }
 
 // openApp loads the rules and opens the database.
+// When trackd has recorded but rules.toml is missing, it writes the
+// starter rules (as tock init would) rather than refuse: recorded time is
+// always readable. It says so once, on stderr.
 func openApp(env Env) (*app.App, error) {
+	a, err := openAppAsIs(env)
+	if !errors.Is(err, classify.ErrNoRules) {
+		return a, err
+	}
+	if _, serr := os.Stat(env.dbPath()); serr != nil {
+		return nil, errNoDB
+	}
+	if werr := classify.WriteStarter(env.rulesPath()); werr != nil && !errors.Is(werr, os.ErrExist) {
+		return nil, werr
+	}
+	fmt.Fprintf(env.Stderr, "wrote starter rules to %s (edit them, or label time in tock inbox)\n", env.rulesPath())
+	return openAppAsIs(env)
+}
+
+// openAppAsIs is openApp without writing starter rules.
+func openAppAsIs(env Env) (*app.App, error) {
 	a, err := app.Open(env.paths(), env.Now)
 	if err == nil && env.Git != nil {
 		a.SetGitRunner(env.Git)

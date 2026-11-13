@@ -100,8 +100,23 @@ func TestTodayAlignsLongNames(t *testing.T) {
 func TestMissingRulesAndDB(t *testing.T) {
 	te := newTestEnv(t, "")
 	te.seed(t)
-	if code, _ := te.run(t, "", "today"); code != 1 || !strings.Contains(te.errb.String(), "no rules: run tock init") {
+	// trackd has recorded but nobody ran tock init: the starter rules are
+	// written, said once on stderr, and the command works.
+	if code, _ := te.run(t, "", "today"); code != 0 || !strings.Contains(te.errb.String(), "wrote starter rules to "+te.rulesPath()) {
 		t.Fatalf("no rules: code %d err %q", code, te.errb.String())
+	}
+	if _, err := os.Stat(te.rulesPath()); err != nil {
+		t.Fatalf("starter rules not written: %v", err)
+	}
+	if code, _ := te.run(t, "", "export", "--format", "json"); code != 0 || strings.Contains(te.errb.String(), "starter") {
+		t.Fatalf("second run: code %d err %q", code, te.errb.String())
+	}
+	te = newTestEnv(t, "") // neither rules nor data: say there's no data, write nothing
+	if code, _ := te.run(t, "", "today"); code != 1 || !strings.Contains(te.errb.String(), "no data yet") {
+		t.Fatalf("no rules, no db: code %d err %q", code, te.errb.String())
+	}
+	if _, err := os.Stat(te.rulesPath()); !os.IsNotExist(err) {
+		t.Fatal("rules written with no data")
 	}
 	te = newTestEnv(t, testRules)
 	if code, _ := te.run(t, "", "today"); code != 1 || !strings.Contains(te.errb.String(), "no data yet") {
