@@ -20,6 +20,7 @@ import (
 	"tock/internal/claude"
 	"tock/internal/desktop"
 	"tock/internal/gitlog"
+	"tock/internal/paths"
 	"tock/internal/shell"
 	"tock/internal/slack"
 	"tock/internal/suggest"
@@ -199,25 +200,14 @@ func (e Env) learnedPath() string  { return filepath.Join(e.ConfigDir, "learned.
 func (e Env) listingPath() string  { return filepath.Join(e.StateDir, "listing.json") }
 func (e Env) shellLogPath() string { return filepath.Join(e.StateDir, shell.File) }
 
-func envDir(name string, def ...string) string {
-	if d := os.Getenv(name); d != "" {
-		return d
-	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		home = os.Getenv("HOME")
-	}
-	return filepath.Join(append([]string{home}, def...)...)
-}
-
 func defaultEnv() Env {
 	return Env{
 		Stdin: os.Stdin, Stdout: os.Stdout, Stderr: os.Stderr,
 		Now:         time.Now,
 		Interactive: term.IsTerminal(os.Stdin.Fd()) && term.IsTerminal(os.Stdout.Fd()),
-		DataDir:     envDir("TOCK_DATA_DIR", ".local", "share", "tock"),
-		StateDir:    envDir("TOCK_STATE_DIR", ".local", "state", "tock"),
-		ConfigDir:   envDir("TOCK_CONFIG_DIR", ".config", "tock"),
+		DataDir:     paths.Default().Data,
+		StateDir:    paths.Default().State,
+		ConfigDir:   paths.Default().Config,
 		APIKey:      os.Getenv("ANTHROPIC_API_KEY"),
 		ClaudeCLI:   claude.FindCLI(),
 		SlackToken:  os.Getenv("TOCK_SLACK_TOKEN"),

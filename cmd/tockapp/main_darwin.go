@@ -17,17 +17,13 @@ import (
 	"runtime"
 	"strings"
 	"unsafe"
+
+	"tock/internal/paths"
 )
 
 func init() { runtime.LockOSThread() } // AppKit runs on the main thread
 
-func dataDir() string {
-	if d := os.Getenv("TOCK_DATA_DIR"); d != "" {
-		return d
-	}
-	h, _ := os.UserHomeDir()
-	return filepath.Join(h, ".local", "share", "tock")
-}
+func dataDir() string { return paths.Default().Data }
 
 // installedVersion is the version of the menu bar app tock setup put in
 // place, "" when there is none.

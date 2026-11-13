@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 
+	"tock/internal/paths"
 	"tock/internal/stats"
 )
 
@@ -582,18 +584,11 @@ func Parse(name string, b []byte) (Config, error) {
 		c.Shell.Agents = *f.Shell.Agents
 	}
 	if f.Sync.Dir != nil && strings.TrimSpace(*f.Sync.Dir) != "" {
-		d := *f.Sync.Dir
-		if rest, ok := strings.CutPrefix(d, "~/"); ok {
-			home, err := os.UserHomeDir()
-			if err != nil {
-				return Default(), fmt.Errorf("%s: [sync] dir: %w", name, err)
-			}
-			d = filepath.Join(home, rest)
-		}
-		if !filepath.IsAbs(d) {
+		d, err := absPath(*f.Sync.Dir)
+		if err != nil {
 			return Default(), fmt.Errorf("%s: [sync] dir = %q, want an absolute path or ~/…", name, *f.Sync.Dir)
 		}
-		c.Sync.Dir = filepath.Clean(d)
+		c.Sync.Dir = d
 	}
 	if f.Plan.File != nil && strings.TrimSpace(*f.Plan.File) != "" {
 		p, err := absPath(*f.Plan.File)
@@ -893,15 +888,16 @@ func parseClock(s string) (int, bool) {
 	return t.Hour()*60 + t.Minute(), true
 }
 
-// absPath expands a leading ~/ and requires an absolute result.
+// absPath expands a leading ~/ (and on Windows ~\ and %VAR%) and requires
+// an absolute result.
 func absPath(p string) (string, error) {
 	d := p
-	if rest, ok := strings.CutPrefix(d, "~/"); ok {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return "", err
+	if strings.HasPrefix(d, "~") || strings.HasPrefix(d, "%") {
+		home := paths.Home()
+		if home == "" {
+			return "", errors.New("no home directory")
 		}
-		d = filepath.Join(home, rest)
+		d = paths.Expand(runtime.GOOS, os.Getenv, home, d)
 	}
 	if !filepath.IsAbs(d) {
 		return "", fmt.Errorf("%q, want an absolute path or ~/…", p)

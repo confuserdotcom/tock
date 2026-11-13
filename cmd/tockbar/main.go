@@ -13,6 +13,7 @@ import (
 	"tock/internal/app"
 	"tock/internal/classify"
 	"tock/internal/config"
+	tockpaths "tock/internal/paths"
 	"tock/internal/service"
 	"tock/internal/shell"
 )
@@ -29,16 +30,9 @@ func home() string {
 	return os.Getenv("HOME")
 }
 
-func envDir(key string, parts ...string) string {
-	if d := os.Getenv(key); d != "" {
-		return d
-	}
-	return filepath.Join(append([]string{home()}, parts...)...)
-}
-
-func dataDir() string   { return envDir("TOCK_DATA_DIR", ".local", "share", "tock") }
-func configDir() string { return envDir("TOCK_CONFIG_DIR", ".config", "tock") }
-func stateDir() string  { return envDir("TOCK_STATE_DIR", ".local", "state", "tock") }
+func dataDir() string   { return tockpaths.Default().Data }
+func configDir() string { return tockpaths.Default().Config }
+func stateDir() string  { return tockpaths.Default().State }
 
 func barAgent() service.Agent {
 	program := filepath.Join(dataDir(), "tock.app", "Contents", "MacOS", "tockbar")

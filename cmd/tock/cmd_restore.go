@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"tock/internal/paths"
 	"tock/internal/service"
 	"tock/internal/snapshot"
 	"tock/internal/store"
@@ -33,11 +34,7 @@ var restoreLabels = []string{"com.tock.trackd", "com.tock.bar"}
 // They run with the default one; a restore into another (TOCK_DATA_DIR)
 // must leave them alone.
 func servicesUse(env Env) bool {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return false
-	}
-	return filepath.Clean(env.DataDir) == filepath.Join(home, ".local", "share", "tock")
+	return filepath.Clean(env.DataDir) == filepath.Clean(paths.Standard().Data)
 }
 
 func stopForRestore(env Env) error {

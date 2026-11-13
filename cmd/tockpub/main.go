@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"tock/internal/config"
+	"tock/internal/paths"
 	"tock/internal/update"
 )
 
@@ -115,18 +116,5 @@ func printHint(out io.Writer, syncDir, home, arch string, pub ed25519.PublicKey)
 	return nil
 }
 
-func dataDir() string {
-	if d := os.Getenv("TOCK_DATA_DIR"); d != "" {
-		return d
-	}
-	h, _ := os.UserHomeDir()
-	return filepath.Join(h, ".local", "share", "tock")
-}
-
-func configDir() string {
-	if d := os.Getenv("TOCK_CONFIG_DIR"); d != "" {
-		return d
-	}
-	h, _ := os.UserHomeDir()
-	return filepath.Join(h, ".config", "tock")
-}
+func dataDir() string   { return paths.Default().Data }
+func configDir() string { return paths.Default().Config }

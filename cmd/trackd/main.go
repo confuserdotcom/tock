@@ -12,6 +12,7 @@ import (
 
 	"tock/internal/collect"
 	"tock/internal/fronttab"
+	"tock/internal/paths"
 	"tock/internal/store"
 )
 
@@ -28,26 +29,9 @@ func home() string {
 	return os.Getenv("HOME")
 }
 
-func dataDir() string {
-	if d := os.Getenv("TOCK_DATA_DIR"); d != "" {
-		return d
-	}
-	return filepath.Join(home(), ".local", "share", "tock")
-}
-
-func configDir() string {
-	if d := os.Getenv("TOCK_CONFIG_DIR"); d != "" {
-		return d
-	}
-	return filepath.Join(home(), ".config", "tock")
-}
-
-func stateDir() string {
-	if d := os.Getenv("TOCK_STATE_DIR"); d != "" {
-		return d
-	}
-	return filepath.Join(home(), ".local", "state", "tock")
-}
+func dataDir() string   { return paths.Default().Data }
+func configDir() string { return paths.Default().Config }
+func stateDir() string  { return paths.Default().State }
 
 // newSource builds the collector: on Linux the session's desktop
 // (Hyprland, Sway/i3 or X11), else macOS.
