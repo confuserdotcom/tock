@@ -107,3 +107,14 @@ func TestFoldNativePaths(t *testing.T) {
 		}
 	}
 }
+
+func TestParseKeepsNativeAbsoluteDirs(t *testing.T) {
+	dir := t.TempDir() // C:\… on Windows, /… elsewhere
+	ev, ok := parse("1700000000000\t" + dir)
+	if !ok || ev.Dir != dir {
+		t.Fatalf("parse(%q) = %+v, %v", dir, ev, ok)
+	}
+	if _, ok := parse("1700000000000\trelative/dir"); ok {
+		t.Fatal("a relative dir was kept")
+	}
+}
