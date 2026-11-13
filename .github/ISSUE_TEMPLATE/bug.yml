@@ -23,8 +23,12 @@ body:
       options:
         - macOS
         - Linux (Hyprland)
+        - Linux (Sway)
+        - Linux (i3)
+        - Linux (other X11)
+        - Windows (preview)
     validations:
       required: true
   - type: markdown
     attributes:
-      value: Please don't paste real window titles, URLs or rules. Replace them with placeholders.
+      value: Please don't paste real window titles, URLs or rules. Replace them with placeholders. If it is hard to describe, `tock bug-report` writes a .tar.gz without titles or URLs you can look through and attach.
