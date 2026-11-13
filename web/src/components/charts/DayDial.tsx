@@ -51,7 +51,7 @@ export function DayDial({ d, onHour }: { d: Day; onHour: (h: number) => void }) 
           <path d={arcPath(C, R, hover / 24, (hover + 1) / 24)} fill="none" stroke="hsl(var(--foreground))" strokeOpacity={0.12} strokeWidth={W + 8} />
         )}
         {as.map((a, i) => (
-          <path key={i} d={arcPath(C, R, a.from, Math.max(a.to, a.from + 0.0015))} fill="none" strokeWidth={W}
+          <path key={i} d={arcPath(C, R, a.from, Math.min(0.9999, Math.max(a.to + 0.0008, a.from + 0.0015)))} fill="none" strokeWidth={W}
             stroke={a.idle ? "url(#dial-hatch)" : kindColor(a.kind)} />
         ))}
         {Array.from({ length: 24 }, (_, h) => {

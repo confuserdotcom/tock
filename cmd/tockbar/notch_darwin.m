@@ -606,7 +606,7 @@ static void centred(NSString *s, NSFont *f, NSColor *col, NSPoint c) {
     }
     for (NSDictionary *a in aval(self.dial, @"arcs")) {
         NSString *k = sval(a, @"kind");
-        double from = [a[@"from"] doubleValue], to = MAX([a[@"to"] doubleValue], from + 0.002);
+        double from = [a[@"from"] doubleValue], to = MIN(MAX([a[@"to"] doubleValue] + 0.001, from + 0.002), 1); // a hair over the next: no seams
         arcAt(c, r, from, to, lw, [k isEqualToString:@"away"] ? white(0.2) : kindColor(k), NO);
     }
     for (int h = 0; h < 24; h += 6) { // the quarters

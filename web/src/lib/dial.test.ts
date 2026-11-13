@@ -33,3 +33,9 @@ test("hourAt reads the hour under a point of the dial, midnight at the top", () 
   expect(hourAt(-1, 0)).toBe(18);
   expect(hourAt(-0.01, -1)).toBe(23);
 });
+
+test("a choppy hour reads as the kind it holds most of", () => {
+  const rows = [];
+  for (let m = 0; m < 60; m += 4) rows.push(row(14 * H + m * M, 14 * H + (m + 3) * M, "deep"), row(14 * H + (m + 3) * M, 14 * H + (m + 4) * M, "distract"));
+  expect(arcs(rows, day)).toEqual([{ from: 14 / 24, to: 15 / 24, kind: "deep", idle: false }]);
+});

@@ -73,21 +73,17 @@ type Arc struct {
 	Kind string  `json:"kind"`
 }
 
-const (
-	dialGap    = 2 * 60_000 // runs of a kind closer than this are one arc
-	dialSliver = 60_000     // arcs shorter than this are not drawn
-)
+// dialCell is how finely the dial reads the day: each 5-minute cell takes
+// the kind it holds most of, so a choppy day reads as its main runs.
+const dialCell = 5 * 60_000
 
 // dayDial is day d as a dial at nowMS.
 func dayDial(d report.Day, loc *time.Location, nowMS int64) *Dial {
 	day0 := d.Date.UnixMilli()
 	day1 := d.Date.AddDate(0, 0, 1).UnixMilli()
 	span := float64(day1 - day0) // 23 or 25 hours on a clock change
-	type run struct {
-		from, to int64
-		kind     string
-	}
-	var runs []run
+	n := int((day1 - day0 + dialCell - 1) / dialCell)
+	cells := make([]map[string]int64, n)
 	for _, r := range d.Timeline {
 		from, to := max(r.Start, day0), min(r.End, day1)
 		if to <= from {
@@ -100,17 +96,35 @@ func dayDial(d report.Day, loc *time.Location, nowMS int64) *Dial {
 		case kind == "":
 			kind = "none"
 		}
-		if n := len(runs); n > 0 && runs[n-1].kind == kind && from-runs[n-1].to <= dialGap {
-			runs[n-1].to = max(runs[n-1].to, to)
-			continue
+		for i := int((from - day0) / dialCell); i < n && day0+int64(i)*dialCell < to; i++ {
+			lo := day0 + int64(i)*dialCell
+			if cells[i] == nil {
+				cells[i] = map[string]int64{}
+			}
+			cells[i][kind] += min(lo+dialCell, to) - max(lo, from)
 		}
-		runs = append(runs, run{from, to, kind})
 	}
 	out := &Dial{Arcs: []Arc{}, Now: -1, Sub: report.Dur(d.TrackedMS) + " tracked"}
-	for _, r := range runs {
-		if r.to-r.from >= dialSliver {
-			out.Arcs = append(out.Arcs, Arc{From: float64(r.from-day0) / span, To: float64(r.to-day0) / span, Kind: r.kind})
+	end := -1 // the cell the last arc ends at
+	for i, m := range cells {
+		var best string
+		var bestMS, total int64
+		for _, k := range append(kindOrder[:len(kindOrder)-1:len(kindOrder)-1], "none", "away") { // a fixed order: ties go the same way every time
+			total += m[k]
+			if m[k] > bestMS {
+				best, bestMS = k, m[k]
+			}
 		}
+		if total < dialCell/3 {
+			continue
+		}
+		at := func(c int) float64 { return math.Min(float64(int64(c)*dialCell)/span, 1) }
+		if k := len(out.Arcs) - 1; k >= 0 && out.Arcs[k].Kind == best && end == i {
+			out.Arcs[k].To = at(i + 1)
+		} else {
+			out.Arcs = append(out.Arcs, Arc{From: at(i), To: at(i + 1), Kind: best})
+		}
+		end = i + 1
 	}
 	if nowMS >= day0 && nowMS < day1 {
 		out.Now = float64(nowMS-day0) / span

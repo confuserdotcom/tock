@@ -229,3 +229,17 @@ func TestDialArcs(t *testing.T) {
 		t.Fatalf("a past day = %+v", past)
 	}
 }
+
+func TestDialChoppyHour(t *testing.T) {
+	day := time.Date(2026, 11, 5, 0, 0, 0, 0, islandLoc)
+	at := func(m int) int64 { return day.Add(time.Duration(14*60+m) * time.Minute).UnixMilli() }
+	var rows []report.Row
+	for m := 0; m < 60; m += 4 {
+		rows = append(rows, report.Row{Start: at(m), End: at(m + 3), Label: classify.Label{Kind: "deep"}},
+			report.Row{Start: at(m + 3), End: at(m + 4), Label: classify.Label{Kind: "distract"}})
+	}
+	dl := dayDial(report.Day{Date: day, Timeline: rows}, islandLoc, at(0))
+	if want := []Arc{{14.0 / 24, 15.0 / 24, "deep"}}; !reflect.DeepEqual(dl.Arcs, want) {
+		t.Fatalf("arcs = %+v", dl.Arcs)
+	}
+}
