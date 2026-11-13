@@ -25,6 +25,7 @@ type Page struct {
 	Bars  []BarCol    `json:"bars,omitempty"`
 	Rings []Ring      `json:"rings,omitempty"`
 	Rows  [][2]string `json:"rows,omitempty"`
+	Dial  *Dial       `json:"dial,omitempty"`
 	Mid   *Page       `json:"mid,omitempty"`
 	Big   *Page       `json:"big,omitempty"`
 }
@@ -50,6 +51,77 @@ type Ring struct {
 	Sub   string  `json:"sub,omitempty"`
 	Frac  float64 `json:"frac"` // 0..1
 	Kind  string  `json:"kind"`
+	// Big draws the ring large with the value inside: the session's clock.
+	Big bool `json:"big,omitempty"`
+}
+
+// Dial is a day as a 24-hour ring, midnight at the top: what was done in
+// kind colours, the work hours outside it, a hand at now.
+type Dial struct {
+	Arcs   []Arc       `json:"arcs"`
+	Now    float64     `json:"now"`            // share of the day; -1 = not today
+	Work   *[2]float64 `json:"work,omitempty"` // the work hours as shares of the day
+	Center string      `json:"center"`         // the time now, or the weekday
+	Sub    string      `json:"sub"`
+}
+
+// Arc is a run of one kind as shares of the day, 0..1 from midnight; kind
+// "none" is unlabelled, "away" is nobody there.
+type Arc struct {
+	From float64 `json:"from"`
+	To   float64 `json:"to"`
+	Kind string  `json:"kind"`
+}
+
+const (
+	dialGap    = 2 * 60_000 // runs of a kind closer than this are one arc
+	dialSliver = 60_000     // arcs shorter than this are not drawn
+)
+
+// dayDial is day d as a dial at nowMS.
+func dayDial(d report.Day, loc *time.Location, nowMS int64) *Dial {
+	day0 := d.Date.UnixMilli()
+	day1 := d.Date.AddDate(0, 0, 1).UnixMilli()
+	span := float64(day1 - day0) // 23 or 25 hours on a clock change
+	type run struct {
+		from, to int64
+		kind     string
+	}
+	var runs []run
+	for _, r := range d.Timeline {
+		from, to := max(r.Start, day0), min(r.End, day1)
+		if to <= from {
+			continue
+		}
+		kind := r.Label.Kind
+		switch {
+		case r.Idle:
+			kind = "away"
+		case kind == "":
+			kind = "none"
+		}
+		if n := len(runs); n > 0 && runs[n-1].kind == kind && from-runs[n-1].to <= dialGap {
+			runs[n-1].to = max(runs[n-1].to, to)
+			continue
+		}
+		runs = append(runs, run{from, to, kind})
+	}
+	out := &Dial{Arcs: []Arc{}, Now: -1, Sub: report.Dur(d.TrackedMS) + " tracked"}
+	for _, r := range runs {
+		if r.to-r.from >= dialSliver {
+			out.Arcs = append(out.Arcs, Arc{From: float64(r.from-day0) / span, To: float64(r.to-day0) / span, Kind: r.kind})
+		}
+	}
+	if nowMS >= day0 && nowMS < day1 {
+		out.Now = float64(nowMS-day0) / span
+		out.Center = clock(nowMS, loc)
+	} else {
+		out.Center = d.Date.Format("Mon")
+	}
+	if w := d.Work; w.Set && !w.Off(d.Date) {
+		out.Work = &[2]float64{float64(w.StartMin) * 60_000 / span, float64(w.EndMin) * 60_000 / span}
+	}
+	return out
 }
 
 // maxRings is how many goals the Goals page shows.
@@ -84,7 +156,7 @@ func TodayPages(s Snapshot, d report.Day, w report.Week, u app.Usual, nowMS int6
 	if ss := s.Session; ss != nil {
 		out = append(out, s.sessionPage(nowMS))
 	}
-	out = append(out, todayPage(d, u, s.loc()), weekPage(w, nowMS), goalsPage(d))
+	out = append(out, todayPage(d, u, s.loc(), nowMS), weekPage(w, nowMS), goalsPage(d))
 	if s.NoFocus {
 		for i := range out {
 			out[i] = unscored(out[i])
@@ -127,9 +199,9 @@ func (s Snapshot) sessionPage(nowMS int64) Page {
 	kind := LevelKind(s.Live.Level)
 	if ss.PlannedMS > ss.StartMS {
 		frac := math.Min(float64(nowMS-ss.StartMS)/float64(ss.PlannedMS-ss.StartMS), 1)
-		p.Rings = []Ring{{Label: "Time", Value: report.Dur(max(ss.PlannedMS-nowMS, 0)) + " left", Frac: math.Max(frac, 0), Kind: kind}}
+		p.Rings = []Ring{{Label: "Time", Value: report.Dur(max(ss.PlannedMS-nowMS, 0)) + " left", Frac: math.Max(frac, 0), Kind: kind, Big: true}}
 	} else {
-		p.Rings = []Ring{{Label: "Time", Value: report.Dur(nowMS-ss.StartMS) + " so far", Frac: 1, Kind: kind}}
+		p.Rings = []Ring{{Label: "Time", Value: report.Dur(nowMS-ss.StartMS) + " so far", Frac: 1, Kind: kind, Big: true}}
 	}
 	if s.Live.Level >= 0 {
 		p.Cells = append(p.Cells, Cell{K: "Focus", V: strconv.Itoa(s.Live.Level) + "%"})
@@ -141,7 +213,7 @@ func (s Snapshot) sessionPage(nowMS int64) Page {
 	return p
 }
 
-func todayPage(d report.Day, u app.Usual, loc *time.Location) Page {
+func todayPage(d report.Day, u app.Usual, loc *time.Location, nowMS int64) Page {
 	p := Page{ID: "today", Title: "Today"}
 	if d.TrackedMS == 0 {
 		p.Note = "Nothing tracked yet today."
@@ -160,7 +232,7 @@ func todayPage(d report.Day, u app.Usual, loc *time.Location) Page {
 	deep := Cell{K: "Deep focus", V: report.Dur(d.Stats.FocusMS)}
 	deep.C, deep.Tone = change(d.Stats.FocusMS, u.FocusMS, has, false)
 	p.Cells = []Cell{score, deep, {K: "Tracked", V: report.Dur(d.TrackedMS)}}
-	p.Strip, p.Axis = dayStrip(d, loc)
+	p.Dial = dayDial(d, loc, nowMS)
 	if d.Hours.Last >= d.Hours.First && d.Hours.MS != nil {
 		mid := &Page{}
 		for h := d.Hours.First; h <= d.Hours.Last; h++ {

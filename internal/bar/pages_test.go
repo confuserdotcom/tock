@@ -62,8 +62,13 @@ func TestTodayPagesNormalDay(t *testing.T) {
 	if today.Cells[0] != (Cell{"Score", "81", "+6", "good"}) || today.Cells[1] != (Cell{"Deep focus", "3h12", "+24m", "good"}) {
 		t.Fatalf("today cells = %+v", today.Cells)
 	}
-	if len(today.Strip) != stripCells || today.Note != "" {
-		t.Fatalf("today strip %d note %q", len(today.Strip), today.Note)
+	// The day as a 24-hour dial replaces the strip: 09–12 deep, a hand at 15:00.
+	if today.Strip != nil || today.Note != "" || today.Dial == nil {
+		t.Fatalf("today strip %d note %q dial %v", len(today.Strip), today.Note, today.Dial)
+	}
+	if dl := today.Dial; !reflect.DeepEqual(dl.Arcs, []Arc{{From: 9.0 / 24, To: 12.0 / 24, Kind: "deep"}}) ||
+		dl.Now != 15.0/24 || dl.Center != "15:00" || dl.Sub != "5h00 tracked" || dl.Work != nil {
+		t.Fatalf("today dial = %+v", dl)
 	}
 	if today.Mid == nil || len(today.Mid.Bars) != 3 || today.Mid.Bars[0].Parts[0] != (Part{"deep", 50 * 60_000}) || today.Mid.Bars[0].Label != "09" {
 		t.Fatalf("today mid = %+v", today.Mid)
@@ -118,7 +123,7 @@ func TestTodayPagesSessionFirst(t *testing.T) {
 		t.Fatalf("pages = %v", got)
 	}
 	ss := ps[0]
-	if ss.Lead != "Write the notch pages" || len(ss.Rings) != 1 || ss.Rings[0].Value != "30m left" || ss.Rings[0].Frac != 0.4 || ss.Rings[0].Kind != "deep" {
+	if ss.Lead != "Write the notch pages" || len(ss.Rings) != 1 || ss.Rings[0].Value != "30m left" || ss.Rings[0].Frac != 0.4 || ss.Rings[0].Kind != "deep" || !ss.Rings[0].Big {
 		t.Fatalf("session = %+v", ss)
 	}
 	if ss.Cells[0] != (Cell{K: "Focus", V: "82%"}) || ss.Cells[1] != (Cell{K: "Started", V: "14:00"}) || ss.Cells[2] != (Cell{K: "Ends", V: "14:50"}) {
@@ -202,5 +207,25 @@ func TestTodayPagesFocusOff(t *testing.T) {
 	items := titles(Snapshot{OK: true, NoFocus: true, Active: true, TrackedMS: 3600_000}.Items(0))
 	if strings.Contains(items, "score") || strings.Contains(items, "Start ") {
 		t.Fatalf("menu with focus off:\n%s", items)
+	}
+}
+
+func TestDialArcs(t *testing.T) {
+	day := time.Date(2026, 11, 5, 0, 0, 0, 0, islandLoc)
+	at := func(m int) int64 { return day.Add(time.Duration(m) * time.Minute).UnixMilli() }
+	d := report.Day{Date: day, Timeline: []report.Row{
+		{Start: at(-60), End: at(60), Label: classify.Label{Kind: "deep"}},      // from yesterday: cut at midnight
+		{Start: at(61), End: at(120), Label: classify.Label{Kind: "deep"}},      // a minute's gap: one arc
+		{Start: at(120), End: at(180), Idle: true},                              // away
+		{Start: at(600), End: at(600) + 20_000, Label: classify.Label{}},        // a sliver: dropped
+		{Start: at(23 * 60), End: at(25 * 60), Label: classify.Label{Kind: ""}}, // unlabelled, cut at midnight
+	}, Work: stats.Hours{Set: true, Days: [7]bool{4: true}, StartMin: 9 * 60, EndMin: 17 * 60}}
+	dl := dayDial(d, islandLoc, at(30))
+	want := []Arc{{0, 2.0 / 24, "deep"}, {2.0 / 24, 3.0 / 24, "away"}, {23.0 / 24, 1, "none"}}
+	if !reflect.DeepEqual(dl.Arcs, want) || dl.Work == nil || *dl.Work != [2]float64{9.0 / 24, 17.0 / 24} {
+		t.Fatalf("dial = %+v work %v", dl.Arcs, dl.Work)
+	}
+	if past := dayDial(d, islandLoc, at(48*60)); past.Now != -1 || past.Center != "Thu" {
+		t.Fatalf("a past day = %+v", past)
 	}
 }

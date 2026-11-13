@@ -541,6 +541,136 @@ static void pillDone(NSWindow *w);
 }
 @end
 
+// Hero is the head of a page: a big drawing on the left (the running
+// session's ring with its time inside, or the day as a 24-hour dial) and
+// the page's figures as a column beside it.
+@interface Hero : FlipView
+@property(strong) NSDictionary *ring;   // a big Ring, or nil
+@property(strong) NSDictionary *dial;   // a Dial, or nil
+@property(strong) NSArray<NSDictionary *> *cells;
+@end
+@implementation Hero
++ (CGFloat)side {
+    return scaled(112);
+}
++ (CGFloat)heightFor:(NSArray *)cells {
+    return MAX([Hero side], cells.count * scaled(30));
+}
+// arcAt strokes share a..b of a circle round c, clockwise from 12 o'clock
+// (the view is flipped, so angles run clockwise).
+static void arcAt(NSPoint c, CGFloat r, double a, double b, CGFloat lw, NSColor *col, BOOL round) {
+    if (b <= a) {
+        return;
+    }
+    NSBezierPath *p = [NSBezierPath bezierPath];
+    [p appendBezierPathWithArcWithCenter:c radius:r startAngle:-90 + 360 * a endAngle:-90 + 360 * b clockwise:NO];
+    p.lineWidth = lw;
+    p.lineCapStyle = round ? NSLineCapStyleRound : NSLineCapStyleButt;
+    [col setStroke];
+    [p stroke];
+}
+static NSPoint onCircle(NSPoint c, CGFloat r, double t) {
+    return NSMakePoint(c.x + r * sin(t * 2 * M_PI), c.y - r * cos(t * 2 * M_PI));
+}
+static void centred(NSString *s, NSFont *f, NSColor *col, NSPoint c) {
+    if (!s.length) {
+        return;
+    }
+    NSDictionary *a = @{NSFontAttributeName : f, NSForegroundColorAttributeName : col};
+    NSSize sz = [s sizeWithAttributes:a];
+    [s drawAtPoint:NSMakePoint(round(c.x - sz.width / 2), round(c.y - sz.height / 2)) withAttributes:a];
+}
+- (void)drawRing:(NSPoint)c side:(CGFloat)d {
+    CGFloat lw = 9, r = (d - lw) / 2;
+    arcAt(c, r, 0, 1, lw, white(0.12), NO);
+    double f = MIN(MAX([self.ring[@"frac"] doubleValue], 0), 1);
+    arcAt(c, r, 0, MAX(f, 0.004), lw, kindColor(sval(self.ring, @"kind")), YES);
+    // "30m left": the figure large, the rest under it
+    NSString *v = sval(self.ring, @"value");
+    NSRange sp = [v rangeOfString:@" "];
+    NSString *big = sp.location == NSNotFound ? v : [v substringToIndex:sp.location];
+    NSString *small = sp.location == NSNotFound ? @"" : [v substringFromIndex:sp.location + 1];
+    centred(big, digits(22, NSFontWeightSemibold), white(1), NSMakePoint(c.x, c.y - scaled(5)));
+    centred(small, sys(10.5, NSFontWeightRegular), white(0.55), NSMakePoint(c.x, c.y + scaled(13)));
+}
+- (void)drawDial:(NSPoint)c side:(CGFloat)d {
+    CGFloat lw = 9, r = (d - lw) / 2 - 4;
+    double now = [self.dial[@"now"] doubleValue];
+    arcAt(c, r, 0, 1, lw, white(0.07), NO);
+    if (now > 0) {
+        arcAt(c, r, 0, MIN(now, 1), lw, white(0.13), NO); // the hours gone
+    }
+    NSArray *work = aval(self.dial, @"work");
+    if (work.count == 2) {
+        arcAt(c, r + lw / 2 + 3, [work[0] doubleValue], [work[1] doubleValue], 1.5, white(0.35), YES);
+    }
+    for (NSDictionary *a in aval(self.dial, @"arcs")) {
+        NSString *k = sval(a, @"kind");
+        double from = [a[@"from"] doubleValue], to = MAX([a[@"to"] doubleValue], from + 0.002);
+        arcAt(c, r, from, to, lw, [k isEqualToString:@"away"] ? white(0.2) : kindColor(k), NO);
+    }
+    for (int h = 0; h < 24; h += 6) { // the quarters
+        NSPoint p0 = onCircle(c, r - lw / 2 - 2, h / 24.0), p1 = onCircle(c, r - lw / 2 - 5, h / 24.0);
+        NSBezierPath *t = [NSBezierPath bezierPath];
+        [t moveToPoint:p0];
+        [t lineToPoint:p1];
+        t.lineWidth = 1;
+        [white(0.35) setStroke];
+        [t stroke];
+    }
+    if (now >= 0) { // the hand: across the ring, a dot outside
+        NSPoint a = onCircle(c, r - lw / 2 - 1, now), b = onCircle(c, r + lw / 2 + 2, now);
+        NSBezierPath *hnd = [NSBezierPath bezierPath];
+        [hnd moveToPoint:a];
+        [hnd lineToPoint:b];
+        hnd.lineWidth = 2;
+        hnd.lineCapStyle = NSLineCapStyleRound;
+        [white(1) setStroke];
+        [hnd stroke];
+        [white(1) setFill];
+        [[NSBezierPath bezierPathWithOvalInRect:NSMakeRect(b.x - 2.5, b.y - 2.5, 5, 5)] fill];
+    }
+    centred(sval(self.dial, @"center"), digits(19, NSFontWeightSemibold), white(1), NSMakePoint(c.x, c.y - scaled(5)));
+    centred(sval(self.dial, @"sub"), digits(10, NSFontWeightRegular), white(0.55), NSMakePoint(c.x, c.y + scaled(12)));
+}
+- (void)drawRect:(NSRect)r {
+    (void)r;
+    CGFloat d = [Hero side], h = self.bounds.size.height;
+    NSPoint c = NSMakePoint(d / 2, h / 2);
+    if (self.ring) {
+        [self drawRing:c side:d];
+    } else if (self.dial) {
+        [self drawDial:c side:d];
+    }
+    // the figures: label left, value right, the change under the value
+    CGFloat x = d + 22, w = self.bounds.size.width - x, row = scaled(30);
+    CGFloat y = round((h - self.cells.count * row) / 2);
+    NSMutableParagraphStyle *right = [NSMutableParagraphStyle new];
+    right.alignment = NSTextAlignmentRight;
+    for (NSUInteger i = 0; i < self.cells.count; i++) {
+        NSDictionary *cl = self.cells[i];
+        if (i > 0) {
+            [white(0.1) setFill]; // over, not copy: NSRectFill would paint it opaque
+            NSRectFillUsingOperation(NSMakeRect(x, floor(y), w, 1), NSCompositingOperationSourceOver);
+        }
+        NSString *tone = sval(cl, @"tone");
+        NSColor *tc = [tone isEqualToString:@"good"] ? kindColor(@"good") : [tone isEqualToString:@"bad"] ? kindColor(@"distract") : white(0.5);
+        [sval(cl, @"k") drawAtPoint:NSMakePoint(x, y + scaled(8))
+                     withAttributes:@{NSFontAttributeName : sys(11, NSFontWeightRegular), NSForegroundColorAttributeName : white(0.6)}];
+        NSString *ch = sval(cl, @"c");
+        CGFloat cw = 0;
+        if (ch.length) {
+            NSDictionary *ca = @{NSFontAttributeName : digits(10.5, NSFontWeightMedium), NSForegroundColorAttributeName : tc};
+            cw = [ch sizeWithAttributes:ca].width + 8;
+            [ch drawAtPoint:NSMakePoint(x + w - cw + 8, y + scaled(9)) withAttributes:ca];
+        }
+        [sval(cl, @"v") drawInRect:NSMakeRect(x, y + scaled(5), w - cw, scaled(20))
+                    withAttributes:@{NSFontAttributeName : digits(15, NSFontWeightSemibold), NSForegroundColorAttributeName : white(1), NSParagraphStyleAttributeName : right}];
+        y += row;
+    }
+}
+@end
+
 // PageDots shows which page of the open notch is in view.
 @interface PageDots : FlipView
 @property NSInteger count, at;
@@ -1671,13 +1801,28 @@ static void haptic(NSHapticFeedbackPattern p) {
 // bars, the strip, then rows. Returns the y under them.
 - (CGFloat)section:(NSDictionary *)d in:(NSView *)v x:(CGFloat)x y:(CGFloat)y width:(CGFloat)w {
     NSArray *cells = aval(d, @"cells");
+    NSArray *rings = aval(d, @"rings");
+    NSDictionary *bigRing = rings.count == 1 && bval(rings[0], @"big") ? rings[0] : nil;
+    NSDictionary *dial = dval(d, @"dial");
+    if (bigRing || dial) { // the hero takes the figures beside it
+        CGFloat h = [Hero heightFor:cells];
+        Hero *hr = [[Hero alloc] initWithFrame:NSMakeRect(x, y, w, h)];
+        hr.ring = bigRing;
+        hr.dial = bigRing ? nil : dial;
+        hr.cells = cells;
+        [v addSubview:hr];
+        y += h + 12;
+        cells = @[];
+        if (bigRing) {
+            rings = @[];
+        }
+    }
     if (cells.count) {
         Cells *c = [[Cells alloc] initWithFrame:NSMakeRect(x, y, w, scaled(56))];
         c.cells = cells;
         [v addSubview:c];
         y += scaled(56) + 12;
     }
-    NSArray *rings = aval(d, @"rings");
     if (rings.count) {
         CGFloat h = [Rings heightFor:rings];
         Rings *g = [[Rings alloc] initWithFrame:NSMakeRect(x, y, w, h)];

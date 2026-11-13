@@ -1758,6 +1758,13 @@ pass of the pointer on its way to a menu does nothing. With
 the open notch starts a session in one click: **Focus 25m** (your default
 length) and the next preset sit beside **Open Today**.
 
+The open notch has pages you swipe between. **Today** opens on the day as
+a 24-hour dial, as on the dashboard: your time in kind colours, your work
+hours round the outside, a hand at now, with the score, deep focus and
+time tracked beside it. A running session gets a page of its own first: a
+large ring counting down the time left, with your focus level and the
+start and end times beside it.
+
 - **A focus session** shows its goal on the left of the notch and the time
   left on the right. The dot is the live focus level in its kind colour:
   blue-teal when deep, slate when shallow, brick when you drift. Hover for
