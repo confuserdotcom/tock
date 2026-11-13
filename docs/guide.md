@@ -1804,7 +1804,7 @@ confuserdotcom/tock` checks that GitHub's release workflow built that file
 from the tag, not someone's laptop:
 
 ```sh
-tar xzf tock-v5.4.0-linux-amd64.tar.gz && cd tock-v5.4.0-linux-amd64
+tar xzf tock-v*-linux-amd64.tar.gz && cd tock-v*-linux-amd64
 install -m 755 trackd tock ~/.local/bin/ && ~/.local/bin/trackd install && tock init
 ```
 
