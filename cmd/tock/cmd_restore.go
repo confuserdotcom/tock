@@ -73,7 +73,7 @@ func startServices(env Env) error {
 		return nil
 	}
 	if setupGOOS == "windows" {
-		return startWindows()
+		return startWindows(env)
 	}
 	if env.Linux {
 		_, err := setupRun("systemctl", "--user", "start", "trackd")

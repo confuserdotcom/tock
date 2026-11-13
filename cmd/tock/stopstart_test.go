@@ -73,7 +73,7 @@ func TestWindowsStartRunsTrackdNextToTock(t *testing.T) {
 	setupGOOS = "windows"
 	te.DataDir = paths.Standard().Data
 	var got string
-	startTrackdExe = func(p string) error { got = p; return nil }
+	startTrackdExe = func(p, _ string) error { got = p; return nil }
 	if err := startServices(te.Env); err != nil {
 		t.Fatal(err)
 	}

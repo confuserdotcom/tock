@@ -28,7 +28,7 @@ $v = (Get-ItemProperty -Path $run -Name 'tock trackd').'tock trackd'
 if ($v -ne "`"$bin\tock.exe`" start") { Write-Error "Run key is '$v'" }
 Start-Sleep -Seconds 3
 if (-not (Get-Process trackd -ErrorAction SilentlyContinue)) {
-    Get-Content (Join-Path $env:TOCK_STATE_DIR 'trackd.log') -ErrorAction SilentlyContinue
+    Get-Content (Join-Path $env:TOCK_STATE_DIR 'trackd.log'), (Join-Path $env:TOCK_STATE_DIR 'trackd.out') -ErrorAction SilentlyContinue
     # the same trackd, run in the open, says why it stops
     $p = Start-Process "$bin\trackd.exe" -PassThru -NoNewWindow -RedirectStandardError "$env:RUNNER_TEMP\trackd.err" -RedirectStandardOutput "$env:RUNNER_TEMP\trackd.out"
     Start-Sleep -Seconds 4
