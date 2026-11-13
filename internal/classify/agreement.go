@@ -16,6 +16,15 @@ type Agreement struct {
 	MS, AgreedMS, UnlabelledMS int64
 	PerCategory                []AgreementRow // by hand-labelled time, most first
 	Confusions                 []Confusion    // by time, most first
+	Blanks                     []Blank        // what tock left blank, by Key; by time, most first
+}
+
+// Blank is time you labelled Label in windows of one Key that tock left
+// unlabelled: where a rule would help most.
+type Blank struct {
+	Key, Label string
+	MS         int64
+	N          int
 }
 
 // AgreementRow is one category: time you labelled it, the part tock agreed
@@ -56,6 +65,7 @@ func (rs *Ruleset) Agreement(views []SpanView, ovs map[int64]Override, folds int
 		return r
 	}
 	conf := map[[2]string]*Confusion{}
+	blanks := map[[2]string]*Blank{}
 	for _, fs := range splitFolds(views, ovs, ex, folds) {
 		held := fs.held
 		m := Train(MergeTraining(fs.train), seed)
@@ -85,6 +95,14 @@ func (rs *Ruleset) Agreement(views []SpanView, ovs map[int64]Override, folds int
 			case got == "":
 				a.Unlabelled++
 				a.UnlabelledMS += ms
+				k := [2]string{Key(v), want}
+				b := blanks[k]
+				if b == nil {
+					b = &Blank{Key: k[0], Label: want}
+					blanks[k] = b
+				}
+				b.MS += ms
+				b.N++
 			default:
 				k := [2]string{want, got}
 				c := conf[k]
@@ -114,6 +132,15 @@ func (rs *Ruleset) Agreement(views []SpanView, ovs map[int64]Override, folds int
 			return cmpDesc(x.MS, y.MS)
 		}
 		return strings.Compare(x.Label+x.Guess, y.Label+y.Guess)
+	})
+	for _, b := range blanks {
+		a.Blanks = append(a.Blanks, *b)
+	}
+	slices.SortFunc(a.Blanks, func(x, y Blank) int {
+		if x.MS != y.MS {
+			return cmpDesc(x.MS, y.MS)
+		}
+		return strings.Compare(x.Key+x.Label, y.Key+y.Label)
 	})
 	return a
 }

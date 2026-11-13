@@ -32,6 +32,9 @@ func TestAgreement(t *testing.T) {
 	if len(a.Confusions) != 1 || a.Confusions[0] != (Confusion{Label: "Study", Guess: "Code", MS: 120_000, N: 1}) {
 		t.Fatalf("confusions = %+v", a.Confusions)
 	}
+	if len(a.Blanks) != 1 || a.Blanks[0] != (Blank{Key: "mail · inbox", Label: "Code", MS: 30_000, N: 1}) {
+		t.Fatalf("blanks = %+v", a.Blanks)
+	}
 	byCat := map[string]AgreementRow{}
 	for _, r := range a.PerCategory {
 		byCat[r.Category] = r

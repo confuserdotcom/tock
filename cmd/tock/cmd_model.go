@@ -140,6 +140,24 @@ func printAgreement(env Env, ag classify.Agreement) {
 		}
 		fmt.Fprintf(env.Stdout, "    %-18s → %-18s %s\n", c.Label, c.Guess, report.Dur(c.MS))
 	}
+	for i, b := range ag.Blanks {
+		if i == 5 {
+			break
+		}
+		if i == 0 {
+			fmt.Fprintln(env.Stdout, "  left blank (a rule would catch these)")
+		}
+		fmt.Fprintf(env.Stdout, "    %-38s %-18s %s\n", trimTo(b.Key, 38), b.Label, report.Dur(b.MS))
+	}
+}
+
+// trimTo cuts s to n runes, ending in … when cut.
+func trimTo(s string, n int) string {
+	r := []rune(s)
+	if len(r) <= n {
+		return s
+	}
+	return string(r[:n-1]) + "…"
 }
 
 func pct64(n, of int64) int {
