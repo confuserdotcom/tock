@@ -242,6 +242,7 @@ type fzOracle struct {
 	jumps     []fzInterval // forward clock-jump gaps
 	hard      map[int64]bool
 	acts      []int64 // idle backdate targets: ts - floor(IdleS*1000)
+	actTS     []int64 // the sample time of each target, in step
 
 	haveFirst  bool
 	first, max int64
@@ -378,6 +379,7 @@ func (o *fzOracle) sample(s Sample) {
 	if idleMS >= fzIdleThr {
 		act := ts - idleMS
 		o.acts = append(o.acts, act)
+		o.actTS = append(o.actTS, ts)
 		o.hard[act] = true
 	}
 }
@@ -464,11 +466,13 @@ func fzCheck(spans []Span, o *fzOracle, eras map[int64]int) error {
 		}
 		// (7) an idle span starts at an idle backdate target, or at the end
 		// of the span before it when the target was clamped to what is
-		// already recorded.
+		// already recorded, or, first of all, at its sample's time: nothing
+		// is backdated before trackd's first look.
 		if sp.BundleID == IdleBundleID {
 			ok := false
-			for _, act := range o.acts {
-				if act == sp.Start || (act <= sp.Start && i > 0 && sp.Start == *spans[i-1].End) {
+			for j, act := range o.acts {
+				if act == sp.Start || (act <= sp.Start && i > 0 && sp.Start == *spans[i-1].End) ||
+					(i == 0 && act <= sp.Start && sp.Start == o.actTS[j]) {
 					ok = true
 					break
 				}

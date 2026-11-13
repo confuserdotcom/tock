@@ -21,6 +21,16 @@ func TestIdleBackdatesAndOpensIdleSpan(t *testing.T) {
 	})
 }
 
+func TestIdleNeverBeforeFirstSample(t *testing.T) {
+	// trackd starts on a machine idle for 400 s: the idle span starts when
+	// trackd first looked, not 400 s before it ran.
+	m := New(DefaultConfig())
+	ops := feedAll(m, S(t0, "Terminal", "", 400.0))
+	assertSpans(t, replay(t, ops), []Span{
+		WO(t0, IdleBundleID),
+	})
+}
+
 func TestIdleThresholdExact(t *testing.T) {
 	a := t0 + 10000
 

@@ -399,9 +399,11 @@ func (m *Merger) feedSample(s *Sample) []Op {
 	switch {
 	case idleMS >= thr:
 		// Rule 5: idle. The activity time is when the user last
-		// touched the machine, never earlier than what is already recorded.
+		// touched the machine, never earlier than what is already recorded,
+		// nor, with nothing recorded yet, than this sample: input from
+		// before trackd ran says nothing of time it did not see.
 		act := ts - idleMS
-		floor := act
+		floor := ts
 		if m.cur != nil {
 			floor = m.cur.start
 		} else if m.prev != nil {
