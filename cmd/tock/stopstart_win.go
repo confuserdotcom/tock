@@ -72,12 +72,16 @@ const startSettle = 2 * time.Second
 
 // watchStart waits settle for c to exit. Still running: it is let go and
 // all is well. Gone: the error carries the end of what it wrote to outPath.
+//
+// A still-running trackd is not Released: the goroutine below is inside
+// Wait on the same process, and Release would race it. tock exits soon
+// after, which lets go of the process anyway.
 func watchStart(c *exec.Cmd, outPath string, settle time.Duration) error {
 	done := make(chan error, 1)
 	go func() { done <- c.Wait() }()
 	select {
 	case <-time.After(settle):
-		return c.Process.Release()
+		return nil
 	case err := <-done:
 		b, _ := os.ReadFile(outPath)
 		tail := strings.TrimSpace(string(b))
