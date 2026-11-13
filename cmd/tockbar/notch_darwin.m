@@ -165,6 +165,7 @@ static void notchSend(NSString *ident) {
 static NSString *countdown(long long endMS) {
     long long now = (long long)([[NSDate date] timeIntervalSince1970] * 1000);
     long long s = (MAX(endMS - now, 0) + 999) / 1000;
+    if (s >= 3600) return [NSString stringWithFormat:@"%lld:%02lld:%02lld", s / 3600, s / 60 % 60, s % 60];
     return [NSString stringWithFormat:@"%lld:%02lld", s / 60, s % 60];
 }
 
@@ -1513,7 +1514,7 @@ static void haptic(NSHapticFeedbackPattern p) {
         rt = text(right, df, ink);
         if (end > 0) {
             // as wide as the widest it gets, so the island does not twitch
-            CGFloat cw = MAX(rt.frame.size.width, ceil([@"88:88" sizeWithAttributes:@{NSFontAttributeName : df}].width) + 2);
+            CGFloat cw = MAX(rt.frame.size.width, ceil([(rt.stringValue.length > 5 ? @"8:88:88" : @"88:88") sizeWithAttributes:@{NSFontAttributeName : df}].width) + 2);
             rt.alignment = NSTextAlignmentRight;
             objc_setAssociatedObject(rt, "end", @(end), OBJC_ASSOCIATION_RETAIN);
             rt.frame = NSMakeRect(0, 0, cw, rt.frame.size.height);
@@ -1523,8 +1524,11 @@ static void haptic(NSHapticFeedbackPattern p) {
     // the dim text sits after the value: "18:42 left", "in 2m" puts it before
     BOOL dimFirst = [rd isEqualToString:@"in"];
     NSTextField *dt = rd.length ? text(rd, sys(13, NSFontWeightRegular), white(0.55)) : nil;
-    NSArray *order = dimFirst ? @[ rt ?: [NSNull null], dt ?: [NSNull null] ] : @[ dt ?: [NSNull null], rt ?: [NSNull null] ];
     CGFloat rightEdge = w - wing + 4; // never under the camera
+    if (rt && dt && rt.frame.size.width + 5 + dt.frame.size.width > rx - rightEdge) {
+        dt = nil; // short of room the value stays, its word goes
+    }
+    NSArray *order = dimFirst ? @[ rt ?: [NSNull null], dt ?: [NSNull null] ] : @[ dt ?: [NSNull null], rt ?: [NSNull null] ];
     for (id o in order) {
         if (o == [NSNull null]) {
             continue;
@@ -1555,7 +1559,8 @@ static void haptic(NSHapticFeedbackPattern p) {
     if (sval(f, @"left_dim").length) {
         l += 6 + [sval(f, @"left_dim") sizeWithAttributes:@{NSFontAttributeName : ft}].width;
     }
-    NSString *right = ival(f, @"end_ms") > 0 ? @"88:88" : sval(f, @"right");
+    long long endMS = ival(f, @"end_ms");
+    NSString *right = endMS > 0 ? (countdown(endMS).length > 5 ? @"8:88:88" : @"88:88") : sval(f, @"right");
     CGFloat r = 14 + [right sizeWithAttributes:@{NSFontAttributeName : digits(13, NSFontWeightMedium)}].width;
     if (sval(f, @"right_dim").length) {
         r += 5 + [sval(f, @"right_dim") sizeWithAttributes:@{NSFontAttributeName : ft}].width;
@@ -1613,9 +1618,9 @@ static void haptic(NSHapticFeedbackPattern p) {
     title.frame = NSMakeRect(kPad + 38, y - 1, tw, title.frame.size.height);
     [c addSubview:title];
     NSTextField *sub = text(sval(e, @"sub"), sys(11.5, NSFontWeightRegular), white(0.55));
-    sub.frame = NSMakeRect(kPad + 38, y + 15, tw, sub.frame.size.height);
+    sub.frame = NSMakeRect(kPad + 38, y + 17, tw, sub.frame.size.height);
     [c addSubview:sub];
-    y += 38;
+    y += 40;
     // the label chips, then Skip
     CGFloat x = kPad;
     NSInteger picked = (NSInteger)ival(e, @"picked");
@@ -1648,9 +1653,12 @@ static void haptic(NSHapticFeedbackPattern p) {
         x += pw + 8;
     }
     y += 26 + 8;
+    // Before a pick the line says what a pick does; after, what it did.
+    // It is there either way, so the card keeps its height.
     NSString *saved = sval(e, @"saved");
-    NSTextField *st = wrapped(saved.length ? saved : @" ", sys(12, NSFontWeightRegular),
-                              [saved hasPrefix:@"Not saved"] ? kindColor(@"distract") : white(0.78), w - kPad * 2, 2);
+    NSColor *sc = saved.length ? ([saved hasPrefix:@"Not saved"] ? kindColor(@"distract") : white(0.78)) : white(0.4);
+    NSTextField *st = wrapped(saved.length ? saved : @"A pick labels these entries and, where it can, saves a rule for next time.",
+                              sys(12, NSFontWeightRegular), sc, w - kPad * 2, 2);
     st.frame = NSMakeRect(kPad, y, st.frame.size.width, MAX(st.frame.size.height, 16));
     [c addSubview:st];
     y += st.frame.size.height + 10;
