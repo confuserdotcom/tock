@@ -34,7 +34,7 @@ CODESIGN_TIMEOUT ?= 60
 # receives SIGALRM and exits 142 when it overruns.
 WITH_TIMEOUT = perl -e 'alarm shift; exec @ARGV or exit 127'
 
-.PHONY: bench dmg src formula dist-mac dist-linux web web-check icon release install-linux uninstall-linux deploy-linux build test test-quick vet clean bundle bundle-bar print-dr cert cert-trust dump dump-bg dump-stop install install-mac uninstall update update-here hooks publish-linux bootstrap-hint
+.PHONY: build-windows bench dmg src formula dist-mac dist-linux web web-check icon release install-linux uninstall-linux deploy-linux build test test-quick vet clean bundle bundle-bar print-dr cert cert-trust dump dump-bg dump-stop install install-mac uninstall update update-here hooks publish-linux bootstrap-hint
 
 build:
 	CGO_ENABLED=1 go build -ldflags "$(LDFLAGS)" -o bin/trackd ./cmd/trackd
@@ -43,6 +43,14 @@ build:
 
 test-quick:
 	CGO_ENABLED=0 go test ./internal/span/... ./internal/store/... ./internal/classify/... ./internal/stats/... ./internal/focus/... ./internal/recommend/... ./internal/config/... ./internal/report/... ./internal/suggest/... ./internal/claude/... ./internal/app/... ./internal/tui/... ./internal/bar/... ./internal/service/... ./internal/update/... -count=1
+
+# Windows binaries, pure Go (no cgo), for trying tock on a Windows machine.
+build-windows:
+	@for a in amd64 arm64; do \
+		GOOS=windows GOARCH=$$a CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)" -o build/windows-$$a/tock.exe ./cmd/tock && \
+		GOOS=windows GOARCH=$$a CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)" -o build/windows-$$a/trackd.exe ./cmd/trackd || exit 1; \
+	done
+	@echo "built build/windows-{amd64,arm64}"
 
 test:
 	go vet ./...

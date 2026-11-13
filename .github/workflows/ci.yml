@@ -24,6 +24,29 @@ jobs:
         run: CGO_ENABLED=0 go build ./...
       - name: test
         run: CGO_ENABLED=0 go test ./... -count=1
+      - name: cross-build for Windows
+        run: |
+          GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go vet ./...
+          GOOS=windows GOARCH=arm64 CGO_ENABLED=0 go build ./...
+
+  # Windows: the build and the tests, natively. The collector, the service
+  # and the tray are still Unix/macOS only there; this keeps the rest from
+  # breaking on Windows while they are written.
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+      - name: vet
+        run: go vet ./...
+      - name: build
+        run: go build ./...
+      - name: test
+        run: go test ./... -count=1
+      - name: race
+        run: go test -race ./internal/flock/... ./internal/store/... ./internal/paths/... -count=1
 
   # Data races: trackd's sources, the store and the notch runner all hand
   # values between goroutines. Includes the performance budget tests.
