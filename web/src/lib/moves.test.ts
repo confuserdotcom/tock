@@ -24,6 +24,11 @@ test("a met goal and a spent limit say so, a near limit warns", () => {
   ]);
 });
 
+test("a goal goes by its category's name, not its rule", () => {
+  expect(moves({ inboxMS: 0, today: true, goals: [goal({ name: "Fun", text: "Fun ≤45m/day", atMost: true, ms: 45 * M, doneMS: 60 * M })] })[0].text)
+    .toBe("Fun is 15m past its limit");
+});
+
 test("week goals, small inboxes and past days add nothing to do", () => {
   expect(moves({ inboxMS: 2 * M, goals: [goal({ week: true, days: 5, held: 2 })], today: true })).toEqual([]);
   expect(moves({ inboxMS: 90 * M, goals: [goal({})], today: false })).toEqual([]);

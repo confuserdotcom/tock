@@ -15,7 +15,7 @@ export function moves({ inboxMS, goals, today }: { inboxMS: number; goals: Goal[
   if (inboxMS >= MIN_INBOX) out.push({ id: "inbox", text: `Label ${dur(inboxMS)} waiting in the Inbox`, to: "inbox", tone: "plain", rank: RANK.inbox });
   for (const g of goals) {
     if (g.week || g.days) continue; // a week's goal is held by days, not by today alone
-    const name = g.text || g.name, left = g.ms - g.doneMS, id = `goal:${g.name}`;
+    const name = g.name || g.text, left = g.ms - g.doneMS, id = `goal:${g.name}`;
     let m: Move;
     if (g.atMost) {
       if (left < 0) m = { id, text: `${name} is ${dur(-left)} past its limit`, to: "goals", tone: "bad" };
