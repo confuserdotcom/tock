@@ -131,7 +131,7 @@ func main() {
 		StateDir:  stateDir(),
 		ConfigDir: configDir(),
 		NewSource: newSource,
-		Stderr:    os.Stderr,
+		Stderr:    logOutput(stateDir()),
 		Notifier:  osascriptNotifier{},
 		Remover:   defaultRemover(),
 		Tock:      findTock(),
