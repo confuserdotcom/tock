@@ -13,6 +13,8 @@ Useful things to include: the version (`tock version` and `tock doctor`), the OS
 attacker can read or change, and steps to reproduce. For an ordinary bug,
 `tock bug-report` writes a file without your titles or URLs to attach.
 
+What has been checked, and where to look: [docs/security-review.md](docs/security-review.md).
+
 ## In scope
 
 - Activity leaving the machine when it shouldn't: from trackd or tockbar at
