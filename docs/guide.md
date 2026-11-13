@@ -1020,7 +1020,10 @@ page to your browser and runs until you press ctrl-c.
   (worked, deep, distracting, away, switches, longest run) and the last
   few apps change with it. Space plays and pauses, ← → step a quarter
   hour, drag the strip to scrub; it plays from 1 minute to 1 hour of the
-  day a second.
+  day a second. **Video** saves the replay as a 20-second clip
+  (1280x720 webm, mp4 where the browser records only that), drawn in the
+  dashboard's theme; it takes as long as the clip, and clicking it again
+  stops it.
   Then the focus score with its change against your usual same weekday
   (the middle of the last four), and four stats with their changes:
   focus time, longest block, distraction and switches per hour. Next to it,

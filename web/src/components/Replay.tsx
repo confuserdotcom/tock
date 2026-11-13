@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Pause, Play, RotateCcw, X } from "lucide-react";
+import { Film, Pause, Play, RotateCcw, X } from "lucide-react";
 import { Panel } from "@/components/Panel";
 import { Button } from "@/components/ui/button";
 import type { Row } from "@/lib/api";
 import { dur, hhmm } from "@/lib/format";
 import { kindColor, kindLabel } from "@/lib/kinds";
+import { saveBlob } from "@/lib/download";
 import { frame, ordered } from "@/lib/replay";
+import { CLIP_S, canRecord, readPalette, recordReplay, videoName } from "@/lib/replayVideo";
 import { cn } from "@/lib/utils";
 
 // The longest step one animation frame may take.
@@ -29,6 +31,12 @@ export function Replay({ rows: raw, from, to, onClose }: { rows: Row[]; from: nu
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
   const strip = useRef<HTMLDivElement>(null);
+  // The video export: its progress while it renders, then what became of it.
+  const [rendering, setRendering] = useState<number | null>(null);
+  const [videoNote, setVideoNote] = useState("");
+  const abort = useRef<AbortController | null>(null);
+  useEffect(() => () => abort.current?.abort(), []);
+  const recordable = useMemo(canRecord, []);
   const atRef = useRef(at);
   atRef.current = at;
 
@@ -76,6 +84,32 @@ export function Replay({ rows: raw, from, to, onClose }: { rows: Row[]; from: nu
     }
   };
 
+  const exportVideo = async () => {
+    if (abort.current) {
+      abort.current.abort();
+      return;
+    }
+    const ac = new AbortController();
+    abort.current = ac;
+    setPlaying(false);
+    setVideoNote("");
+    setRendering(0);
+    try {
+      const title = new Date(from).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" });
+      const { blob, mime } = await recordReplay(rows, start, to, {
+        title, palette: readPalette(), signal: ac.signal, onProgress: (p) => setRendering(p),
+      });
+      setRendering(null);
+      const r = await saveBlob(blob, videoName(from, mime));
+      setVideoNote(r.saved ? `Saved ${r.name}` : r.error ? `Not saved: ${r.error}` : "");
+    } catch (e) {
+      if (!(e instanceof DOMException && e.name === "AbortError")) setVideoNote(`Video failed: ${e instanceof Error ? e.message : e}`);
+    } finally {
+      abort.current = null;
+      setRendering(null);
+    }
+  };
+
   const now = f.now;
   return (
     <div onKeyDown={onKey} aria-label="Replay of the day">
@@ -90,6 +124,12 @@ export function Replay({ rows: raw, from, to, onClose }: { rows: Row[]; from: nu
                 {s.label}
               </button>
             ))}
+            <button onClick={exportVideo} disabled={!recordable}
+              title={!recordable ? "This browser cannot record video" : rendering !== null ? "Stop the video" : `Save the day as a ${CLIP_S}-second video`}
+              className="num flex items-center gap-1 whitespace-nowrap rounded-md px-1.5 py-0.5 text-xs text-muted-foreground hover:text-foreground disabled:opacity-40">
+              <Film className="h-3.5 w-3.5" />
+              {rendering !== null ? `${Math.round(rendering * 100)}% · stop` : "Video"}
+            </button>
             <button className="text-muted-foreground hover:text-foreground" onClick={onClose} title="Close the replay"><X className="h-4 w-4" /></button>
           </span>
         }
@@ -158,7 +198,10 @@ export function Replay({ rows: raw, from, to, onClose }: { rows: Row[]; from: nu
             )}
           </div>
         </div>
-        <p className="mt-3 text-xs text-faint">Space plays and pauses, ← → step a quarter hour, drag the strip to scrub.</p>
+        <p className="mt-3 text-xs text-faint">
+          Space plays and pauses, ← → step a quarter hour, drag the strip to scrub.
+          {videoNote && <span className="ml-2 text-muted-foreground" role="status">{videoNote}</span>}
+        </p>
       </Panel>
     </div>
   );

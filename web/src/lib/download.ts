@@ -37,7 +37,13 @@ type NativeResult = { ok: boolean; name?: string; error?: string };
 export async function download(path: string, def: string): Promise<Saved> {
   const resp = await getRaw(path);
   const name = fileName(resp.headers.get("Content-Disposition"), def);
-  const url = URL.createObjectURL(await resp.blob());
+  return saveBlob(await resp.blob(), name);
+}
+
+/** saveBlob saves blob as name: through the save sheet in the tock window,
+ *  else as a browser download. */
+export async function saveBlob(blob: Blob, name: string): Promise<Saved> {
+  const url = URL.createObjectURL(blob);
   // In the tock window the blob stays alive until tockbar says the save
   // ended: the save sheet waits on the user for as long as it takes.
   const done = NATIVE
