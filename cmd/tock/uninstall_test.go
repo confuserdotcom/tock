@@ -25,11 +25,16 @@ func uninstallRig(t *testing.T, te *tenv, linux bool) (bin string, unloaded *[]s
 		}
 	}
 	var got []string
-	oldSelf, oldAgent, oldUnit := selfPath, unloadAgent, unloadUnit
+	oldSelf, oldAgent, oldUnit, oldGOOS := selfPath, unloadAgent, unloadUnit, setupGOOS
 	selfPath = func() (string, error) { return filepath.Join(bin, "tock"), nil }
 	unloadAgent = func(l string) error { got = append(got, l); return nil }
 	unloadUnit = func(n string) error { got = append(got, n+".service"); return nil }
-	t.Cleanup(func() { selfPath, unloadAgent, unloadUnit = oldSelf, oldAgent, oldUnit })
+	// A launchd or systemd install; Windows uninstalls through trackd.exe.
+	setupGOOS = "darwin"
+	if linux {
+		setupGOOS = "linux"
+	}
+	t.Cleanup(func() { selfPath, unloadAgent, unloadUnit, setupGOOS = oldSelf, oldAgent, oldUnit, oldGOOS })
 	return bin, &got
 }
 

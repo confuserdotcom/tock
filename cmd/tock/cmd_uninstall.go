@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 
 	"tock/internal/service"
@@ -48,7 +47,7 @@ func cmdUninstall(env Env, args []string) error {
 	bin := filepath.Dir(self)
 	var remove []string
 	switch {
-	case runtime.GOOS == "windows":
+	case setupGOOS == "windows":
 		// trackd.exe removes its own Run key; then stop the running one.
 		trackd := filepath.Join(bin, "trackd.exe")
 		if out, err := exec.Command(trackd, "uninstall").CombinedOutput(); err != nil {
