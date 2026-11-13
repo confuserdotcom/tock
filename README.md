@@ -54,9 +54,8 @@ make install
 ```
 
 Linux (Hyprland, Sway, i3 or X11; see the guide's Linux section): `make install-linux`, or the tarball from the releases
-page (check it against `SHA256SUMS`, or with
-`gh attestation verify <file> -R confuserdotcom/tock`, from v5.5.2, that the release
-workflow built it from the tag):
+page. [docs/verify.md](docs/verify.md) shows how to check any download
+against `SHA256SUMS` and GitHub's signed build record:
 
 ```sh
 tar xzf tock-v*-linux-amd64.tar.gz && cd tock-v*-linux-amd64

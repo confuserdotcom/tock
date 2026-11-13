@@ -39,6 +39,12 @@ jobs:
           test -s "$RUNNER_TEMP/notes.md" || { echo "CHANGELOG.md has no section for $GITHUB_REF_NAME" >&2; exit 1; }
       - name: build
         run: make release formula VERSION="$GITHUB_REF_NAME"
+      # What is inside: every Go module the build uses, with its version and
+      # hash (CycloneDX), listed in SHA256SUMS like the tarballs.
+      - name: sbom
+        run: |
+          go run github.com/CycloneDX/cyclonedx-gomod/cmd/cyclonedx-gomod@v1.9.0 mod -json -licenses=false -output "dist/tock-$GITHUB_REF_NAME.cdx.json" .
+          cd dist && shasum -a 256 "tock-$GITHUB_REF_NAME.cdx.json" >> SHA256SUMS
       # Signed provenance: gh attestation verify <file> -R confuserdotcom/tock
       # proves a tarball was built by this workflow from this tag.
       - name: attest
@@ -46,18 +52,20 @@ jobs:
         with:
           subject-path: |
             dist/*.tar.gz
+            dist/*.cdx.json
+            dist/SHA256SUMS
             dist/tock.rb
       - name: publish
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" dist/*.tar.gz dist/SHA256SUMS dist/tock.rb --clobber
+            gh release upload "$GITHUB_REF_NAME" dist/*.tar.gz dist/*.cdx.json dist/SHA256SUMS dist/tock.rb --clobber
           else
             # a tag with a dash (v5.4.0-rc1) is a pre-release, never "latest"
             set -- --title "$GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/notes.md" --verify-tag
             case "$GITHUB_REF_NAME" in *-*) set -- "$@" --prerelease ;; esac
-            gh release create "$GITHUB_REF_NAME" dist/*.tar.gz dist/SHA256SUMS dist/tock.rb "$@"
+            gh release create "$GITHUB_REF_NAME" dist/*.tar.gz dist/*.cdx.json dist/SHA256SUMS dist/tock.rb "$@"
           fi
 
   # The .dmg, built on a Mac: tock.app with tock setup's files inside, for
