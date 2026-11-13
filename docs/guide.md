@@ -2031,9 +2031,12 @@ do not run `make install` or copy files.
 - **On the Mac, once:** `make hooks`. After that every commit or merge on
   `main` runs `make update` in the background and logs to
   `~/.local/state/tock/update.log`; git never waits for it. It builds from a
-  clean checkout of `main` (never your working tree) and reinstalls trackd,
-  tock and tockbar. It does nothing when `main` is already installed. You can
-  run `make update` by hand too.
+  clean checkout of `main` (never your working tree), runs `go vet` and the
+  tests there, and only if they pass reinstalls trackd, tock and tockbar. A
+  `main` that fails them is neither installed nor published; the log says
+  why, and the next commit tries again (`UPDATE_SKIP_TESTS=1 make update`
+  skips the tests in an emergency). It does nothing when `main` is already
+  installed. You can run `make update` by hand too.
 - **Publishing.** The same run builds trackd and tock for linux-amd64 and
   linux-arm64 and publishes them, signed, to `<sync dir>/bin`
   (`make publish-linux` does only this). The signing key is

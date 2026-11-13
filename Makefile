@@ -295,9 +295,17 @@ bootstrap-hint:
 	@go run ./cmd/tockpub -hint $(if $(SYNC_DIR),-sync "$(SYNC_DIR)") $(if $(ARCH),-arch $(ARCH))
 
 # update-here: install on this Mac and publish for Linux, from this tree.
-# Neither failure stops the other, but the run fails, so it is tried again.
+# Vet and the tests run first: a main that fails them is neither installed
+# nor published (UPDATE_SKIP_TESTS=1 skips them in an emergency). After
+# that, neither failure stops the other, but the run fails, so it is tried
+# again.
 update-here:
-	@rc=0; \
+	@if [ "$(UPDATE_SKIP_TESTS)" != 1 ]; then \
+		echo "update: vet and tests before installing"; \
+		go vet ./... && go test ./... -count=1 || { \
+			echo "update: tests fail on this main; nothing installed or published" >&2; exit 1; }; \
+	fi; \
+	rc=0; \
 	$(MAKE) install-mac || rc=$$?; \
 	"$(BIN_DIR)/tock" doctor --wait || true; \
 	$(MAKE) publish-linux || rc=$$?; \
