@@ -62,11 +62,11 @@ tar xzf tock-v*-linux-amd64.tar.gz && cd tock-v*-linux-amd64
 install -m 755 trackd tock ~/.local/bin/ && ~/.local/bin/trackd install && tock init
 ```
 
-Windows 10 and 11 are in preview: not in a release yet, and nothing starts
-trackd at logon, so run `tock start` after you sign in. Build it with
-`make build-windows` (binaries land in `build/windows-amd64`),
-keep `tock.exe` and `trackd.exe` in one folder, then `tock init` and
-`tock start`. Bug reports from Windows are especially welcome.
+Windows 10 and 11 are in preview, not in a release yet. Build it with
+`make build-windows` (binaries land in `build/windows-amd64`), keep
+`tock.exe` and `trackd.exe` in one folder, then run `tock init` and
+`trackd install`: trackd starts now and whenever you sign in
+(`trackd uninstall` undoes it). Bug reports from Windows are especially welcome.
 
 Coming from ActivityWatch: `tock import activitywatch export.json`.
 

@@ -45,8 +45,9 @@ func stopWindows(env Env) error {
 	return errors.New("trackd still running after 10 s; end it in Task Manager")
 }
 
-// startWindows starts the trackd.exe next to this tock.exe. (Task
-// Scheduler starts it at logon once tock setup registers it.)
+// startWindows starts the trackd.exe next to this tock.exe. (At sign-in,
+// Windows runs tock start itself once trackd install has written the Run
+// key.)
 func startWindows() error {
 	exe, err := os.Executable()
 	if err != nil {

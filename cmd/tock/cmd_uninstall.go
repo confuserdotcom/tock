@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"tock/internal/service"
@@ -45,12 +47,23 @@ func cmdUninstall(env Env, args []string) error {
 	}
 	bin := filepath.Dir(self)
 	var remove []string
-	if env.Linux {
+	switch {
+	case runtime.GOOS == "windows":
+		// trackd.exe removes its own Run key; then stop the running one.
+		trackd := filepath.Join(bin, "trackd.exe")
+		if out, err := exec.Command(trackd, "uninstall").CombinedOutput(); err != nil {
+			return fmt.Errorf("uninstall: trackd uninstall: %v: %s", err, out)
+		}
+		if err := stopWindows(env); err != nil {
+			return fmt.Errorf("uninstall: %w", err)
+		}
+		remove = append(remove, trackd)
+	case env.Linux:
 		if err := unloadUnit("trackd"); err != nil {
 			return fmt.Errorf("uninstall: %w", err)
 		}
 		remove = append(remove, filepath.Join(bin, "trackd"))
-	} else {
+	default:
 		for _, l := range []string{"com.tock.trackd", "com.tock.bar"} {
 			if err := unloadAgent(l); err != nil {
 				return fmt.Errorf("uninstall: %w", err)

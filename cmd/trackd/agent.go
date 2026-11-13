@@ -31,8 +31,11 @@ const unitName = "trackd"
 
 // installService installs trackd's background service: on macOS the
 // LaunchAgent for the bundle under dataDir, on Linux a systemd user unit
-// running this executable.
+// running this executable, on Windows a Run key for your sign-in.
 func installService(dataDir, stateDir string) error {
+	if runtime.GOOS == "windows" {
+		return installAutostart()
+	}
 	if runtime.GOOS != "linux" {
 		return service.Install(trackdAgent(dataDir, stateDir))
 	}
@@ -49,6 +52,9 @@ func installService(dataDir, stateDir string) error {
 
 // uninstallService removes the service. tock.db and the log are kept.
 func uninstallService() error {
+	if runtime.GOOS == "windows" {
+		return uninstallAutostart()
+	}
 	if runtime.GOOS == "linux" {
 		return service.UninstallUnit(unitName)
 	}
