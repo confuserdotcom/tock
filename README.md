@@ -6,8 +6,8 @@
 tock records where your working time goes without a timer. A small daemon
 notes the app, window and site in front of you; rules you write in a TOML
 file turn that into categories and projects. It runs on macOS and on Linux
-under Hyprland, Sway, i3 or X11, and everything stays in one SQLite file on
-your machine.
+under Hyprland, Sway, i3 or X11, with Windows in preview, and everything
+stays in one SQLite file on your machine.
 
 <img src="docs/readme/today.webp" width="100%" alt="The tock dashboard for one day: a timeline with one row per category, a focus score, minutes per hour, a donut of the kinds of time, and goals.">
 
@@ -59,9 +59,15 @@ page (check it against `SHA256SUMS`, or with
 workflow built it from the tag):
 
 ```sh
-tar xzf tock-v5.4.0-linux-amd64.tar.gz && cd tock-v5.4.0-linux-amd64
+tar xzf tock-v*-linux-amd64.tar.gz && cd tock-v*-linux-amd64
 install -m 755 trackd tock ~/.local/bin/ && ~/.local/bin/trackd install && tock init
 ```
+
+Windows 10 and 11 are in preview: not in a release yet, and nothing starts
+trackd at logon, so run `tock start` after you sign in. Build it with
+`make build-windows` (binaries land in `build/windows-amd64`),
+keep `tock.exe` and `trackd.exe` in one folder, then `tock init` and
+`tock start`. Bug reports from Windows are especially welcome.
 
 Coming from ActivityWatch: `tock import activitywatch export.json`.
 
