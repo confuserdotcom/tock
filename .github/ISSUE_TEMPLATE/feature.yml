@@ -1,6 +1,12 @@
 name: Idea
 description: Something tock should do
 body:
+  - type: markdown
+    attributes:
+      value: >-
+        tock is in a feature freeze until ten people besides its author use it
+        (see CONTRIBUTING.md). Ideas are welcome and count as votes for what
+        comes next; new platforms and integrations wait until then.
   - type: textarea
     id: problem
     attributes:

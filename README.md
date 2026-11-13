@@ -104,7 +104,10 @@ go test ./internal/tui -run Golden -update  # regenerate TUI snapshots
 make web-check                              # rebuild the dashboard bundle
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md).
+See [CONTRIBUTING.md](CONTRIBUTING.md). tock is in a feature freeze until
+ten people besides its author use it: fixes and polish are welcome, new
+platforms and integrations wait. If you use it, say so in an issue; that is
+what ends the freeze.
 
 ## License
 

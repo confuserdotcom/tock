@@ -3,6 +3,20 @@
 Bug reports and small fixes are welcome. For anything bigger, open an issue
 first so we can agree on the shape before you write it.
 
+## Feature freeze
+
+tock already does more than its users have asked for, so until ten people
+other than the author use it, it grows no wider. Until then:
+
+- **Welcome:** bug fixes, accuracy, speed and memory, install and first-run
+  problems, docs, tests, and polish of what is already there.
+- **Not taken:** new platforms, new integrations (services tock talks to or
+  imports from), new interfaces, and new feature areas. Open an issue
+  instead; it is a vote for what comes after the freeze.
+
+A user counts once they have run tock for a week and said so in an issue
+or a discussion. The README says when the freeze ends.
+
 ## Building
 
 You need Go 1.26. On macOS you also need the Xcode command line tools;
@@ -44,7 +58,7 @@ TOCK_DEMO_PORT=7788 go test -tags demo -run TestDemo -timeout 0 ./internal/web
   diff before committing it.
 - Colour only ever means a kind of time; keep new UI to the existing
   palette and type.
-- A user-visible change gets a line under Unreleased in
+- A user-visible change gets a line in the unreleased section at the top of
   [CHANGELOG.md](CHANGELOG.md).
 - A schema change is a new numbered file in `internal/store/migrations`.
   It must leave an older trackd able to write: new tables, new columns
