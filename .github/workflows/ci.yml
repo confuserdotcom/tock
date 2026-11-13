@@ -29,9 +29,8 @@ jobs:
           GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go vet ./...
           GOOS=windows GOARCH=arm64 CGO_ENABLED=0 go build ./...
 
-  # Windows: the build and the tests, natively. The collector, the service
-  # and the tray are still Unix/macOS only there; this keeps the rest from
-  # breaking on Windows while they are written.
+  # Windows: the build and every test, natively. Tests of macOS/Linux-only
+  # flows skip there with their reason (testfs.UnixOnly).
   windows:
     runs-on: windows-latest
     steps:
@@ -43,13 +42,8 @@ jobs:
         run: go vet ./...
       - name: build
         run: go build ./...
-      # A ratchet: the packages whose tests pass on Windows. Add one as
-      # soon as it passes; never take one out. Goal: ./...
       - name: test
-        shell: bash
-        run: |
-          go test -count=1 \
-            ./...
+        run: go test ./... -count=1
       - name: race
         run: go test -race ./internal/flock/... ./internal/paths/... -count=1
 
