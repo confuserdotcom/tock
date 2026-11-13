@@ -91,7 +91,7 @@ func Payload(question string, today time.Time, rs *classify.Ruleset) ([]byte, er
 	}
 	b, err := json.MarshalIndent(p, "", "  ")
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf("ask: payload: %w", err)
 	}
 	return b, nil
 }
