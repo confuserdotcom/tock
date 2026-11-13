@@ -25,7 +25,10 @@ $run = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
 $v = (Get-ItemProperty -Path $run -Name 'tock trackd').'tock trackd'
 if ($v -ne "`"$bin\tock.exe`" start") { Write-Error "Run key is '$v'" }
 Start-Sleep -Seconds 3
-if (-not (Get-Process trackd -ErrorAction SilentlyContinue)) { Write-Error 'trackd not running after install' }
+if (-not (Get-Process trackd -ErrorAction SilentlyContinue)) {
+    Get-Content (Join-Path $env:TOCK_STATE_DIR 'trackd.log') -ErrorAction SilentlyContinue
+    Write-Error 'trackd not running after install'
+}
 & "$bin\trackd.exe" uninstall
 if (Get-ItemProperty -Path $run -Name 'tock trackd' -ErrorAction SilentlyContinue) { Write-Error 'Run key left behind' }
 & "$bin\tock.exe" stop
