@@ -114,14 +114,24 @@ func TestApplyModel(t *testing.T) {
 		{View: tv("chromium", "Funny cats - YouTube", 0), Category: "Entertainment", Weight: 3},
 		{View: tv("wez", "nvim main.go", 0), Category: "Code", Weight: 3},
 	}
-	rs.ApplyModel(Train(ex, nil), views, labels)
-	got := make([]string, len(labels))
-	for i, l := range labels {
-		got[i] = l.Category + "/" + string(l.CategorySource)
+	show := func(ls []Label) []string {
+		got := make([]string, len(ls))
+		for i, l := range ls {
+			got[i] = l.Category + "/" + string(l.CategorySource)
+		}
+		return got
 	}
-	want := []string{"Study/model", "Entertainment/rule", "Study/model", "Code/rule", "Entertainment/manual"}
-	if !slices.Equal(got, want) {
-		t.Fatalf("labels = %v", got)
+	// A generic rule you never overruled by hand stays, whatever its titles say.
+	fresh := slices.Clone(labels)
+	rs.ApplyModel(Train(ex, nil), views, fresh)
+	if got, want := show(fresh), []string{"Entertainment/rule", "Entertainment/rule", "Study/model", "Code/rule", "Entertainment/manual"}; !slices.Equal(got, want) {
+		t.Fatalf("uncontested: labels = %v", got)
+	}
+	// Once you have, the model may overrule it by title.
+	ex = append(ex, Example{View: tv("chromium", "Cours MPSI - Chromium", 0), Category: "Study", Weight: 3, Overrode: labels[1].CategoryRule})
+	rs.ApplyModel(Train(ex, nil), views, labels)
+	if got, want := show(labels), []string{"Study/model", "Entertainment/rule", "Study/model", "Code/rule", "Entertainment/manual"}; !slices.Equal(got, want) {
+		t.Fatalf("contested: labels = %v", got)
 	}
 	if labels[0].Kind != "deep" {
 		t.Fatalf("kind = %q", labels[0].Kind)
@@ -234,5 +244,25 @@ func TestApplyModelBeforeCall(t *testing.T) {
 	}
 	if l := labels[1]; l.CategorySource != SourceCall {
 		t.Fatalf("call app: %+v", l)
+	}
+}
+
+func TestTrainingPartOverrode(t *testing.T) {
+	rs := modelRules(t)
+	views := []SpanView{
+		tv("chromium", "Cours MPSI - YouTube - Chromium", 60_000), // generic rule says Entertainment, you say Study
+		tv("chromium", "Funny dogs - YouTube - Chromium", 60_000), // you agree with the rule
+	}
+	for i := range views {
+		views[i].ID = int64(i + 1)
+	}
+	rule := rs.Label(views[0], nil).CategoryRule
+	ovs := map[int64]Override{1: {Category: "Study"}, 2: {Category: "Entertainment"}}
+	ex := rs.TrainingPart(views, rs.LabelAll(views, ovs))
+	if len(ex) != 2 || ex[0].Overrode != rule || ex[1].Overrode != "" {
+		t.Fatalf("overrode = %+v, want %q then none", ex, rule)
+	}
+	if m := Train(MergeTraining(ex), nil); !m.contested[rule] {
+		t.Fatal("model does not know the rule was overruled")
 	}
 }

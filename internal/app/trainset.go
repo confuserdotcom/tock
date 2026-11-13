@@ -10,7 +10,7 @@ import (
 
 // trainName is the derived row of a closed day's training part; the
 // number is its format.
-func trainName(date string) string { return "train1:" + date }
+func trainName(date string) string { return "train2:" + date }
 
 // trainingSet is the local model's training set over all history (see
 // classify.TrainingSet), merged from one part per day: closed days' parts

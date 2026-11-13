@@ -42,6 +42,9 @@ type Example struct {
 	Category string
 	Weight   float64
 	Blind    string
+	// Overrode is the generic rule a hand label of this view overrode
+	// (see Model.contested), "" for none.
+	Overrode string
 }
 
 // RemoteBlind is Example.Blind for another machine's label of v: its
@@ -67,6 +70,11 @@ type Model struct {
 	// taught (see Example).
 	blind  map[string]map[string]map[string]float64
 	blindN map[string]map[string]int
+	// contested are the generic rules you have overruled by hand: only
+	// those may the model overrule by title. A site rule you never
+	// corrected (chess.com, Chess) stays as you wrote it, however much its
+	// titles read like another category's.
+	contested map[string]bool
 }
 
 // minSupport is how many examples a title word needs before it counts: a
@@ -166,7 +174,8 @@ func init() {
 func Train(ex []Example, seed map[string][]string) *Model {
 	m := &Model{prior: map[string]float64{}, meta: map[string]map[string]float64{}, metaAll: map[string]float64{},
 		word: map[string]map[string]float64{}, wordAll: map[string]float64{},
-		blind: map[string]map[string]map[string]float64{}, wordN: map[string]int{}, blindN: map[string]map[string]int{}}
+		blind: map[string]map[string]map[string]float64{}, wordN: map[string]int{}, blindN: map[string]map[string]int{},
+		contested: map[string]bool{}}
 	cat := func(c string) {
 		if _, ok := m.prior[c]; !ok {
 			m.cats = append(m.cats, c)
@@ -185,6 +194,9 @@ func Train(ex []Example, seed map[string][]string) *Model {
 		}
 	}
 	for _, e := range ex {
+		if e.Overrode != "" {
+			m.contested[e.Overrode] = true
+		}
 		if e.Category == "" || e.Weight <= 0 {
 			continue
 		}
@@ -412,6 +424,7 @@ type TrainEntry struct {
 	MS       int64
 	Blind    string
 	Seen     bool
+	Overrode string // see Example.Overrode
 }
 
 // TrainingPart is the entries of views, in order of first appearance. The
@@ -436,6 +449,13 @@ func (rs *Ruleset) TrainingPart(views []SpanView, labels []Label) []TrainEntry {
 		case (l.CategorySource == SourceRule || l.CategorySource == SourceLearned) && generic[l.CategoryRule]:
 			w, blind = genericWeight, l.CategoryRule
 		}
+		overrode := ""
+		if l.CategorySource == SourceManual && !IsRemote(*v) {
+			if b := rs.Label(*v, nil); (b.CategorySource == SourceRule || b.CategorySource == SourceLearned) &&
+				generic[b.CategoryRule] && !strings.EqualFold(b.Category, l.Category) {
+				overrode = b.CategoryRule
+			}
+		}
 		k := Key(*v) + "\x00" + l.Category
 		j, ok := by[k]
 		if !ok {
@@ -445,6 +465,9 @@ func (rs *Ruleset) TrainingPart(views []SpanView, labels []Label) []TrainEntry {
 		}
 		e := &out[j]
 		e.W, e.MS, e.Seen = max(e.W, w), e.MS+v.DurMS(), e.Seen || blind == ""
+		if e.Overrode == "" {
+			e.Overrode = overrode
+		}
 	}
 	return out
 }
@@ -465,11 +488,14 @@ func MergeTraining(parts ...[]TrainEntry) []Example {
 			}
 			e := &all[j]
 			e.W, e.MS, e.Seen = max(e.W, p.W), e.MS+p.MS, e.Seen || p.Seen
+			if e.Overrode == "" {
+				e.Overrode = p.Overrode
+			}
 		}
 	}
 	out := make([]Example, 0, len(all))
 	for _, e := range all {
-		x := Example{View: e.View, Category: e.Category, Weight: e.W * (1 + math.Log2(1+float64(e.MS)/60_000))}
+		x := Example{View: e.View, Category: e.Category, Weight: e.W * (1 + math.Log2(1+float64(e.MS)/60_000)), Overrode: e.Overrode}
 		if !e.Seen {
 			x.Blind = e.Blind
 		}
@@ -496,7 +522,8 @@ func (rs *Ruleset) genericRefs() map[string]bool {
 //   - a view no rule labelled (or that a call labelled only because
 //     nothing else did) gets m's category when it holds ModelFillMin of the
 //     posterior on ModelMinFeatures known features;
-//   - a view labelled by a generic rule, or by another machine, gets
+//   - a view labelled by a generic rule you have overruled by hand before
+//     (see Model.contested), or by another machine, gets
 //     another category when its title alone gives that one
 //     ModelOverrideMin, leaving out what that rule (or machine) taught,
 //     and ModelMinFeatures of its words are for it.
@@ -525,7 +552,7 @@ func (rs *Ruleset) ApplyModel(m *Model, views []SpanView, labels []Label) {
 				src == SourceCall && !rs.isCallView(&v): // a call is context: activity first
 				c, _ := m.Fill(v)
 				return c
-			case (src == SourceRule || src == SourceLearned) && generic[l.CategoryRule],
+			case (src == SourceRule || src == SourceLearned) && generic[l.CategoryRule] && m.contested[l.CategoryRule],
 				src == SourceManual && IsRemote(v):
 				blind := l.CategoryRule
 				if src == SourceManual {

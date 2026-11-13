@@ -50,7 +50,7 @@ func (a *App) labelModel() (*classify.Model, error) {
 }
 
 // modelName is the derived row of the trained model.
-const modelName = "model"
+const modelName = "model2"
 
 // modelKey is the key the model is kept under: the inputs every derived
 // result depends on and the labels (pastKey). New activity is not in it:
