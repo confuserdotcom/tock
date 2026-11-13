@@ -45,7 +45,7 @@ jobs:
       - name: test
         run: go test ./... -count=1
       - name: race
-        run: go test -race ./internal/flock/... ./internal/paths/... -count=1
+        run: go test -race ./... -count=1
 
   # Data races: trackd's sources, the store and the notch runner all hand
   # values between goroutines. Includes the performance budget tests.
@@ -118,3 +118,8 @@ jobs:
         run: make build
       - name: test
         run: go test ./... -count=1
+      # The cgo collectors, the notch and the menu bar run only here.
+      - name: race
+        if: matrix.os == 'macos-latest'
+        run: go test -race ./... -count=1
+
