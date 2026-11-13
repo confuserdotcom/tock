@@ -88,7 +88,8 @@ func (l *Log) Events() ([]Event, error) {
 
 func parse(line string) (Event, bool) {
 	ts, dir, ok := strings.Cut(line, "\t")
-	if !ok || !strings.HasPrefix(dir, "/") {
+	// Absolute only: / here, C:\… on Windows.
+	if !ok || !(strings.HasPrefix(dir, "/") || filepath.IsAbs(dir)) {
 		return Event{}, false
 	}
 	n, err := strconv.ParseInt(ts, 10, 64)
