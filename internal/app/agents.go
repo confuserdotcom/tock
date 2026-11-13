@@ -50,7 +50,7 @@ func (a *App) projectOfDir(dir string) string {
 	for _, p := range a.rs.Projects {
 		for _, r := range p.Repos {
 			r = filepath.Clean(classify.ExpandHome(r, a.home))
-			if (dir == r || strings.HasPrefix(dir, r+string(filepath.Separator))) && len(r) > bestLen {
+			if classify.Within(dir, r) && len(r) > bestLen {
 				best, bestLen = p.Name, len(r)
 			}
 		}
@@ -63,8 +63,8 @@ func (a *App) projectOfDir(dir string) string {
 			return TempDirs
 		}
 	}
-	if a.home != "" && (dir == a.home || strings.HasPrefix(dir, a.home+string(filepath.Separator))) {
-		return "~" + dir[len(a.home):]
+	if a.home != "" && classify.Within(dir, a.home) {
+		return "~" + filepath.ToSlash(dir[len(a.home):])
 	}
 	if dir == "" {
 		return "(unknown)"

@@ -442,11 +442,12 @@ func Parse(rulesData, learnedData []byte) (*Ruleset, error) {
 			if r == "" {
 				return nil, fmt.Errorf("%s: project %q: empty repo path", RulesFile, p.Name)
 			}
-			r = filepath.Clean(r)
-			if other, dup := repoOwner[r]; dup {
+			// Kept with / separators on every platform, as people write them.
+			r = filepath.ToSlash(filepath.Clean(r))
+			if other, dup := repoOwner[pathKey(r)]; dup {
 				return nil, fmt.Errorf("%s: project %q: repo %q is already listed by project %q", RulesFile, p.Name, r, other)
 			}
-			repoOwner[r] = p.Name
+			repoOwner[pathKey(r)] = p.Name
 			proj.Repos = append(proj.Repos, r)
 		}
 		if p.Rate != nil {
@@ -639,12 +640,13 @@ func (rs *Ruleset) HasProject(name string) bool {
 	return ok
 }
 
-// ExpandHome replaces a leading ~ in a repo path with home.
+// ExpandHome replaces a leading ~ in a repo path with home. ~\ counts too
+// where \ is the separator (Windows).
 func ExpandHome(p, home string) string {
 	if p == "~" {
 		return home
 	}
-	if strings.HasPrefix(p, "~/") {
+	if strings.HasPrefix(p, "~/") || (filepath.Separator == '\\' && strings.HasPrefix(p, `~\`)) {
 		return filepath.Join(home, p[2:])
 	}
 	return p
@@ -687,12 +689,12 @@ func (rs *Ruleset) SetHome(home string) {
 // repoFor returns the project whose repo holds dir, the deepest repo
 // winning, and that repo as written; "" when none does.
 func (rs *Ruleset) repoFor(dir string) (project, repo string) {
-	d := filepath.Clean(ExpandHome(dir, rs.home))
+	d := ExpandHome(dir, rs.home)
 	best := -1
 	for _, p := range rs.Projects {
 		for _, r := range p.Repos {
-			e := filepath.Clean(ExpandHome(r, rs.home))
-			if (d == e || strings.HasPrefix(d, e+string(filepath.Separator))) && len(e) > best {
+			e := pathKey(ExpandHome(r, rs.home))
+			if Within(d, e) && len(e) > best {
 				project, repo, best = p.Name, r, len(e)
 			}
 		}
