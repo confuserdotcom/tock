@@ -49,12 +49,7 @@ jobs:
         shell: bash
         run: |
           go test -count=1 \
-            ./internal/agentlog/... ./internal/ask/... ./internal/awimport/... \
-            ./internal/claude/... ./internal/desktop/... ./internal/flock/... \
-            ./internal/focus/... ./internal/gitlog/... ./internal/paths/... \
-            ./internal/pdf/... ./internal/plan/... ./internal/recommend/... \
-            ./internal/report/... ./internal/shell/... ./internal/slack/... \
-            ./internal/span/... ./internal/stats/... ./internal/suggest/...
+            ./...
       - name: race
         run: go test -race ./internal/flock/... ./internal/paths/... -count=1
 
