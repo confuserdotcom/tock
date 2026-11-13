@@ -12,7 +12,7 @@ import (
 // 09:00-18:00 in 3-minute spans across five apps, so about 180 spans a day.
 // It inserts in one transaction (apptest.Seed runs one statement per span,
 // which is too slow for half a year).
-func seedHistory(b *testing.B, e *apptest.Env, days int) int {
+func seedHistory(b testing.TB, e *apptest.Env, days int) int {
 	b.Helper()
 	db := e.RawDB(b)
 	defer db.Close()
@@ -53,7 +53,7 @@ func seedHistory(b *testing.B, e *apptest.Env, days int) int {
 	return n
 }
 
-func benchOpen(b *testing.B, days int) (*App, *apptest.Env) {
+func benchOpen(b testing.TB, days int) (*App, *apptest.Env) {
 	e := apptest.New(b, apptest.Rules)
 	seedHistory(b, e, days)
 	e.Clock = time.Date(apptest.Now.Year(), apptest.Now.Month(), apptest.Now.Day(), 18, 0, 0, 0, apptest.Zone)
