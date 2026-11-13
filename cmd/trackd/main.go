@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
-	"syscall"
 	"time"
 
 	"tock/internal/collect"
@@ -179,7 +178,7 @@ func main() {
 	if rc == exitUpdated {
 		// runDaemon has closed the store and let go of the lock. Exec keeps
 		// the pid, so systemd sees one process.
-		err := syscall.Exec(filepath.Join(filepath.Dir(o.Exe), "trackd"), os.Args, os.Environ())
+		err := execInto(filepath.Join(filepath.Dir(o.Exe), "trackd"))
 		fmt.Fprintf(os.Stderr, "trackd: restart into the update: %v\n", err)
 		rc = exitRestart // systemd starts the new binary
 	}

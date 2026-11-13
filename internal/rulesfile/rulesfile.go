@@ -10,10 +10,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"syscall"
 	"time"
 
 	"tock/internal/classify"
+	"tock/internal/flock"
 )
 
 // lockFile, in the rules' directory, serializes every read-modify-write of
@@ -66,11 +66,11 @@ func (f Files) Lock(fn func() error) error {
 	defer lf.Close() // closing releases the lock
 	deadline := time.Now().Add(lockWait)
 	for {
-		err := syscall.Flock(int(lf.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
+		err := flock.Lock(lf, false, false)
 		if err == nil {
 			break
 		}
-		if !errors.Is(err, syscall.EWOULDBLOCK) || time.Now().After(deadline) {
+		if !errors.Is(err, flock.ErrHeld) || time.Now().After(deadline) {
 			return fmt.Errorf("rulesfile: lock: another tock is changing the rules: %w", err)
 		}
 		time.Sleep(20 * time.Millisecond)

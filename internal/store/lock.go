@@ -9,7 +9,8 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"syscall"
+
+	"tock/internal/flock"
 )
 
 // Every process with tock.db open holds a shared flock on tock.db.lock and
@@ -41,19 +42,14 @@ func lockPath(dbPath string) string { return dbPath + ".lock" }
 
 func holdersDir(dbPath string) string { return filepath.Join(filepath.Dir(dbPath), "holders") }
 
-// openLock opens (creating) the lock file and flocks it with how.
-func openLock(dbPath string, how int) (*os.File, error) {
+// openLock opens (creating) the lock file and locks it: shared waits for
+// any exclusive holder; exclusive never waits.
+func openLock(dbPath string, shared bool) (*os.File, error) {
 	f, err := os.OpenFile(lockPath(dbPath), os.O_CREATE|os.O_RDWR, 0o600)
 	if err != nil {
 		return nil, fmt.Errorf("store: lock file: %w", err)
 	}
-	for {
-		err = syscall.Flock(int(f.Fd()), how)
-		if !errors.Is(err, syscall.EINTR) {
-			break
-		}
-	}
-	if err != nil {
+	if err = flock.Lock(f, shared, shared); err != nil {
 		_ = f.Close()
 		return nil, err
 	}
@@ -68,7 +64,7 @@ var (
 // shareLock takes the shared lock for a store being opened and records this
 // process as a holder. The returned func undoes both.
 func shareLock(dbPath string) (func(), error) {
-	f, err := openLock(dbPath, syscall.LOCK_SH)
+	f, err := openLock(dbPath, true)
 	if err != nil {
 		return nil, fmt.Errorf("store: shared lock: %w", err)
 	}
@@ -128,7 +124,7 @@ func holders(dbPath string) []Holder {
 			continue
 		}
 		p := filepath.Join(dir, e.Name())
-		if err := syscall.Kill(pid, 0); errors.Is(err, syscall.ESRCH) {
+		if !flock.Alive(pid) {
 			_ = os.Remove(p)
 			continue
 		}
@@ -147,8 +143,8 @@ func holders(dbPath string) []Holder {
 // with a *HeldError while any store is open on dbPath. The returned func
 // releases the lock.
 func Exclusive(dbPath string) (func(), error) {
-	f, err := openLock(dbPath, syscall.LOCK_EX|syscall.LOCK_NB)
-	if errors.Is(err, syscall.EWOULDBLOCK) {
+	f, err := openLock(dbPath, false)
+	if errors.Is(err, flock.ErrHeld) {
 		return nil, &HeldError{Holders: holders(dbPath)}
 	}
 	if err != nil {

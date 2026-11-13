@@ -12,7 +12,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"testing"
 	"time"
 )
@@ -392,8 +391,8 @@ func noNew(t *testing.T, dir string) {
 }
 
 func TestApplyInstalls(t *testing.T) {
-	old := syscall.Umask(0o077) // trackd runs like this
-	defer syscall.Umask(old)
+	old := setUmask(0o077) // trackd runs like this
+	defer setUmask(old)
 	p, _ := plan(t, "v2")
 	dir := installed(t)
 	calls := 0

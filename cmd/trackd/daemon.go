@@ -107,7 +107,7 @@ func runDaemon(o daemonOpts) int {
 	if o.Now == nil {
 		o.Now = wallNowMS
 	}
-	syscall.Umask(0o077)
+	privateFiles()
 
 	logPath := filepath.Join(o.StateDir, "trackd.log")
 	mkErr := os.MkdirAll(o.StateDir, 0o700)
