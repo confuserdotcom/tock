@@ -65,3 +65,5 @@ a:hover { text-decoration-color: currentColor; }
   .top nav { gap: 14px; }
   .wrap { padding: 28px 16px 48px; }
 }
+
+video.shot { display: block; width: 100%; height: auto; border-radius: 10px; background: #070708; }

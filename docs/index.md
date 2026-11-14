@@ -1,6 +1,15 @@
 # tock
 
-<p class="lead">tock keeps a record of your working time that you never have to start, stop or fill in, labels it with rules you can read, and turns it into invoices that don't change once issued. On a Mac or on Linux under Hyprland; your data stays on your machine, in one SQLite file.</p>
+<p class="lead">Know where the day went. Decide where it goes. tock records your working time without a timer, labels it with rules you can read, and turns it into invoices that don't change once issued. Free and open source, on a Mac or on Linux under Hyprland, Sway, i3 or X11; your data stays on your machine, in one SQLite file.</p>
+
+<video class="shot" controls playsinline preload="none" poster="assets/film-poster.jpg" width="1280" height="720">
+  <source src="assets/film.mp4" type="video/mp4">
+</video>
+
+tock is for people who work at a computer for themselves and want an honest
+record of the day. If you work with coding agents, `tock agents` keeps the
+other half of the ledger: what your agents worked on today, and what you
+did while they ran.
 
 <picture class="shot">
   <source media="(prefers-color-scheme: dark)" srcset="readme/web-dark.png">
@@ -54,7 +63,7 @@ notarized, so the first time you open it, allow it under System Settings,
 Privacy & Security, Open Anyway. To build from source, see the
 [README](https://github.com/confuserdotcom/tock#install).
 
-On Linux under Hyprland, run `make install-linux`, or download a tarball
+On Linux under Hyprland, Sway, i3 or X11, run `make install-linux`, or download a tarball
 from [Releases](https://github.com/confuserdotcom/tock/releases). Coming from
 ActivityWatch? `tock import activitywatch export.json` brings your history.
 
