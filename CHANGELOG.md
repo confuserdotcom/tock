@@ -3,8 +3,6 @@
 What changed for you in each release. Dates are UTC.
 
 Versions follow [semantic versioning](docs/stability.md) from v1.0.0 on.
-Releases 0.1.0 to 0.6.1 were first published as v5.0.0 to v5.5.1; binaries
-from then still print the old number.
 
 ## v1.0.0 — unreleased
 
@@ -402,5 +400,5 @@ The first public release.
 - Mouse jigglers no longer end an absence, and notices have a daily budget.
 - `make deploy-linux` needs `LINUX_HOST=<host>`; it has no default machine.
 
-### Before v5
-v1 to v4 (October 2026) were built before this changelog. See `git log`.
+### Before 0.1.0
+The work of October 2026 came before this changelog. See `git log`.

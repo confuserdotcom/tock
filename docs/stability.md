@@ -18,10 +18,8 @@ tock uses [semantic versioning](https://semver.org) from v1.0.0 on:
 Features ship in minor releases, however large. A major release is only for
 a real break, so it should be rare.
 
-Releases before v1.0.0 are numbered 0.1.0 to 0.6.1. They were first
-published as v5.0.0 to v5.5.1 and renumbered on 2026-11-13; the code and
-dates are unchanged. Binaries from that time still print their old number
-in `tock version`.
+Releases before v1.0.0 (0.1.0 to 0.6.1) came before this promise and are
+not covered by it.
 
 ## What is stable
 
