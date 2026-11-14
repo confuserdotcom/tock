@@ -17,6 +17,22 @@ other than the author use it, it grows no wider. Until then:
 A user counts once they have run tock for a week and said so in an issue
 or a discussion. The README says when the freeze ends.
 
+## Where new work goes
+
+tock has five faces: the CLI, the dashboard, the terminal UI, the menu bar
+app and the notch. One person maintains them in evenings and weekends, so
+they are not equal:
+
+- **Primary: the CLI and the dashboard.** Everything tock can do works
+  here first, and stays working.
+- **Secondary: the terminal UI, the menu bar app and the notch.** They get
+  fixes and polish, and show what the primary two already do. A change
+  that only makes sense in one of them will probably be turned down.
+
+Windows is experimental and parked: it keeps building and its tests keep
+running, but nothing new lands there until macOS has users (see the tiers
+in [docs/stability.md](docs/stability.md)).
+
 ## Building
 
 You need Go 1.26. On macOS you also need the Xcode command line tools;
@@ -72,6 +88,30 @@ TOCK_DEMO_PORT=7788 go test -tags demo -run TestDemo -timeout 0 ./internal/web
   After each release tag, `scripts/fixture-db.sh vX.Y.Z` writes a database
   with that release's code to `internal/store/testdata/upgrade/`; commit it,
   and `TestUpgradeFixtures` checks every later version still opens it.
+
+## Conventions
+
+- Times are `int64` Unix milliseconds in UTC, and the name ends in `MS`
+  (`startMS`, `nowMS`).
+- Errors say where they came from: `fmt.Errorf("store: open: %w", err)`.
+- Config is TOML read into structs with pointer fields, so "not set" and
+  "set to zero" differ; defaults come from a `Default<Thing>()` function,
+  and an unknown key is an error, not ignored.
+- The store has one file per group of tables in `internal/store`.
+- cgo lives in `internal/collect` and `cmd/tockbar` only.
+- trackd has a budget: under 1 % CPU when idle and about 40 MB of memory.
+  `scripts/trackd-usage.sh` measures it.
+- Nothing in [docs/stability.md](docs/stability.md) is removed or renamed
+  within a major version: config keys, commands, flags, exit codes,
+  `--json` and export fields. A command being retired is hidden from help
+  with a one-line hint naming its replacement, keeps working, and is
+  deleted only in the next major version.
+- Commits: a short subject that says what changed, in the imperative
+  (`Fix inbox count after undo`), with a body only when the why is not
+  obvious. A prefix such as `web:` or `tui:` where it helps scanning.
+- Every change goes through a branch and CI. `main` only ever moves to a
+  commit CI has passed; `scripts/ci-wait.sh` waits for the run on your
+  branch and says when it is safe.
 
 ## Releases
 
