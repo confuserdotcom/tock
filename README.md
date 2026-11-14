@@ -1,7 +1,18 @@
-# tock
+<h1 align="center">
+  <img src="docs/readme/banner.webp" width="100%" alt="tock: know where the day went. decide where it goes.">
+</h1>
 
-[![ci](https://github.com/confuserdotcom/tock/actions/workflows/ci.yml/badge.svg)](https://github.com/confuserdotcom/tock/actions/workflows/ci.yml)
-[![license: MIT](https://img.shields.io/badge/license-MIT-lightgrey.svg)](LICENSE)
+<p align="center">
+  <a href="https://github.com/confuserdotcom/tock/actions/workflows/ci.yml"><img src="https://github.com/confuserdotcom/tock/actions/workflows/ci.yml/badge.svg" alt="ci"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-lightgrey.svg" alt="license: MIT"></a>
+</p>
+
+<p align="center">
+  <a href="#install">Install</a> ·
+  <a href="docs/guide.md">Guide</a> ·
+  <a href="docs/privacy.md">Privacy</a> ·
+  <a href="CHANGELOG.md">Changelog</a>
+</p>
 
 tock records where your working time goes without a timer. A small daemon
 notes the app, window and site in front of you; rules you write in a TOML
@@ -24,6 +35,8 @@ What's in it:
   don't change when you relabel later.
 - Optional focus sessions, work hours, calendar, sync between machines,
   and Claude suggestions. All of the network ones are off by default.
+
+<img src="docs/readme/turn.webp" width="100%" alt="A hand closes around a ring of the day's time and turns it; the ring settles into the tock mark.">
 
 ## Install
 
