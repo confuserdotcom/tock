@@ -23,6 +23,9 @@ func allocsDay(t *testing.T, days int) float64 {
 }
 
 func TestBudgetDayFlatOverHistory(t *testing.T) {
+	if raceOn {
+		t.Skip("allocation budgets mean nothing under the race detector")
+	}
 	if testing.Short() {
 		t.Skip("seeds half a year of spans")
 	}
@@ -53,6 +56,9 @@ func allocsGuardTick(t *testing.T, days int) float64 {
 const guardTickAllocs = 26_000
 
 func TestBudgetGuardTick(t *testing.T) {
+	if raceOn {
+		t.Skip("allocation budgets mean nothing under the race detector")
+	}
 	if testing.Short() {
 		t.Skip("seeds half a year of spans")
 	}

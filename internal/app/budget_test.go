@@ -64,6 +64,9 @@ func allocDay(t *testing.T, e *apptest.Env) uint64 {
 // of history: building every past day (after a rules change) from twice
 // the history may cost about twice as much, not four times.
 func TestBudgetGrowsLinearly(t *testing.T) {
+	if raceOn {
+		t.Skip("allocation budgets mean nothing under the race detector")
+	}
 	if testing.Short() {
 		t.Skip("builds 120 days of history")
 	}
@@ -82,6 +85,9 @@ func TestBudgetGrowsLinearly(t *testing.T) {
 // TestBudgetWarmRun guards the disk cache: a second process on the same
 // data allocates a small part of what the first did.
 func TestBudgetWarmRun(t *testing.T) {
+	if raceOn {
+		t.Skip("allocation budgets mean nothing under the race detector")
+	}
 	if testing.Short() {
 		t.Skip("builds 60 days of history")
 	}
