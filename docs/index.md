@@ -16,7 +16,7 @@
 
 - **Records without a timer.** `trackd` notes the app and window in front,
   the browser URL, and when you are away. It uses under 1 % CPU and about
-  36 MB of memory, and it has no network code.
+  45 MB of memory, and it has no network code.
 - **Labels with your rules.** `rules.toml` maps apps, titles and sites to
   categories and projects. Change a rule and past days follow.
 - **Asks once.** Time no rule covers goes to an inbox. Labelling it there

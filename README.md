@@ -13,7 +13,7 @@ stays in one SQLite file on your machine.
 
 What's in it:
 
-- `trackd`, the recorder. No network code, about 0.5 % CPU and 36 MB.
+- `trackd`, the recorder. No network code, under 1 % CPU and about 45 MB.
 - `tock`, the CLI and a terminal UI, plus a dashboard on 127.0.0.1.
 - `tockbar`, a macOS menu bar app that also draws a panel around the notch.
 - Rules in `~/.config/tock/rules.toml`. They apply to past days too, so
