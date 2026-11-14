@@ -20,6 +20,19 @@ file turn that into categories and projects. It runs on macOS and on Linux
 under Hyprland, Sway, i3 or X11, with Windows experimental, and everything
 stays in one SQLite file on your machine.
 
+It is for people who work at a computer for themselves (freelancers,
+developers, students) and want an honest record of the day without running
+a timer. If you work with coding agents, it also keeps the other half of
+the ledger: what your agents worked on today, and what you did while they
+ran.
+
+```
+$ tock agents --week
+project   agent     you  prompts  sessions
+tock       4h36    1h51       54         7
+agents worked 4h36 · you 1h51 in their windows · 2.5× leverage
+```
+
 <img src="docs/readme/today.webp" width="100%" alt="The tock dashboard for one day: a timeline with one row per category, a focus score, minutes per hour, a donut of the kinds of time, and goals.">
 
 What's in it:
@@ -37,6 +50,36 @@ What's in it:
   and Claude suggestions. All of the network ones are off by default.
 
 <img src="docs/readme/turn.webp" width="100%" alt="A hand closes around a ring of the day's time and turns it; the ring settles into the tock mark.">
+
+## Why you can trust it
+
+A tracker sees every window you open, so it has to earn its place.
+
+- **The recorder cannot phone home.** `trackd` and the menu bar app have no
+  network code; a test fails the build if either links an HTTP or TLS
+  client. Only `tock` talks to the network, for features that are off
+  until you turn them on. [Privacy](docs/privacy.md) lists each one and
+  what it sends.
+- **No telemetry.** No usage data, crash reports or analytics.
+- **It is all here to read.** MIT licensed, and Homebrew builds it from
+  this source on your own Mac.
+- **Downloads can be checked.** [docs/verify.md](docs/verify.md) shows how
+  to check a release against `SHA256SUMS` and GitHub's signed build record.
+- **Your data is one file you own.** `tock export` writes it out as CSV or
+  JSON, and `tock uninstall --purge` removes every trace.
+- **What it does not have yet:** an Apple Developer ID. The `.dmg` is not
+  notarized and `tock setup` signs with a certificate made on your machine.
+
+## Why not ActivityWatch
+
+[ActivityWatch](https://activitywatch.net) is the closest thing: free,
+open, local, and on more platforms, with watchers and plugins for much
+more than windows. If that is what you need, use it.
+
+tock is narrower. It goes from the record to labelled time to an invoice;
+it asks about unlabelled time once and turns the answer into a rule; and
+it counts your coding agents' work next to your own. Coming from
+ActivityWatch, `tock import activitywatch export.json` brings your history.
 
 ## Install
 
@@ -80,8 +123,6 @@ Windows 10 and 11 are experimental, not in a release yet. Build it with
 `tock.exe` and `trackd.exe` in one folder, then run `tock init` and
 `trackd install`: trackd starts now and whenever you sign in
 (`trackd uninstall` undoes it). Bug reports from Windows are especially welcome.
-
-Coming from ActivityWatch: `tock import activitywatch export.json`.
 
 `tock uninstall` removes it again (`--purge` deletes your data too).
 
