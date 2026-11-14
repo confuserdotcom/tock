@@ -101,6 +101,38 @@ it is signed by the key you trusted by fingerprint with `tock update
 trust`; the folder alone can never make a machine trust a key. See
 "Updates" in the [guide](guide.md).
 
+## Who can read your record
+
+tock.db is an ordinary SQLite file: titles and URLs are stored as plain
+text, protected by file permissions (0600) and nothing else. This is what
+that does and does not cover.
+
+| Who | Can they read it? |
+|---|---|
+| Another user account on the same machine | No, unless they are an administrator. |
+| An administrator or root | Yes. |
+| Any program running as you (including malware) | Yes. tock cannot defend against your own account. |
+| Someone with your unlocked machine | Yes. |
+| Someone with your powered-off or stolen machine | Only if the disk is not encrypted. Turn on FileVault (macOS) or LUKS (Linux). |
+| Your backup tool (Time Machine, a cloud backup of your home folder) | Yes, the data dir is backed up like any other folder unless you exclude it. |
+| Whatever syncs your sync folder | Yes, if you set `[sync] dir`: spans go there with titles and URLs. |
+| Anthropic or Slack | Only what the table above lists, and only after you turn the feature on. |
+| Other sites or programs, through the dashboard | No. It listens on 127.0.0.1, needs a per-run token and checks the Host header. |
+| The author of tock | No. Nothing is sent, and there is no account or server. |
+
+To keep less: `hide_apps` and `hide_sites` keep only the time,
+`keep_titles = N` deletes titles and URL paths after N days, `tock prune`
+removes old spans, and `tock uninstall --purge` removes everything.
+
+## What tock is for
+
+tock is a tool for looking at your own time. It is not built for watching
+anyone else, and it is not to be used that way: do not install it on a
+machine another person uses without them knowing and agreeing. It has no
+remote view, no hidden mode and no central server, on purpose. An employer
+who records staff activity takes on legal duties (GDPR in the EU, and
+similar laws elsewhere) that tock does nothing to meet.
+
 ## No telemetry
 
 tock sends no usage data, crash reports or analytics. `tock bug-report`
